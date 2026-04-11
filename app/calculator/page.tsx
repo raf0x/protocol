@@ -7,7 +7,7 @@ export default function ReconstitutionCalculator() {
   const [bacWater, setBacWater] = useState('')
   const [desiredDose, setDesiredDose] = useState('')
   const [error, setError] = useState('')
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState<{concentration:number,volumeMl:number,syringeUnits:number}|null>(null)
 
   function calculate() {
     setError('')
@@ -35,70 +35,63 @@ export default function ReconstitutionCalculator() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white p-6">
-      <div className="max-w-md mx-auto">
-        <a href="/" className="text-sm text-gray-500 hover:text-gray-300 mb-6 block">
-          Back to home
-        </a>
-        <h1 className="text-2xl font-bold mb-1">Reconstitution Calculator</h1>
-        <p className="text-gray-400 text-sm mb-6">
-          Enter your vial details below to find out how many units to draw.
-          This tool does not provide medical advice - always verify your calculations.
-        </p>
-        <div className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium mb-1">Peptide vial amount</label>
-            <p className="text-xs text-gray-500 mb-1">The amount printed on your vial - usually 2 mg, 5 mg, or 10 mg.</p>
-            <div className="flex items-center gap-2">
-              <input type="number" min="0" step="any" value={peptideAmount} onChange={(e) => setPeptideAmount(e.target.value)} placeholder="e.g. 5" className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <span className="text-gray-400 text-sm w-8">mg</span>
-            </div>
+    <main style={{minHeight:'100vh',background:'#030712',color:'white',padding:'24px'}}>
+      <div style={{maxWidth:'480px',margin:'0 auto'}}>
+        <a href='/' style={{fontSize:'13px',color:'#6b7280',textDecoration:'none',display:'block',marginBottom:'24px'}}>Back to home</a>
+        <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'4px'}}>Reconstitution Calculator</h1>
+        <p style={{color:'#6b7280',fontSize:'13px',marginBottom:'24px'}}>Enter your vial details to find out how many units to draw. Not medical advice.</p>
+
+        <div style={{marginBottom:'16px'}}>
+          <label style={{display:'block',fontSize:'13px',color:'#9ca3af',marginBottom:'4px'}}>Peptide vial amount</label>
+          <p style={{fontSize:'11px',color:'#4b5563',marginBottom:'6px'}}>The amount printed on your vial — usually 2 mg, 5 mg, or 10 mg.</p>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            <input type='number' min='0' step='any' value={peptideAmount} onChange={e => setPeptideAmount(e.target.value)} placeholder='e.g. 5' style={{flex:1,background:'#1f2937',border:'1px solid #374151',borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px'}} />
+            <span style={{color:'#6b7280',fontSize:'13px'}}>mg</span>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Bacteriostatic water added</label>
-            <p className="text-xs text-gray-500 mb-1">How much BAC water you injected into the vial.</p>
-            <div className="flex items-center gap-2">
-              <input type="number" min="0" step="any" value={bacWater} onChange={(e) => setBacWater(e.target.value)} placeholder="e.g. 2" className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <span className="text-gray-400 text-sm w-8">mL</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Desired dose</label>
-            <p className="text-xs text-gray-500 mb-1">The dose you want to take. Note: 1 mg = 1,000 mcg.</p>
-            <div className="flex items-center gap-2">
-              <input type="number" min="0" step="any" value={desiredDose} onChange={(e) => setDesiredDose(e.target.value)} placeholder="e.g. 250" className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500" />
-              <span className="text-gray-400 text-sm w-8">mcg</span>
-            </div>
-          </div>
-          <button onClick={calculate} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded">
-            Calculate
-          </button>
         </div>
-        {error && (
-          <div className="mt-5 bg-red-950 border border-red-800 rounded p-3 text-sm text-red-300">
-            {error}
+
+        <div style={{marginBottom:'16px'}}>
+          <label style={{display:'block',fontSize:'13px',color:'#9ca3af',marginBottom:'4px'}}>Bacteriostatic water added</label>
+          <p style={{fontSize:'11px',color:'#4b5563',marginBottom:'6px'}}>How much BAC water you injected into the vial.</p>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            <input type='number' min='0' step='any' value={bacWater} onChange={e => setBacWater(e.target.value)} placeholder='e.g. 2' style={{flex:1,background:'#1f2937',border:'1px solid #374151',borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px'}} />
+            <span style={{color:'#6b7280',fontSize:'13px'}}>mL</span>
           </div>
+        </div>
+
+        <div style={{marginBottom:'16px'}}>
+          <label style={{display:'block',fontSize:'13px',color:'#9ca3af',marginBottom:'4px'}}>Desired dose</label>
+          <p style={{fontSize:'11px',color:'#4b5563',marginBottom:'6px'}}>The dose you want to take. Note: 1 mg = 1,000 mcg.</p>
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            <input type='number' min='0' step='any' value={desiredDose} onChange={e => setDesiredDose(e.target.value)} placeholder='e.g. 250' style={{flex:1,background:'#1f2937',border:'1px solid #374151',borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px'}} />
+            <span style={{color:'#6b7280',fontSize:'13px'}}>mcg</span>
+          </div>
+        </div>
+
+        <button onClick={calculate} style={{width:'100%',background:'#2563eb',color:'white',fontWeight:'600',padding:'12px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'pointer',marginBottom:'16px'}}>
+          Calculate
+        </button>
+
+        {error && (
+          <div style={{background:'#450a0a',border:'1px solid #991b1b',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#fca5a5',marginBottom:'16px'}}>{error}</div>
         )}
+
         {result && (
-          <div className="mt-6 bg-gray-800 border border-gray-700 rounded-lg p-5">
-            <h2 className="font-semibold text-base mb-4">Results</h2>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Solution concentration</span>
-                <span>{result.concentration.toFixed(2)} mcg / mL</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">Volume to draw</span>
-                <span>{result.volumeMl.toFixed(3)} mL</span>
-              </div>
-              <div className="flex justify-between items-center pt-3 border-t border-gray-700">
-                <span className="text-gray-300 font-medium">Draw to this line on syringe</span>
-                <span className="text-blue-400 font-bold text-xl">{result.syringeUnits.toFixed(1)} units</span>
-              </div>
+          <div style={{background:'#111827',border:'1px solid #1f2937',borderRadius:'8px',padding:'20px'}}>
+            <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px'}}>Results</h2>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}>
+              <span style={{color:'#6b7280',fontSize:'13px'}}>Solution concentration</span>
+              <span style={{fontSize:'13px'}}>{result.concentration.toFixed(2)} mcg / mL</span>
             </div>
-            <p className="text-xs text-gray-600 mt-4">
-              Calculated for a standard U-100 insulin syringe. This is a reference tool only. Not medical advice.
-            </p>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}>
+              <span style={{color:'#6b7280',fontSize:'13px'}}>Volume to draw</span>
+              <span style={{fontSize:'13px'}}>{result.volumeMl.toFixed(3)} mL</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',paddingTop:'12px',borderTop:'1px solid #1f2937'}}>
+              <span style={{fontSize:'14px',fontWeight:'500'}}>Draw to this line</span>
+              <span style={{fontSize:'20px',fontWeight:'bold',color:'#3b82f6'}}>{result.syringeUnits.toFixed(1)} units</span>
+            </div>
+            <p style={{fontSize:'11px',color:'#4b5563',marginTop:'12px'}}>For a standard U-100 insulin syringe. Reference tool only. Not medical advice.</p>
           </div>
         )}
       </div>
