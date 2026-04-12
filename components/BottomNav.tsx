@@ -53,13 +53,13 @@ export default function BottomNav() {
               width:'5px',
               height:'5px',
               borderRadius:'50%',
-              background:isActive?'#39ff14':'transparent',
+              background:isActive?'#7fff7f':'transparent',
               display:'block'
             }} />
             <span style={{
-              color:isActive?'#39ff14':'#4a7a4a',
+              color:isActive?'#7fff7f':'#4dbd4d',
               fontSize:'13px',
-              fontWeight:isActive?'600':'400',
+              fontWeight:'700',
               textAlign:'center'
             }}>
               {link.label}
@@ -83,7 +83,7 @@ export default function BottomNav() {
         }}
       >
         <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'transparent',display:'block'}} />
-        <span style={{color:'#4a7a4a',fontSize:'13px'}}>Sign out</span>
+        <span style={{color:'#4dbd4d',fontSize:'13px',fontWeight:'700'}}>Sign out</span>
       </button>
     </nav>
   )
