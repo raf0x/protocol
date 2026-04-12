@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
+  const [userId, setUserId] = useState('')
   const [filter, setFilter] = useState<'all'|'flagged'>('all')
   const router = useRouter()
   const g = '#39ff14'
@@ -35,31 +36,27 @@ export default function AdminPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || user.id !== ADMIN_ID) { router.push('/'); return }
+    setUserId(user.id)
     setAuthorized(true)
-    loadPosts()
+    loadPosts(user.id)
   }
 
-  async function loadPosts() {
+  async function loadPosts(uid: string) {
     setLoading(true)
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('cohort_posts')
-      .select('*, cohorts(name)')
-      .order('created_at', { ascending: false })
-    setPosts(data || [])
+    const res = await fetch('/api/admin', { headers: { 'x-user-id': uid } })
+    const data = await res.json()
+    setPosts(data.posts || [])
     setLoading(false)
   }
 
   async function deletePost(id: string) {
-    const supabase = createClient()
-    await supabase.from('cohort_posts').delete().eq('id', id)
-    loadPosts()
+    await fetch('/api/admin', { method: 'DELETE', headers: { 'x-user-id': userId, 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    loadPosts(userId)
   }
 
   async function toggleFlag(id: string, current: boolean) {
-    const supabase = createClient()
-    await supabase.from('cohort_posts').update({ flagged: !current }).eq('id', id)
-    loadPosts()
+    await fetch('/api/admin', { method: 'PATCH', headers: { 'x-user-id': userId, 'Content-Type': 'application/json' }, body: JSON.stringify({ id, flagged: !current }) })
+    loadPosts(userId)
   }
 
   function timeAgo(dateStr: string) {
@@ -82,10 +79,10 @@ export default function AdminPage() {
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Admin</h1>
           <span style={{fontSize:'12px',color:mg}}>{posts.length} total posts</span>
         </div>
-        <p style={{color:mg,fontSize:'13px',marginBottom:'24px'}}>Moderator view — all cohort posts.</p>
+        <p style={{color:mg,fontSize:'13px',marginBottom:'24px'}}>Moderator view — all cohort posts including flagged.</p>
         <div style={{display:'flex',gap:'8px',marginBottom:'24px'}}>
           <button onClick={() => setFilter('all')} style={{background:filter==='all'?'#0a1a0a':'none',border:'1px solid '+(filter==='all'?mg:bd),color:filter==='all'?dg:mg,fontSize:'13px',padding:'6px 14px',borderRadius:'6px',cursor:'pointer'}}>All posts</button>
-          <button onClick={() => setFilter('flagged')} style={{background:filter==='flagged'?'#1a0000':'none',border:'1px solid '+(filter==='flagged'?'#4a0000':bd),color:filter==='flagged'?'#ff6b6b':mg,fontSize:'13px',padding:'6px 14px',borderRadius:'6px',cursor:'pointer'}}>Flagged {posts.filter(p=>p.flagged).length > 0 && '('+posts.filter(p=>p.flagged).length+')'}</button>
+          <button onClick={() => setFilter('flagged')} style={{background:filter==='flagged'?'#1a0000':'none',border:'1px solid '+(filter==='flagged'?'#4a0000':bd),color:filter==='flagged'?'#ff6b6b':mg,fontSize:'13px',padding:'6px 14px',borderRadius:'6px',cursor:'pointer'}}>Flagged {posts.filter(p=>p.flagged).length > 0 ? '('+posts.filter(p=>p.flagged).length+')' : ''}</button>
         </div>
         {loading && <p style={{color:mg}}>Loading...</p>}
         {!loading && filteredPosts.length === 0 && <p style={{color:mg,textAlign:'center',padding:'48px 0'}}>No posts.</p>}
@@ -96,6 +93,7 @@ export default function AdminPage() {
                 <span style={{fontSize:'13px',fontWeight:'700',color:dg}}>@{post.username}</span>
                 <span style={{fontSize:'11px',color:mg,marginLeft:'8px'}}>{post.cohorts?.name}</span>
                 {post.tag && <span style={{fontSize:'10px',color:mg,background:'#0a1a0a',padding:'2px 6px',borderRadius:'4px',marginLeft:'8px'}}>{post.tag}</span>}
+                {post.flagged && <span style={{fontSize:'10px',color:'#ff6b6b',background:'#1a0000',padding:'2px 6px',borderRadius:'4px',marginLeft:'8px'}}>FLAGGED</span>}
               </div>
               <span style={{fontSize:'11px',color:mg}}>{timeAgo(post.created_at)}</span>
             </div>
