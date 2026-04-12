@@ -32,6 +32,7 @@ export default function JournalPage() {
   const [energy, setEnergy] = useState(3)
   const [sleep, setSleep] = useState('')
   const [notes, setNotes] = useState('')
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showChart, setShowChart] = useState(false)
@@ -54,8 +55,8 @@ export default function JournalPage() {
     setLoading(false)
   }
 
-  function startNew() { setEditingId(null); setMood(3); setEnergy(3); setSleep(''); setNotes(''); setShowForm(true); setError('') }
-  function startEdit(entry: JournalEntry) { setEditingId(entry.id); setMood(entry.mood); setEnergy(entry.energy); setSleep(String(entry.sleep)); setNotes(entry.notes || ''); setShowForm(true); setError('') }
+  function startNew() { setEditingId(null); setMood(3); setEnergy(3); setSleep(''); setNotes(''); setEntryDate(new Date().toISOString().split('T')[0]); setShowForm(true); setError('') }
+  function startEdit(entry: JournalEntry) { setEditingId(entry.id); setMood(entry.mood); setEnergy(entry.energy); setSleep(String(entry.sleep)); setNotes(entry.notes || ''); setEntryDate(entry.date); setShowForm(true); setError('') }
 
   async function saveEntry() {
     setError('')
@@ -67,8 +68,7 @@ export default function JournalPage() {
     if (editingId) {
       await supabase.from('journal_entries').update({ mood, energy, sleep: parseFloat(sleep), notes: notes.trim() }).eq('id', editingId)
     } else {
-      const today = new Date().toISOString().split('T')[0]
-      await supabase.from('journal_entries').insert({ user_id: user.id, date: today, mood, energy, sleep: parseFloat(sleep), notes: notes.trim() })
+      await supabase.from('journal_entries').insert({ user_id: user.id, date: entryDate, mood, energy, sleep: parseFloat(sleep), notes: notes.trim() })
     }
     setShowForm(false); setEditingId(null); setSaving(false)
     loadEntries()
@@ -246,6 +246,10 @@ export default function JournalPage() {
         {showForm && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'24px'}}>
             <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Entry' : 'How are you today?'}</h2>
+            <div style={{marginBottom:'16px'}}>
+              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Date</label>
+              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark'}} />
+            </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Mood — {moodLabel(mood)}</label>
               <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreButton key={v} value={v} current={mood} onChange={setMood} />)}</div>
