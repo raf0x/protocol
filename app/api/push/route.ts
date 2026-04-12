@@ -27,8 +27,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('x-user-id')
-  if (authHeader !== '41266062-c8a7-4a52-aa9b-c1fb96d1c483') {
+  const userId = request.headers.get('x-user-id')
+  const cronSecret = request.headers.get('authorization')
+  const isAdmin = userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483'
+  const isCron = cronSecret === `Bearer ${process.env.CRON_SECRET}`
+  if (!isAdmin && !isCron) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const supabase = createClient(
