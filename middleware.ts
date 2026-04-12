@@ -4,15 +4,12 @@ import type { NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next()
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value)
@@ -22,16 +19,12 @@ export async function middleware(request: NextRequest) {
       },
     }
   )
-
   const { data: { user } } = await supabase.auth.getUser()
-
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
-  const isPublicPage = request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/calculator'
-
+  const isPublicPage = request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/calculator' || request.nextUrl.pathname === '/onboarding'
   if (!user && !isAuthPage && !isPublicPage) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
-
   return response
 }
 
