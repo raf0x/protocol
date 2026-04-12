@@ -1,57 +1,26 @@
 export default function LearnPage() {
   const sections = [
-    {
-      title: 'What is reconstitution?',
-      body: 'Reconstitution is the process of mixing a lyophilized (freeze-dried) peptide powder with bacteriostatic water to create an injectable solution. The powder is stable for long periods but must be mixed carefully to preserve potency.',
-    },
-    {
-      title: 'Bacteriostatic water vs sterile water',
-      body: 'Bacteriostatic water (BAC water) contains 0.9% benzyl alcohol, which prevents bacterial growth and allows the vial to be used multiple times over several weeks. Sterile water contains no preservative and should only be used for single-dose preparations.',
-    },
-    {
-      title: 'Insulin syringe basics',
-      body: 'U-100 insulin syringes are the standard tool for peptide administration. U-100 means 100 units equals 1 mL. A 1 mL syringe has 100 unit markings. Always use a new syringe for each injection to maintain sterility.',
-    },
-    {
-      title: 'Storage guidelines',
-      body: 'Unreconstituted peptide powder should be stored in a cool, dark place or refrigerated. Once reconstituted, most peptides should be refrigerated at 2-8°C and used within 4-6 weeks. Avoid repeated freeze-thaw cycles as this degrades potency.',
-    },
-    {
-      title: 'Injection site rotation',
-      body: 'Rotating injection sites reduces tissue damage, lipodystrophy, and discomfort. Common subcutaneous sites include the abdomen, outer thigh, and lower back. Allow at least 2-3 days before reusing the same site.',
-    },
-    {
-      title: 'Recognizing adverse reactions',
-      body: 'Common injection site reactions include mild redness, swelling, and itching — these usually resolve within hours. Seek medical attention for signs of infection (increasing pain, warmth, pus), systemic reactions (fever, chills, difficulty breathing), or unusual symptoms that persist.',
-    },
-    {
-      title: 'Harm reduction principles',
-      body: 'Harm reduction means making safer choices within the context of your own decisions. This includes using sterile equipment, tracking what you take and how you feel, researching before starting anything new, starting with lower doses, and having an honest relationship with a healthcare provider if possible.',
-    },
-    {
-      title: 'About this app',
-      body: 'Protocol is a personal tracking tool built on harm reduction principles. It does not provide medical advice, recommend dosing, or facilitate sourcing. All content is for informational purposes only. Always consult a qualified healthcare provider before starting any new compound.',
-    },
+    { title: 'What is reconstitution?', body: 'Reconstitution is the process of mixing a lyophilized (freeze-dried) peptide powder with bacteriostatic water to create an injectable solution. The powder is stable for long periods but must be mixed carefully to preserve potency.' },
+    { title: 'Bacteriostatic water vs sterile water', body: 'Bacteriostatic water (BAC water) contains 0.9% benzyl alcohol, which prevents bacterial growth and allows the vial to be used multiple times over several weeks. Sterile water contains no preservative and should only be used for single-dose preparations.' },
+    { title: 'Insulin syringe basics', body: 'U-100 insulin syringes are the standard tool for peptide administration. U-100 means 100 units equals 1 mL. A 1 mL syringe has 100 unit markings. Always use a new syringe for each injection to maintain sterility.' },
+    { title: 'Storage guidelines', body: 'Unreconstituted peptide powder should be stored in a cool, dark place or refrigerated. Once reconstituted, most peptides should be refrigerated at 2-8C and used within 4-6 weeks. Avoid repeated freeze-thaw cycles as this degrades potency.' },
+    { title: 'Injection site rotation', body: 'Rotating injection sites reduces tissue damage, lipodystrophy, and discomfort. Common subcutaneous sites include the abdomen, outer thigh, and lower back. Allow at least 2-3 days before reusing the same site.' },
+    { title: 'Recognizing adverse reactions', body: 'Common injection site reactions include mild redness, swelling, and itching. Seek medical attention for signs of infection (increasing pain, warmth, pus), systemic reactions (fever, chills, difficulty breathing), or unusual symptoms that persist.' },
+    { title: 'Harm reduction principles', body: 'Harm reduction means making safer choices within the context of your own decisions. This includes using sterile equipment, tracking what you take and how you feel, researching before starting anything new, starting with lower doses, and having an honest relationship with a healthcare provider if possible.' },
+    { title: 'About this app', body: 'Protocol is a personal tracking tool built on harm reduction principles. It does not provide medical advice, recommend dosing, or facilitate sourcing. All content is for informational purposes only. Always consult a qualified healthcare provider before starting any new compound.' },
   ]
-
   return (
-    <main style={{minHeight:'100vh',background:'#030712',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
-        <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'4px'}}>Learn</h1>
-        <p style={{color:'#6b7280',fontSize:'13px',marginBottom:'24px'}}>
-          Harm reduction information. Not medical advice.
-        </p>
-
-        <div style={{background:'#1a2332',border:'1px solid #1e3a5f',borderRadius:'8px',padding:'16px',marginBottom:'24px'}}>
-          <p style={{fontSize:'13px',color:'#93c5fd',lineHeight:'1.6',margin:0}}>
-            This content is for harm reduction and educational purposes only. Nothing here constitutes medical advice or a recommendation to use any substance. If you have health concerns, consult a qualified medical professional.
-          </p>
+        <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'4px',color:'#39ff14'}}>Learn</h1>
+        <p style={{color:'#4dbd4d',fontSize:'13px',marginBottom:'24px'}}>Harm reduction information. Not medical advice.</p>
+        <div style={{background:'#0d0d0d',border:'1px solid #1a3d1a',borderRadius:'8px',padding:'16px',marginBottom:'24px'}}>
+          <p style={{fontSize:'13px',color:'#4dbd4d',lineHeight:'1.6',margin:0}}>This content is for harm reduction and educational purposes only. Nothing here constitutes medical advice or a recommendation to use any substance. Consult a qualified medical professional for health concerns.</p>
         </div>
-
         {sections.map((section, index) => (
-          <div key={index} style={{background:'#111827',border:'1px solid #1f2937',borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
-            <h2 style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px'}}>{section.title}</h2>
-            <p style={{fontSize:'13px',color:'#9ca3af',lineHeight:'1.6',margin:0}}>{section.body}</p>
+          <div key={index} style={{background:'#0d0d0d',border:'1px solid #1a1a1a',borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
+            <h2 style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'#39ff14'}}>{section.title}</h2>
+            <p style={{fontSize:'13px',color:'#4dbd4d',lineHeight:'1.6',margin:0}}>{section.body}</p>
           </div>
         ))}
       </div>

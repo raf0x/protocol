@@ -11,21 +11,19 @@ export default function Home() {
     async function checkUser() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        router.push('/protocol')
-      }
+      if (user) router.push('/protocol')
     }
     checkUser()
   }, [])
 
   return (
-    <main style={{minHeight:'100vh',background:'#030712',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
-      <h1 style={{fontSize:'32px',fontWeight:'bold',marginBottom:'8px'}}>Protocol</h1>
-      <p style={{color:'#6b7280',marginBottom:'32px',textAlign:'center'}}>Your personal wellness protocol tracker.</p>
-      <a href='/auth/login' style={{background:'#2563eb',color:'white',textDecoration:'none',fontWeight:'600',padding:'12px 32px',borderRadius:'8px',fontSize:'16px'}}>
+    <main style={{minHeight:'100vh',background:'#000000',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <h1 style={{fontSize:'40px',fontWeight:'bold',marginBottom:'8px',color:'#39ff14',letterSpacing:'2px'}}>Protocol</h1>
+      <p style={{color:'#4dbd4d',marginBottom:'40px',textAlign:'center',fontSize:'14px'}}>Your personal wellness protocol tracker.</p>
+      <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'14px 40px',borderRadius:'8px',fontSize:'16px',letterSpacing:'1px'}}>
         Get started
       </a>
-      <a href='/calculator' style={{marginTop:'16px',color:'#6b7280',fontSize:'13px',textDecoration:'none'}}>
+      <a href='/calculator' style={{marginTop:'20px',color:'#2d5a2d',fontSize:'13px',textDecoration:'none'}}>
         Use reconstitution calculator without signing in
       </a>
     </main>
