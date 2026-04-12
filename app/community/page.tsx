@@ -108,7 +108,7 @@ export default function CommunityPage() {
                   </div>
                   <div style={{display:'flex',gap:'8px',marginLeft:'12px'}}>
                     {isJoined && (
-                      <button onClick={() => router.push('/community/cohorts/'+sub.id)} style={{background:'#0a1a0a',border:'1px solid '+mg,color:dg,fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',border:'none'}}>View</button>
+                      <button onClick={() => router.push('/community/cohorts/'+sub.id)} style={{background:'#0a1a0a',color:dg,fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',border:'none'}}>View</button>
                     )}
                     <button onClick={() => toggleJoin(sub.id)} style={{background:isJoined?'#1a0000':'#0a1a0a',border:'1px solid '+(isJoined?'#4a0000':mg),color:isJoined?'#ff6b6b':dg,fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer'}}>{isJoined?'Leave':'Join'}</button>
                   </div>
