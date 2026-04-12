@@ -1,4 +1,4 @@
-const CACHE_NAME = 'protocol-v5'
+const CACHE_NAME = 'protocol-v6'
 
 const STATIC_ASSETS = [
   '/',
