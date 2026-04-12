@@ -7,7 +7,7 @@ export default function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
   const links = [
-    { href: '/calculator', label: 'Calc' },
+    { href: '/calculator', label: 'Pep Calc' },
     { href: '/protocol', label: 'Protocol' },
     { href: '/journal', label: 'Journal' },
     { href: '/learn', label: 'Learn' },
@@ -25,8 +25,8 @@ export default function BottomNav() {
       bottom:0,
       left:0,
       right:0,
-      background:'#111827',
-      borderTop:'1px solid #1f2937',
+      background:'#000000',
+      borderTop:'1px solid #1a1a1a',
       display:'flex',
       justifyContent:'space-around',
       alignItems:'center',
@@ -53,11 +53,11 @@ export default function BottomNav() {
               width:'5px',
               height:'5px',
               borderRadius:'50%',
-              background:isActive?'#3b82f6':'transparent',
+              background:isActive?'#39ff14':'transparent',
               display:'block'
             }} />
             <span style={{
-              color:isActive?'#ffffff':'#6b7280',
+              color:isActive?'#39ff14':'#4a7a4a',
               fontSize:'13px',
               fontWeight:isActive?'600':'400',
               textAlign:'center'
@@ -83,7 +83,7 @@ export default function BottomNav() {
         }}
       >
         <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'transparent',display:'block'}} />
-        <span style={{color:'#6b7280',fontSize:'13px'}}>Sign out</span>
+        <span style={{color:'#4a7a4a',fontSize:'13px'}}>Sign out</span>
       </button>
     </nav>
   )
