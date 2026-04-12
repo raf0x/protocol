@@ -20,15 +20,28 @@ export default function BottomNav() {
   }
 
   return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'#111827',borderTop:'1px solid #1f2937',display:'flex',justifyContent:'space-around',padding:'12px 0 20px 0',zIndex:50}}>
+    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'#111827',borderTop:'1px solid #1f2937',display:'flex',justifyContent:'space-around',alignItems:'center',padding:'8px 0 20px 0',zIndex:50}}>
       {links.map((link) => {
         const isActive = pathname === link.href
         return (
-          <a key={link.href} href={link.href} style={{textDecoration:'none',color:isActive?'#3b82f6':'#6b7280',fontSize:'12px',fontWeight:isActive?'600':'400',padding:'4px 8px'}}>{link.label}</a>
+          <a
+            key={link.href}
+            href={link.href}
+            style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',textDecoration:'none',minWidth:'56px'}}
+          >
+            <span style={{width:'4px',height:'4px',borderRadius:'50%',background:isActive?'#3b82f6':'transparent',display:'block'}} />
+            <span style={{color:isActive?'#ffffff':'#6b7280',fontSize:'12px',fontWeight:isActive?'600':'400'}}>
+              {link.label}
+            </span>
+          </a>
         )
       })}
-      <button onClick={handleSignOut} style={{background:'none',border:'none',color:'#6b7280',fontSize:'12px',padding:'4px 8px',cursor:'pointer'}}>
-        Sign out
+      <button
+        onClick={handleSignOut}
+        style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',background:'none',border:'none',minWidth:'56px',cursor:'pointer'}}
+      >
+        <span style={{width:'4px',height:'4px',borderRadius:'50%',background:'transparent',display:'block'}} />
+        <span style={{color:'#6b7280',fontSize:'12px'}}>Sign out</span>
       </button>
     </nav>
   )

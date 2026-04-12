@@ -1,14 +1,32 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '../lib/supabase'
+
 export default function Home() {
+  const router = useRouter()
+
+  useEffect(() => {
+    async function checkUser() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        router.push('/protocol')
+      }
+    }
+    checkUser()
+  }, [])
+
   return (
-    <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
-      <h1 className="text-3xl font-bold mb-4">Protocol</h1>
-      <p className="text-gray-400 mb-8">Your personal wellness protocol tracker.</p>
-      
-      <a
-        href="/calculator"
-        className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded"
-      >
-        Open Reconstitution Calculator
+    <main style={{minHeight:'100vh',background:'#030712',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <h1 style={{fontSize:'32px',fontWeight:'bold',marginBottom:'8px'}}>Protocol</h1>
+      <p style={{color:'#6b7280',marginBottom:'32px',textAlign:'center'}}>Your personal wellness protocol tracker.</p>
+      <a href='/auth/login' style={{background:'#2563eb',color:'white',textDecoration:'none',fontWeight:'600',padding:'12px 32px',borderRadius:'8px',fontSize:'16px'}}>
+        Get started
+      </a>
+      <a href='/calculator' style={{marginTop:'16px',color:'#6b7280',fontSize:'13px',textDecoration:'none'}}>
+        Use reconstitution calculator without signing in
       </a>
     </main>
   )
