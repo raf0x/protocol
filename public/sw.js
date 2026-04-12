@@ -1,4 +1,4 @@
-const CACHE_NAME = 'protocol-v2'
+const CACHE_NAME = 'protocol-v3'
 
 const STATIC_ASSETS = [
   '/',
@@ -6,12 +6,13 @@ const STATIC_ASSETS = [
   '/protocol',
   '/journal',
   '/learn',
-  '/manifest.json',
 ]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(STATIC_ASSETS.map(url => cache.add(url).catch(e => console.log('Cache skip:', url, e))))
+    })
   )
   self.skipWaiting()
 })
