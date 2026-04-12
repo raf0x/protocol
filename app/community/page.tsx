@@ -5,12 +5,14 @@ import { createClient } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
 type Cohort = { id: string; name: string; description: string; parent_id: string | null }
+type MemberCount = { cohort_id: string; count: number }
 
 export default function CommunityPage() {
   const [username, setUsername] = useState<string | null>(null)
   const [newUsername, setNewUsername] = useState('')
   const [cohorts, setCohorts] = useState<Cohort[]>([])
   const [joined, setJoined] = useState<string[]>([])
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -34,6 +36,12 @@ export default function CommunityPage() {
     setCohorts(ch || [])
     const { data: mem } = await supabase.from('cohort_members').select('cohort_id').eq('user_id', user.id)
     setJoined((mem || []).map((m: any) => m.cohort_id))
+    const { data: counts } = await supabase.from('cohort_members').select('cohort_id')
+    const countMap: Record<string, number> = {}
+    ;(counts || []).forEach((m: any) => {
+      countMap[m.cohort_id] = (countMap[m.cohort_id] || 0) + 1
+    })
+    setMemberCounts(countMap)
     setLoading(false)
   }
 
@@ -58,9 +66,11 @@ export default function CommunityPage() {
     if (joined.includes(cohortId)) {
       await supabase.from('cohort_members').delete().eq('user_id', user.id).eq('cohort_id', cohortId)
       setJoined(joined.filter(id => id !== cohortId))
+      setMemberCounts(prev => ({ ...prev, [cohortId]: Math.max(0, (prev[cohortId] || 1) - 1) }))
     } else {
       await supabase.from('cohort_members').insert({ user_id: user.id, cohort_id: cohortId })
       setJoined([...joined, cohortId])
+      setMemberCounts(prev => ({ ...prev, [cohortId]: (prev[cohortId] || 0) + 1 }))
     }
   }
 
@@ -97,6 +107,7 @@ export default function CommunityPage() {
             <h2 style={{fontSize:'16px',fontWeight:'700',color:g,marginBottom:'12px'}}>{parent.name}</h2>
             {subCohorts(parent.id).map(sub => {
               const isJoined = joined.includes(sub.id)
+              const count = memberCounts[sub.id] || 0
               return (
                 <div key={sub.id} style={{background:cb,border:'1px solid '+(isJoined?mg:bd),borderRadius:'8px',padding:'14px',marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div style={{flex:1}}>
@@ -104,7 +115,10 @@ export default function CommunityPage() {
                       <span style={{fontSize:'14px',fontWeight:'600',color:isJoined?g:'white'}}>{sub.name}</span>
                       {isJoined && <span style={{fontSize:'10px',color:mg,background:'#0a1a0a',padding:'2px 6px',borderRadius:'4px'}}>JOINED</span>}
                     </div>
-                    <p style={{fontSize:'12px',color:mg,margin:0}}>{sub.description}</p>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                      <p style={{fontSize:'12px',color:mg,margin:0}}>{sub.description}</p>
+                      {count > 0 && <span style={{fontSize:'12px',color:dg,fontWeight:'600'}}>· {count} {count===1?'member':'members'}</span>}
+                    </div>
                   </div>
                   <div style={{display:'flex',gap:'8px',marginLeft:'12px'}}>
                     {isJoined && (
