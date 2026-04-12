@@ -15,7 +15,7 @@ export default function LearnPage() {
         <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'4px',color:'#39ff14'}}>Learn</h1>
         <p style={{color:'#4dbd4d',fontSize:'13px',marginBottom:'24px'}}>Harm reduction information. Not medical advice.</p>
         <div style={{background:'#0d0d0d',border:'1px solid #1a3d1a',borderRadius:'8px',padding:'16px',marginBottom:'24px'}}>
-          <p style={{fontSize:'13px',color:'#4dbd4d',lineHeight:'1.6',margin:0}}>This content is for harm reduction and educational purposes only. Nothing here constitutes medical advice or a recommendation to use any substance. Consult a qualified medical professional for health concerns.</p>
+          <p style={{fontSize:'13px',color:'#ff4444',lineHeight:'1.6',margin:0,fontWeight:'700'}}>This content is for harm reduction and educational purposes only. Nothing here constitutes medical advice or a recommendation to use any substance. Consult a qualified medical professional for health concerns.</p>
         </div>
         {sections.map((section, index) => (
           <div key={index} style={{background:'#0d0d0d',border:'1px solid #1a1a1a',borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
