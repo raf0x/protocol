@@ -7,7 +7,7 @@ export default function ReconstitutionCalculator() {
   const [bacWater, setBacWater] = useState('')
   const [desiredDose, setDesiredDose] = useState('')
   const [error, setError] = useState('')
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState<{concentration:number,volumeMl:number,syringeUnits:number}|null>(null)
   const g = '#39ff14'
   const dg = '#4dbd4d'
   const mg = '#2d5a2d'
