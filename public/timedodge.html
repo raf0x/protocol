@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Dodge</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 100%);
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #050510;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        canvas.width = Math.min(window.innerWidth * 0.95, 800);
+        canvas.height = Math.min(window.innerHeight * 0.95, 600);
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    let gameState = 'start';
+    let score = 0;
+    let bestScore = localStorage.getItem('timeDodgeBest') || 0;
+    let frameCount = 0;
+
+    // --- Power-up states ---
+    let invincible = false, invincibleTimer = 0;
+    const INVINCIBLE_DURATION = 5 * 60;
+
+    let frozen = false, frozenTimer = 0;
+    const FREEZE_DURATION = 5 * 60;
+
+    const combined = () => invincible && frozen;
+
+    let speedBonus = 0, lastSpeedTick = 0;
+
+    const PLAYER_BASE_SIZE = 12;
+
+    const keys = {
+        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+        KeyW: false, KeyA: false, KeyS: false, KeyD: false
+    };
+
+    const player = {
+        x: 0, y: 0,
+        get size() { return invincible ? PLAYER_BASE_SIZE * 2 : PLAYER_BASE_SIZE; },
+        speed: 4,
+        trail: [],
+
+        reset() { this.x = canvas.width / 2; this.y = canvas.height / 2; this.trail = []; },
+
+        isMoving() {
+            return keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight ||
+                   keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+        },
+
+        update() {
+            let dx = 0, dy = 0;
+            if (keys.ArrowLeft || keys.KeyA) dx -= 1;
+            if (keys.ArrowRight || keys.KeyD) dx += 1;
+            if (keys.ArrowUp || keys.KeyW) dy -= 1;
+            if (keys.ArrowDown || keys.KeyS) dy += 1;
+            if (dx !== 0 || dy !== 0) {
+                const mag = Math.sqrt(dx * dx + dy * dy);
+                dx = (dx / mag) * this.speed; dy = (dy / mag) * this.speed;
+                this.x = Math.max(this.size, Math.min(canvas.width - this.size, this.x + dx));
+                this.y = Math.max(this.size, Math.min(canvas.height - this.size, this.y + dy));
+                this.trail.push({ x: this.x, y: this.y, alpha: 1 });
+                if (this.trail.length > 22) this.trail.shift();
+            }
+            this.trail.forEach(t => t.alpha *= 0.88);
+        },
+
+        draw() {
+            if (invincible) {
+                // Fire trail
+                this.trail.forEach((t, i) => {
+                    const fireColors = [
+                        `255,${Math.floor(50 + i * 8)},0`,
+                        `255,${Math.floor(120 + i * 5)},0`,
+                        `255,200,0`
+                    ];
+                    const col = fireColors[i % 3];
+                    const radius = PLAYER_BASE_SIZE * 1.2 * t.alpha;
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#ff4400';
+                    ctx.fillStyle = `rgba(${col}, ${t.alpha * 0.75})`;
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Fireball body — radial gradient
+                const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                grad.addColorStop(0,   'rgba(255,255,220,1)');
+                grad.addColorStop(0.25,'rgba(255,220,0,1)');
+                grad.addColorStop(0.6, 'rgba(255,80,0,0.95)');
+                grad.addColorStop(1,   'rgba(160,0,0,0)');
+                ctx.shadowBlur = 35;
+                ctx.shadowColor = '#ff5500';
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Flicker ring
+                const flicker = 0.5 + 0.5 * Math.sin(frameCount * 0.4);
+                ctx.strokeStyle = `rgba(255, 160, 0, ${flicker * 0.8})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 3 + flicker * 4, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            } else {
+                // Normal / freeze-only player
+                const color = frozen ? '#66ddff' : '#00ffff';
+                this.trail.forEach(t => {
+                    ctx.fillStyle = `rgba(0,255,255,${t.alpha * 0.3})`;
+                    ctx.fillRect(t.x - PLAYER_BASE_SIZE / 2, t.y - PLAYER_BASE_SIZE / 2, PLAYER_BASE_SIZE, PLAYER_BASE_SIZE);
+                });
+                ctx.fillStyle = color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = color;
+                ctx.fillRect(this.x - PLAYER_BASE_SIZE, this.y - PLAYER_BASE_SIZE, PLAYER_BASE_SIZE * 2, PLAYER_BASE_SIZE * 2);
+                ctx.shadowBlur = 0;
+
+                // Ice ring when frozen only
+                if (frozen) {
+                    const icePulse = 0.5 + 0.5 * Math.sin(frameCount * 0.2);
+                    ctx.strokeStyle = `rgba(100, 200, 255, ${icePulse * 0.7})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, PLAYER_BASE_SIZE * 2 + 4, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+        }
+    };
+
+    class Enemy {
+        constructor() {
+            const side = Math.floor(Math.random() * 4);
+            if (side === 0) { this.x = Math.random() * canvas.width; this.y = -20; }
+            else if (side === 1) { this.x = canvas.width + 20; this.y = Math.random() * canvas.height; }
+            else if (side === 2) { this.x = Math.random() * canvas.width; this.y = canvas.height + 20; }
+            else { this.x = -20; this.y = Math.random() * canvas.height; }
+            this.size = 8;
+            this.baseSpeed = 1.5 + Math.random() * 1;
+        }
+        get speed() { return this.baseSpeed + speedBonus; }
+        update(px, py) {
+            if (frozen) return; // frozen in place
+            const dx = px - this.x, dy = py - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+                if (invincible) {
+                    // flee slowly — catchable
+                    this.x -= (dx / dist) * 1.5;
+                    this.y -= (dy / dist) * 1.5;
+                } else {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                }
+                this.x = Math.max(-20, Math.min(canvas.width + 20, this.x));
+                this.y = Math.max(-20, Math.min(canvas.height + 20, this.y));
+            }
+        }
+        draw() {
+            // Ice tint when frozen
+            ctx.fillStyle = frozen ? '#cc44aa' : '#ff0066';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = frozen ? '#cc44aa' : '#ff0066';
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+            if (frozen) {
+                ctx.strokeStyle = 'rgba(150,220,255,0.6)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size + 3, 0, Math.PI * 2); ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+        }
+        collidesWith(p) {
+            return Math.sqrt((this.x - p.x) ** 2 + (this.y - p.y) ** 2) < this.size + p.size;
+        }
+    }
+
+    class Hazard {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            const angle = Math.random() * Math.PI * 2;
+            this.baseSpeed = 1.5 + Math.random() * 0.5;
+            this.vx = Math.cos(angle);
+            this.vy = Math.sin(angle);
+            this.size = 10;
+        }
+        update() {
+            const spd = this.baseSpeed + speedBonus;
+            this.x += this.vx * spd;
+            this.y += this.vy * spd;
+            if (this.x - this.size < 0 || this.x + this.size > canvas.width) {
+                this.vx *= -1;
+                this.x = Math.max(this.size, Math.min(canvas.width - this.size, this.x));
+            }
+            if (this.y - this.size < 0 || this.y + this.size > canvas.height) {
+                this.vy *= -1;
+                this.y = Math.max(this.size, Math.min(canvas.height - this.size, this.y));
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(frameCount * 0.05);
+            ctx.fillStyle = '#ffff00';
+            ctx.shadowBlur = 10; ctx.shadowColor = '#ffff00';
+            ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+        collidesWith(p) {
+            return Math.abs(this.x - p.x) < this.size + p.size &&
+                   Math.abs(this.y - p.y) < this.size + p.size;
+        }
+    }
+
+    // --- Lightning Power-Up ---
+    class LightningPowerUp {
+        constructor() {
+            this.size = 14;
+            this.x = 60 + Math.random() * (canvas.width - 120);
+            this.y = 60 + Math.random() * (canvas.height - 120);
+            this.pulse = 0;
+            this.lifetime = 0;
+            this.maxLifetime = 8 * 60;
+            this.type = 'lightning';
+        }
+        update() { this.pulse += 0.1; this.lifetime++; }
+        draw() {
+            const glow = 0.6 + 0.4 * Math.sin(this.pulse);
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.shadowBlur = 20 * glow; ctx.shadowColor = '#ffe000';
+            ctx.fillStyle = 'rgba(50,40,0,0.85)';
+            ctx.beginPath(); ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = `rgba(255,220,0,${glow})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = `rgba(255,230,0,${glow})`;
+            ctx.shadowBlur = 8; ctx.shadowColor = '#ffff00';
+            ctx.font = `bold ${this.size + 4}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('⚡', 0, 1);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+        collidesWith(p) {
+            return Math.sqrt((this.x - p.x) ** 2 + (this.y - p.y) ** 2) < this.size + p.size + 4;
+        }
+        isExpired() { return this.lifetime >= this.maxLifetime; }
+    }
+
+    // --- Freeze Power-Up ---
+    class FreezePowerUp {
+        constructor() {
+            this.size = 14;
+            this.x = 60 + Math.random() * (canvas.width - 120);
+            this.y = 60 + Math.random() * (canvas.height - 120);
+            this.pulse = 0;
+            this.lifetime = 0;
+            this.maxLifetime = 8 * 60;
+            this.type = 'freeze';
+        }
+        update() { this.pulse += 0.08; this.lifetime++; }
+        draw() {
+            const glow = 0.5 + 0.5 * Math.sin(this.pulse);
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.shadowBlur = 20 * glow; ctx.shadowColor = '#00ccff';
+            ctx.fillStyle = 'rgba(0,20,50,0.88)';
+            ctx.beginPath(); ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = `rgba(100,200,255,${glow})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(0, 0, this.size + 4, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = `rgba(180,235,255,${glow})`;
+            ctx.shadowBlur = 8; ctx.shadowColor = '#aaddff';
+            ctx.font = `bold ${this.size + 4}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('❄️', 0, 1);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+        collidesWith(p) {
+            return Math.sqrt((this.x - p.x) ** 2 + (this.y - p.y) ** 2) < this.size + p.size + 4;
+        }
+        isExpired() { return this.lifetime >= this.maxLifetime; }
+    }
+
+    let enemies = [], hazards = [], powerUps = [];
+    let spawnTimer = 0;
+    let lightningSpawnTimer = 0, freezeSpawnTimer = 0;
+    const LIGHTNING_INTERVAL = 15 * 60;
+    const FREEZE_INTERVAL   = 18 * 60;
+
+    function startGame() {
+        gameState = 'playing';
+        score = 0; frameCount = 0;
+        enemies = []; hazards = []; powerUps = [];
+        spawnTimer = 0;
+        lightningSpawnTimer = 0;
+        freezeSpawnTimer = Math.floor(FREEZE_INTERVAL / 2); // offset so they can overlap
+        invincible = false; invincibleTimer = 0;
+        frozen = false; frozenTimer = 0;
+        speedBonus = 0; lastSpeedTick = 0;
+        player.reset();
+        for (let i = 0; i < 3; i++) hazards.push(new Hazard());
+    }
+
+    function endGame() {
+        gameState = 'gameover';
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem('timeDodgeBest', bestScore);
+        }
+    }
+
+    function update() {
+        if (gameState !== 'playing') return;
+        const timeFlowing = player.isMoving();
+
+        if (timeFlowing) {
+            frameCount++;
+            score = Math.floor(frameCount / 60 * 10) / 10;
+
+            // Speed bump
+            const currentTick = Math.floor(score / 10);
+            if (currentTick > lastSpeedTick) {
+                speedBonus += 0.05 * (currentTick - lastSpeedTick);
+                lastSpeedTick = currentTick;
+            }
+
+            // Countdown timers
+            if (invincible) { invincibleTimer--; if (invincibleTimer <= 0) { invincible = false; invincibleTimer = 0; } }
+            if (frozen)     { frozenTimer--;     if (frozenTimer <= 0)     { frozen = false;     frozenTimer = 0;     } }
+
+            enemies.forEach(e => e.update(player.x, player.y));
+            hazards.forEach(h => h.update());
+            powerUps.forEach(p => p.update());
+            powerUps = powerUps.filter(p => !p.isExpired());
+
+            // Enemy spawn
+            spawnTimer++;
+            if (spawnTimer > 60) {
+                enemies.push(new Enemy());
+                spawnTimer = 0;
+                if (enemies.length > 1 && Math.random() < 0.3) hazards.push(new Hazard());
+            }
+
+            // Power-up spawns
+            lightningSpawnTimer++;
+            if (lightningSpawnTimer >= LIGHTNING_INTERVAL) {
+                powerUps.push(new LightningPowerUp());
+                lightningSpawnTimer = 0;
+            }
+            freezeSpawnTimer++;
+            if (freezeSpawnTimer >= FREEZE_INTERVAL) {
+                powerUps.push(new FreezePowerUp());
+                freezeSpawnTimer = 0;
+            }
+
+            // --- Collision logic ---
+
+            // Trail eats red + yellow when lightning is active
+            if (invincible) {
+                const tr = PLAYER_BASE_SIZE * 1.2;
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    for (const t of player.trail) {
+                        const dx = enemies[i].x - t.x, dy = enemies[i].y - t.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < tr + enemies[i].size) { enemies.splice(i, 1); break; }
+                    }
+                }
+                for (let i = hazards.length - 1; i >= 0; i--) {
+                    for (const t of player.trail) {
+                        const dx = hazards[i].x - t.x, dy = hazards[i].y - t.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < tr + hazards[i].size) { hazards.splice(i, 1); break; }
+                    }
+                }
+            }
+
+            // Body collisions
+            if (!invincible) {
+                // Not invincible — can die from enemies and hazards
+                enemies.forEach(e => { if (e.collidesWith(player)) endGame(); });
+                hazards.forEach(h => { if (h.collidesWith(player)) endGame(); });
+            } else if (combined()) {
+                // COMBINED — body eats both red and yellow
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    if (enemies[i].collidesWith(player)) enemies.splice(i, 1);
+                }
+                for (let i = hazards.length - 1; i >= 0; i--) {
+                    if (hazards[i].collidesWith(player)) hazards.splice(i, 1);
+                }
+            }
+            // lightning only (no freeze): invincible — body passes through without eating or dying
+
+            // Collect power-ups
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                if (powerUps[i].collidesWith(player)) {
+                    if (powerUps[i].type === 'lightning') {
+                        invincible = true;
+                        invincibleTimer = INVINCIBLE_DURATION;
+                    } else {
+                        frozen = true;
+                        frozenTimer = FREEZE_DURATION;
+                    }
+                    powerUps.splice(i, 1);
+                }
+            }
+        }
+
+        player.update();
+    }
+
+    function drawHUD() {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '24px Courier New';
+        ctx.textAlign = 'left';
+        ctx.fillText(`TIME: ${score.toFixed(1)}s`, 20, 35);
+        ctx.font = '16px Courier New';
+        ctx.fillText(`BEST: ${bestScore}s`, 20, 60);
+
+        if (speedBonus > 0) {
+            ctx.fillStyle = '#ff6600';
+            ctx.fillText(`SPEED +${speedBonus.toFixed(2)}`, 20, 82);
+        }
+
+        // Active power-up bars (stacked top-right)
+        const barW = 160;
+        let barY = 15;
+
+        if (invincible) {
+            const pct = invincibleTimer / INVINCIBLE_DURATION;
+            ctx.fillStyle = 'rgba(255,100,0,0.2)';
+            ctx.fillRect(canvas.width - barW - 20, barY, barW, 18);
+            ctx.fillStyle = '#ff6600';
+            ctx.shadowBlur = 8; ctx.shadowColor = '#ff6600';
+            ctx.fillRect(canvas.width - barW - 20, barY, barW * pct, 18);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '13px Courier New';
+            ctx.textAlign = 'right';
+            ctx.fillText(`⚡ ${(invincibleTimer / 60).toFixed(1)}s`, canvas.width - 20, barY + 13);
+            barY += 26;
+        }
+
+        if (frozen) {
+            const pct = frozenTimer / FREEZE_DURATION;
+            ctx.fillStyle = 'rgba(0,150,255,0.2)';
+            ctx.fillRect(canvas.width - barW - 20, barY, barW, 18);
+            ctx.fillStyle = '#44aaff';
+            ctx.shadowBlur = 8; ctx.shadowColor = '#44aaff';
+            ctx.fillRect(canvas.width - barW - 20, barY, barW * pct, 18);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '13px Courier New';
+            ctx.textAlign = 'right';
+            ctx.fillText(`❄️ ${(frozenTimer / 60).toFixed(1)}s`, canvas.width - 20, barY + 13);
+        }
+
+        // Combined status banner
+        if (combined()) {
+            const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.25);
+            ctx.fillStyle = `rgba(255,150,0,${pulse})`;
+            ctx.font = 'bold 16px Courier New';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 10; ctx.shadowColor = '#ff8800';
+            ctx.fillText('⚡❄️ COMBINED — EAT EVERYTHING!', canvas.width / 2, 52);
+            ctx.shadowBlur = 0;
+        }
+
+        if (!player.isMoving()) {
+            ctx.fillStyle = 'rgba(255,255,0,0.3)';
+            ctx.font = '20px Courier New';
+            ctx.textAlign = 'center';
+            ctx.fillText('TIME FROZEN', canvas.width / 2, 30);
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = 'rgba(5,5,16,0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < 30; i++) {
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect((i * 73) % canvas.width, (i * 157) % canvas.height, 1, 1);
+        }
+
+        if (gameState === 'playing') {
+            powerUps.forEach(p => p.draw());
+            hazards.forEach(h => h.draw());
+            enemies.forEach(e => e.draw());
+            player.draw();
+            drawHUD();
+        }
+
+        if (gameState === 'start') {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ffff';
+            ctx.font = 'bold 48px Courier New';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 20; ctx.shadowColor = '#00ffff';
+            ctx.fillText('TIME DODGE', canvas.width / 2, canvas.height / 2 - 120);
+            ctx.shadowBlur = 0;
+
+            const lines = [
+                ['#ffffff', '20px', 'Move to advance time  |  Stop to freeze everything'],
+                ['#aaaaaa', '17px', 'Arrow Keys or WASD   —   Press any key to start'],
+                ['#ff0066', '17px', 'Red = Enemies (chase you)'],
+                ['#ffff00', '17px', 'Yellow = Hazards (bounce)'],
+                ['#ffcc00', '17px', '⚡ Lightning (5s): Fireball mode — enemies flee — trail eats all'],
+                ['#44aaff', '17px', '❄️ Freeze (5s): Enemies frozen — still lethal if touched'],
+                ['#ff9900', 'bold 17px', '⚡ + ❄️ COMBINED: Fireball + frozen + eat everything with your body!'],
+                ['#ff6600', '16px', 'Enemies speed up every 10s'],
+            ];
+            lines.forEach(([color, font, text], i) => {
+                ctx.fillStyle = color;
+                ctx.font = `${font} Courier New`;
+                ctx.fillText(text, canvas.width / 2, canvas.height / 2 - 65 + i * 28);
+            });
+        }
+
+        if (gameState === 'gameover') {
+            ctx.fillStyle = 'rgba(0,0,0,0.82)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ff0066';
+            ctx.font = 'bold 48px Courier New';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 20; ctx.shadowColor = '#ff0066';
+            ctx.fillText("TIME'S UP", canvas.width / 2, canvas.height / 2 - 60);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '30px Courier New';
+            ctx.fillText(`Survived: ${score.toFixed(1)}s`, canvas.width / 2, canvas.height / 2 + 10);
+            ctx.fillText(`Best: ${bestScore}s`, canvas.width / 2, canvas.height / 2 + 50);
+            if (speedBonus > 0) {
+                ctx.fillStyle = '#ff6600';
+                ctx.font = '18px Courier New';
+                ctx.fillText(`Peak Speed Bonus: +${speedBonus.toFixed(2)}`, canvas.width / 2, canvas.height / 2 + 82);
+            }
+            ctx.font = '20px Courier New';
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText('Press any key to restart', canvas.width / 2, canvas.height / 2 + 115);
+        }
+    }
+
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+
+    document.addEventListener('keydown', (e) => {
+        if (keys.hasOwnProperty(e.code)) { e.preventDefault(); keys[e.code] = true; }
+        if (gameState === 'start') startGame();
+        else if (gameState === 'gameover') gameState = 'start';
+    });
+    document.addEventListener('keyup', (e) => {
+        if (keys.hasOwnProperty(e.code)) { e.preventDefault(); keys[e.code] = false; }
+    });
+
+    gameLoop();
+</script>
+</body>
+</html>
