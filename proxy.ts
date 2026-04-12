@@ -21,8 +21,9 @@ export async function proxy(request: NextRequest) {
   )
   const { data: { user } } = await supabase.auth.getUser()
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api')
   const isPublicPage = request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/calculator' || request.nextUrl.pathname === '/onboarding'
-  if (!user && !isAuthPage && !isPublicPage) {
+  if (!user && !isAuthPage && !isPublicPage && !isApiRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
   return response
