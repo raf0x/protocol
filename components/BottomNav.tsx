@@ -20,17 +20,48 @@ export default function BottomNav() {
   }
 
   return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'#111827',borderTop:'1px solid #1f2937',display:'flex',justifyContent:'space-around',alignItems:'center',padding:'8px 0 20px 0',zIndex:50}}>
+    <nav style={{
+      position:'fixed',
+      bottom:0,
+      left:0,
+      right:0,
+      background:'#111827',
+      borderTop:'1px solid #1f2937',
+      display:'flex',
+      justifyContent:'space-around',
+      alignItems:'center',
+      padding:'14px 16px 28px 16px',
+      zIndex:50
+    }}>
       {links.map((link) => {
         const isActive = pathname === link.href
         return (
           <a
             key={link.href}
             href={link.href}
-            style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',textDecoration:'none',minWidth:'56px'}}
+            style={{
+              display:'flex',
+              flexDirection:'column',
+              alignItems:'center',
+              gap:'4px',
+              textDecoration:'none',
+              minWidth:'52px',
+              flex:1
+            }}
           >
-            <span style={{width:'4px',height:'4px',borderRadius:'50%',background:isActive?'#3b82f6':'transparent',display:'block'}} />
-            <span style={{color:isActive?'#ffffff':'#6b7280',fontSize:'12px',fontWeight:isActive?'600':'400'}}>
+            <span style={{
+              width:'5px',
+              height:'5px',
+              borderRadius:'50%',
+              background:isActive?'#3b82f6':'transparent',
+              display:'block'
+            }} />
+            <span style={{
+              color:isActive?'#ffffff':'#6b7280',
+              fontSize:'13px',
+              fontWeight:isActive?'600':'400',
+              textAlign:'center'
+            }}>
               {link.label}
             </span>
           </a>
@@ -38,10 +69,21 @@ export default function BottomNav() {
       })}
       <button
         onClick={handleSignOut}
-        style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',background:'none',border:'none',minWidth:'56px',cursor:'pointer'}}
+        style={{
+          display:'flex',
+          flexDirection:'column',
+          alignItems:'center',
+          gap:'4px',
+          background:'none',
+          border:'none',
+          minWidth:'52px',
+          flex:1,
+          cursor:'pointer',
+          padding:0
+        }}
       >
-        <span style={{width:'4px',height:'4px',borderRadius:'50%',background:'transparent',display:'block'}} />
-        <span style={{color:'#6b7280',fontSize:'12px'}}>Sign out</span>
+        <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'transparent',display:'block'}} />
+        <span style={{color:'#6b7280',fontSize:'13px'}}>Sign out</span>
       </button>
     </nav>
   )
