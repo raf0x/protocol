@@ -68,8 +68,9 @@ export default function ProfilePage() {
       })
       if (res.ok) { setNotifEnabled(true); setNotifStatus('Reminders enabled.') }
       else { setNotifStatus('Something went wrong. Try again.') }
-    } catch (e) {
-      setNotifStatus('Could not enable notifications. Make sure you are using the installed app.')
+    } catch (e: any) {
+      console.error('Push error:', e)
+      setNotifStatus('Error: ' + (e?.message || String(e)))
     }
     setNotifLoading(false)
   }
