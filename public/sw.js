@@ -1,11 +1,8 @@
-const CACHE_NAME = 'protocol-v10'
+const CACHE_NAME = 'protocol-v11'
 
 const STATIC_ASSETS = [
   '/',
   '/calculator',
-  '/protocol',
-  '/journal',
-  '/learn',
 ]
 
 self.addEventListener('install', (event) => {

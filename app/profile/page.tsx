@@ -25,7 +25,7 @@ export default function ProfilePage() {
   async function loadUser() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/auth/login'); return }
+    if (!user) { router.push('/'); return }
     setUserId(user.id)
     setEmail(user.email || '')
     const date = new Date(user.created_at)
