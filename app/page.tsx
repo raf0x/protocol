@@ -34,19 +34,19 @@ export default function Home() {
 
         {/* Left syringe */}
         <div style={{position:'absolute',left:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
-          <span style={{fontSize:'36px',transform:'rotate(45deg)',display:'block'}}>💉</span>
+          <span style={{fontSize:'36px',transform:'rotate(135deg)',display:'block'}}>💉</span>
           <span style={{fontSize:'11px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>BPC-157</span>
         </div>
 
         {/* Right syringe */}
         <div style={{position:'absolute',right:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
-          <span style={{fontSize:'36px',transform:'rotate(-45deg)',display:'block'}}>💉</span>
-          <span style={{fontSize:'11px',color:'#6c63ff',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>GLP-1</span>
+          <span style={{fontSize:'36px',transform:'rotate(135deg)',display:'block'}}>💉</span>
+          <span style={{fontSize:'11px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>GLP-1</span>
         </div>
 
         {/* Background rings */}
         <div style={{position:'absolute',inset:0,display:'flex',justifyContent:'center',alignItems:'center',pointerEvents:'none',zIndex:0}}>
-          <svg width="600" height="400" viewBox="0 0 600 400" style={{opacity:0.18}}>
+          <svg width="600" height="400" viewBox="0 0 600 400" style={{opacity:0.18,transform:'translateY(-60px)'}}>
             {/* Mood ring - blue */}
             <g transform="translate(120, 120)">
               <circle cx="0" cy="0" r="55" fill="none" stroke="#1e1e2e" strokeWidth="7"/>
