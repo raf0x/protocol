@@ -142,7 +142,7 @@ export default function ReconstitutionCalculator() {
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>PEPTIDE DOSE</span>
                 <span style={{fontSize:'16px',fontWeight:'700',color:hasAll?'white':mg}}>{hasAll ? activeDose+'mg ('+(activeDose!*1000)+'mcg)' : 'Select dose'}</span>
               </div>
-              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px',border:'1px solid '+(hasAll?mg:bd)}}>
+              <div style={{background:'#1a1a2e',border:'1px solid '+(hasAll?'#6c63ff':bd),borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>DRAW SYRINGE TO</span>
                 <span style={{fontSize:'24px',fontWeight:'900',color:hasAll?g:mg}}>{hasAll ? syringeUnits.toFixed(1)+' units' : '—'}</span>
                 {hasAll && <span style={{fontSize:'12px',color:dg,display:'block',marginTop:'2px'}}>{volumeMl.toFixed(3)} mL</span>}
