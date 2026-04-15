@@ -18,20 +18,20 @@ function SyringeVisual({ units }: { units: number }) {
         {/* Needle */}
         <polygon points='28,220 32,220 30,238' fill='#8b8ba7' />
         {/* Syringe body */}
-        <rect x='16' y='20' width='28' height='200' rx='4' fill='#12121a' stroke='#1e1e2e' strokeWidth='2'/>
+        <rect x='16' y='20' width='28' height='200' rx='4' fill='#1a1a2e' stroke='#3d3d6e' strokeWidth='2'/>
         {/* Fill level */}
         {fillH > 0 && <rect x='18' y={fillY} width='24' height={fillH} rx='2' fill='#39ff14' opacity='0.7'/>}
         {/* Tick marks */}
         {[0,25,50,75,100].map(tick => {
           const y = 20 + bodyH * (1 - tick/100)
           return <g key={tick}>
-            <line x1='44' y1={y} x2='50' y2={y} stroke='#3d3d5c' strokeWidth='1'/>
-            <text x='52' y={y+4} fontSize='7' fill='#3d3d5c'>{tick}</text>
+            <line x1='44' y1={y} x2='50' y2={y} stroke='#6b6b9c' strokeWidth='1'/>
+            <text x='52' y={y+4} fontSize='7' fill='#6b6b9c'>{tick}</text>
           </g>
         })}
         {/* Plunger */}
-        <rect x='14' y='16' width='32' height='8' rx='2' fill='#1e1e2e' stroke='#3d3d5c' strokeWidth='1'/>
-        <rect x='26' y='8' width='8' height='12' rx='2' fill='#3d3d5c'/>
+        <rect x='14' y='16' width='32' height='8' rx='2' fill='#2a2a4e' stroke='#6b6b9c' strokeWidth='1'/>
+        <rect x='26' y='8' width='8' height='12' rx='2' fill='#6b6b9c'/>
       </svg>
       {units > 0 && <span style={{fontSize:'11px',color:'#8b8ba7'}}>U-100 syringe</span>}
     </div>
@@ -86,7 +86,7 @@ export default function ReconstitutionCalculator() {
 
         {/* Dose section */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'12px'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:dg,letterSpacing:'1px',marginBottom:'14px'}}>DOSE OF PEPTIDE (mg)</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'14px'}}>DOSE OF PEPTIDE (mg)</h2>
           <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'12px'}}>
             {DOSE_PRESETS.map(v => (
               <PresetBtn key={v} value={v} active={!showCustomDose && dose===v} onClick={() => { setDose(v); setShowCustomDose(false) }} />
@@ -102,7 +102,7 @@ export default function ReconstitutionCalculator() {
 
         {/* Strength section */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'12px'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:dg,letterSpacing:'1px',marginBottom:'14px'}}>VIAL STRENGTH (mg)</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'14px'}}>VIAL STRENGTH (mg)</h2>
           <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'12px'}}>
             {STRENGTH_PRESETS.map(v => (
               <PresetBtn key={v} value={v} active={!showCustomStrength && strength===v} onClick={() => { setStrength(v); setShowCustomStrength(false) }} />
@@ -118,7 +118,7 @@ export default function ReconstitutionCalculator() {
 
         {/* Water section */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'24px'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:dg,letterSpacing:'1px',marginBottom:'14px'}}>BACTERIOSTATIC WATER (mL)</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'14px'}}>BACTERIOSTATIC WATER (mL)</h2>
           <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginBottom:'12px'}}>
             {WATER_PRESETS.map(v => (
               <PresetBtn key={v} value={v} active={!showCustomWater && water===v} onClick={() => { setWater(v); setShowCustomWater(false) }} />
@@ -134,25 +134,25 @@ export default function ReconstitutionCalculator() {
 
         {/* Results */}
         <div style={{background:cb,border:'1px solid '+(hasAll?g:bd),borderRadius:'12px',padding:'24px',transition:'border-color 0.3s'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:dg,letterSpacing:'1px',marginBottom:'20px'}}>RESULTS</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'20px'}}>RESULTS</h2>
           <div style={{display:'flex',gap:'24px',alignItems:'flex-start'}}>
             <SyringeVisual units={hasAll ? syringeUnits : 0} />
             <div style={{flex:1,display:'flex',flexDirection:'column',gap:'14px'}}>
-              <div style={{background:'#0a0a0f',borderRadius:'8px',padding:'12px'}}>
-                <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',letterSpacing:'1px'}}>PEPTIDE DOSE</span>
+              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+                <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>PEPTIDE DOSE</span>
                 <span style={{fontSize:'16px',fontWeight:'700',color:hasAll?'white':mg}}>{hasAll ? activeDose+'mg ('+(activeDose!*1000)+'mcg)' : 'Select dose'}</span>
               </div>
-              <div style={{background:'#0a0a0f',borderRadius:'8px',padding:'12px',border:'1px solid '+(hasAll?mg:bd)}}>
-                <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',letterSpacing:'1px'}}>DRAW SYRINGE TO</span>
+              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px',border:'1px solid '+(hasAll?mg:bd)}}>
+                <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>DRAW SYRINGE TO</span>
                 <span style={{fontSize:'24px',fontWeight:'900',color:hasAll?g:mg}}>{hasAll ? syringeUnits.toFixed(1)+' units' : '—'}</span>
                 {hasAll && <span style={{fontSize:'12px',color:dg,display:'block',marginTop:'2px'}}>{volumeMl.toFixed(3)} mL</span>}
               </div>
-              <div style={{background:'#0a0a0f',borderRadius:'8px',padding:'12px'}}>
-                <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',letterSpacing:'1px'}}>VIAL CONTAINS</span>
+              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+                <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>VIAL CONTAINS</span>
                 <span style={{fontSize:'14px',fontWeight:'600',color:hasAll?'white':mg}}>{hasAll ? (activeStrength!*1000)+'mcg total' : 'Select values'}</span>
               </div>
-              <div style={{background:'#0a0a0f',borderRadius:'8px',padding:'12px'}}>
-                <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',letterSpacing:'1px'}}>CONCENTRATION</span>
+              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+                <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>CONCENTRATION</span>
                 <span style={{fontSize:'14px',fontWeight:'600',color:hasAll?'white':mg}}>{hasAll ? concentration.toFixed(0)+'mcg/mL' : 'Select values'}</span>
               </div>
             </div>
