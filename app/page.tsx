@@ -55,7 +55,7 @@ export default function Home() {
         </div>
 
         {/* Background rings */}
-        <div style={{position:'absolute',left:0,right:0,top:'85px',display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:0}}>
+        <div style={{position:'absolute',left:0,right:0,top:'130px',display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:0}}>
           <svg width='500' height='120' viewBox='0 0 500 120' style={{opacity:0.22}}>
             <g transform='translate(120, 60)'>
               <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
