@@ -37,10 +37,10 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
   const current = steps[step]
   const isLast = step === steps.length - 1
 
@@ -66,7 +66,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px'}}>
       <div style={{maxWidth:'400px',width:'100%'}}>
         <div style={{display:'flex',gap:'6px',marginBottom:'40px',justifyContent:'center'}}>
           {steps.map((_, i) => (

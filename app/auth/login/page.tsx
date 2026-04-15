@@ -33,23 +33,23 @@ export default function LoginPage() {
     router.push('/protocol')
   }
 
-  const inputStyle = {width:'100%',background:'#0d0d0d',border:'1px solid #1a1a1a',borderRadius:'6px',padding:'12px',color:'white',fontSize:'16px',outline:'none',boxSizing:'border-box' as const}
+  const inputStyle = {width:'100%',background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'6px',padding:'12px',color:'white',fontSize:'16px',outline:'none',boxSizing:'border-box' as const}
   const btnStyle = {width:'100%',background:'#39ff14',color:'#000000',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'pointer',letterSpacing:'1px'}
-  const btnDisabled = {width:'100%',background:'#1a3d1a',color:'#2d5a2d',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'not-allowed' as const,letterSpacing:'1px'}
+  const btnDisabled = {width:'100%',background:'#1a3d1a',color:'#3d3d5c',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'not-allowed' as const,letterSpacing:'1px'}
 
   if (step === 'code') {
     return (
-      <main style={{minHeight:'100vh',background:'#000000',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
         <div style={{maxWidth:'400px',width:'100%'}}>
           <h1 style={{fontSize:'28px',fontWeight:'bold',marginBottom:'8px',color:'#39ff14'}}>Check your email</h1>
-          <p style={{color:'#4dbd4d',marginBottom:'32px'}}>We sent a 6-digit code to <strong style={{color:'white'}}>{email}</strong>.</p>
+          <p style={{color:'#8b8ba7',marginBottom:'32px'}}>We sent a 6-digit code to <strong style={{color:'white'}}>{email}</strong>.</p>
           <div style={{marginBottom:'16px'}}>
-            <label style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#4dbd4d'}}>6-digit code</label>
+            <label style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#8b8ba7'}}>6-digit code</label>
             <input type='number' value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => e.key==='Enter'&&verifyCode()} placeholder='123456' style={{...inputStyle,fontSize:'28px',letterSpacing:'12px',textAlign:'center'}} />
           </div>
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
           <button onClick={verifyCode} disabled={loading} style={loading?btnDisabled:btnStyle}>{loading?'Verifying...':'Sign in'}</button>
-          <button onClick={() => { setStep('email'); setCode(''); setError('') }} style={{width:'100%',background:'none',border:'none',color:'#2d5a2d',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
+          <button onClick={() => { setStep('email'); setCode(''); setError('') }} style={{width:'100%',background:'none',border:'none',color:'#3d3d5c',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
           <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'16px',textAlign:'center'}}>No email? Check your spam. Code expires in 10 minutes.</p>
         </div>
       </main>
@@ -57,12 +57,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
       <div style={{maxWidth:'400px',width:'100%'}}>
         <h1 style={{fontSize:'36px',fontWeight:'bold',marginBottom:'8px',color:'#39ff14',letterSpacing:'2px'}}>Protocol</h1>
-        <p style={{color:'#4dbd4d',marginBottom:'32px'}}>Enter your email to sign in or create an account.</p>
+        <p style={{color:'#8b8ba7',marginBottom:'32px'}}>Enter your email to sign in or create an account.</p>
         <div style={{marginBottom:'16px'}}>
-          <label style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#4dbd4d'}}>Email address</label>
+          <label style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#8b8ba7'}}>Email address</label>
           <input type='email' value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&sendCode()} placeholder='you@example.com' style={inputStyle} />
         </div>
         {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}

@@ -17,10 +17,10 @@ export default function ProtocolPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
 
   useEffect(() => { loadProtocols() }, [])
 
@@ -89,11 +89,11 @@ export default function ProtocolPage() {
     loadProtocols()
   }
 
-  const inputStyle = {width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box' as const}
-  const selectStyle = {background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 4px',color:'white',fontSize:'12px',maxWidth:'120px'}
+  const inputStyle = {width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box' as const}
+  const selectStyle = {background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 4px',color:'white',fontSize:'12px',maxWidth:'120px'}
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>My Protocols</h1>
@@ -114,14 +114,14 @@ export default function ProtocolPage() {
             <div style={{marginBottom:'12px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Compounds</label>
               {compounds.map((compound, index) => (
-                <div key={index} style={{background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'12px',marginBottom:'8px'}}>
+                <div key={index} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'12px',marginBottom:'8px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}>
                     <span style={{fontSize:'12px',color:mg}}>Compound {index + 1}</span>
                     {compounds.length > 1 && <button onClick={() => removeCompound(index)} style={{background:'none',border:'none',color:'#ff4444',cursor:'pointer',fontSize:'12px'}}>Remove</button>}
                   </div>
                   <input value={compound.name} onChange={e => updateCompound(index, 'name', e.target.value)} placeholder='Compound name (e.g. BPC-157)' style={{...inputStyle,marginBottom:'6px'}} />
                   <div style={{display:'flex',gap:'6px'}}>
-                    <input type='number' value={compound.dose} onChange={e => updateCompound(index, 'dose', e.target.value)} placeholder='Dose' style={{flex:1,background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 8px',color:'white',fontSize:'13px'}} />
+                    <input type='number' value={compound.dose} onChange={e => updateCompound(index, 'dose', e.target.value)} placeholder='Dose' style={{flex:1,background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 8px',color:'white',fontSize:'13px'}} />
                     <select value={compound.unit} onChange={e => updateCompound(index, 'unit', e.target.value)} style={selectStyle}>
                       <option value='mcg'>mcg</option>
                       <option value='mg'>mg</option>

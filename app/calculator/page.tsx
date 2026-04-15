@@ -9,11 +9,11 @@ export default function ReconstitutionCalculator() {
   const [error, setError] = useState('')
   const [result, setResult] = useState<{concentration:number,volumeMl:number,syringeUnits:number}|null>(null)
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
   const bg = '#000000'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
   function calculate() {
     setError(''); setResult(null)
     const peptide = parseFloat(peptideAmount)

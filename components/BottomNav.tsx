@@ -12,7 +12,7 @@ export default function BottomNav() {
     { href: '/profile', label: 'Profile' },
   ]
   return (
-    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'#000000',borderTop:'1px solid #1a1a1a',display:'flex',justifyContent:'space-around',alignItems:'center',padding:'14px 8px 28px 8px',zIndex:50}}>
+    <nav style={{position:'fixed',bottom:0,left:0,right:0,background:'#0a0a0f',borderTop:'1px solid #1e1e2e',display:'flex',justifyContent:'space-around',alignItems:'center',padding:'14px 8px 28px 8px',zIndex:50}}>
       {links.map((link) => {
         const isActive = pathname === link.href || pathname.startsWith(link.href+'/') && link.href !== '/'
         return (

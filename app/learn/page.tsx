@@ -10,17 +10,17 @@ export default function LearnPage() {
     { title: 'About this app', body: 'Protocol is a personal tracking tool built on harm reduction principles. It does not provide medical advice, recommend dosing, or facilitate sourcing. All content is for informational purposes only. Always consult a qualified healthcare provider before starting any new compound.' },
   ]
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'4px',color:'#39ff14'}}>Learn</h1>
-        <p style={{color:'#4dbd4d',fontSize:'13px',marginBottom:'24px'}}>Harm reduction information. Not medical advice.</p>
-        <div style={{background:'#0d0d0d',border:'1px solid #1a3d1a',borderRadius:'8px',padding:'16px',marginBottom:'24px'}}>
+        <p style={{color:'#8b8ba7',fontSize:'13px',marginBottom:'24px'}}>Harm reduction information. Not medical advice.</p>
+        <div style={{background:'#12121a',border:'1px solid #1a3d1a',borderRadius:'8px',padding:'16px',marginBottom:'24px'}}>
           <p style={{fontSize:'13px',color:'#ff4444',lineHeight:'1.6',margin:0,fontWeight:'700'}}>This content is for harm reduction and educational purposes only. Nothing here constitutes medical advice or a recommendation to use any substance. Consult a qualified medical professional for health concerns.</p>
         </div>
         {sections.map((section, index) => (
-          <div key={index} style={{background:'#0d0d0d',border:'1px solid #1a1a1a',borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
+          <div key={index} style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
             <h2 style={{fontSize:'15px',fontWeight:'600',marginBottom:'8px',color:'#39ff14'}}>{section.title}</h2>
-            <p style={{fontSize:'13px',color:'#4dbd4d',lineHeight:'1.6',margin:0}}>{section.body}</p>
+            <p style={{fontSize:'13px',color:'#8b8ba7',lineHeight:'1.6',margin:0}}>{section.body}</p>
           </div>
         ))}
       </div>

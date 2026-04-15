@@ -18,10 +18,10 @@ export default function CommunityPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
 
   useEffect(() => { loadData() }, [])
 
@@ -77,11 +77,11 @@ export default function CommunityPage() {
   const parents = cohorts.filter(c => !c.parent_id)
   const subCohorts = (parentId: string) => cohorts.filter(c => c.parent_id === parentId)
 
-  if (loading) return <main style={{minHeight:'100vh',background:'#000000',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   if (!username) {
     return (
-      <main style={{minHeight:'100vh',background:'#000000',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
         <div style={{maxWidth:'400px',width:'100%'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'8px',color:g}}>Choose a username</h1>
           <p style={{color:dg,fontSize:'13px',marginBottom:'24px'}}>Your username is how you appear in cohorts. It cannot be changed later. No personal information is visible to other users.</p>
@@ -95,7 +95,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Community</h1>

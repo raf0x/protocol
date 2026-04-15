@@ -15,10 +15,10 @@ export default function ProfilePage() {
   const [notifStatus, setNotifStatus] = useState('')
   const router = useRouter()
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
 
   useEffect(() => { loadUser() }, [])
 
@@ -109,10 +109,10 @@ export default function ProfilePage() {
     return (h - 12) + ':00 PM'
   }
 
-  if (loading) return <main style={{minHeight:'100vh',background:'#000000',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'24px',color:g}}>Profile</h1>
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
@@ -130,7 +130,7 @@ export default function ProfilePage() {
           <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Get a daily reminder to log your journal entry.</p>
           <div style={{marginBottom:'16px'}}>
             <label style={{fontSize:'12px',color:mg,display:'block',marginBottom:'6px'}}>Reminder time</label>
-            <select value={reminderHour} onChange={e => updateHour(parseInt(e.target.value))} style={{background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',width:'100%'}}>
+            <select value={reminderHour} onChange={e => updateHour(parseInt(e.target.value))} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',width:'100%'}}>
               {hours.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
             </select>
           </div>

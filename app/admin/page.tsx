@@ -25,10 +25,10 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<'all'|'flagged'>('all')
   const router = useRouter()
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
 
   useEffect(() => { checkAuth() }, [])
 
@@ -73,7 +73,7 @@ export default function AdminPage() {
   const filteredPosts = filter === 'flagged' ? posts.filter(p => p.flagged) : posts
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'600px',margin:'0 auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Admin</h1>

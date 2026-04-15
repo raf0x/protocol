@@ -1,4 +1,5 @@
-@tailwind base;
+﻿const fs = require('fs');
+const css = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -12,3 +13,6 @@ body {
   background-attachment: fixed;
   min-height: 100vh;
 }
+`;
+fs.writeFileSync('app/globals.css', css, 'utf8');
+console.log('Done');

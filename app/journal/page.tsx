@@ -18,7 +18,7 @@ function ProgressRing({ value, max, color, label, size = 70 }: { value: number; 
         <circle cx={size/2} cy={size/2} r={radius} fill='none' stroke={color} strokeWidth={6} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap='round' style={{transition:'stroke-dashoffset 0.5s ease'}} />
         <text x={size/2} y={size/2} textAnchor='middle' dominantBaseline='middle' fill='white' fontSize={size*0.22} fontWeight='700' style={{transform:`rotate(90deg)`,transformOrigin:`${size/2}px ${size/2}px`}}>{value > 0 ? value.toFixed(1) : '—'}</text>
       </svg>
-      <span style={{fontSize:'10px',color:'#4dbd4d',textAlign:'center'}}>{label}</span>
+      <span style={{fontSize:'10px',color:'#8b8ba7',textAlign:'center'}}>{label}</span>
     </div>
   )
 }
@@ -38,10 +38,10 @@ export default function JournalPage() {
   const [showChart, setShowChart] = useState(false)
   const [chartRange, setChartRange] = useState<7|30|'all'>(7)
   const g = '#39ff14'
-  const dg = '#4dbd4d'
-  const mg = '#2d5a2d'
-  const cb = '#0d0d0d'
-  const bd = '#1a1a1a'
+  const dg = '#8b8ba7'
+  const mg = '#3d3d5c'
+  const cb = '#12121a'
+  const bd = '#1e1e2e'
 
   useEffect(() => { loadEntries() }, [])
 
@@ -170,10 +170,10 @@ export default function JournalPage() {
     )
   }
 
-  if (loading) return <main style={{minHeight:'100vh',background:'#000000',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
 
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
@@ -188,7 +188,7 @@ export default function JournalPage() {
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'20px'}}>
             <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',marginBottom:'16px'}}>
               <ProgressRing value={daysThisWeek} max={7} color={g} label='Days/week' />
-              <ProgressRing value={thisWeek?.mood || 0} max={5} color='#3b82f6' label='Avg mood' />
+              <ProgressRing value={thisWeek?.mood || 0} max={5} color='#6c63ff' label='Avg mood' />
               <ProgressRing value={thisWeek?.energy || 0} max={5} color='#f59e0b' label='Avg energy' />
               <ProgressRing value={thisWeek?.sleep || 0} max={9} color='#8b5cf6' label='Avg sleep' />
             </div>
@@ -248,7 +248,7 @@ export default function JournalPage() {
             <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Entry' : 'How are you today?'}</h2>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Date</label>
-              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark',WebkitAppearance:'none'}} />
+              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark',WebkitAppearance:'none'}} />
             </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Mood — {moodLabel(mood)}</label>
@@ -260,11 +260,11 @@ export default function JournalPage() {
             </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Hours of sleep</label>
-              <input type='number' min='0' max='24' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='e.g. 7.5' style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box'}} />
+              <input type='number' min='0' max='24' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='e.g. 7.5' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box'}} />
             </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Notes (optional)</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='How do you feel? Any observations...' rows={3} style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',resize:'none'}} />
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='How do you feel? Any observations...' rows={3} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',resize:'none'}} />
             </div>
             {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
             <div style={{display:'flex',gap:'8px'}}>
