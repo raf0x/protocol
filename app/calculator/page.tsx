@@ -11,7 +11,7 @@ export default function ReconstitutionCalculator() {
   const g = '#39ff14'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
-  const bg = '#000000'
+  const bg = '#0a0a0f'
   const cb = '#12121a'
   const bd = '#1e1e2e'
   function calculate() {
