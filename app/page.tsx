@@ -46,7 +46,7 @@ export default function Home() {
 
         {/* Background rings */}
         <div style={{position:'absolute',inset:0,display:'flex',justifyContent:'center',alignItems:'center',pointerEvents:'none',zIndex:0}}>
-          <svg width="600" height="400" viewBox="0 0 600 400" style={{opacity:0.18,transform:'translateY(-60px)'}}>
+          <svg width="600" height="400" viewBox="0 0 600 400" style={{opacity:0.18,transform:'translateY(40px)'}}>
             {/* Mood ring - blue */}
             <g transform="translate(120, 120)">
               <circle cx="0" cy="0" r="55" fill="none" stroke="#1e1e2e" strokeWidth="7"/>
