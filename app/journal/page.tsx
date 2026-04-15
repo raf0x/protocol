@@ -248,7 +248,7 @@ export default function JournalPage() {
             <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Entry' : 'How are you today?'}</h2>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Date</label>
-              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark',display:'block',width:'100%',WebkitAppearance:'none' />
+              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark',WebkitAppearance:'none'}} />
             </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Mood — {moodLabel(mood)}</label>
