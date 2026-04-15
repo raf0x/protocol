@@ -32,16 +32,24 @@ export default function Home() {
       {/* Hero */}
       <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
 
-        {/* Left syringe */}
-        <div style={{position:'absolute',left:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
-          <span style={{fontSize:'36px',transform:'rotate(135deg)',display:'block'}}>💉</span>
-          <span style={{fontSize:'11px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>BPC-157</span>
+        {/* Left ticker */}
+        <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <style>{'@keyframes tickerDown{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
+          <div style={{animation:'tickerDown 8s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+            {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
+              <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+            ))}
+          </div>
         </div>
 
-        {/* Right syringe */}
-        <div style={{position:'absolute',right:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
-          <span style={{fontSize:'36px',transform:'rotate(135deg)',display:'block'}}>💉</span>
-          <span style={{fontSize:'11px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>GLP-1</span>
+        {/* Right ticker */}
+        <div style={{position:'absolute',right:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <style>{'@keyframes tickerDown2{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
+          <div style={{animation:'tickerDown2 10s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+            {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
+              <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+            ))}
+          </div>
         </div>
 
         {/* Background rings */}
@@ -83,39 +91,51 @@ export default function Home() {
         {/* Hero content */}
         <div style={{position:'relative',zIndex:1}}>
           <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
-          <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'28px',letterSpacing:'-1px'}}>Track your protocol.<br/><span style={{color:'#39ff14'}}>Own your data.</span></h1>
+          <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Track your protocol.<br/><span style={{color:'#39ff14'}}>Own your data.</span></h1>
+          <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>The private wellness tracker built for people managing peptide and GLP-1 protocols. No ads. No data selling. Just signal.</p>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
             <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
-            <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'16px 24px',borderRadius:'8px',fontSize:'16px',border:'1px solid #1e1e2e'}}>Try calculator →</a>
+            <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'16px 24px',borderRadius:'8px',fontSize:'16px',border:'1px solid #1e1e2e'}}>Try the calculator →</a>
           </div>
         </div>
       </section>
 
+      {/* Problem */}
+      <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto',textAlign:'center'}}>
+        <p style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'16px'}}>THE PROBLEM</p>
+        <h2 style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px',lineHeight:'1.3'}}>Most health apps weren't built for this.</h2>
+        <p style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7'}}>Generic fitness trackers don't understand peptide protocols. Reddit threads disappear. Spreadsheets don't give you insights. You deserve a tool built specifically for how you actually manage your wellness.</p>
+      </section>
+
       {/* Features */}
       <section style={{padding:'40px 24px 80px',maxWidth:'720px',margin:'0 auto'}}>
-        <p style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center'}}>WHAT YOU GET</p>
-        <div style={{display:'grid',gap:'12px'}}>
-          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'24px',display:'flex',gap:'16px',alignItems:'flex-start'}}>
-            <span style={{fontSize:'28px'}}>📓</span>
-            <div><h3 style={{fontSize:'18px',fontWeight:'700',marginBottom:'4px',color:'#39ff14'}}>Smart Journal</h3><p style={{color:'#8b8ba7',fontSize:'14px',margin:0}}>Daily logs. Trend charts. Streak tracking.</p></div>
+        <p style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'40px',textAlign:'center'}}>WHAT YOU GET</p>
+        <div style={{display:'grid',gap:'16px'}}>
+          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
+            <div style={{fontSize:'28px',marginBottom:'12px'}}>📓</div>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Smart Journal</h3>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Log your mood, energy, and sleep daily. Watch patterns emerge over time with trend charts, weekly comparisons, and streak tracking. Understand what's actually working.</p>
           </div>
-          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'24px',display:'flex',gap:'16px',alignItems:'flex-start'}}>
-            <span style={{fontSize:'28px'}}>⚗️</span>
-            <div><h3 style={{fontSize:'18px',fontWeight:'700',marginBottom:'4px',color:'#39ff14'}}>Protocol Builder</h3><p style={{color:'#8b8ba7',fontSize:'14px',margin:0}}>Compounds, doses, schedules. All in one place.</p></div>
+          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
+            <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Protocol Builder</h3>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Build and manage your protocols with compound tracking, dosing schedules, and frequency settings. The reconstitution calculator handles the math so you don't have to.</p>
           </div>
-          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'24px',display:'flex',gap:'16px',alignItems:'flex-start'}}>
-            <span style={{fontSize:'28px'}}>👥</span>
-            <div><h3 style={{fontSize:'18px',fontWeight:'700',marginBottom:'4px',color:'#39ff14'}}>Private Community</h3><p style={{color:'#8b8ba7',fontSize:'14px',margin:0}}>Anonymous cohorts. Real experiences. No noise.</p></div>
+          <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
+            <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Private Community</h3>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Join cohorts matched to your protocols — GLP-1s, peptides, TRT, and more. Read real experiences from others anonymously. No vendor talk. No noise.</p>
           </div>
         </div>
       </section>
 
       {/* Privacy */}
-      <section style={{padding:'48px 24px',background:'rgba(108,99,255,0.05)',borderTop:'1px solid #1e1e2e',borderBottom:'1px solid #1e1e2e',textAlign:'center'}}>
-        <h2 style={{fontSize:'22px',fontWeight:'800',marginBottom:'24px'}}>Your data stays yours. Always.</h2>
-        <div style={{display:'flex',gap:'20px',justifyContent:'center',flexWrap:'wrap'}}>
-          {['No ads','No data selling','End-to-end private','You own it'].map(item => (
-            <div key={item} style={{display:'flex',alignItems:'center',gap:'6px',color:'#8b8ba7',fontSize:'14px'}}>
+      <section style={{padding:'60px 24px',background:'rgba(108,99,255,0.05)',borderTop:'1px solid #1e1e2e',borderBottom:'1px solid #1e1e2e',textAlign:'center'}}>
+        <h2 style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px'}}>Privacy isn't a feature.<br/>It's the foundation.</h2>
+        <p style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7',maxWidth:'480px',margin:'0 auto 32px'}}>Your protocols, your journal, your data — none of it is ever sold, shared, or used for advertising. Protocol is a tool you own, not a platform that owns you.</p>
+        <div style={{display:'flex',gap:'24px',justifyContent:'center',flexWrap:'wrap'}}>
+          {['No ads ever','No data selling','End-to-end private','You own your data'].map(item => (
+            <div key={item} style={{display:'flex',alignItems:'center',gap:'8px',color:'#8b8ba7',fontSize:'14px'}}>
               <span style={{color:'#39ff14',fontWeight:'700'}}>✓</span> {item}
             </div>
           ))}
@@ -124,9 +144,9 @@ export default function Home() {
 
       {/* Final CTA */}
       <section style={{padding:'80px 24px',textAlign:'center',maxWidth:'480px',margin:'0 auto'}}>
-        <h2 style={{fontSize:'28px',fontWeight:'900',marginBottom:'12px'}}>Ready to start?</h2>
-        <p style={{color:'#8b8ba7',marginBottom:'28px',fontSize:'15px'}}>Free during early access. No credit card required.</p>
-        <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
+        <h2 style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'#39ff14'}}>actually matters.</span></h2>
+        <p style={{color:'#8b8ba7',marginBottom:'32px',fontSize:'16px'}}>Free during early access. No credit card required.</p>
+        <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
       </section>
 
       {/* Footer */}
