@@ -90,7 +90,7 @@ export default function ProtocolPage() {
   }
 
   const inputStyle = {width:'100%',background:'#000000',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box' as const}
-  const selectStyle = {background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 8px',color:'white',fontSize:'13px'}
+  const selectStyle = {background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 4px',color:'white',fontSize:'12px',maxWidth:'120px'}
 
   return (
     <main style={{minHeight:'100vh',background:'#000000',color:'white',padding:'24px'}}>
@@ -105,7 +105,7 @@ export default function ProtocolPage() {
             <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Protocol' : 'New Protocol'}</h2>
             <div style={{marginBottom:'12px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Protocol name</label>
-              <input value={protocolName} onChange={e => setProtocolName(e.target.value)} placeholder='e.g. BPC-157 healing cycle' style={inputStyle} />
+              <input value={protocolName} onChange={e => { setProtocolName(e.target.value); if (compounds[0].name === '' || compounds[0].name === protocolName) { const u = [...compounds]; u[0].name = e.target.value; setCompounds(u) } }} placeholder='e.g. BPC-157' style={inputStyle} />
             </div>
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Notes (optional)</label>
@@ -119,7 +119,7 @@ export default function ProtocolPage() {
                     <span style={{fontSize:'12px',color:mg}}>Compound {index + 1}</span>
                     {compounds.length > 1 && <button onClick={() => removeCompound(index)} style={{background:'none',border:'none',color:'#ff4444',cursor:'pointer',fontSize:'12px'}}>Remove</button>}
                   </div>
-                  <input value={compound.name} onChange={e => { updateCompound(index, 'name', e.target.value); if (index === 0) setProtocolName(e.target.value) }} placeholder='Compound name (e.g. BPC-157)' style={{...inputStyle,marginBottom:'6px'}} />
+                  <input value={compound.name} onChange={e => updateCompound(index, 'name', e.target.value)} placeholder='Compound name (e.g. BPC-157)' style={{...inputStyle,marginBottom:'6px'}} />
                   <div style={{display:'flex',gap:'6px'}}>
                     <input type='number' value={compound.dose} onChange={e => updateCompound(index, 'dose', e.target.value)} placeholder='Dose' style={{flex:1,background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 8px',color:'white',fontSize:'13px'}} />
                     <select value={compound.unit} onChange={e => updateCompound(index, 'unit', e.target.value)} style={selectStyle}>
