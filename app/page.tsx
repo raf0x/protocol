@@ -30,7 +30,22 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center'}}>
+      <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative'}}>
+        {/* Decorative background rings */}
+        <svg style={{position:'absolute',top:'-40px',right:'-60px',opacity:0.07,pointerEvents:'none'}} width="320" height="320" viewBox="0 0 320 320">
+          <circle cx="160" cy="160" r="120" fill="none" stroke="#39ff14" strokeWidth="6" strokeDasharray="754" strokeDashoffset="188" strokeLinecap="round" transform="rotate(-90 160 160)" />
+          <circle cx="160" cy="160" r="90" fill="none" stroke="#6c63ff" strokeWidth="4" strokeDasharray="565" strokeDashoffset="170" strokeLinecap="round" transform="rotate(-90 160 160)" />
+          <circle cx="160" cy="160" r="60" fill="none" stroke="#39ff14" strokeWidth="3" strokeDasharray="377" strokeDashoffset="94" strokeLinecap="round" transform="rotate(-90 160 160)" />
+        </svg>
+        <svg style={{position:'absolute',bottom:'-20px',left:'-40px',opacity:0.06,pointerEvents:'none'}} width="240" height="240" viewBox="0 0 240 240">
+          <circle cx="120" cy="120" r="100" fill="none" stroke="#6c63ff" strokeWidth="5" strokeDasharray="628" strokeDashoffset="200" strokeLinecap="round" transform="rotate(-90 120 120)" />
+          <circle cx="120" cy="120" r="70" fill="none" stroke="#39ff14" strokeWidth="3" strokeDasharray="440" strokeDashoffset="110" strokeLinecap="round" transform="rotate(-90 120 120)" />
+        </svg>
+        {/* Ghost chart line */}
+        <svg style={{position:'absolute',top:'30px',left:'-20px',opacity:0.05,pointerEvents:'none',width:'100%'}} height="120" viewBox="0 0 640 120" preserveAspectRatio="none">
+          <polyline points="0,90 80,70 160,80 240,45 320,55 400,30 480,40 560,20 640,25" fill="none" stroke="#39ff14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="0,100 80,85 160,90 240,65 320,72 400,50 480,58 560,40 640,45" fill="none" stroke="#6c63ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <div style={{display:'inline-block',background:'rgba(108,99,255,0.15)',border:'1px solid rgba(108,99,255,0.3)',borderRadius:'20px',padding:'6px 16px',fontSize:'12px',color:'#6c63ff',fontWeight:'600',marginBottom:'24px',letterSpacing:'1px'}}>EARLY ACCESS</div>
         <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Track your protocol.<br/><span style={{color:'#39ff14'}}>Own your data.</span></h1>
         <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>The private wellness tracker built for people managing peptide and GLP-1 protocols. No ads. No data selling. Just signal.</p>
