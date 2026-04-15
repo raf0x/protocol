@@ -35,7 +35,8 @@ export default function Home() {
         {/* Left ticker */}
         <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <style>{'@keyframes tickerDown{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
-          <div style={{animation:'tickerDown 8s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+          <div style={{animation:'tickerDown 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+            <span style={{fontSize:'20px',transform:'rotate(135deg)',display:'block',marginBottom:'4px'}}>💉</span>
             {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
               <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
@@ -45,7 +46,8 @@ export default function Home() {
         {/* Right ticker */}
         <div style={{position:'absolute',right:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <style>{'@keyframes tickerDown2{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
-          <div style={{animation:'tickerDown2 10s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+          <div style={{animation:'tickerDown2 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
+            <span style={{fontSize:'20px',transform:'rotate(135deg)',display:'block',marginBottom:'4px'}}>💉</span>
             {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
               <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
@@ -53,37 +55,37 @@ export default function Home() {
         </div>
 
         {/* Background rings */}
-        <div style={{position:'absolute',inset:0,display:'flex',justifyContent:'center',alignItems:'center',pointerEvents:'none',zIndex:0}}>
-          <svg width='600' height='400' viewBox='0 0 600 400' style={{opacity:0.18,transform:'translateY(40px)'}}>
-            <g transform='translate(120, 120)'>
-              <circle cx='0' cy='0' r='55' fill='none' stroke='#1e1e2e' strokeWidth='7'/>
-              <circle cx='0' cy='0' r='55' fill='none' stroke='#6c63ff' strokeWidth='7' strokeDasharray='345' strokeDashoffset='69' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='0' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='16' fontWeight='800'>4.6</text>
-              <text x='0' y='18' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='9' fontWeight='600'>MOOD</text>
+        <div style={{position:'absolute',left:0,right:0,top:'85px',display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:0}}>
+          <svg width='500' height='120' viewBox='0 0 500 120' style={{opacity:0.22}}>
+            <g transform='translate(50, 60)'>
+              <circle cx='0' cy='0' r='32' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
+              <circle cx='0' cy='0' r='32' fill='none' stroke='#6c63ff' strokeWidth='5' strokeDasharray='201' strokeDashoffset='40' strokeLinecap='round' transform='rotate(-90)'/>
+              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='11' fontWeight='800'>4.6</text>
+              <text x='0' y='11' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='7' fontWeight='600'>MOOD</text>
             </g>
-            <g transform='translate(260, 80)'>
-              <circle cx='0' cy='0' r='45' fill='none' stroke='#1e1e2e' strokeWidth='6'/>
-              <circle cx='0' cy='0' r='45' fill='none' stroke='#f59e0b' strokeWidth='6' strokeDasharray='283' strokeDashoffset='71' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='0' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='13' fontWeight='800'>3.8</text>
-              <text x='0' y='15' textAnchor='middle' dominantBaseline='middle' fill='#f59e0b' fontSize='8' fontWeight='600'>ENERGY</text>
+            <g transform='translate(140, 60)'>
+              <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
+              <circle cx='0' cy='0' r='30' fill='none' stroke='#f59e0b' strokeWidth='5' strokeDasharray='188' strokeDashoffset='47' strokeLinecap='round' transform='rotate(-90)'/>
+              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>3.8</text>
+              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#f59e0b' fontSize='7' fontWeight='600'>ENERGY</text>
             </g>
-            <g transform='translate(420, 130)'>
-              <circle cx='0' cy='0' r='50' fill='none' stroke='#1e1e2e' strokeWidth='6'/>
-              <circle cx='0' cy='0' r='50' fill='none' stroke='#8b5cf6' strokeWidth='6' strokeDasharray='314' strokeDashoffset='88' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='0' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='14' fontWeight='800'>7.5h</text>
-              <text x='0' y='16' textAnchor='middle' dominantBaseline='middle' fill='#8b5cf6' fontSize='8' fontWeight='600'>SLEEP</text>
+            <g transform='translate(250, 60)'>
+              <circle cx='0' cy='0' r='34' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
+              <circle cx='0' cy='0' r='34' fill='none' stroke='#8b5cf6' strokeWidth='5' strokeDasharray='214' strokeDashoffset='60' strokeLinecap='round' transform='rotate(-90)'/>
+              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='11' fontWeight='800'>7.5h</text>
+              <text x='0' y='11' textAnchor='middle' dominantBaseline='middle' fill='#8b5cf6' fontSize='7' fontWeight='600'>SLEEP</text>
             </g>
-            <g transform='translate(200, 280)'>
-              <circle cx='0' cy='0' r='42' fill='none' stroke='#1e1e2e' strokeWidth='6'/>
-              <circle cx='0' cy='0' r='42' fill='none' stroke='#39ff14' strokeWidth='6' strokeDasharray='264' strokeDashoffset='38' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='0' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='13' fontWeight='800'>6/7</text>
-              <text x='0' y='14' textAnchor='middle' dominantBaseline='middle' fill='#39ff14' fontSize='8' fontWeight='600'>STREAK</text>
+            <g transform='translate(360, 60)'>
+              <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
+              <circle cx='0' cy='0' r='30' fill='none' stroke='#39ff14' strokeWidth='5' strokeDasharray='188' strokeDashoffset='27' strokeLinecap='round' transform='rotate(-90)'/>
+              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>6/7</text>
+              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#39ff14' fontSize='7' fontWeight='600'>STREAK</text>
             </g>
-            <g transform='translate(380, 290)'>
-              <circle cx='0' cy='0' r='28' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
-              <circle cx='0' cy='0' r='28' fill='none' stroke='#6c63ff' strokeWidth='5' strokeDasharray='176' strokeDashoffset='53' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='0' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>4.2</text>
-              <text x='0' y='12' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='7' fontWeight='600'>AVG</text>
+            <g transform='translate(450, 60)'>
+              <circle cx='0' cy='0' r='28' fill='none' stroke='#1e1e2e' strokeWidth='4'/>
+              <circle cx='0' cy='0' r='28' fill='none' stroke='#6c63ff' strokeWidth='4' strokeDasharray='176' strokeDashoffset='53' strokeLinecap='round' transform='rotate(-90)'/>
+              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='9' fontWeight='800'>4.2</text>
+              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='6' fontWeight='600'>AVG</text>
             </g>
           </svg>
         </div>
