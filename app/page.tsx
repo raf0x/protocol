@@ -33,10 +33,10 @@ export default function Home() {
       <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
 
         {/* Left ticker */}
-        <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'44px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <style>{'@keyframes tickerDown{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
           <div style={{animation:'tickerDown 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
-            <span style={{fontSize:'20px',transform:'rotate(135deg)',display:'block',marginBottom:'4px'}}>💉</span>
+            <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
               <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
@@ -44,10 +44,10 @@ export default function Home() {
         </div>
 
         {/* Right ticker */}
-        <div style={{position:'absolute',right:'0px',top:'0',bottom:'0',width:'60px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{position:'absolute',right:'0px',top:'0',bottom:'0',width:'44px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
           <style>{'@keyframes tickerDown2{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
           <div style={{animation:'tickerDown2 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
-            <span style={{fontSize:'20px',transform:'rotate(135deg)',display:'block',marginBottom:'4px'}}>💉</span>
+            <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
               <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
@@ -57,13 +57,7 @@ export default function Home() {
         {/* Background rings */}
         <div style={{position:'absolute',left:0,right:0,top:'85px',display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:0}}>
           <svg width='500' height='120' viewBox='0 0 500 120' style={{opacity:0.22}}>
-            <g transform='translate(50, 60)'>
-              <circle cx='0' cy='0' r='32' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
-              <circle cx='0' cy='0' r='32' fill='none' stroke='#6c63ff' strokeWidth='5' strokeDasharray='201' strokeDashoffset='40' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='11' fontWeight='800'>4.6</text>
-              <text x='0' y='11' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='7' fontWeight='600'>MOOD</text>
-            </g>
-            <g transform='translate(140, 60)'>
+            <g transform='translate(120, 60)'>
               <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
               <circle cx='0' cy='0' r='30' fill='none' stroke='#f59e0b' strokeWidth='5' strokeDasharray='188' strokeDashoffset='47' strokeLinecap='round' transform='rotate(-90)'/>
               <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>3.8</text>
@@ -75,24 +69,18 @@ export default function Home() {
               <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='11' fontWeight='800'>7.5h</text>
               <text x='0' y='11' textAnchor='middle' dominantBaseline='middle' fill='#8b5cf6' fontSize='7' fontWeight='600'>SLEEP</text>
             </g>
-            <g transform='translate(360, 60)'>
+            <g transform='translate(380, 60)'>
               <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
               <circle cx='0' cy='0' r='30' fill='none' stroke='#39ff14' strokeWidth='5' strokeDasharray='188' strokeDashoffset='27' strokeLinecap='round' transform='rotate(-90)'/>
               <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>6/7</text>
               <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#39ff14' fontSize='7' fontWeight='600'>STREAK</text>
             </g>
-            <g transform='translate(450, 60)'>
-              <circle cx='0' cy='0' r='28' fill='none' stroke='#1e1e2e' strokeWidth='4'/>
-              <circle cx='0' cy='0' r='28' fill='none' stroke='#6c63ff' strokeWidth='4' strokeDasharray='176' strokeDashoffset='53' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='9' fontWeight='800'>4.2</text>
-              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#6c63ff' fontSize='6' fontWeight='600'>AVG</text>
-            </g>
           </svg>
         </div>
 
         {/* Hero content */}
-        <div style={{position:'relative',zIndex:1}}>
-          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
+        <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
+          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'80px',letterSpacing:'2px'}}>EARLY ACCESS</div>
           <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Track your protocol.<br/><span style={{color:'#39ff14'}}>Own your data.</span></h1>
           <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>The private wellness tracker built for people managing peptide and GLP-1 protocols. No ads. No data selling. Just signal.</p>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
