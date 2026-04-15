@@ -6,8 +6,8 @@ import { createClient } from '../lib/supabase'
 
 const scrollAnimStyles = `
   @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(40px) blur(8px); }
-    to { opacity: 1; transform: translateY(0) blur(0); }
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes shimmer {
     0% { background-position: -200% center; }
@@ -35,8 +35,8 @@ const scrollAnimStyles = `
     0%,100% { box-shadow: 0 0 0px rgba(57,255,20,0.4); }
     50% { box-shadow: 0 0 30px rgba(57,255,20,0.6); }
   }
-  .scroll-hidden { opacity: 0; transform: translateY(40px); filter: blur(4px); transition: opacity 0.7s ease, transform 0.7s ease, filter 0.7s ease, box-shadow 0.7s ease, border-color 0.7s ease; }
-  .scroll-visible { opacity: 1; transform: translateY(0); filter: blur(0); }
+  .scroll-hidden { opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease, box-shadow 0.7s ease, border-color 0.7s ease; }
+  .scroll-visible { opacity: 1; transform: translateY(0); }
   .scroll-visible.glow-card { box-shadow: 0 0 24px rgba(108,99,255,0.25); border-color: rgba(108,99,255,0.4) !important; }
   .stagger-1 { transition-delay: 0.1s; }
   .stagger-2 { transition-delay: 0.25s; }
