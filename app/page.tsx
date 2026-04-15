@@ -30,28 +30,68 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative'}}>
-        {/* Decorative background rings */}
-        <svg style={{position:'absolute',top:'-40px',right:'-60px',opacity:0.07,pointerEvents:'none'}} width="320" height="320" viewBox="0 0 320 320">
-          <circle cx="160" cy="160" r="120" fill="none" stroke="#39ff14" strokeWidth="6" strokeDasharray="754" strokeDashoffset="188" strokeLinecap="round" transform="rotate(-90 160 160)" />
-          <circle cx="160" cy="160" r="90" fill="none" stroke="#6c63ff" strokeWidth="4" strokeDasharray="565" strokeDashoffset="170" strokeLinecap="round" transform="rotate(-90 160 160)" />
-          <circle cx="160" cy="160" r="60" fill="none" stroke="#39ff14" strokeWidth="3" strokeDasharray="377" strokeDashoffset="94" strokeLinecap="round" transform="rotate(-90 160 160)" />
-        </svg>
-        <svg style={{position:'absolute',bottom:'-20px',left:'-40px',opacity:0.06,pointerEvents:'none'}} width="240" height="240" viewBox="0 0 240 240">
-          <circle cx="120" cy="120" r="100" fill="none" stroke="#6c63ff" strokeWidth="5" strokeDasharray="628" strokeDashoffset="200" strokeLinecap="round" transform="rotate(-90 120 120)" />
-          <circle cx="120" cy="120" r="70" fill="none" stroke="#39ff14" strokeWidth="3" strokeDasharray="440" strokeDashoffset="110" strokeLinecap="round" transform="rotate(-90 120 120)" />
-        </svg>
-        {/* Ghost chart line */}
-        <svg style={{position:'absolute',top:'30px',left:'-20px',opacity:0.05,pointerEvents:'none',width:'100%'}} height="120" viewBox="0 0 640 120" preserveAspectRatio="none">
-          <polyline points="0,90 80,70 160,80 240,45 320,55 400,30 480,40 560,20 640,25" fill="none" stroke="#39ff14" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <polyline points="0,100 80,85 160,90 240,65 320,72 400,50 480,58 560,40 640,45" fill="none" stroke="#6c63ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+      <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
+
+        {/* Left syringe */}
+        <div style={{position:'absolute',left:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
+          <span style={{fontSize:'36px',transform:'rotate(45deg)',display:'block'}}>💉</span>
+          <span style={{fontSize:'11px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>BPC-157</span>
+        </div>
+
+        {/* Right syringe */}
+        <div style={{position:'absolute',right:'-10px',top:'50%',transform:'translateY(-50%)',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px',opacity:0.5}}>
+          <span style={{fontSize:'36px',transform:'rotate(-45deg)',display:'block'}}>💉</span>
+          <span style={{fontSize:'11px',color:'#6c63ff',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed'}}>GLP-1</span>
+        </div>
+
+        {/* Background rings */}
+        <div style={{position:'absolute',inset:0,display:'flex',justifyContent:'center',alignItems:'center',pointerEvents:'none',zIndex:0}}>
+          <svg width="600" height="400" viewBox="0 0 600 400" style={{opacity:0.18}}>
+            {/* Mood ring - blue */}
+            <g transform="translate(120, 120)">
+              <circle cx="0" cy="0" r="55" fill="none" stroke="#1e1e2e" strokeWidth="7"/>
+              <circle cx="0" cy="0" r="55" fill="none" stroke="#6c63ff" strokeWidth="7" strokeDasharray="345" strokeDashoffset="69" strokeLinecap="round" transform="rotate(-90)"/>
+              <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="16" fontWeight="800">4.6</text>
+              <text x="0" y="18" textAnchor="middle" dominantBaseline="middle" fill="#6c63ff" fontSize="9" fontWeight="600">MOOD</text>
+            </g>
+            {/* Energy ring - amber */}
+            <g transform="translate(260, 80)">
+              <circle cx="0" cy="0" r="45" fill="none" stroke="#1e1e2e" strokeWidth="6"/>
+              <circle cx="0" cy="0" r="45" fill="none" stroke="#f59e0b" strokeWidth="6" strokeDasharray="283" strokeDashoffset="71" strokeLinecap="round" transform="rotate(-90)"/>
+              <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="13" fontWeight="800">3.8</text>
+              <text x="0" y="15" textAnchor="middle" dominantBaseline="middle" fill="#f59e0b" fontSize="8" fontWeight="600">ENERGY</text>
+            </g>
+            {/* Sleep ring - purple */}
+            <g transform="translate(420, 130)">
+              <circle cx="0" cy="0" r="50" fill="none" stroke="#1e1e2e" strokeWidth="6"/>
+              <circle cx="0" cy="0" r="50" fill="none" stroke="#8b5cf6" strokeWidth="6" strokeDasharray="314" strokeDashoffset="88" strokeLinecap="round" transform="rotate(-90)"/>
+              <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="14" fontWeight="800">7.5h</text>
+              <text x="0" y="16" textAnchor="middle" dominantBaseline="middle" fill="#8b5cf6" fontSize="8" fontWeight="600">SLEEP</text>
+            </g>
+            {/* Days ring - green */}
+            <g transform="translate(200, 280)">
+              <circle cx="0" cy="0" r="42" fill="none" stroke="#1e1e2e" strokeWidth="6"/>
+              <circle cx="0" cy="0" r="42" fill="none" stroke="#39ff14" strokeWidth="6" strokeDasharray="264" strokeDashoffset="38" strokeLinecap="round" transform="rotate(-90)"/>
+              <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="13" fontWeight="800">6/7</text>
+              <text x="0" y="14" textAnchor="middle" dominantBaseline="middle" fill="#39ff14" fontSize="8" fontWeight="600">STREAK</text>
+            </g>
+            {/* Small accent ring */}
+            <g transform="translate(380, 290)">
+              <circle cx="0" cy="0" r="28" fill="none" stroke="#1e1e2e" strokeWidth="5"/>
+              <circle cx="0" cy="0" r="28" fill="none" stroke="#6c63ff" strokeWidth="5" strokeDasharray="176" strokeDashoffset="53" strokeLinecap="round" transform="rotate(-90)"/>
+              <text x="0" y="0" textAnchor="middle" dominantBaseline="middle" fill="white" fontSize="10" fontWeight="800">4.2</text>
+              <text x="0" y="12" textAnchor="middle" dominantBaseline="middle" fill="#6c63ff" fontSize="7" fontWeight="600">AVG</text>
+            </g>
+          </svg>
+        </div>
+        <div style={{position:'relative',zIndex:1}}>
         <div style={{display:'inline-block',background:'rgba(108,99,255,0.15)',border:'1px solid rgba(108,99,255,0.3)',borderRadius:'20px',padding:'6px 16px',fontSize:'12px',color:'#6c63ff',fontWeight:'600',marginBottom:'24px',letterSpacing:'1px'}}>EARLY ACCESS</div>
         <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Track your protocol.<br/><span style={{color:'#39ff14'}}>Own your data.</span></h1>
         <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>The private wellness tracker built for people managing peptide and GLP-1 protocols. No ads. No data selling. Just signal.</p>
         <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
           <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
           <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'16px 24px',borderRadius:'8px',fontSize:'16px',border:'1px solid #1e1e2e'}}>Try the calculator →</a>
+        </div>
         </div>
       </section>
 
