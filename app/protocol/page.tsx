@@ -119,7 +119,7 @@ export default function ProtocolPage() {
                     <span style={{fontSize:'12px',color:mg}}>Compound {index + 1}</span>
                     {compounds.length > 1 && <button onClick={() => removeCompound(index)} style={{background:'none',border:'none',color:'#ff4444',cursor:'pointer',fontSize:'12px'}}>Remove</button>}
                   </div>
-                  <input value={compound.name} onChange={e => updateCompound(index, 'name', e.target.value)} placeholder='Compound name (e.g. BPC-157)' style={{...inputStyle,marginBottom:'6px'}} />
+                  <input value={compound.name} onChange={e => { updateCompound(index, 'name', e.target.value); if (index === 0) setProtocolName(e.target.value) }} placeholder='Compound name (e.g. BPC-157)' style={{...inputStyle,marginBottom:'6px'}} />
                   <div style={{display:'flex',gap:'6px'}}>
                     <input type='number' value={compound.dose} onChange={e => updateCompound(index, 'dose', e.target.value)} placeholder='Dose' style={{flex:1,background:'#000000',border:'1px solid '+bd,borderRadius:'4px',padding:'6px 8px',color:'white',fontSize:'13px'}} />
                     <select value={compound.unit} onChange={e => updateCompound(index, 'unit', e.target.value)} style={selectStyle}>
@@ -129,10 +129,18 @@ export default function ProtocolPage() {
                       <option value='ml'>ml</option>
                     </select>
                     <select value={compound.frequency} onChange={e => updateCompound(index, 'frequency', e.target.value)} style={selectStyle}>
-                      <option value='daily'>Daily</option>
+                      <option value='daily'>Daily (7x/week)</option>
+                      <option value='6x/week'>6x/week</option>
+                      <option value='5x/week'>5x/week (weekdays)</option>
+                      <option value='4x/week'>4x/week</option>
+                      <option value='3x/week'>3x/week</option>
+                      <option value='2x/week'>2x/week</option>
+                      <option value='1x/week'>1x/week</option>
                       <option value='eod'>Every other day</option>
-                      <option value='3x/week'>3x per week</option>
-                      <option value='weekly'>Weekly</option>
+                      <option value='every3days'>Every 3 days</option>
+                      <option value='every4days'>Every 4 days</option>
+                      <option value='every5days'>Every 5 days</option>
+                      <option value='monthly'>Monthly</option>
                     </select>
                   </div>
                 </div>
