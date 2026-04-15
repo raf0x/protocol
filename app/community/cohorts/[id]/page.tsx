@@ -20,6 +20,8 @@ export default function CohortPage({ params }: { params: Promise<{ id: string }>
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
   const [userId, setUserId] = useState('')
+  const [search, setSearch] = useState('')
+  const [filterTag, setFilterTag] = useState('')
   const router = useRouter()
   const g = '#39ff14'
   const dg = '#4dbd4d'
@@ -85,6 +87,12 @@ export default function CohortPage({ params }: { params: Promise<{ id: string }>
     return Math.floor(hrs / 24) + 'd ago'
   }
 
+  const filteredPosts = posts.filter(post => {
+    const matchesTag = filterTag === '' || post.tag === filterTag
+    const matchesSearch = search === '' || post.content.toLowerCase().includes(search.toLowerCase()) || post.username.toLowerCase().includes(search.toLowerCase())
+    return matchesTag && matchesSearch
+  })
+
   if (loading) return <main style={{minHeight:'100vh',background:'#000000',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
@@ -109,8 +117,16 @@ export default function CohortPage({ params }: { params: Promise<{ id: string }>
         <div style={{background:'#0a1a0a',border:'1px solid '+mg,borderRadius:'6px',padding:'10px',marginBottom:'20px'}}>
           <p style={{fontSize:'11px',color:mg,margin:0}}>No vendor names, sourcing links, purchasing info, or contact details. Posts violating these rules are automatically blocked.</p>
         </div>
-        {posts.length === 0 && <div style={{textAlign:'center',padding:'48px 0'}}><p style={{color:dg}}>No posts yet.</p><p style={{color:mg,fontSize:'13px'}}>Be the first to share an experience.</p></div>}
-        {posts.map(post => (
+        <div style={{marginBottom:'16px'}}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder='Search posts...' style={{width:'100%',background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'6px',padding:'8px 12px',color:'white',fontSize:'14px',boxSizing:'border-box',outline:'none',marginBottom:'8px'}} />
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+            {['', 'observation', 'side effect', 'question', 'milestone'].map(t => (
+              <button key={t} onClick={() => setFilterTag(t)} style={{background:filterTag===t?'#1a1a3e':'none',border:'1px solid '+(filterTag===t?'#6c63ff':'#1e1e2e'),color:filterTag===t?'#6c63ff':'#3d3d5c',fontSize:'11px',padding:'4px 10px',borderRadius:'4px',cursor:'pointer'}}>{t === '' ? 'All' : t}</button>
+            ))}
+          </div>
+        </div>
+        {filteredPosts.length === 0 && search === '' && filterTag === '' && <div style={{textAlign:'center',padding:'48px 0'}}><p style={{color:dg}}>No posts yet.</p><p style={{color:mg,fontSize:'13px'}}>Be the first to share an experience.</p></div>}
+        {filteredPosts.map(post => (
           <div key={post.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}}>
               <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
