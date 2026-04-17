@@ -24,6 +24,7 @@ export default function RootLayout({
         <meta name='apple-mobile-web-app-title' content='Protocol' />
         <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover' />
         <link rel='apple-touch-icon' href='/icon-192.png' />
+        <link rel='icon' type='image/png' href='/icon-192.png' />
       </head>
       <body className={inter.className} style={{paddingBottom:'80px'}}>
         {children}
