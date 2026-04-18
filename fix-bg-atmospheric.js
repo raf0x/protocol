@@ -1,4 +1,5 @@
-@tailwind base;
+﻿const fs = require('fs');
+const css = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -35,3 +36,6 @@ body::before {
   50% { transform: translate(10px, -15px); opacity: 1; }
   100% { transform: translate(-8px, 10px); opacity: 0.8; }
 }
+`;
+fs.writeFileSync('app/globals.css', css, 'utf8');
+console.log('Done');
