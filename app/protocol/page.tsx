@@ -31,6 +31,7 @@ export default function ProtocolPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [protocolName, setProtocolName] = useState('')
+  const [protocolNameTouched, setProtocolNameTouched] = useState(false)
   const [notes, setNotes] = useState('')
   const today = new Date().toISOString().split('T')[0]
   const [startDate, setStartDate] = useState(today)
@@ -60,6 +61,7 @@ export default function ProtocolPage() {
   function startNew() {
     setEditingId(null)
     setProtocolName('')
+    setProtocolNameTouched(false)
     setNotes('')
     setStartDate(today)
     setCompounds([newCompound()])
@@ -70,6 +72,7 @@ export default function ProtocolPage() {
   function startEdit(p: any) {
     setEditingId(p.id)
     setProtocolName(p.name)
+    setProtocolNameTouched(true)
     setNotes(p.notes || '')
     setStartDate(p.start_date)
     const cs = (p.compounds || []).map((c: any) => ({
@@ -195,7 +198,7 @@ export default function ProtocolPage() {
 
             <div style={{marginBottom:'14px'}}>
               <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'4px',fontWeight:'600'}}>PROTOCOL NAME (optional)</label>
-              <input value={protocolName} onChange={e => setProtocolName(e.target.value)} placeholder='Auto-fills from first compound' style={inputStyle} />
+              <input value={protocolName} onChange={e => { setProtocolName(e.target.value); setProtocolNameTouched(true) }} placeholder='Auto-fills from first compound' style={inputStyle} />
             </div>
 
             <div style={{marginBottom:'14px'}}>
@@ -211,7 +214,7 @@ export default function ProtocolPage() {
                     <span style={{fontSize:'12px',color:mg,fontWeight:'700'}}>COMPOUND {ci + 1}</span>
                     {compounds.length > 1 && <button onClick={() => removeCompound(ci)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Remove</button>}
                   </div>
-                  <input value={c.name} onChange={e => { updateCompound(ci, 'name', e.target.value); if (ci === 0 && (!protocolName || protocolName === compounds[0].name)) setProtocolName(e.target.value) }} placeholder='Compound name (e.g. Retatrutide)' style={{...inputStyle,marginBottom:'8px'}} />
+                  <input value={c.name} onChange={e => { updateCompound(ci, 'name', e.target.value); if (ci === 0 && !protocolNameTouched) setProtocolName(e.target.value) }} placeholder='Compound name (e.g. Retatrutide)' style={{...inputStyle,marginBottom:'8px'}} />
                   <div style={{display:'flex',gap:'6px',marginBottom:'8px'}}>
                     <input type='number' value={c.vial_strength} onChange={e => updateCompound(ci, 'vial_strength', e.target.value)} placeholder='Vial mg' style={smallInputStyle} />
                     <input type='number' value={c.bac_water_ml} onChange={e => updateCompound(ci, 'bac_water_ml', e.target.value)} placeholder='BAC water mL' style={smallInputStyle} />
