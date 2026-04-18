@@ -306,7 +306,7 @@ export default function ProtocolPage() {
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
                   <h2 style={{fontSize:'16px',fontWeight:'700',color:g,marginBottom:'4px'}}>{p.name}</h2>
-                  <p style={{fontSize:'12px',color:mg}}>Week {currentWeek}{currentPhase ? ' · ' + currentPhase.dose + currentPhase.dose_unit : ''}{compoundCount > 1 ? ' · ' + compoundCount + ' compounds' : ''}</p>
+                  <p style={{fontSize:'12px',color:dg,fontWeight:'500'}}>Week {currentWeek}{currentPhase ? ' · ' + currentPhase.dose + currentPhase.dose_unit : ''}{compoundCount > 1 ? ' · ' + compoundCount + ' compounds' : ''}</p>
                 </div>
                 <span style={{color:mg,fontSize:'18px'}}>›</span>
               </div>
@@ -328,7 +328,7 @@ export default function ProtocolPage() {
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
                   <div>
                     <h2 style={{fontSize:'18px',fontWeight:'700',color:g}}>{p.name}</h2>
-                    <p style={{fontSize:'12px',color:mg,marginTop:'2px'}}>Week {currentWeek} · Started {new Date(p.start_date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
+                    <p style={{fontSize:'12px',color:dg,fontWeight:'500',marginTop:'2px'}}>Week {currentWeek} · Started {new Date(p.start_date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
                   </div>
                   <div style={{display:'flex',gap:'8px'}}>
                     <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
@@ -340,7 +340,7 @@ export default function ProtocolPage() {
                   <div key={c.id} style={{background:'#0a0a0f',borderRadius:'8px',padding:'12px',marginTop:'10px'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
                       <span style={{fontSize:'14px',fontWeight:'700',color:'white'}}>{c.name}</span>
-                      {c.vial_strength && <span style={{fontSize:'11px',color:mg}}>{c.vial_strength}{c.vial_unit} vial · {c.bac_water_ml || '?'}mL BAC</span>}
+                      {c.vial_strength && <span style={{fontSize:'11px',color:dg,fontWeight:'500'}}>{c.vial_strength}{c.vial_unit} vial · {c.bac_water_ml || '?'}mL BAC</span>}
                     </div>
                     {(c.phases || []).slice().sort((a: any, b: any) => a.start_week - b.start_week).map((ph: any) => {
                       const isCurrent = currentWeek >= ph.start_week && currentWeek <= ph.end_week
