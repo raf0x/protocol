@@ -2,109 +2,102 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
-type JournalEntry = { id: string; date: string; mood: number; energy: number; sleep: number; notes: string }
-type DueCompound = { id: string; name: string; dose: number; unit: string; frequency: string; start_date: string; protocol_name: string }
+type JournalEntry = { id: string; date: string; mood: number | null; energy: number | null; sleep: number | null; notes: string; weight?: number; hunger?: number }
+type DueCompound = { id: string; name: string; dose: string; protocol_name: string }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
-function isDueToday(frequency: string, start_date: string): boolean {
-  if (!start_date) return false
-  const start = new Date(start_date + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0,0,0,0)
-  const daysDiff = Math.floor((today.getTime() - start.getTime()) / (1000*60*60*24))
+function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null): boolean {
+  if (!protocolStart) return false
+  const start = new Date(protocolStart + 'T00:00:00')
+  const today = new Date(); today.setHours(0,0,0,0)
+  const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86400000)
   if (daysDiff < 0) return false
   if (frequency === 'daily') return true
   if (frequency === 'eod') return daysDiff % 2 === 0
   if (frequency === 'every3days') return daysDiff % 3 === 0
   if (frequency === 'every4days') return daysDiff % 4 === 0
   if (frequency === 'every5days') return daysDiff % 5 === 0
-  if (frequency === 'monthly') return daysDiff % 30 === 0
-  const startDay = start.getDay()
   const todayDay = today.getDay()
-  const weekOffset = Math.floor(daysDiff / 7)
-  if (frequency === '1x/week') return daysDiff % 7 === 0
-  if (frequency === '2x/week') { const d = (todayDay - startDay + 7) % 7; return d === 0 || d === 3 }
-  if (frequency === '3x/week') { const d = (todayDay - startDay + 7) % 7; return d === 0 || d === 2 || d === 4 }
-  if (frequency === '4x/week') { const d = (todayDay - startDay + 7) % 7; return d === 0 || d === 2 || d === 4 || d === 6 }
-  if (frequency === '5x/week') { const d = (todayDay - startDay + 7) % 7; return d !== 5 && d !== 6 }
-  if (frequency === '6x/week') { const d = (todayDay - startDay + 7) % 7; return d !== 6 }
+  if (frequency === '1x/week') return dayOfWeek !== null ? todayDay === dayOfWeek : daysDiff % 7 === 0
+  if (frequency === '2x/week') { const d = dayOfWeek ?? 0; return todayDay === d || todayDay === (d+3)%7 }
+  if (frequency === '3x/week') return todayDay === 1 || todayDay === 3 || todayDay === 5
+  if (frequency === '4x/week') return todayDay === 1 || todayDay === 2 || todayDay === 4 || todayDay === 5
+  if (frequency === '5x/week') return todayDay >= 1 && todayDay <= 5
+  if (frequency === '6x/week') return todayDay !== 0
   return false
-}
-
-function ProgressRing({ value, max, color, label, size = 70 }: { value: number; max: number; color: string; label: string; size?: number }) {
-  const radius = (size - 10) / 2
-  const circumference = 2 * Math.PI * radius
-  const progress = Math.min(value / max, 1)
-  const strokeDashoffset = circumference * (1 - progress)
-  return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
-      <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
-        <circle cx={size/2} cy={size/2} r={radius} fill='none' stroke='#1a1a1a' strokeWidth={6} />
-        <circle cx={size/2} cy={size/2} r={radius} fill='none' stroke={color} strokeWidth={6} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap='round' style={{transition:'stroke-dashoffset 0.5s ease'}} />
-        <text x={size/2} y={size/2} textAnchor='middle' dominantBaseline='middle' fill='white' fontSize={size*0.22} fontWeight='700' style={{transform:`rotate(90deg)`,transformOrigin:`${size/2}px ${size/2}px`}}>{value > 0 ? value.toFixed(1) : '—'}</text>
-      </svg>
-      <span style={{fontSize:'10px',color:'#8b8ba7',textAlign:'center'}}>{label}</span>
-    </div>
-  )
 }
 
 export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [mood, setMood] = useState(3)
-  const [energy, setEnergy] = useState(3)
-  const [sleep, setSleep] = useState('')
-  const [notes, setNotes] = useState('')
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [showChart, setShowChart] = useState(false)
+
+  const today = new Date().toISOString().split('T')[0]
+  const [date, setDate] = useState(today)
+  const [mood, setMood] = useState<number | null>(null)
+  const [energy, setEnergy] = useState<number | null>(null)
+  const [sleep, setSleep] = useState('')
+  const [weight, setWeight] = useState('')
+  const [hunger, setHunger] = useState<number | null>(null)
+  const [entryNotes, setEntryNotes] = useState('')
+
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
-  const [chartRange, setChartRange] = useState<7|30|'all'>(7)
+
   const g = '#39ff14'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'
   const bd = '#1e1e2e'
 
-  useEffect(() => { loadEntries() }, [])
+  useEffect(() => { loadAll() }, [])
 
-  async function loadEntries() {
+  async function loadAll() {
     setLoading(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
-    const { data } = await supabase.from('journal_entries').select('*').order('date', { ascending: true })
-    setEntries(data || [])
-    const { data: compoundsData } = await supabase.from('compounds').select('id, name, dose, unit, frequency, start_date, protocols(name)')
-    const dueList: DueCompound[] = []
-    ;(compoundsData || []).forEach((c: any) => {
-      if (isDueToday(c.frequency, c.start_date)) {
-        dueList.push({ id: c.id, name: c.name, dose: c.dose, unit: c.unit, frequency: c.frequency, start_date: c.start_date, protocol_name: c.protocols?.name || '' })
-      }
+    const { data: js } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
+    setEntries(js || [])
+    const todayEntry = (js || []).find((e: any) => e.date === today)
+    if (todayEntry) {
+      setMood(todayEntry.mood); setEnergy(todayEntry.energy);
+      setSleep(todayEntry.sleep?.toString() || '')
+      setWeight(todayEntry.weight?.toString() || '')
+      setHunger(todayEntry.hunger ?? null)
+      setEntryNotes(todayEntry.notes || '')
+    }
+    const { data: protocols } = await supabase.from('protocols').select('id, start_date, name, compounds(id, name, phases(dose, dose_unit, frequency, day_of_week, start_week, end_week))').eq('status', 'active')
+    const due: DueCompound[] = []
+    ;(protocols || []).forEach((p: any) => {
+      const startMs = new Date(p.start_date + 'T00:00:00').getTime()
+      const daysIn = Math.floor((Date.now() - startMs) / 86400000)
+      const currentWeek = Math.max(1, Math.floor(daysIn / 7) + 1)
+      ;(p.compounds || []).forEach((c: any) => {
+        const phase = (c.phases || []).find((ph: any) => currentWeek >= ph.start_week && currentWeek <= ph.end_week) || c.phases?.[0]
+        if (!phase) return
+        if (isDueToday(phase.frequency, p.start_date, phase.day_of_week)) {
+          due.push({ id: c.id, name: c.name, dose: phase.dose + phase.dose_unit, protocol_name: p.name })
+        }
+      })
     })
-    setDueCompounds(dueList)
-    const todayStr = new Date().toISOString().split('T')[0]
-    const { data: logsData } = await supabase.from('protocol_logs').select('*').eq('date', todayStr)
-    const logsMap: Record<string, LogEntry> = {}
-    ;(logsData || []).forEach((l: any) => { logsMap[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } })
-    setLogs(logsMap)
+    setDueCompounds(due)
+    const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
+    const map: Record<string, LogEntry> = {}
+    ;(ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } })
+    setLogs(map)
     setLoading(false)
   }
 
-  async function toggleLog(compoundId: string) {
+  async function toggleInjection(compoundId: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const todayStr = new Date().toISOString().split('T')[0]
     const current = logs[compoundId]
     const newTaken = !current?.taken
-    await supabase.from('protocol_logs').upsert({ user_id: user.id, compound_id: compoundId, date: todayStr, taken: newTaken, discomfort: current?.discomfort || 0 }, { onConflict: 'user_id,compound_id,date' })
+    await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: compoundId, date: today, taken: newTaken, discomfort: current?.discomfort || 0 }, { onConflict: 'user_id,compound_id,date' })
     setLogs({ ...logs, [compoundId]: { compound_id: compoundId, taken: newTaken, discomfort: current?.discomfort || 0 } })
   }
 
@@ -112,161 +105,53 @@ export default function JournalPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const todayStr = new Date().toISOString().split('T')[0]
-    const current = logs[compoundId]
-    await supabase.from('protocol_logs').upsert({ user_id: user.id, compound_id: compoundId, date: todayStr, taken: true, discomfort: level }, { onConflict: 'user_id,compound_id,date' })
+    await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: compoundId, date: today, taken: true, discomfort: level }, { onConflict: 'user_id,compound_id,date' })
     setLogs({ ...logs, [compoundId]: { compound_id: compoundId, taken: true, discomfort: level } })
   }
 
-  function startNew() { setEditingId(null); setMood(3); setEnergy(3); setSleep(''); setNotes(''); setEntryDate(new Date().toISOString().split('T')[0]); setShowForm(true); setError('') }
-  function startEdit(entry: JournalEntry) { setEditingId(entry.id); setMood(entry.mood); setEnergy(entry.energy); setSleep(String(entry.sleep)); setNotes(entry.notes || ''); setEntryDate(entry.date); setShowForm(true); setError('') }
-
   async function saveEntry() {
-    setError('')
-    if (!sleep || isNaN(parseFloat(sleep))) { setError('Please enter how many hours you slept.'); return }
-    setSaving(true)
+    setError(''); setSaving(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('You must be signed in.'); setSaving(false); return }
-    if (editingId) {
-      await supabase.from('journal_entries').update({ mood, energy, sleep: parseFloat(sleep), notes: notes.trim(), date: entryDate }).eq('id', editingId)
-    } else {
-      await supabase.from('journal_entries').insert({ user_id: user.id, date: entryDate, mood, energy, sleep: parseFloat(sleep), notes: notes.trim() })
-    }
-    setShowForm(false); setEditingId(null); setSaving(false)
-    loadEntries()
+    if (!user) { setError('Not signed in.'); setSaving(false); return }
+    const row: any = { user_id: user.id, date, notes: entryNotes.trim() }
+    if (mood !== null) row.mood = mood
+    if (energy !== null) row.energy = energy
+    if (sleep) row.sleep = parseFloat(sleep)
+    if (weight) row.weight = parseFloat(weight)
+    if (hunger !== null) row.hunger = hunger
+    const { error: e } = await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' })
+    if (e) { setError(e.message); setSaving(false); return }
+    setSaving(false)
+    loadAll()
   }
 
-  async function deleteEntry(id: string) {
-    const supabase = createClient()
-    await supabase.from('journal_entries').delete().eq('id', id)
-    loadEntries()
+  function ScoreBtn({ value, current, onChange, activeColor = g }: { value: number; current: number | null; onChange: (v: number) => void; activeColor?: string }) {
+    const isActive = current === value
+    return <button onClick={() => onChange(value)} style={{width:'42px',height:'42px',borderRadius:'50%',border:isActive?'none':'1px solid '+bd,background:isActive?activeColor:cb,color:isActive?'#000':dg,fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{value}</button>
   }
 
-  function formatDate(dateStr: string) {
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  function DiscomfortBtn({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) {
+    const isActive = current === value
+    const color = value === 0 ? g : '#ff6b6b'
+    return <button onClick={() => onChange(value)} style={{width:'32px',height:'32px',borderRadius:'6px',border:'1px solid '+(isActive?color:bd),background:isActive?(value===0?'rgba(57,255,20,0.15)':'rgba(255,107,107,0.15)'):'transparent',color:isActive?color:dg,fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>{value}</button>
   }
 
-  function moodLabel(val: number) {
-    return ({1:'Rough',2:'Low',3:'Okay',4:'Good',5:'Great'} as Record<number,string>)[val] || val.toString()
-  }
+  const inputStyle = { width:'100%', background:'#0a0a0f', border:'1px solid '+bd, borderRadius:'6px', padding:'8px 10px', color:'white', fontSize:'14px', boxSizing:'border-box' as const, colorScheme:'dark' as const }
 
-  // --- STATS ---
-  function getStreak() {
-    if (entries.length === 0) return 0
-    const dates = new Set(entries.map(e => e.date))
-    let streak = 0
-    const today = new Date()
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(today)
-      d.setDate(d.getDate() - i)
-      const dateStr = d.toISOString().split('T')[0]
-      if (dates.has(dateStr)) { streak++ } else { break }
-    }
-    return streak
-  }
-
-  function getWeekAvg(weeksAgo = 0) {
-    const now = new Date()
-    const start = new Date(now)
-    start.setDate(start.getDate() - (7 * weeksAgo) - 6)
-    const end = new Date(now)
-    end.setDate(end.getDate() - (7 * weeksAgo))
-    const startStr = start.toISOString().split('T')[0]
-    const endStr = end.toISOString().split('T')[0]
-    const weekEntries = entries.filter(e => e.date >= startStr && e.date <= endStr)
-    if (weekEntries.length === 0) return null
-    return {
-      mood: weekEntries.reduce((s, e) => s + e.mood, 0) / weekEntries.length,
-      energy: weekEntries.reduce((s, e) => s + e.energy, 0) / weekEntries.length,
-      sleep: weekEntries.reduce((s, e) => s + e.sleep, 0) / weekEntries.length,
-      days: weekEntries.length,
-    }
-  }
-
-  function getDaysLoggedThisWeek() {
-    const now = new Date()
-    const start = new Date(now)
-    start.setDate(start.getDate() - 6)
-    const startStr = start.toISOString().split('T')[0]
-    const endStr = now.toISOString().split('T')[0]
-    return entries.filter(e => e.date >= startStr && e.date <= endStr).length
-  }
-
-  function getChartData() {
-    const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date))
-    if (chartRange === 'all') return sorted.map(e => ({ date: formatDate(e.date), mood: e.mood, energy: e.energy, sleep: e.sleep }))
-    const now = new Date()
-    const cutoff = new Date(now)
-    cutoff.setDate(cutoff.getDate() - (chartRange - 1))
-    const cutoffStr = cutoff.toISOString().split('T')[0]
-    return sorted.filter(e => e.date >= cutoffStr).map(e => ({ date: formatDate(e.date), mood: e.mood, energy: e.energy, sleep: e.sleep }))
-  }
-
-  const streak = getStreak()
-  const thisWeek = getWeekAvg(0)
-  const lastWeek = getWeekAvg(1)
-  const daysThisWeek = getDaysLoggedThisWeek()
-  const chartData = getChartData()
-  const sortedEntries = [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  const tooltipStyle = {contentStyle:{background:cb,border:'1px solid '+bd,borderRadius:'6px',fontSize:'12px'}}
-
-  function Delta({ current, previous, label }: { current: number; previous: number; label: string }) {
-    const diff = current - previous
-    const color = diff > 0 ? g : diff < 0 ? '#ff4444' : dg
-    const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→'
-    return (
-      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'2px'}}>
-        <span style={{fontSize:'11px',color:mg}}>{label}</span>
-        <span style={{fontSize:'16px',fontWeight:'700',color:'white'}}>{current.toFixed(1)}</span>
-        <span style={{fontSize:'11px',color,fontWeight:'600'}}>{arrow} {Math.abs(diff).toFixed(1)}</span>
-      </div>
-    )
-  }
-
-  function ScoreButton({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) {
-    const isActive = value === current
-    return (
-      <button onClick={() => onChange(value)} style={{width:'38px',height:'38px',borderRadius:'50%',border:isActive?'none':'1px solid '+bd,background:isActive?g:cb,color:isActive?'#000000':dg,fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>
-        {value}
-      </button>
-    )
-  }
-
-  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
-      <div style={{maxWidth:'480px',margin:'0 auto'}}>
+    <main style={{minHeight:'100vh',color:'white',padding:'24px'}}>
+      <div style={{maxWidth:'540px',margin:'0 auto'}}>
+        <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'8px'}}>Journal</h1>
+        <p style={{color:dg,fontSize:'13px',marginBottom:'20px'}}>Log your day. Track your progress.</p>
 
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'20px'}}>
-          <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Journal</h1>
-          <div style={{display:'flex',gap:'8px'}}>
-            {entries.length > 1 && <button onClick={() => setShowChart(!showChart)} style={{background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'8px 12px',fontSize:'13px',cursor:'pointer'}}>{showChart?'Hide chart':'Show chart'}</button>}
-            {!showForm && <button onClick={startNew} style={{background:g,color:'#000000',border:'none',borderRadius:'6px',padding:'8px 16px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ Log today</button>}
-          </div>
-        </div>
-
-        {entries.length > 0 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'20px'}}>
-            <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',marginBottom:'16px'}}>
-              <ProgressRing value={daysThisWeek} max={7} color={g} label='Days/week' />
-              <ProgressRing value={thisWeek?.mood || 0} max={5} color='#6c63ff' label='Avg mood' />
-              <ProgressRing value={thisWeek?.energy || 0} max={5} color='#f59e0b' label='Avg energy' />
-              <ProgressRing value={thisWeek?.sleep || 0} max={9} color='#8b5cf6' label='Avg sleep' />
-            </div>
-            <div style={{borderTop:'1px solid '+bd,paddingTop:'12px',display:'flex',justifyContent:'center',alignItems:'center',gap:'8px'}}>
-              <span style={{fontSize:'20px'}}>{streak >= 3 ? '🔥' : '📅'}</span>
-              <span style={{fontSize:'14px',fontWeight:'700',color:streak >= 3 ? g : dg}}>{streak} day streak</span>
-              {streak >= 7 && <span style={{fontSize:'11px',color:mg,background:'#0a1a0a',padding:'2px 8px',borderRadius:'4px'}}>WEEKLY GOAL HIT</span>}
-            </div>
-          </div>
-        )}
-
+        {/* Today's injections */}
         {dueCompounds.length > 0 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'20px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
-              <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>TODAY'S INJECTIONS</h2>
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+              <span style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>TODAY'S INJECTIONS</span>
               <span style={{fontSize:'12px',color:mg}}>{Object.values(logs).filter(l => l.taken).length}/{dueCompounds.length}</span>
             </div>
             {dueCompounds.map(c => {
@@ -276,21 +161,17 @@ export default function JournalPage() {
               return (
                 <div key={c.id} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-                    <button onClick={() => toggleLog(c.id)} style={{width:'24px',height:'24px',borderRadius:'6px',border:'1px solid '+(taken?g:bd),background:taken?g:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'14px',color:'#000',fontWeight:'800',padding:0}}>
-                      {taken ? '✓' : ''}
-                    </button>
+                    <button onClick={() => toggleInjection(c.id)} style={{width:'26px',height:'26px',borderRadius:'6px',border:'1px solid '+(taken?g:bd),background:taken?g:'transparent',cursor:'pointer',color:'#000',fontWeight:'800',padding:0}}>{taken?'✓':''}</button>
                     <div style={{flex:1}}>
                       <div style={{fontSize:'14px',fontWeight:'600',color:taken?dg:'white',textDecoration:taken?'line-through':'none'}}>{c.name}</div>
-                      <div style={{fontSize:'12px',color:mg}}>{c.dose} {c.unit}</div>
+                      <div style={{fontSize:'11px',color:mg}}>{c.dose} · {c.protocol_name}</div>
                     </div>
                   </div>
                   {taken && (
                     <div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid '+bd}}>
-                      <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'0.5px'}}>DISCOMFORT / ISSUES (0 = none)</span>
+                      <span style={{fontSize:'10px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span>
                       <div style={{display:'flex',gap:'6px'}}>
-                        {[0,1,2,3,4,5].map(n => (
-                          <button key={n} onClick={() => setDiscomfort(c.id, n)} style={{width:'32px',height:'32px',borderRadius:'6px',border:'1px solid '+(discomfort===n?(n===0?g:'#ff6b6b'):bd),background:discomfort===n?(n===0?'rgba(57,255,20,0.15)':'rgba(255,107,107,0.15)'):'transparent',color:discomfort===n?(n===0?g:'#ff6b6b'):dg,fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>{n}</button>
-                        ))}
+                        {[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={discomfort} onChange={v => setDiscomfort(c.id, v)} />)}
                       </div>
                     </div>
                   )}
@@ -300,102 +181,67 @@ export default function JournalPage() {
           </div>
         )}
 
-        {thisWeek && lastWeek && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'20px'}}>
-            <p style={{fontSize:'12px',color:mg,marginBottom:'12px',textAlign:'center'}}>THIS WEEK VS LAST WEEK</p>
-            <div style={{display:'flex',justifyContent:'space-around'}}>
-              <Delta current={thisWeek.mood} previous={lastWeek.mood} label='Mood' />
-              <Delta current={thisWeek.energy} previous={lastWeek.energy} label='Energy' />
-              <Delta current={thisWeek.sleep} previous={lastWeek.sleep} label='Sleep' />
+        {/* Daily log */}
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'16px'}}>HOW ARE YOU TODAY?</h2>
+
+          <div style={{marginBottom:'16px'}}>
+            <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'6px'}}>Date</label>
+            <input type='date' value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+
+          <div style={{marginBottom:'16px'}}>
+            <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'8px'}}>Mood</label>
+            <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={mood} onChange={setMood} />)}</div>
+          </div>
+
+          <div style={{marginBottom:'16px'}}>
+            <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'8px'}}>Energy</label>
+            <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} activeColor='#f59e0b' />)}</div>
+          </div>
+
+          <div style={{marginBottom:'16px'}}>
+            <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'8px'}}>Hunger (1 = suppressed, 5 = ravenous)</label>
+            <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} activeColor='#8b5cf6' />)}</div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'16px'}}>
+            <div>
+              <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'6px'}}>Sleep (hrs)</label>
+              <input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='e.g. 7.5' style={inputStyle} />
+            </div>
+            <div>
+              <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'6px'}}>Weight (lbs)</label>
+              <input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} placeholder='optional' style={inputStyle} />
             </div>
           </div>
-        )}
 
-        {showChart && chartData.length > 1 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'20px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <h2 style={{fontSize:'14px',fontWeight:'600',color:g}}>Trends</h2>
-              <div style={{display:'flex',gap:'4px'}}>
-                {([7,30,'all'] as const).map(r => (
-                  <button key={r} onClick={() => setChartRange(r)} style={{background:chartRange===r?'#0a1a0a':'none',border:'1px solid '+(chartRange===r?mg:bd),color:chartRange===r?dg:mg,fontSize:'11px',padding:'3px 8px',borderRadius:'4px',cursor:'pointer'}}>{r === 'all' ? 'All' : r+'d'}</button>
-                ))}
-              </div>
-            </div>
-            <p style={{fontSize:'11px',color:mg,marginBottom:'8px'}}>Mood & Energy (1-5)</p>
-            <ResponsiveContainer width='100%' height={120}>
-              <LineChart data={chartData}>
-                <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
-                <YAxis domain={[1,5]} tick={{fontSize:10,fill:mg}} width={20} />
-                <Tooltip {...tooltipStyle} />
-                <Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' />
-                <Line type='monotone' dataKey='energy' stroke={dg} strokeWidth={2} dot={false} name='Energy' />
-              </LineChart>
-            </ResponsiveContainer>
-            <p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px'}}>Sleep (hours)</p>
-            <ResponsiveContainer width='100%' height={100}>
-              <LineChart data={chartData}>
-                <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
-                <YAxis tick={{fontSize:10,fill:mg}} width={20} />
-                <Tooltip {...tooltipStyle} />
-                <Line type='monotone' dataKey='sleep' stroke='#7fff7f' strokeWidth={2} dot={false} name='Sleep' />
-              </LineChart>
-            </ResponsiveContainer>
+          <div style={{marginBottom:'16px'}}>
+            <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'6px'}}>Notes</label>
+            <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder='How do you feel? Any observations...' rows={3} style={{...inputStyle,resize:'none'}} />
           </div>
-        )}
 
-        {showForm && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'24px'}}>
-            <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Entry' : 'How are you today?'}</h2>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Date</label>
-              <input type='date' value={entryDate} onChange={e => setEntryDate(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark',WebkitAppearance:'none'}} />
-            </div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Mood — {moodLabel(mood)}</label>
-              <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreButton key={v} value={v} current={mood} onChange={setMood} />)}</div>
-            </div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Energy — {moodLabel(energy)}</label>
-              <div style={{display:'flex',gap:'8px'}}>{[1,2,3,4,5].map(v => <ScoreButton key={v} value={v} current={energy} onChange={setEnergy} />)}</div>
-            </div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Hours of sleep</label>
-              <input type='number' min='0' max='24' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='e.g. 7.5' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box'}} />
-            </div>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Notes (optional)</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='How do you feel? Any observations...' rows={3} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',boxSizing:'border-box',resize:'none'}} />
-            </div>
-            {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
-            <div style={{display:'flex',gap:'8px'}}>
-              <button onClick={() => { setShowForm(false); setError(''); setEditingId(null) }} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={saveEntry} disabled={saving} style={{flex:2,background:saving?'#1a3d1a':g,color:saving?mg:'#000000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Save Entry'}</button>
-            </div>
-          </div>
-        )}
+          {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
 
-        {!loading && entries.length === 0 && !showForm && (
-          <div style={{textAlign:'center',padding:'48px 0'}}>
-            <p style={{color:dg,marginBottom:'8px'}}>No entries yet.</p>
-            <p style={{color:mg,fontSize:'13px'}}>Tap + Log today to record your first entry.</p>
-          </div>
-        )}
+          <button onClick={saveEntry} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':'Save Entry'}</button>
+        </div>
 
-        {sortedEntries.map((entry) => (
-          <div key={entry.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'16px',marginBottom:'12px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-              <span style={{fontSize:'14px',fontWeight:'600',color:g}}>{formatDate(entry.date)}</span>
-              <div style={{display:'flex',gap:'8px'}}>
-                <button onClick={() => startEdit(entry)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'12px'}}>Edit</button>
-                <button onClick={() => deleteEntry(entry.id)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>Delete</button>
-              </div>
+        {/* Recent entries */}
+        <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginTop:'24px',marginBottom:'12px'}}>RECENT ENTRIES</h2>
+        {entries.length === 0 && <p style={{color:mg,fontSize:'13px'}}>No entries yet.</p>}
+        {entries.slice(0, 7).map(e => (
+          <div key={e.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+              <span style={{fontSize:'13px',fontWeight:'600',color:g}}>{new Date(e.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
             </div>
-            <div style={{display:'flex',gap:'16px',marginBottom:'8px'}}>
-              <div><span style={{fontSize:'11px',color:mg,display:'block'}}>MOOD</span><span style={{fontSize:'14px',fontWeight:'500'}}>{moodLabel(entry.mood)}</span></div>
-              <div><span style={{fontSize:'11px',color:mg,display:'block'}}>ENERGY</span><span style={{fontSize:'14px',fontWeight:'500'}}>{moodLabel(entry.energy)}</span></div>
-              <div><span style={{fontSize:'11px',color:mg,display:'block'}}>SLEEP</span><span style={{fontSize:'14px',fontWeight:'500'}}>{entry.sleep}h</span></div>
+            <div style={{display:'flex',gap:'12px',fontSize:'12px',color:dg,flexWrap:'wrap'}}>
+              {e.mood !== null && <span>Mood {e.mood}</span>}
+              {e.energy !== null && <span>· Energy {e.energy}</span>}
+              {e.sleep !== null && <span>· Sleep {e.sleep}h</span>}
+              {(e as any).weight && <span>· {(e as any).weight}lbs</span>}
+              {(e as any).hunger !== null && (e as any).hunger !== undefined && <span>· Hunger {(e as any).hunger}</span>}
             </div>
-            {entry.notes && <p style={{fontSize:'13px',color:dg,marginTop:'8px',lineHeight:'1.5'}}>{entry.notes}</p>}
+            {e.notes && <p style={{fontSize:'12px',color:dg,marginTop:'6px'}}>{e.notes}</p>}
           </div>
         ))}
       </div>
