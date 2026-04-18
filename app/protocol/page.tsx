@@ -101,10 +101,6 @@ export default function ProtocolPage() {
         {showForm && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'24px'}}>
             <h2 style={{fontSize:'16px',fontWeight:'600',marginBottom:'16px',color:g}}>{editingId ? 'Edit Protocol' : 'New Protocol'}</h2>
-            <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Notes (optional)</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Goals, context, cycle length...' rows={2} style={{...inputStyle,resize:'none'}} />
-            </div>
             <div style={{marginBottom:'12px'}}>
               <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'8px'}}>Compounds</label>
               {compounds.map((compound, index) => (
@@ -144,6 +140,10 @@ export default function ProtocolPage() {
                 </div>
               ))}
               <button onClick={addCompound} style={{background:'none',border:'1px dashed #3d3d5c',borderRadius:'6px',padding:'8px',width:'100%',color:mg,fontSize:'13px',cursor:'pointer'}}>+ Add another compound</button>
+            </div>
+            <div style={{marginBottom:'16px'}}>
+              <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'4px'}}>Notes (optional)</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Goals, context, cycle length...' rows={2} style={{...inputStyle,resize:'none'}} />
             </div>
             {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
             <div style={{display:'flex',gap:'8px'}}>
