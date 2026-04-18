@@ -201,8 +201,8 @@ export default function JournalPage() {
                 <YAxis tick={{fontSize:10,fill:mg}} width={20} />
                 <Tooltip {...tooltipStyle} />
                 <Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' />
-                <Line type='monotone' dataKey='energy' stroke='#f59e0b' strokeWidth={2} dot={false} name='Energy' />
-                <Line type='monotone' dataKey='sleep' stroke='#7fff7f' strokeWidth={2} dot={false} name='Sleep (hrs)' />
+                <Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' />
+                <Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep (hrs)' />
               </LineChart>
             </ResponsiveContainer>
             {weightEntries.length > 1 && (<>
