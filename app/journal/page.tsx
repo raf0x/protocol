@@ -43,6 +43,7 @@ export default function JournalPage() {
   const [weight, setWeight] = useState('')
   const [hunger, setHunger] = useState<number | null>(null)
   const [entryNotes, setEntryNotes] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
@@ -118,6 +119,31 @@ export default function JournalPage() {
     setLogs({ ...logs, [compoundId]: { compound_id: compoundId, taken: true, discomfort: level } })
   }
 
+  function startEdit(entry: any) {
+    setEditingId(entry.id)
+    setDate(entry.date)
+    setMood(entry.mood)
+    setEnergy(entry.energy)
+    setSleep(entry.sleep?.toString() || '')
+    setWeight(entry.weight?.toString() || '')
+    setHunger(entry.hunger ?? null)
+    setEntryNotes(entry.notes || '')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function deleteEntry(id: string) {
+    if (!confirm('Delete this entry?')) return
+    const supabase = createClient()
+    await supabase.from('journal_entries').delete().eq('id', id)
+    loadAll()
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setDate(today); setMood(null); setEnergy(null); setSleep('')
+    setWeight(''); setHunger(null); setEntryNotes('')
+  }
+
   async function saveEntry() {
     setError(''); setSaving(true)
     const supabase = createClient()
@@ -132,6 +158,8 @@ export default function JournalPage() {
     const { error: e } = await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' })
     if (e) { setError(e.message); setSaving(false); return }
     setSaving(false)
+    setEditingId(null)
+    if (date === today) { /* keep today's values */ } else { setDate(today); setMood(null); setEnergy(null); setSleep(''); setWeight(''); setHunger(null); setEntryNotes('') }
     loadAll()
   }
 
@@ -308,7 +336,7 @@ export default function JournalPage() {
 
         {/* Daily log */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'16px'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'16px'}}>HOW ARE YOU TODAY?</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'16px'}}>{editingId ? 'EDIT ENTRY' : 'HOW ARE YOU TODAY?'}</h2>
 
           <div style={{marginBottom:'16px'}}>
             <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'6px'}}>Date</label>
@@ -348,7 +376,12 @@ export default function JournalPage() {
 
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
 
-          <button onClick={saveEntry} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':'Save Entry'}</button>
+          <div style={{display:'flex',gap:'8px'}}>
+            {editingId && (
+              <button onClick={cancelEdit} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
+            )}
+            <button onClick={saveEntry} disabled={saving} style={{flex:2,background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Save Entry'}</button>
+          </div>
         </div>
 
         {/* Recent entries */}
@@ -356,8 +389,12 @@ export default function JournalPage() {
         {entries.length === 0 && <p style={{color:mg,fontSize:'13px'}}>No entries yet.</p>}
         {entries.slice(0, 7).map(e => (
           <div key={e.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
               <span style={{fontSize:'13px',fontWeight:'600',color:g}}>{new Date(e.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button onClick={() => startEdit(e)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'12px'}}>Edit</button>
+                <button onClick={() => deleteEntry(e.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Delete</button>
+              </div>
             </div>
             <div style={{display:'flex',gap:'12px',fontSize:'12px',color:dg,flexWrap:'wrap'}}>
               {e.mood !== null && <span>Mood {e.mood}</span>}
