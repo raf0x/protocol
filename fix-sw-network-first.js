@@ -1,4 +1,5 @@
-const CACHE_NAME = 'protocol-v15'
+﻿const fs = require('fs');
+const sw = `const CACHE_NAME = 'protocol-v15'
 
 const STATIC_ASSETS = [
   '/',
@@ -64,4 +65,6 @@ self.addEventListener('notificationclick', (event) => {
       if (clients.openWindow) return clients.openWindow(url)
     })
   )
-})
+})`;
+fs.writeFileSync('public/sw.js', sw, 'utf8');
+console.log('Done');
