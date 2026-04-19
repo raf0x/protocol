@@ -53,6 +53,7 @@ export default function ReconstitutionCalculator() {
   const [compoundName, setCompoundName] = useState('')
   const [savingProtocol, setSavingProtocol] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [needsLogin, setNeedsLogin] = useState(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const d = params.get('dose')
@@ -78,7 +79,7 @@ export default function ReconstitutionCalculator() {
     setSavingProtocol(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { window.location.href = '/auth/login'; return }
+    if (!user) { setSavingProtocol(false); setSaveSuccess(false); setShowSaveFlow(false); setNeedsLogin(true); return }
     const today = new Date().toISOString().split('T')[0]
     const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: compoundName.trim(), start_date: today }).select().single()
     if (!protocol) { setSavingProtocol(false); return }
@@ -248,6 +249,13 @@ export default function ReconstitutionCalculator() {
                 <button onClick={() => setShowSaveFlow(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
                 <button onClick={saveToProtocol} disabled={savingProtocol || !compoundName.trim()} style={{flex:2,background:savingProtocol?'#1a3d1a':g,color:savingProtocol?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{savingProtocol ? 'Creating...' : 'Create Protocol'}</button>
               </div>
+            </div>
+          )}
+
+          {needsLogin && (
+            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
+              <span style={{fontSize:'13px',color:dg}}>Sign in to save this to your protocol</span>
+              <a href='/auth/login' style={{display:'block',marginTop:'10px',background:g,color:'#000',textDecoration:'none',fontWeight:'700',padding:'12px',borderRadius:'6px',fontSize:'14px',textAlign:'center'}}>Sign in / Create account</a>
             </div>
           )}
 
