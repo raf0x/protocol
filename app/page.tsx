@@ -94,7 +94,7 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section style={{padding:'80px 24px 60px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
+      <section style={{padding:'60px 24px 40px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
 
         {/* Left ticker */}
         <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'44px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -118,33 +118,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Background rings */}
-        <div style={{position:'absolute',left:0,right:0,top:'130px',display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:0}}>
-          <svg width='500' height='120' viewBox='0 0 500 120' style={{opacity:0.22}} className='ring-animate'>
-            <g transform='translate(120, 60)'>
-              <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
-              <circle cx='0' cy='0' r='30' fill='none' stroke='#f59e0b' strokeWidth='5' strokeDasharray='188' strokeDashoffset='47' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>3.8</text>
-              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#f59e0b' fontSize='7' fontWeight='600'>ENERGY</text>
-            </g>
-            <g transform='translate(250, 60)'>
-              <circle cx='0' cy='0' r='34' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
-              <circle cx='0' cy='0' r='34' fill='none' stroke='#8b5cf6' strokeWidth='5' strokeDasharray='214' strokeDashoffset='60' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='11' fontWeight='800'>7.5h</text>
-              <text x='0' y='11' textAnchor='middle' dominantBaseline='middle' fill='#8b5cf6' fontSize='7' fontWeight='600'>SLEEP</text>
-            </g>
-            <g transform='translate(380, 60)'>
-              <circle cx='0' cy='0' r='30' fill='none' stroke='#1e1e2e' strokeWidth='5'/>
-              <circle cx='0' cy='0' r='30' fill='none' stroke='#39ff14' strokeWidth='5' strokeDasharray='188' strokeDashoffset='27' strokeLinecap='round' transform='rotate(-90)'/>
-              <text x='0' y='-2' textAnchor='middle' dominantBaseline='middle' fill='white' fontSize='10' fontWeight='800'>6/7</text>
-              <text x='0' y='10' textAnchor='middle' dominantBaseline='middle' fill='#39ff14' fontSize='7' fontWeight='600'>STREAK</text>
-            </g>
-          </svg>
-        </div>
-
         {/* Hero content */}
         <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
-          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'80px',letterSpacing:'2px'}}>EARLY ACCESS</div>
+          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
           <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Track your protocol results.<br/><span style={{color:'#39ff14'}}>See what's actually working.</span></h1>
           <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>The private wellness tracker built for people managing peptide and GLP-1 protocols. No ads. No data selling. Just signal.</p>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
