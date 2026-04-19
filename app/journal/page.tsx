@@ -15,6 +15,7 @@ export default function HistoryPage() {
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [protocolEvents, setProtocolEvents] = useState<any[]>([])
 
   const g = '#39ff14'
   const dg = '#8b8ba7'
@@ -31,6 +32,8 @@ export default function HistoryPage() {
     if (!user) { setLoading(false); return }
     const { data } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
     setEntries(data || [])
+    const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: false })
+    setProtocolEvents(events || [])
     setLoading(false)
   }
 
@@ -106,7 +109,25 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {entries.length === 0 && <p style={{color:mg,textAlign:'center',padding:'48px 0'}}>No entries yet. Log your first day from the Dashboard.</p>}
+        {entries.length === 0 && protocolEvents.length === 0 && <p style={{color:mg,textAlign:'center',padding:'48px 0'}}>No entries yet. Log your first day from the Dashboard.</p>}
+
+        {protocolEvents.length > 0 && (
+          <div style={{marginBottom:'20px'}}>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL CHANGES</span>
+            {protocolEvents.map((ev, i) => (
+              <div key={ev.id || i} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'4px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                    <span style={{width:'8px',height:'8px',borderRadius:'50%',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',display:'inline-block'}} />
+                    <span style={{fontSize:'10px',color:'#0a0a0f',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
+                  </div>
+                  <span style={{fontSize:'12px',color:dg}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+                </div>
+                <span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{ev.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {entries.map(e => (
           <div key={e.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
