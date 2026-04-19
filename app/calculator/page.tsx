@@ -48,12 +48,15 @@ export default function ReconstitutionCalculator() {
   const [showCustomDose, setShowCustomDose] = useState(false)
   const [showCustomStrength, setShowCustomStrength] = useState(false)
   const [showCustomWater, setShowCustomWater] = useState(false)
+  const [compoundLabel, setCompoundLabel] = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const d = params.get('dose')
     const s = params.get('vial')
     const w = params.get('water')
+    const n = params.get('name')
+    if (n) setCompoundLabel(decodeURIComponent(n))
     if (d) { const v = parseFloat(d); if (DOSE_PRESETS.includes(v)) setDose(v); else { setCustomDose(d); setShowCustomDose(true) } }
     if (s) { const v = parseFloat(s); if (STRENGTH_PRESETS.includes(v)) setStrength(v); else { setCustomStrength(s); setShowCustomStrength(true) } }
     if (w) { const v = parseFloat(w); if (WATER_PRESETS.includes(v)) setWater(v); else { setCustomWater(w); setShowCustomWater(true) } }
@@ -61,7 +64,7 @@ export default function ReconstitutionCalculator() {
 
   function getShareUrl() {
     if (!hasAll) return ''
-    return window.location.origin + '/calculator?dose=' + activeDose + '&vial=' + activeStrength + '&water=' + activeWater
+    return window.location.origin + '/calculator?dose=' + activeDose + '&vial=' + activeStrength + '&water=' + activeWater + (compoundLabel ? '&name=' + encodeURIComponent(compoundLabel) : '')
   }
 
   async function copyShareUrl() {
@@ -211,7 +214,10 @@ export default function ReconstitutionCalculator() {
                   </div>
                 )}
               </div>
-              <div style={{display:'flex',gap:'8px',marginTop:'16px'}}>
+              <div style={{marginTop:'16px'}}>
+                <input value={compoundLabel} onChange={e => setCompoundLabel(e.target.value)} placeholder='Compound name (optional, shown when shared)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'12px',boxSizing:'border-box',marginBottom:'8px'}} />
+              </div>
+              <div style={{display:'flex',gap:'8px'}}>
                 <button onClick={copyShareUrl} style={{flex:1,background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:dg,fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share calculation</button>
                 <a href='/auth/login' style={{flex:1,background:g,color:'#000',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol →</a>
               </div>
