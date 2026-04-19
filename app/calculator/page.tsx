@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
 
 const DOSE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 2.5, 5, 7.5, 10]
 const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20]
@@ -49,12 +48,11 @@ export default function ReconstitutionCalculator() {
   const [showCustomDose, setShowCustomDose] = useState(false)
   const [showCustomStrength, setShowCustomStrength] = useState(false)
   const [showCustomWater, setShowCustomWater] = useState(false)
-  const searchParams = useSearchParams()
-
   useEffect(() => {
-    const d = searchParams.get('dose')
-    const s = searchParams.get('vial')
-    const w = searchParams.get('water')
+    const params = new URLSearchParams(window.location.search)
+    const d = params.get('dose')
+    const s = params.get('vial')
+    const w = params.get('water')
     if (d) { const v = parseFloat(d); if (DOSE_PRESETS.includes(v)) setDose(v); else { setCustomDose(d); setShowCustomDose(true) } }
     if (s) { const v = parseFloat(s); if (STRENGTH_PRESETS.includes(v)) setStrength(v); else { setCustomStrength(s); setShowCustomStrength(true) } }
     if (w) { const v = parseFloat(w); if (WATER_PRESETS.includes(v)) setWater(v); else { setCustomWater(w); setShowCustomWater(true) } }
