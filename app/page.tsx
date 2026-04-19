@@ -153,17 +153,17 @@ export default function Home() {
           <div className='scroll-hidden glow-card' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>📓</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Smart Journal</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Log your mood, energy, and sleep daily. Watch patterns emerge over time with trend charts, weekly comparisons, and streak tracking. Understand what's actually working.</p>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Mood, energy, sleep, hunger, weight — logged in seconds. Real-time insights tell you what's working and what's not.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-1' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Protocol Builder</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Build and manage your protocols with compound tracking, dosing schedules, and frequency settings. The reconstitution calculator handles the math so you don't have to.</p>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Compounds, phases, dose progression — all in one place. Exact syringe units, no math errors. Never guess a dose again.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-2' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Private Community</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Join cohorts matched to your protocols — GLP-1s, peptides, TRT, and more. Read real experiences from others anonymously. No vendor talk. No noise.</p>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Anonymous cohorts for GLP-1, peptides, and TRT users. Real experiences from real people. No vendors, no noise, no exposure.</p>
           </div>
         </div>
       </section>
@@ -206,6 +206,23 @@ export default function Home() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* FAQ */}
+      <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto'}}>
+        <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center'}}>QUESTIONS</p>
+        {[
+          { q: 'Is this medical advice?', a: 'No. Protocol is a personal tracking tool. It does not recommend doses, suggest compounds, or provide medical guidance. Always consult a qualified healthcare provider.' },
+          { q: 'Is my data private?', a: 'Yes. Your protocols, journal entries, and health data are visible only to you. We never sell, share, or use your data for advertising. Period.' },
+          { q: 'What can I track?', a: 'Compounds with dose phases, injection schedules, mood, energy, sleep, hunger, weight, and discomfort. The app shows insights and trends over time.' },
+          { q: 'Does it work on iPhone?', a: 'Yes. Protocol is a Progressive Web App — add it to your home screen from Safari and it works like a native app. No App Store needed.' },
+          { q: 'Is it free?', a: 'Free during early access. No credit card required.' },
+        ].map((item, i) => (
+          <div key={i} className={'scroll-hidden stagger-' + Math.min(i + 1, 4)} style={{borderBottom:'1px solid #1e1e2e',padding:'16px 0'}}>
+            <h3 style={{fontSize:'15px',fontWeight:'700',color:'white',marginBottom:'8px'}}>{item.q}</h3>
+            <p style={{fontSize:'14px',color:'#8b8ba7',lineHeight:'1.6',margin:0}}>{item.a}</p>
+          </div>
+        ))}
       </section>
 
       {/* Final CTA */}
