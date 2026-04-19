@@ -37,6 +37,10 @@ export default function DashboardPage() {
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
   const [showProtocols, setShowProtocols] = useState(false)
+  const [protocolEvents, setProtocolEvents] = useState<any[]>([])
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [eventDesc, setEventDesc] = useState('')
+  const [eventType, setEventType] = useState('dose_change')
   const [selectedProtocol, setSelectedProtocol] = useState<any>(null)
   const today = new Date().toISOString().split('T')[0]
   const [mood, setMood] = useState<number | null>(null)
@@ -91,6 +95,17 @@ export default function DashboardPage() {
     loadAll()
   }
 
+  async function saveEvent() {
+    if (!eventDesc.trim()) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const todayStr = new Date().toISOString().split('T')[0]
+    await supabase.from('protocol_events').insert({ user_id: user.id, date: todayStr, event_type: eventType, description: eventDesc.trim() })
+    setEventDesc(''); setShowAddEvent(false)
+    loadAll()
+  }
+
   async function loadAll() {
     setLoading(true)
     const supabase = createClient()
@@ -108,6 +123,8 @@ export default function DashboardPage() {
     setDueCompounds(due)
     const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
+    const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
+    setProtocolEvents(events || [])
     setLoading(false)
   }
 
@@ -123,7 +140,9 @@ export default function DashboardPage() {
   const tl = (sw && lw) ? (sw - lw).toFixed(1) : null
   const cd = entries.slice().sort((a: any, b: any) => a.date.localeCompare(b.date)).map((e: any) => ({ date: new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}), mood: e.mood, energy: e.energy, sleep: e.sleep, weight: e.weight }))
   const ts = { contentStyle: { background: cb, border: '1px solid '+bd, borderRadius: '6px', fontSize: '12px' } }
-  const mk: { date: string; label: string }[] = []; activeProtocols.forEach((p: any) => { const sl = new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); (p.compounds||[]).forEach((c: any) => { mk.push({ date: sl, label: c.name }) }) })
+  const mk: { date: string; label: string }[] = []
+  activeProtocols.forEach((p: any) => { const sl = new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); (p.compounds||[]).forEach((c: any) => { mk.push({ date: sl, label: c.name }) }) })
+  protocolEvents.forEach((ev: any) => { const evDate = new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); mk.push({ date: evDate, label: ev.description }) })
 
   const ins: { text: string; accent: string }[] = []
   if (we.length >= 2) { const diff = sw! - lw!; const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000)); const wb = Math.max(1, db/7); if (diff > 0) { ins.push({ text: `You're down ${diff.toFixed(1)} lbs since you started — keep going`, accent: g }); if (wb >= 2) { const wr = diff/wb; ins.push({ text: `Averaging ${wr.toFixed(1)} lbs lost per week`, accent: g }); ins.push({ text: `At this rate: ${(lw!-(wr*3)).toFixed(0)} lbs in 3 weeks`, accent: '#6c63ff' }) } } }
@@ -182,6 +201,29 @@ export default function DashboardPage() {
             {showProtocols && activeProtocols.map((p: any) => (<div key={p.id} style={{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+bd}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'14px',fontWeight:'700',color:g}}>{p.name}</span><a href='/protocol' style={{fontSize:'11px',color:mg,textDecoration:'none'}}>Edit →</a></div>{p.notes && <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>{p.notes}</p>}</div>))}
           </div>
         )}
+
+        {/* Event logger */}
+        <div style={{marginBottom:'16px'}}>
+          {!showAddEvent ? (
+            <button onClick={() => setShowAddEvent(true)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>+ Log protocol change</button>
+          ) : (
+            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
+              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>LOG PROTOCOL CHANGE</span>
+              <select value={eventType} onChange={e => setEventType(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'13px',boxSizing:'border-box',marginBottom:'8px'}}>
+                <option value='dose_change'>Dose changed</option>
+                <option value='compound_added'>Added compound</option>
+                <option value='compound_removed'>Stopped compound</option>
+                <option value='phase_change'>Phase change</option>
+                <option value='other'>Other</option>
+              </select>
+              <input value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder='e.g. Increased Reta to 5mg' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
+              <div style={{display:'flex',gap:'8px'}}>
+                <button onClick={() => setShowAddEvent(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
+                <button onClick={saveEvent} disabled={!eventDesc.trim()} style={{flex:2,background:!eventDesc.trim()?'#1a3d1a':g,color:!eventDesc.trim()?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Log Event</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Today's injections */}
         {dueCompounds.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>TODAY'S INJECTIONS</span><span style={{fontSize:'12px',color:mg}}>{Object.values(logs).filter(l => l.taken).length}/{dueCompounds.length}</span></div>{dueCompounds.map(c => { const log = logs[c.id]; const taken = log?.taken||false; const dis = log?.discomfort||0; return (<div key={c.id} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}><div style={{display:'flex',alignItems:'center',gap:'12px'}}><button onClick={() => toggleInjection(c.id)} style={{width:'26px',height:'26px',borderRadius:'6px',border:'1px solid '+(taken?g:bd),background:taken?g:'transparent',cursor:'pointer',color:'#000',fontWeight:'800',padding:0}}>{taken?'✓':''}</button><div style={{flex:1}}><div style={{fontSize:'14px',fontWeight:'600',color:taken?dg:'white',textDecoration:taken?'line-through':'none'}}>{c.name}</div><div style={{fontSize:'11px',color:mg}}>{c.dose} · {c.protocol_name}</div></div></div>{taken && (<div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid '+bd}}><span style={{fontSize:'10px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span><div style={{display:'flex',gap:'6px'}}>{[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={dis} onChange={v => setDiscomfortVal(c.id, v)} />)}</div></div>)}</div>) })}</div>)}
