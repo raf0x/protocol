@@ -49,8 +49,6 @@ export default function ReconstitutionCalculator() {
   const [showCustomStrength, setShowCustomStrength] = useState(false)
   const [showCustomWater, setShowCustomWater] = useState(false)
   const [compoundLabel, setCompoundLabel] = useState('')
-  const [showSaveFlow, setShowSaveFlow] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
 
   useEffect(() => {
@@ -75,16 +73,6 @@ export default function ReconstitutionCalculator() {
     if (url) { await navigator.clipboard.writeText(url); alert('Link copied!') }
   }
 
-  function saveToProtocol() {
-    if (!compoundLabel.trim()) return
-    localStorage.setItem('pendingProtocol', JSON.stringify({
-      name: compoundLabel.trim(),
-      dose: activeDose,
-      vial: activeStrength,
-      water: activeWater
-    }))
-    setSaveSuccess(true); setShowSaveFlow(false)
-  }
 
   const activeDose = showCustomDose ? parseFloat(customDose) : dose
   const activeStrength = showCustomStrength ? parseFloat(customStrength) : strength
@@ -199,28 +187,6 @@ export default function ReconstitutionCalculator() {
           </div>
           <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>For U-100 insulin syringes only. Reference tool. Not medical advice — verify all calculations independently.</p>
 
-          {hasAll && showSaveFlow && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'8px'}}>ADD TO YOUR STACK</span>
-              {!compoundLabel.trim() && <p style={{fontSize:'11px',color:mg,marginBottom:'8px'}}>Enter a compound name above first</p>}
-              {compoundLabel.trim() && (
-                <>
-                  <p style={{fontSize:'12px',color:dg,marginBottom:'10px'}}>Creates: {compoundLabel} · {activeDose}mg · {activeStrength}mg vial · {activeWater}mL BAC · Weekly</p>
-                  <div style={{display:'flex',gap:'8px'}}>
-                    <button onClick={() => setShowSaveFlow(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
-                    <button onClick={saveToProtocol} style={{flex:2,background:g,color:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Create Protocol</button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {saveSuccess && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
-              <span style={{color:g,fontSize:'16px',fontWeight:'700'}}>✓ Saved!</span>
-              <p style={{fontSize:'13px',color:dg,marginTop:'6px'}}>Tap <strong>Dashboard</strong> below to see your new protocol.</p>
-            </div>
-          )}
 
           {hasAll && (
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
