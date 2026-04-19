@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       <div style={{display:'flex',flexDirection:'column',width:'100%',height:'100%',background:'#0a0a0f',padding:'60px',fontFamily:'monospace',color:'white'}}>
         <div style={{display:'flex',alignItems:'center',gap:'16px',marginBottom:'40px'}}>
           <span style={{fontSize:'36px',fontWeight:900,color:'#39ff14',letterSpacing:'2px'}}>PROTOCOL</span>
-          <span style={{fontSize:'20px',color:'#3d3d5c'}}>{name || 'Peptide Calculator'}</span>
+          <span style={{fontSize:'28px',color:'#ffffff',fontWeight:700}}>{name || 'Peptide Calculator'}</span>
         </div>
         {dose > 0 ? (
           <div style={{display:'flex',flexDirection:'column',gap:'24px',flex:1}}>
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
               </div>
             </div>
             <div style={{display:'flex',flexDirection:'column',background:'#12121a',border:'2px solid #39ff14',borderRadius:'16px',padding:'32px'}}>
-              {name && <span style={{fontSize:'18px',color:'#8b8ba7',marginBottom:'8px'}}>{name}</span>}
+              {name && <span style={{fontSize:'32px',color:'#39ff14',fontWeight:800,marginBottom:'4px',letterSpacing:'1px'}}>{name}</span>}
               <span style={{fontSize:'14px',color:'#39ff14',letterSpacing:'2px',marginBottom:'8px'}}>DRAW SYRINGE TO</span>
               <span style={{fontSize:'72px',fontWeight:900,color:'#39ff14'}}>{units.toFixed(1)} units</span>
               <span style={{fontSize:'20px',color:'#8b8ba7',marginTop:'8px'}}>{volumeMl.toFixed(3)} mL · {concentration.toFixed(0)} mcg/mL</span>
