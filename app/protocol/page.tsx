@@ -106,10 +106,16 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'16px'}}>
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:'#f59e0b'}}>{lw ? lw+' lbs' : '—'}</div><div style={{fontSize:'10px',color:mg,marginTop:'2px',letterSpacing:'1px'}}>CURRENT WEIGHT</div></div>
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:tl !== null ? (parseFloat(tl) > 0 ? g : '#ff6b6b') : g}}>{tl !== null ? (parseFloat(tl) > 0 ? '-'+Math.abs(parseFloat(tl)) : '+'+Math.abs(parseFloat(tl)))+' lbs' : '—'}</div><div style={{fontSize:'10px',color:mg,marginTop:'2px',letterSpacing:'1px'}}>WEIGHT CHANGE</div></div>
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:'#6c63ff'}}>{currentWeek > 0 ? 'Wk '+currentWeek : '—'}</div><div style={{fontSize:'10px',color:mg,marginTop:'2px',letterSpacing:'1px'}}>WEEK OF CYCLE</div></div>
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:'#f59e0b'}}>{lw ? lw+' lbs' : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>CURRENT WEIGHT</div></div>
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:tl !== null ? (parseFloat(tl) > 0 ? g : '#ff6b6b') : g}}>{tl !== null ? (parseFloat(tl) > 0 ? '-'+Math.abs(parseFloat(tl)) : '+'+Math.abs(parseFloat(tl)))+' lbs' : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT CHANGE</div></div>
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:'#6c63ff'}}>{currentWeek > 0 ? 'Wk '+currentWeek : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>WEEK OF CYCLE</div></div>
         </div>
+
+        {/* Insights */}
+        {vi.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>INSIGHTS</div>{vi.map((ins2, i) => (<div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 0',fontSize:'13px',color:'white'}}><span style={{color:ins2.accent,fontWeight:'700'}}>→</span><span>{ins2.text}</span></div>))}</div>)}
+
+        {/* Charts */}
+        {entries.length > 1 && (<div style={{marginBottom:'16px'}}><button onClick={() => setShowChart(!showChart)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button></div>)}
 
         {/* Active Compounds */}
         {activeProtocols.length > 0 && (
@@ -134,11 +140,9 @@ export default function DashboardPage() {
           <button onClick={saveEntry} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':saved?'Update':'Save'}</button>
         </div>
 
-        {/* Insights */}
-        {vi.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>INSIGHTS</div>{vi.map((ins2, i) => (<div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 0',fontSize:'13px',color:'white'}}><span style={{color:ins2.accent,fontWeight:'700'}}>→</span><span>{ins2.text}</span></div>))}</div>)}
 
-        {/* Charts */}
-        {entries.length > 1 && (<div style={{marginBottom:'16px'}}><button onClick={() => setShowChart(!showChart)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button></div>)}
+
+
         {showChart && cd.length > 1 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p><ResponsiveContainer width='100%' height={140}><LineChart data={cd}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={20} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m1_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} label={{value: m.label, position: 'top', fontSize: 9, fill: '#6c63ff'}} />)}<Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' /><Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' /><Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep' /></LineChart></ResponsiveContainer>{we.length > 1 && (<><p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p><ResponsiveContainer width='100%' height={100}><LineChart data={cd.filter((d: any) => d.weight)}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />)}<Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' /></LineChart></ResponsiveContainer></>)}</div>)}
 
       </div>

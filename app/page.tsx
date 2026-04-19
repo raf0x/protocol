@@ -91,10 +91,7 @@ export default function Home() {
       <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid #1e1e2e',position:'sticky',top:0,background:'rgba(10,10,15,0.9)',backdropFilter:'blur(12px)',zIndex:50}}>
         <span style={{fontSize:'20px',fontWeight:'800',color:'#39ff14',letterSpacing:'2px'}}>PROTOCOL</span>
         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-          <a href='#features' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'13px',fontWeight:'500'}}>Features</a>
-          <a href='/calculator' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'13px',fontWeight:'500'}}>Calculator</a>
-          <a href='#faq' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'13px',fontWeight:'500'}}>FAQ</a>
-          <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px'}}>Sign in</a>
+          <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
         </div>
       </nav>
 
@@ -162,8 +159,8 @@ export default function Home() {
           </div>
           <div className='scroll-hidden glow-card stagger-1' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Protocol Builder</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Compounds, phases, dose progression — all in one place. Exact syringe units, no math errors. Never guess a dose again.</p>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Protocol Dashboard</h3>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Your daily command center. Active compounds, injection checklist, insights, and progress — all in one scroll.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-2' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>

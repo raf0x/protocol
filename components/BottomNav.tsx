@@ -7,9 +7,9 @@ export default function BottomNav() {
   if (pathname === '/') return null
   const links = [
     { href: '/calculator', label: 'Calc' },
+    { href: '/community', label: 'Community' },
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
-    { href: '/community', label: 'Community' },
     { href: '/profile', label: 'Profile' },
   ]
   return (
