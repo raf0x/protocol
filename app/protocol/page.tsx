@@ -70,13 +70,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadAll()
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('newprotocol') === '1') {
-      setPrefillDose(params.get('dose') || '')
-      setPrefillVial(params.get('vial') || '')
-      setPrefillWater(params.get('water') || '')
-      setShowNewProtocol(true)
-      window.history.replaceState({}, '', '/protocol')
+    const pending = localStorage.getItem('pendingProtocol')
+    if (pending) {
+      try {
+        const p = JSON.parse(pending)
+        setNewName(p.name || '')
+        setPrefillDose(p.dose?.toString() || '')
+        setPrefillVial(p.vial?.toString() || '')
+        setPrefillWater(p.water?.toString() || '')
+        setShowNewProtocol(true)
+        localStorage.removeItem('pendingProtocol')
+      } catch(e) { localStorage.removeItem('pendingProtocol') }
     }
   }, [])
 

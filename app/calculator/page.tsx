@@ -50,13 +50,9 @@ export default function ReconstitutionCalculator() {
   const [showCustomWater, setShowCustomWater] = useState(false)
   const [compoundLabel, setCompoundLabel] = useState('')
   const [showSaveFlow, setShowSaveFlow] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [savingProtocol, setSavingProtocol] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
 
   useEffect(() => {
-    setIsLoggedIn(true)
     const params = new URLSearchParams(window.location.search)
     const d = params.get('dose')
     const s = params.get('vial')
@@ -78,21 +74,15 @@ export default function ReconstitutionCalculator() {
     if (url) { await navigator.clipboard.writeText(url); alert('Link copied!') }
   }
 
-  async function saveToProtocol() {
+  function saveToProtocol() {
     if (!compoundLabel.trim()) return
-    setSavingProtocol(true)
-    try {
-      const res = await fetch('/api/create-protocol', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: compoundLabel.trim(), dose: activeDose, vial: activeStrength, water: activeWater })
-      })
-      const data = await res.json()
-      if (data.error === 'Not authenticated') { setIsLoggedIn(false); setShowSaveFlow(true); setSavingProtocol(false); return }
-      if (data.success) { setSaveSuccess(true) }
-      setSavingProtocol(false)
-    } catch (e) { console.error(e); setSavingProtocol(false) }
+    localStorage.setItem('pendingProtocol', JSON.stringify({
+      name: compoundLabel.trim(),
+      dose: activeDose,
+      vial: activeStrength,
+      water: activeWater
+    }))
+    window.location.href = '/protocol'
   }
 
   const activeDose = showCustomDose ? parseFloat(customDose) : dose
@@ -208,30 +198,19 @@ export default function ReconstitutionCalculator() {
           </div>
           <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>For U-100 insulin syringes only. Reference tool. Not medical advice — verify all calculations independently.</p>
 
-          {hasAll && showSaveFlow && !saveSuccess && isLoggedIn && (
+          {hasAll && showSaveFlow && (
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
               <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'8px'}}>ADD TO YOUR STACK</span>
-              {!compoundLabel.trim() && <input value={compoundLabel} onChange={e => setCompoundLabel(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'8px'}} />}
-              {compoundLabel.trim() && <input value={compoundLabel} onChange={e => setCompoundLabel(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'8px'}} />}
-              <p style={{fontSize:'11px',color:mg,marginBottom:'10px'}}>Creates: {activeDose}mg dose · {activeStrength}mg vial · {activeWater}mL BAC · Weekly</p>
-              <div style={{display:'flex',gap:'8px'}}>
-                <button onClick={() => setShowSaveFlow(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
-                <button onClick={saveToProtocol} disabled={savingProtocol || !compoundLabel.trim()} style={{flex:2,background:savingProtocol||!compoundLabel.trim()?'#1a3d1a':g,color:savingProtocol||!compoundLabel.trim()?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{savingProtocol ? 'Creating...' : 'Create Protocol'}</button>
-              </div>
-            </div>
-          )}
-
-          {hasAll && showSaveFlow && !isLoggedIn && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
-              <p style={{fontSize:'13px',color:dg,marginBottom:'10px'}}>Sign in to save this to your protocol</p>
-              <a href='/auth/login' style={{display:'block',background:g,color:'#000',textDecoration:'none',fontWeight:'700',padding:'12px',borderRadius:'6px',fontSize:'14px',textAlign:'center'}}>Sign in / Create account</a>
-            </div>
-          )}
-
-          {saveSuccess && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
-              <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>✓ Protocol created!</span>
-              <p style={{fontSize:'12px',color:dg,marginTop:'6px'}}>View it on your <a href='/protocol' style={{color:g,textDecoration:'none'}}>Dashboard →</a></p>
+              {!compoundLabel.trim() && <p style={{fontSize:'11px',color:mg,marginBottom:'8px'}}>Enter a compound name above first</p>}
+              {compoundLabel.trim() && (
+                <>
+                  <p style={{fontSize:'12px',color:dg,marginBottom:'10px'}}>Creates: {compoundLabel} · {activeDose}mg · {activeStrength}mg vial · {activeWater}mL BAC · Weekly</p>
+                  <div style={{display:'flex',gap:'8px'}}>
+                    <button onClick={() => setShowSaveFlow(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
+                    <button onClick={saveToProtocol} style={{flex:2,background:g,color:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Create Protocol</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
