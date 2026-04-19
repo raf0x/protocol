@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 const DOSE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 2.5, 5, 7.5, 10]
 const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20]
@@ -46,12 +45,12 @@ export default function ReconstitutionCalculator() {
   const [customDose, setCustomDose] = useState('')
   const [customStrength, setCustomStrength] = useState('')
   const [customWater, setCustomWater] = useState('')
-  const router = useRouter()
   const [showCustomDose, setShowCustomDose] = useState(false)
   const [showCustomStrength, setShowCustomStrength] = useState(false)
   const [showCustomWater, setShowCustomWater] = useState(false)
   const [compoundLabel, setCompoundLabel] = useState('')
   const [showSaveFlow, setShowSaveFlow] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
 
   useEffect(() => {
@@ -84,7 +83,7 @@ export default function ReconstitutionCalculator() {
       vial: activeStrength,
       water: activeWater
     }))
-    router.push('/protocol')
+    setSaveSuccess(true); setShowSaveFlow(false)
   }
 
   const activeDose = showCustomDose ? parseFloat(customDose) : dose
@@ -213,6 +212,13 @@ export default function ReconstitutionCalculator() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {saveSuccess && (
+            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
+              <span style={{color:g,fontSize:'16px',fontWeight:'700'}}>✓ Saved!</span>
+              <p style={{fontSize:'13px',color:dg,marginTop:'6px'}}>Tap <strong>Dashboard</strong> below to see your new protocol.</p>
             </div>
           )}
 
