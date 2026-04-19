@@ -6,7 +6,7 @@ import BottomNav from '../components/BottomNav'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Protocol',
+  title: 'Protocol — Peptide & GLP-1 Protocol Tracker',
   description: 'Your personal wellness protocol tracker',
   manifest: '/manifest.json',
 }

@@ -195,7 +195,7 @@ export default function ProtocolPage() {
 
         {showForm && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'24px'}}>
-            <h2 style={{fontSize:'16px',fontWeight:'700',marginBottom:'16px',color:g}}>{editingId ? 'Edit Protocol' : 'New Protocol'}</h2>
+            <h2 style={{fontSize:'16px',fontWeight:'700',marginBottom:'16px',color:g}}>{editingId ? 'Edit Cycle' : 'New Cycle'}</h2>
 
             <div style={{marginBottom:'14px'}}>
               <label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'4px',fontWeight:'600'}}>PROTOCOL NAME (optional)</label>
@@ -288,8 +288,8 @@ export default function ProtocolPage() {
         {loading && <p style={{color:mg}}>Loading...</p>}
         {!loading && protocols.length === 0 && !showForm && (
           <div style={{textAlign:'center',padding:'48px 0'}}>
-            <p style={{color:dg,marginBottom:'8px'}}>No protocols yet.</p>
-            <p style={{color:mg,fontSize:'13px'}}>Tap + New to build your first one with phases.</p>
+            <p style={{color:dg,marginBottom:'8px'}}>No active protocols yet.</p>
+            <p style={{color:mg,fontSize:'13px'}}>Tap + New to build your first cycle.</p>
           </div>
         )}
 

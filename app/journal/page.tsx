@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
 type JournalEntry = { id: string; date: string; mood: number | null; energy: number | null; sleep: number | null; notes: string; weight?: number; hunger?: number }
 type DueCompound = { id: string; name: string; dose: string; protocol_name: string }
@@ -188,6 +188,23 @@ export default function JournalPage() {
   }))
   const tooltipStyle = { contentStyle: { background: cb, border: '1px solid '+bd, borderRadius: '6px', fontSize: '12px' } }
 
+  // Protocol timeline markers
+  const markers: { date: string; label: string }[] = []
+  activeProtocols.forEach((p: any) => {
+    const startLabel = new Date(p.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    ;(p.compounds || []).forEach((c: any) => {
+      markers.push({ date: startLabel, label: c.name })
+      const sortedPhases = (c.phases || []).slice().sort((a: any, b: any) => a.start_week - b.start_week)
+      sortedPhases.forEach((ph: any, i: number) => {
+        if (i === 0) return
+        const phaseStartDay = (ph.start_week - 1) * 7
+        const phaseDate = new Date(new Date(p.start_date + 'T00:00:00').getTime() + phaseStartDay * 86400000)
+        const phaseLabel = phaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        markers.push({ date: phaseLabel, label: c.name + ' → ' + ph.dose + ph.dose_unit })
+      })
+    })
+  })
+
   // Generate insights from user data
   const insights: { text: string; accent: string }[] = []
   if (weightEntries.length >= 2) {
@@ -198,7 +215,12 @@ export default function JournalPage() {
     const weeksBetween = Math.max(1, daysBetween / 7)
     if (diff > 0) {
       insights.push({ text: `You're down ${diff.toFixed(1)} lbs since you started — keep going`, accent: g })
-      if (weeksBetween >= 2) insights.push({ text: `Averaging ${(diff / weeksBetween).toFixed(1)} lbs lost per week`, accent: g })
+      if (weeksBetween >= 2) {
+        const weeklyRate = diff / weeksBetween
+        insights.push({ text: `Averaging ${weeklyRate.toFixed(1)} lbs lost per week`, accent: g })
+        const projected21 = latest.weight! - (weeklyRate * 3)
+        insights.push({ text: `At this rate: ${projected21.toFixed(0)} lbs in 3 weeks`, accent: '#6c63ff' })
+      }
     } else if (diff < 0) {
       insights.push({ text: `Up ${Math.abs(diff).toFixed(1)} lbs since you started`, accent: '#f59e0b' })
     }
@@ -207,19 +229,19 @@ export default function JournalPage() {
     const moodEntries = entries.filter((e: any) => e.mood !== null)
     if (moodEntries.length >= 3) {
       const avgMood = moodEntries.reduce((s: number, e: any) => s + e.mood, 0) / moodEntries.length
-      insights.push({ text: `Your average mood is ${avgMood.toFixed(1)}/5`, accent: g })
+      insights.push({ text: `Mood trend: averaging ${avgMood.toFixed(1)}/5 — ${avgMood >= 4 ? 'strong' : avgMood >= 3 ? 'stable' : 'review your recent changes'}`, accent: g })
     }
     const recentWeek = entries.slice(0, 7).filter((e: any) => e.sleep !== null)
     if (recentWeek.length >= 3) {
       const avgSleep = recentWeek.reduce((s: number, e: any) => s + e.sleep, 0) / recentWeek.length
-      insights.push({ text: `Averaging ${avgSleep.toFixed(1)} hours of sleep this week`, accent: '#06b6d4' })
+      insights.push({ text: `Sleep: ${avgSleep.toFixed(1)} hrs avg this week — ${avgSleep >= 7.5 ? 'recovery on track' : avgSleep >= 6 ? 'watch for decline' : 'sleep quality needs attention'}`, accent: '#06b6d4' })
     }
   }
   const hungerEntries = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined)
   if (hungerEntries.length >= 3) {
     const avgHunger = hungerEntries.reduce((s: number, e: any) => s + e.hunger, 0) / hungerEntries.length
-    if (avgHunger <= 2.5) insights.push({ text: `Hunger averaging ${avgHunger.toFixed(1)}/5 — appetite suppression working`, accent: '#8b5cf6' })
-    else if (avgHunger >= 4) insights.push({ text: `Hunger trending high (${avgHunger.toFixed(1)}/5) — worth noting`, accent: '#f59e0b' })
+    if (avgHunger <= 2.5) insights.push({ text: `Appetite: suppressed (${avgHunger.toFixed(1)}/5) — protocol is delivering`, accent: '#8b5cf6' })
+    else if (avgHunger >= 4) insights.push({ text: `Appetite: elevated (${avgHunger.toFixed(1)}/5) — track closely this week`, accent: '#f59e0b' })
   }
   if (currentWeek > 0) {
     insights.push({ text: `${currentWeek} week${currentWeek > 1 ? 's' : ''} into your cycle — consistency is paying off`, accent: '#6c63ff' })
@@ -256,7 +278,7 @@ export default function JournalPage() {
         {/* Current Protocol */}
         {activeProtocols.length > 0 && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>ACTIVE STACK</div>
+            <div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>ACTIVE COMPOUNDS</div>
             {activeProtocols.map((p: any) => {
               const startMs = new Date(p.start_date + 'T00:00:00').getTime()
               const daysIn = Math.floor((Date.now() - startMs) / 86400000)
@@ -304,6 +326,7 @@ export default function JournalPage() {
                 <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
                 <YAxis tick={{fontSize:10,fill:mg}} width={20} />
                 <Tooltip {...tooltipStyle} />
+                {markers.map((m, i) => <ReferenceLine key={'m1_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} label={{value: m.label, position: 'top', fontSize: 9, fill: '#6c63ff'}} />)}
                 <Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' />
                 <Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' />
                 <Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep (hrs)' />
@@ -316,6 +339,7 @@ export default function JournalPage() {
                   <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
                   <YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} />
                   <Tooltip {...tooltipStyle} />
+                  {markers.map((m, i) => <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />)}
                   <Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' />
                 </LineChart>
               </ResponsiveContainer>
