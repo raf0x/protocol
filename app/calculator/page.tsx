@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '../../lib/supabase'
 
 const DOSE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 2.5, 5, 7.5, 10]
 const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20]
@@ -49,11 +48,7 @@ export default function ReconstitutionCalculator() {
   const [showCustomDose, setShowCustomDose] = useState(false)
   const [showCustomStrength, setShowCustomStrength] = useState(false)
   const [showCustomWater, setShowCustomWater] = useState(false)
-  const [showSaveFlow, setShowSaveFlow] = useState(false)
-  const [compoundName, setCompoundName] = useState('')
-  const [savingProtocol, setSavingProtocol] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [needsLogin, setNeedsLogin] = useState(false)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const d = params.get('dose')
@@ -72,23 +67,6 @@ export default function ReconstitutionCalculator() {
   async function copyShareUrl() {
     const url = getShareUrl()
     if (url) { await navigator.clipboard.writeText(url); alert('Link copied!') }
-  }
-
-  async function saveToProtocol() {
-    if (!compoundName.trim()) return
-    setSavingProtocol(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSavingProtocol(false); setSaveSuccess(false); setShowSaveFlow(false); setNeedsLogin(true); return }
-    const today = new Date().toISOString().split('T')[0]
-    const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: compoundName.trim(), start_date: today }).select().single()
-    if (!protocol) { setSavingProtocol(false); return }
-    const { data: compound } = await supabase.from('compounds').insert({ protocol_id: protocol.id, user_id: user.id, name: compoundName.trim(), vial_strength: activeStrength, vial_unit: 'mg', bac_water_ml: activeWater, reconstitution_date: today }).select().single()
-    if (!compound) { setSavingProtocol(false); return }
-    await supabase.from('phases').insert({ compound_id: compound.id, user_id: user.id, name: 'Phase 1', dose: activeDose, dose_unit: 'mg', syringe_units: syringeUnits, volume_ml: volumeMl, start_week: 1, end_week: 4, frequency: '1x/week' })
-    await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocol.id, compound_id: compound.id, date: today, event_type: 'started', description: 'Started ' + compoundName.trim() + ' at ' + activeDose + 'mg' })
-    setSavingProtocol(false)
-    setSaveSuccess(true)
   }
 
   const activeDose = showCustomDose ? parseFloat(customDose) : dose
@@ -240,31 +218,6 @@ export default function ReconstitutionCalculator() {
             </div>
           )}
 
-          {hasAll && showSaveFlow && !saveSuccess && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'8px'}}>ADD TO YOUR STACK</span>
-              <input value={compoundName} onChange={e => setCompoundName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'8px'}} />
-              <p style={{fontSize:'11px',color:mg,marginBottom:'10px'}}>Creates a protocol with {activeDose}mg dose, {activeStrength}mg vial, {activeWater}mL BAC water. You can edit phases later.</p>
-              <div style={{display:'flex',gap:'8px'}}>
-                <button onClick={() => setShowSaveFlow(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
-                <button onClick={saveToProtocol} disabled={savingProtocol || !compoundName.trim()} style={{flex:2,background:savingProtocol?'#1a3d1a':g,color:savingProtocol?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{savingProtocol ? 'Creating...' : 'Create Protocol'}</button>
-              </div>
-            </div>
-          )}
-
-          {needsLogin && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
-              <span style={{fontSize:'13px',color:dg}}>Sign in to save this to your protocol</span>
-              <a href='/auth/login' style={{display:'block',marginTop:'10px',background:g,color:'#000',textDecoration:'none',fontWeight:'700',padding:'12px',borderRadius:'6px',fontSize:'14px',textAlign:'center'}}>Sign in / Create account</a>
-            </div>
-          )}
-
-          {saveSuccess && (
-            <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd,textAlign:'center'}}>
-              <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>✓ Protocol created!</span>
-              <p style={{fontSize:'12px',color:dg,marginTop:'6px'}}>View it on your <a href='/protocol' style={{color:g,textDecoration:'none'}}>Dashboard →</a></p>
-            </div>
-          )}
         </div>
 
       </div>

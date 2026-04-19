@@ -47,13 +47,49 @@ export default function DashboardPage() {
   const [entryNotes, setEntryNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showNewProtocol, setShowNewProtocol] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [prefillDose, setPrefillDose] = useState('')
+  const [prefillVial, setPrefillVial] = useState('')
+  const [prefillWater, setPrefillWater] = useState('')
+  const [creatingProtocol, setCreatingProtocol] = useState(false)
+  const [createSuccess, setCreateSuccess] = useState(false)
   const g = '#39ff14'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'
   const bd = '#1e1e2e'
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    loadAll()
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('newprotocol') === '1') {
+      setPrefillDose(params.get('dose') || '')
+      setPrefillVial(params.get('vial') || '')
+      setPrefillWater(params.get('water') || '')
+      setShowNewProtocol(true)
+      window.history.replaceState({}, '', '/protocol')
+    }
+  }, [])
+
+  async function createProtocolFromCalc() {
+    if (!newName.trim()) return
+    setCreatingProtocol(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const todayStr = new Date().toISOString().split('T')[0]
+    const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: newName.trim(), start_date: todayStr }).select().single()
+    if (!protocol) { setCreatingProtocol(false); return }
+    const { data: compound } = await supabase.from('compounds').insert({ protocol_id: protocol.id, user_id: user.id, name: newName.trim(), vial_strength: prefillVial ? parseFloat(prefillVial) : null, vial_unit: 'mg', bac_water_ml: prefillWater ? parseFloat(prefillWater) : null, reconstitution_date: todayStr }).select().single()
+    if (!compound) { setCreatingProtocol(false); return }
+    await supabase.from('phases').insert({ compound_id: compound.id, user_id: user.id, name: 'Phase 1', dose: parseFloat(prefillDose), dose_unit: 'mg', start_week: 1, end_week: 4, frequency: '1x/week' })
+    await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocol.id, compound_id: compound.id, date: todayStr, event_type: 'started', description: 'Started ' + newName.trim() + ' at ' + prefillDose + 'mg' })
+    setCreatingProtocol(false)
+    setCreateSuccess(true)
+    setShowNewProtocol(false)
+    loadAll()
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -103,6 +139,25 @@ export default function DashboardPage() {
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
         <p style={{color:dg,fontSize:'13px',marginBottom:'16px'}}>You're building something. Keep going.</p>
+
+        {createSuccess && (
+          <div style={{background:'rgba(57,255,20,0.1)',border:'1px solid rgba(57,255,20,0.3)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
+            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>✓ Protocol created!</span>
+            <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
+          </div>
+        )}
+
+        {showNewProtocol && (
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>CREATE FROM CALCULATOR</span>
+            <p style={{fontSize:'12px',color:dg,marginBottom:'12px'}}>Dose: {prefillDose}mg · Vial: {prefillVial}mg · BAC: {prefillWater}mL</p>
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
+            <div style={{display:'flex',gap:'8px'}}>
+              <button onClick={() => setShowNewProtocol(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
+              <button onClick={createProtocolFromCalc} disabled={creatingProtocol || !newName.trim()} style={{flex:2,background:creatingProtocol?'#1a3d1a':g,color:creatingProtocol?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{creatingProtocol ? 'Creating...' : 'Create Protocol'}</button>
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'16px'}}>
