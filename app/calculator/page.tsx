@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
+import { createClient } from '../../lib/supabase'
 
 const DOSE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 2.5, 5, 7.5, 10]
 const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20]
@@ -75,7 +76,6 @@ export default function ReconstitutionCalculator() {
   async function saveToProtocol() {
     if (!compoundName.trim()) return
     setSavingProtocol(true)
-    const { createClient } = await import('../lib/supabase')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/auth/login'; return }
