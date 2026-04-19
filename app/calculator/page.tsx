@@ -84,6 +84,7 @@ export default function ReconstitutionCalculator() {
     try {
       const res = await fetch('/api/create-protocol', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: compoundLabel.trim(), dose: activeDose, vial: activeStrength, water: activeWater })
       })
