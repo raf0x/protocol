@@ -49,6 +49,7 @@ export default function JournalPage() {
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
+  const [activeProtocols, setActiveProtocols] = useState<any[]>([])
 
   const g = '#39ff14'
   const dg = '#8b8ba7'
@@ -80,6 +81,7 @@ export default function JournalPage() {
       const daysIn = Math.floor((Date.now() - startMs) / 86400000)
       setCurrentWeek(Math.max(1, Math.floor(daysIn / 7) + 1))
     }
+    setActiveProtocols(protocols || [])
     const due: DueCompound[] = []
     ;(protocols || []).forEach((p: any) => {
       const startMs = new Date(p.start_date + 'T00:00:00').getTime()
@@ -195,7 +197,7 @@ export default function JournalPage() {
     const daysBetween = Math.max(1, Math.floor((new Date(latest.date).getTime() - new Date(first.date).getTime()) / 86400000))
     const weeksBetween = Math.max(1, daysBetween / 7)
     if (diff > 0) {
-      insights.push({ text: `Down ${diff.toFixed(1)} lbs since you started tracking`, accent: g })
+      insights.push({ text: `You're down ${diff.toFixed(1)} lbs since you started — keep going`, accent: g })
       if (weeksBetween >= 2) insights.push({ text: `Averaging ${(diff / weeksBetween).toFixed(1)} lbs lost per week`, accent: g })
     } else if (diff < 0) {
       insights.push({ text: `Up ${Math.abs(diff).toFixed(1)} lbs since you started`, accent: '#f59e0b' })
@@ -220,7 +222,7 @@ export default function JournalPage() {
     else if (avgHunger >= 4) insights.push({ text: `Hunger trending high (${avgHunger.toFixed(1)}/5) — worth noting`, accent: '#f59e0b' })
   }
   if (currentWeek > 0) {
-    insights.push({ text: `${currentWeek} week${currentWeek > 1 ? 's' : ''} into your cycle`, accent: '#6c63ff' })
+    insights.push({ text: `${currentWeek} week${currentWeek > 1 ? 's' : ''} into your cycle — consistency is paying off`, accent: '#6c63ff' })
   }
   // Pick up to 3
   const visibleInsights = insights.slice(0, 3)
@@ -232,7 +234,7 @@ export default function JournalPage() {
     <main style={{minHeight:'100vh',color:'white',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'8px'}}>Journal</h1>
-        <p style={{color:dg,fontSize:'13px',marginBottom:'16px'}}>Log your day. Track your progress.</p>
+        <p style={{color:dg,fontSize:'13px',marginBottom:'16px'}}>You're building something. Keep going.</p>
 
         {/* Stats header */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'16px'}}>
@@ -246,10 +248,31 @@ export default function JournalPage() {
           </div>
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center'}}>
             <div style={{fontSize:'20px',fontWeight:'900',color:'#6c63ff'}}>{currentWeek > 0 ? 'Wk ' + currentWeek : '—'}</div>
-            <div style={{fontSize:'10px',color:mg,marginTop:'2px',letterSpacing:'1px'}}>CURRENT WEEK</div>
+            <div style={{fontSize:'10px',color:mg,marginTop:'2px',letterSpacing:'1px'}}>WEEK OF CYCLE</div>
           </div>
         </div>
 
+
+        {/* Current Protocol */}
+        {activeProtocols.length > 0 && (
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+            <div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>ACTIVE STACK</div>
+            {activeProtocols.map((p: any) => {
+              const startMs = new Date(p.start_date + 'T00:00:00').getTime()
+              const daysIn = Math.floor((Date.now() - startMs) / 86400000)
+              const wk = Math.max(1, Math.floor(daysIn / 7) + 1)
+              return (p.compounds || []).map((c: any) => {
+                const phase = (c.phases || []).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]
+                return phase ? (
+                  <div key={c.id} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid '+bd}}>
+                    <span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{c.name}</span>
+                    <span style={{fontSize:'12px',color:dg}}>{phase.dose}{phase.dose_unit} · {phase.frequency}</span>
+                  </div>
+                ) : null
+              })
+            })}
+          </div>
+        )}
 
         {/* Insights */}
         {visibleInsights.length > 0 && (
