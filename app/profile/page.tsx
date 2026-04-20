@@ -14,7 +14,7 @@ export default function ProfilePage() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifStatus, setNotifStatus] = useState('')
   const router = useRouter()
-  const g = '#4ade80'
+  const g = '#39ff14'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'

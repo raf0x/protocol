@@ -17,7 +17,7 @@ export default function HistoryPage() {
   const [saving, setSaving] = useState(false)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
 
-  const g = '#4ade80'
+  const g = '#39ff14'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'
