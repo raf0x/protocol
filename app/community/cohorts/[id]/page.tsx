@@ -23,7 +23,7 @@ export default function CohortPage({ params }: { params: Promise<{ id: string }>
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
   const router = useRouter()
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#4dbd4d'
   const mg = '#2d5a2d'
   const cb = '#0d0d0d'

@@ -14,14 +14,14 @@ const scrollAnimStyles = `
     100% { background-position: 200% center; }
   }
   @keyframes ringPulse {
-    0% { filter: drop-shadow(0 0 0px #39ff14); }
-    50% { filter: drop-shadow(0 0 12px #39ff14); }
-    100% { filter: drop-shadow(0 0 4px #39ff14); }
+    0% { filter: drop-shadow(0 0 0px #4ade80); }
+    50% { filter: drop-shadow(0 0 12px #4ade80); }
+    100% { filter: drop-shadow(0 0 4px #4ade80); }
   }
   @keyframes checkFlash {
-    0% { color: #39ff14; transform: scale(1); }
+    0% { color: #4ade80; transform: scale(1); }
     50% { color: #fff; transform: scale(1.4); }
-    100% { color: #39ff14; transform: scale(1); }
+    100% { color: #4ade80; transform: scale(1); }
   }
   @keyframes glowBorder {
     from { box-shadow: 0 0 0px rgba(108,99,255,0); border-color: #1e1e2e; }
@@ -89,9 +89,9 @@ export default function Home() {
 
       {/* Nav */}
       <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid #1e1e2e',position:'sticky',top:0,background:'rgba(10,10,15,0.9)',backdropFilter:'blur(12px)',zIndex:50}}>
-        <span style={{fontSize:'20px',fontWeight:'800',color:'#39ff14',letterSpacing:'2px'}}>PROTOCOL</span>
+        <span style={{fontSize:'20px',fontWeight:'800',color:'#4ade80',letterSpacing:'2px'}}>PROTOCOL</span>
         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-          <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
+          <a href='/auth/login' style={{background:'#4ade80',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
         </div>
       </nav>
 
@@ -104,7 +104,7 @@ export default function Home() {
           <div style={{animation:'tickerDown 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
             <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+              <span key={i} style={{fontSize:'10px',color:'#4ade80',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
           </div>
         </div>
@@ -115,7 +115,7 @@ export default function Home() {
           <div style={{animation:'tickerDown2 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
             <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'#39ff14',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+              <span key={i} style={{fontSize:'10px',color:'#4ade80',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
             ))}
           </div>
         </div>
@@ -123,10 +123,10 @@ export default function Home() {
         {/* Hero content */}
         <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
           <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
-          <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Stop guessing your protocol.<br/><span style={{color:'#39ff14'}}>Start knowing what works.</span></h1>
+          <h1 style={{fontSize:'clamp(36px,8vw,64px)',fontWeight:'900',lineHeight:'1.1',marginBottom:'20px',letterSpacing:'-1px'}}>Stop guessing your protocol.<br/><span style={{color:'#4ade80'}}>Start knowing what works.</span></h1>
           <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Optimize. The private protocol tracker for peptide and GLP-1 users. Not just logging — real insights.</p>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
-            <a href='/auth/login' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
+            <a href='/auth/login' style={{background:'#4ade80',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
             <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'16px 24px',borderRadius:'8px',fontSize:'16px',border:'1px solid #1e1e2e'}}>Try the calculator →</a>
           </div>
         </div>
@@ -154,17 +154,17 @@ export default function Home() {
         <div style={{display:'grid',gap:'16px'}}>
           <div className='scroll-hidden glow-card' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>📓</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Smart Journal</h3>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#4ade80'}}>Smart Journal</h3>
             <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Mood, energy, sleep, hunger, weight — logged in seconds. Real-time insights tell you what's working and what's not.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-1' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Protocol Dashboard</h3>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#4ade80'}}>Protocol Dashboard</h3>
             <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Your daily command center. Active compounds, injection checklist, insights, and progress — all in one scroll.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-2' style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#39ff14'}}>Private Community</h3>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'#4ade80'}}>Private Community</h3>
             <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Anonymous cohorts for GLP-1, peptides, and TRT users. Real experiences from real people. No vendors, no noise, no exposure.</p>
           </div>
         </div>
@@ -185,11 +185,11 @@ export default function Home() {
             </div>
           </div>
           <div style={{background:'rgba(57,255,20,0.03)',padding:'20px',borderLeft:'1px solid #1e1e2e'}}>
-            <p style={{fontSize:'13px',fontWeight:'700',color:'#39ff14',marginBottom:'14px'}}>With Protocol</p>
+            <p style={{fontSize:'13px',fontWeight:'700',color:'#4ade80',marginBottom:'14px'}}>With Protocol</p>
             <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
               {['See what actually works','Injection reminders','Phase-based tracking','Real-time insights','Private community'].map(item => (
                 <div key={item} style={{display:'flex',gap:'8px',alignItems:'center',fontSize:'12px',color:'#8b8ba7'}}>
-                  <span style={{color:'#39ff14'}}>✓</span> {item}
+                  <span style={{color:'#4ade80'}}>✓</span> {item}
                 </div>
               ))}
             </div>
@@ -204,7 +204,7 @@ export default function Home() {
         <div style={{display:'flex',gap:'24px',justifyContent:'center',flexWrap:'wrap'}}>
           {['No ads ever','No data selling','End-to-end private','You own your data'].map(item => (
             <div key={item} style={{display:'flex',alignItems:'center',gap:'8px',color:'#8b8ba7',fontSize:'14px'}}>
-              <span style={{color:'#39ff14',fontWeight:'700'}}>✓</span> {item}
+              <span style={{color:'#4ade80',fontWeight:'700'}}>✓</span> {item}
             </div>
           ))}
         </div>
@@ -229,9 +229,9 @@ export default function Home() {
 
       {/* Final CTA */}
       <section style={{padding:'80px 24px',textAlign:'center',maxWidth:'480px',margin:'0 auto'}}>
-        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'#39ff14'}}>actually matters.</span></h2>
+        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'#4ade80'}}>actually matters.</span></h2>
         <p style={{color:'#8b8ba7',marginBottom:'32px',fontSize:'16px'}}>Free during early access. No credit card required.</p>
-        <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'#39ff14',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
+        <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'#4ade80',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
       </section>
 
       {/* Footer */}

@@ -20,7 +20,7 @@ function SyringeVisual({ units }: { units: number }) {
         {/* Syringe body */}
         <rect x='16' y='20' width='28' height='200' rx='4' fill='#1a1a2e' stroke='#3d3d6e' strokeWidth='2'/>
         {/* Fill level */}
-        {fillH > 0 && <rect x='18' y={fillY} width='24' height={fillH} rx='2' fill='#39ff14' opacity='0.7'/>}
+        {fillH > 0 && <rect x='18' y={fillY} width='24' height={fillH} rx='2' fill='#4ade80' opacity='0.7'/>}
         {/* Tick marks */}
         {[0,25,50,75,100].map(tick => {
           const y = 20 + bodyH * (1 - tick/100)
@@ -91,7 +91,7 @@ export default function ReconstitutionCalculator() {
     isLowDose = activeDose! < 0.05
   }
 
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'

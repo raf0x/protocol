@@ -17,7 +17,7 @@ export default function CommunityPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'

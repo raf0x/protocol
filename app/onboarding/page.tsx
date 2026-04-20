@@ -36,7 +36,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'

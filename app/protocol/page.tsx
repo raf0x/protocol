@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const [prefillWater, setPrefillWater] = useState('')
   const [creatingProtocol, setCreatingProtocol] = useState(false)
   const [createSuccess, setCreateSuccess] = useState(false)
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'

@@ -29,7 +29,7 @@ export default function ManagePage() {
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const g = '#39ff14', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
+  const g = '#4ade80', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
 
   useEffect(() => { load() }, [])
 

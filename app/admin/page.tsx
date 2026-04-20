@@ -24,7 +24,7 @@ export default function AdminPage() {
   const [userId, setUserId] = useState('')
   const [filter, setFilter] = useState<'all'|'flagged'>('all')
   const router = useRouter()
-  const g = '#39ff14'
+  const g = '#4ade80'
   const dg = '#8b8ba7'
   const mg = '#3d3d5c'
   const cb = '#12121a'
