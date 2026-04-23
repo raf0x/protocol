@@ -225,7 +225,7 @@ export default function DashboardPage() {
               const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'];
               const total = items.length <= 4 ? 4 : 6; const padded = [...items, ...Array(total-items.length).fill(null)];
               return (
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0px'}}>
+                <div style={{display:'grid',gridTemplateColumns:items.length<=4?'1fr 1fr':'1fr 1fr 1fr',gap:'0px'}}>
                   {padded.map((item: any, i: number) => {
                     const rc = colors[i];
                     if (!item) return <div key={i} style={{width:'64px',height:'64px'}} />;
