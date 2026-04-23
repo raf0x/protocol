@@ -269,7 +269,7 @@ export default function DashboardPage() {
                 const daysIn = Math.max(0, Math.floor((Date.now()-new Date(ap.start_date+'T00:00:00').getTime())/86400000))
                 const wk = Math.max(1, Math.floor(daysIn/7)+1)
                 const ssd = 30; const lp = Math.min(100, Math.round((daysIn/ssd)*100)); const il = lp >= 100
-                const phases = (active.phases || []).slice().sort((a, b) => a.start_week - b.start_week)
+                const phases = (active.phases || []).slice().sort((a: any, b: any) => a.start_week - b.start_week)
                 const currentPhase = phases.find((ph) => wk >= ph.start_week && wk <= ph.end_week) || phases[0]
                 const isDue = !!dueCompounds.find((d) => d.id === active.id)
                 const log = logs[active.id]; const taken = log?.taken || false; const dis = log?.discomfort || 0
