@@ -279,7 +279,7 @@ export default function DashboardPage() {
                   <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
                     <div style={{background:'#0a0a0f',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative',marginBottom:'12px'}}>
                       <div style={{height:'100%',width:lp+'%',background:il?g:'linear-gradient(90deg, #6c63ff, #8b5cf6)',borderRadius:'6px'}} />
-                      <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
+                      <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:il?'#000':'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
                     </div>
                     {vialDaysLeft !== null && vialDaysSince !== null && (
                       <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+bd,marginBottom:'8px'}}>
