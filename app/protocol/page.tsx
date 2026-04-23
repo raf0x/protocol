@@ -250,7 +250,7 @@ export default function DashboardPage() {
 
         {/* Active Compounds - Tabbed */}
         {activeProtocols.length > 0 && (() => {
-          const allCompounds = activeProtocols.flatMap((p) => (p.compounds || []).map((c) => ({ ...c, protocol: p })))
+          const allCompounds = activeProtocols.flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol: p })))
           const tabId = activeCompoundTab || allCompounds[0]?.id
           const active = allCompounds.find((c) => c.id === tabId)
           const ap = active?.protocol
