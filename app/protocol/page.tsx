@@ -221,7 +221,7 @@ export default function DashboardPage() {
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:tl !== null ? (parseFloat(tl) > 0 ? g : '#ff6b6b') : g}}>{tl !== null ? (parseFloat(tl) > 0 ? '-'+Math.abs(parseFloat(tl)) : '+'+Math.abs(parseFloat(tl)))+' lbs' : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT CHANGE</div></div>
           <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
             {(() => {
-              const items = activeProtocols.flatMap((p: any) => (p.compounds||[]).map((c: any) => { const di = Math.max(0,Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000)); const wk = Math.max(1,Math.floor(di/7)+1); return {name:c.name,wk} })).slice(0,4);
+              const items = activeProtocols.flatMap((p: any) => (p.compounds||[]).map((c: any) => { const di = Math.max(0,Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000)); const wk = Math.max(1,Math.floor(di/7)+1); return {name:c.name,wk} })).slice(0,6);
               const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'];
               const total = items.length <= 4 ? 4 : 6; const padded = [...items, ...Array(total-items.length).fill(null)];
               return (
