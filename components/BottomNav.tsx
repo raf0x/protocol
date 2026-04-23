@@ -1,6 +1,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createClient } from '../lib/supabase'
 
 export default function BottomNav() {
   const pathname = usePathname()
@@ -13,6 +15,7 @@ export default function BottomNav() {
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
     { href: '/profile', label: 'Profile' },
+    ...(isAdmin ? [{ href: '/tracker', label: '🔒' }] : []),
     ...(isAdmin ? [{ href: '/tracker', label: '🔒' }] : []),
   ]
   return (
