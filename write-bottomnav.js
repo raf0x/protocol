@@ -1,4 +1,5 @@
-'use client'
+const fs = require("fs");
+const content = `'use client'
 
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -33,3 +34,6 @@ export default function BottomNav() {
     </nav>
   )
 }
+`;
+fs.writeFileSync("components/BottomNav.tsx", content, "utf8");
+console.log("Done! BottomNav.tsx saved.");
