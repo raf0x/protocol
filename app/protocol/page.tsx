@@ -284,9 +284,9 @@ export default function DashboardPage() {
                 <a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit →</a>
               </div>
               <div style={{display:'flex',gap:'6px',marginBottom:'12px',overflowX:'auto',paddingBottom:'4px'}}>
-                {allCompounds.map((c) => (
-                  <button key={c.id} onClick={() => setActiveCompoundTab(c.id)} style={{padding:'8px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,border:tabId===c.id?'1px solid '+g:'1px solid '+bd,background:tabId===c.id?'rgba(57,255,20,0.1)':cb,color:tabId===c.id?g:dg}}>{c.name}</button>
-                ))}
+                {allCompounds.map((c, ci) => { const tc = ['#39ff14','#6c63ff','#f59e0b','#06b6d4'][ci] || g; const isAct = tabId===c.id; return (
+                  <button key={c.id} onClick={() => setActiveCompoundTab(c.id)} style={{padding:'8px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,border:isAct?'1px solid '+tc:'1px solid '+bd,background:isAct?('rgba('+parseInt(tc.slice(1,3),16)+','+parseInt(tc.slice(3,5),16)+','+parseInt(tc.slice(5,7),16)+',0.12)')  :cb,color:isAct?tc:dg}}>{c.name}</button>
+                )})}
               </div>
               {active && ap && (() => {
                 const daysIn = Math.max(0, Math.floor((Date.now()-new Date(ap.start_date+'T00:00:00').getTime())/86400000))
