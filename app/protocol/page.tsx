@@ -270,8 +270,8 @@ export default function DashboardPage() {
                 const wk = Math.max(1, Math.floor(daysIn/7)+1)
                 const ssd = 30; const lp = Math.min(100, Math.round((daysIn/ssd)*100)); const il = lp >= 100
                 const phases = (active.phases || []).slice().sort((a: any, b: any) => a.start_week - b.start_week)
-                const currentPhase = phases.find((ph) => wk >= ph.start_week && wk <= ph.end_week) || phases[0]
-                const isDue = !!dueCompounds.find((d) => d.id === active.id)
+                const currentPhase = phases.find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || phases[0]
+                const isDue = !!dueCompounds.find((d: any) => d.id === active.id)
                 const log = logs[active.id]; const taken = log?.taken || false; const dis = log?.discomfort || 0
                 let vialDaysLeft = null; let vialDaysSince = null
                 if (active.reconstitution_date) { const rd = new Date(active.reconstitution_date+'T00:00:00'); vialDaysSince = Math.floor((Date.now()-rd.getTime())/86400000); vialDaysLeft = 28-vialDaysSince }
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                     <span style={{fontSize:'10px',color:dg,fontWeight:'700',letterSpacing:'1px',display:'block',marginBottom:'6px'}}>PHASE TIMELINE</span>
-                    {phases.map((ph, i) => {
+                    {phases.map((ph: any, i: number) => {
                       const isCur = wk >= ph.start_week && wk <= ph.end_week
                       return (
                         <div key={ph.id||i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:i<phases.length-1?'1px solid '+bd:'none'}}>
