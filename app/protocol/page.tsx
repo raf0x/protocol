@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
   const [showProtocols, setShowProtocols] = useState(false)
+  const [activeCompoundTab, setActiveCompoundTab] = useState(null)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
@@ -247,15 +248,76 @@ export default function DashboardPage() {
             )}
             {we.length > 1 && (<><p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p><ResponsiveContainer width='100%' height={100}><LineChart data={cd.filter((d: any) => d.weight)}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />)}<Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' /></LineChart></ResponsiveContainer></>)}</div>)}
 
-        {/* Active Compounds */}
-        {activeProtocols.length > 0 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span><a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit Protocols →</a></div>
-            {activeProtocols.map((p: any) => { const daysIn = Math.max(0, Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000)); const wk = Math.max(1,Math.floor(daysIn/7)+1); return (p.compounds||[]).map((c: any) => { const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]; if (!phase) return null; const ssd = 30; const lp = Math.min(100, Math.round((daysIn/ssd)*100)); const il = lp >= 100; return (<div key={c.id} style={{padding:'8px 0',borderBottom:'1px solid '+bd}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}><span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{c.name}</span><span style={{fontSize:'12px',color:dg}}>{phase.dose}{phase.dose_unit} · {phase.frequency}</span></div>
-                    {c.reconstitution_date && (() => { const rd = new Date(c.reconstitution_date+'T00:00:00'); const daysSince = Math.floor((Date.now()-rd.getTime())/86400000); const daysLeft = 28-daysSince; const pct = Math.min(100, Math.round((daysSince/28)*100)); return (<div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}}><span style={{fontSize:'12px',fontWeight:'700',color:daysLeft<=5?'#ff6b6b':daysLeft<=10?'#f59e0b':'#c4c4dd'}}>💉 Vial: {daysLeft > 0 ? daysLeft+'d left' : 'expired'} ({daysSince}d old)</span></div>) })()}<div style={{background:'#0a0a0f',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative'}}><div style={{height:'100%',width:lp+'%',background:il?g:'linear-gradient(90deg, #6c63ff, #8b5cf6)',borderRadius:'6px',transition:'width 0.5s ease'}} /><span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span></div></div>) }) })}
-            {showProtocols && activeProtocols.map((p: any) => (<div key={p.id} style={{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+bd}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'14px',fontWeight:'700',color:g}}>{p.name}</span><a href='/protocol' style={{fontSize:'11px',color:mg,textDecoration:'none'}}>Edit →</a></div>{p.notes && <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>{p.notes}</p>}</div>))}
-          </div>
-        )}
+        {/* Active Compounds - Tabbed */}
+        {activeProtocols.length > 0 && (() => {
+          const allCompounds = activeProtocols.flatMap((p) => (p.compounds || []).map((c) => ({ ...c, protocol: p })))
+          const tabId = activeCompoundTab || allCompounds[0]?.id
+          const active = allCompounds.find((c) => c.id === tabId)
+          const ap = active?.protocol
+          return (
+            <div style={{marginBottom:'16px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span>
+                <a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit →</a>
+              </div>
+              <div style={{display:'flex',gap:'6px',marginBottom:'12px',overflowX:'auto',paddingBottom:'4px'}}>
+                {allCompounds.map((c) => (
+                  <button key={c.id} onClick={() => setActiveCompoundTab(c.id)} style={{padding:'8px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,border:tabId===c.id?'1px solid '+g:'1px solid '+bd,background:tabId===c.id?'rgba(57,255,20,0.1)':cb,color:tabId===c.id?g:dg}}>{c.name}</button>
+                ))}
+              </div>
+              {active && ap && (() => {
+                const daysIn = Math.max(0, Math.floor((Date.now()-new Date(ap.start_date+'T00:00:00').getTime())/86400000))
+                const wk = Math.max(1, Math.floor(daysIn/7)+1)
+                const ssd = 30; const lp = Math.min(100, Math.round((daysIn/ssd)*100)); const il = lp >= 100
+                const phases = (active.phases || []).slice().sort((a, b) => a.start_week - b.start_week)
+                const currentPhase = phases.find((ph) => wk >= ph.start_week && wk <= ph.end_week) || phases[0]
+                const isDue = !!dueCompounds.find((d) => d.id === active.id)
+                const log = logs[active.id]; const taken = log?.taken || false; const dis = log?.discomfort || 0
+                let vialDaysLeft = null; let vialDaysSince = null
+                if (active.reconstitution_date) { const rd = new Date(active.reconstitution_date+'T00:00:00'); vialDaysSince = Math.floor((Date.now()-rd.getTime())/86400000); vialDaysLeft = 28-vialDaysSince }
+                return (
+                  <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
+                    <div style={{background:'#0a0a0f',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative',marginBottom:'12px'}}>
+                      <div style={{height:'100%',width:lp+'%',background:il?g:'linear-gradient(90deg, #6c63ff, #8b5cf6)',borderRadius:'6px'}} />
+                      <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
+                    </div>
+                    {vialDaysLeft !== null && vialDaysSince !== null && (
+                      <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+bd,marginBottom:'8px'}}>
+                        <span style={{fontSize:'12px',color:dg}}>Vial status</span>
+                        <span style={{fontSize:'12px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'#c4c4dd'}}>{vialDaysLeft>0?vialDaysLeft+'d left':'expired'} ({vialDaysSince}d old){active.bac_water_ml ? ' · '+active.bac_water_ml+'mL BAC' : ''}</span>
+                      </div>
+                    )}
+                    <span style={{fontSize:'10px',color:dg,fontWeight:'700',letterSpacing:'1px',display:'block',marginBottom:'6px'}}>PHASE TIMELINE</span>
+                    {phases.map((ph, i) => {
+                      const isCur = wk >= ph.start_week && wk <= ph.end_week
+                      return (
+                        <div key={ph.id||i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:i<phases.length-1?'1px solid '+bd:'none'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                            <span style={{fontSize:'10px',fontWeight:'700',padding:'2px 7px',borderRadius:'4px',background:isCur?g:'rgba(255,255,255,0.08)',color:isCur?'#000':dg}}>{ph.name||'P'+(i+1)}</span>
+                            <div>
+                              <span style={{fontSize:'13px',fontWeight:'600',color:isCur?'white':dg}}>{ph.dose}{ph.dose_unit}</span>
+                              <span style={{fontSize:'11px',color:mg,display:'block'}}>W{ph.start_week}–W{ph.end_week} · {ph.frequency}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {isDue && (
+                      <div style={{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+bd}}>
+                        <span style={{fontSize:'10px',color:dg,fontWeight:'700',letterSpacing:'1px',display:'block',marginBottom:'8px'}}>TODAY'S DOSE</span>
+                        <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:taken?'10px':'0'}}>
+                          <button onClick={() => toggleInjection(active.id)} style={{width:'26px',height:'26px',borderRadius:'6px',border:'1px solid '+(taken?g:bd),background:taken?g:'transparent',cursor:'pointer',color:'#000',fontWeight:'800',padding:0}}>{taken ? '✓' : ''}</button>
+                          <span style={{fontSize:'14px',fontWeight:'600',color:taken?dg:'white',textDecoration:taken?'line-through':'none'}}>{currentPhase?.dose}{currentPhase?.dose_unit} · {currentPhase?.frequency}</span>
+                        </div>
+                        {taken && <div><span style={{fontSize:'10px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span><div style={{display:'flex',gap:'6px'}}>{[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={dis} onChange={v => setDiscomfortVal(active.id, v)} />)}</div></div>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )
+        })()}
 
         {/* Event logger */}
         <div style={{marginBottom:'16px'}}>
@@ -317,9 +379,6 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-
-        {/* Today's injections */}
-        {dueCompounds.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>TODAY'S INJECTIONS</span><span style={{fontSize:'12px',color:mg}}>{Object.values(logs).filter(l => l.taken).length}/{dueCompounds.length}</span></div>{dueCompounds.map(c => { const log = logs[c.id]; const taken = log?.taken||false; const dis = log?.discomfort||0; return (<div key={c.id} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}><div style={{display:'flex',alignItems:'center',gap:'12px'}}><button onClick={() => toggleInjection(c.id)} style={{width:'26px',height:'26px',borderRadius:'6px',border:'1px solid '+(taken?g:bd),background:taken?g:'transparent',cursor:'pointer',color:'#000',fontWeight:'800',padding:0}}>{taken?'✓':''}</button><div style={{flex:1}}><div style={{fontSize:'14px',fontWeight:'600',color:taken?dg:'white',textDecoration:taken?'line-through':'none'}}>{c.name}</div><div style={{fontSize:'11px',color:mg}}>{c.dose} · {c.protocol_name}</div></div></div>{taken && (<div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid '+bd}}><span style={{fontSize:'10px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span><div style={{display:'flex',gap:'6px'}}>{[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={dis} onChange={v => setDiscomfortVal(c.id, v)} />)}</div></div>)}</div>) })}</div>)}
 
         {/* Daily log */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
