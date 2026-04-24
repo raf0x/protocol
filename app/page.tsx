@@ -131,8 +131,7 @@ export default function Home() {
         <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
           <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
           <div style={{marginBottom:'28px'}}>
-            <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:'0px',position:'relative'}}>
-              <span style={{fontSize:'clamp(32px,7vw,52px)',display:'block',lineHeight:1,marginRight:'8px',animation:'syringeFloat 4s ease-in-out infinite',flexShrink:0}}>??</span>
+            <div style={{display:'flex',justifyContent:'center'}}>
               <div style={{position:'relative',display:'inline-block'}}>
                 <h1 style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',WebkitTextStroke:'2px #39ff14',color:'transparent',margin:0,display:'block',userSelect:'none',whiteSpace:'nowrap'}}>Protocol</h1>
                 <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'#39ff14',position:'absolute',top:0,left:0,margin:0,display:'block',animation:'syringeFill 4s ease-in-out infinite',clipPath:'inset(0 100% 0 0)',textShadow:'0 0 40px rgba(57,255,20,0.6)',whiteSpace:'nowrap'}}>Protocol</h1>
