@@ -41,11 +41,7 @@ const scrollAnimStyles = `
     80%    { clip-path: inset(0 0% 0 0); }
     100%   { clip-path: inset(0 100% 0 0); }
   }
-  @keyframes syringeFloat {
-    0%,100% { transform: translateY(-50%) rotate(170deg) translateX(0px); }
-    55%     { transform: translateY(-50%) rotate(170deg) translateX(12px); }
-    80%     { transform: translateY(-50%) rotate(170deg) translateX(12px); }
-  }
+
   .scroll-hidden { opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease, box-shadow 0.7s ease, border-color 0.7s ease; }
   .scroll-visible { opacity: 1; transform: translateY(0); }
   .scroll-visible.glow-card { box-shadow: 0 0 24px rgba(108,99,255,0.25); border-color: rgba(108,99,255,0.4) !important; }
