@@ -1,4 +1,5 @@
-'use client'
+const fs = require('fs');
+const content = `'use client'
 
 import { useState, useEffect } from 'react'
 
@@ -193,7 +194,7 @@ export default function ReconstitutionCalculator() {
             }
           </div>
 
-          {/* BAC water ï¿½ only shown in Advanced */}
+          {/* BAC water — only shown in Advanced */}
           {!smartMode && <>
             <div style={{height:'1px',background:bd}} />
             <div>
@@ -221,7 +222,7 @@ export default function ReconstitutionCalculator() {
                 Then draw to the <span style={{color:'white',fontWeight:'700'}}>{smartRec.units} unit</span> mark on your U-100 syringe. This equals exactly <span style={{color:'white',fontWeight:'700'}}>{activeDose}mg</span>.
               </div>
               <div style={{fontSize:'12px',color:mg,lineHeight:'1.5',borderTop:'1px solid rgba(57,255,20,0.15)',paddingTop:'10px'}}>
-                Why {smartRec.units} units? The {smartRec.units}u mark is a bold line on every U-100 syringe ï¿½ easy to hit accurately. {smartRec.water.toFixed(1)}mL is a stable reconstitution volume for most peptide vials.
+                Why {smartRec.units} units? The {smartRec.units}u mark is a bold line on every U-100 syringe — easy to hit accurately. {smartRec.water.toFixed(1)}mL is a stable reconstitution volume for most peptide vials.
               </div>
             </>) : (
               <div style={{fontSize:'13px',color:'#f97316'}}>No clean syringe reading found for this combination. Switch to Advanced mode to set BAC water manually.</div>
@@ -237,7 +238,7 @@ export default function ReconstitutionCalculator() {
                 background:w.level==='error'?'rgba(255,107,107,0.1)':'rgba(249,115,22,0.1)',
                 border:'1px solid '+(w.level==='error'?'rgba(255,107,107,0.4)':'rgba(249,115,22,0.4)'),
                 color:w.level==='error'?'#ff6b6b':'#f97316'}}>
-                {w.level==='error'?'\u26A0 ':'\u26A0 '}{w.text}
+                {w.level==='error'?'\\u26A0 ':'\\u26A0 '}{w.text}
               </div>
             ))}
           </div>
@@ -255,7 +256,7 @@ export default function ReconstitutionCalculator() {
               </div>
               <div style={{background:'#1a1a2e',border:'1px solid '+(hasAll?'#6c63ff':bd),borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>DRAW SYRINGE TO</span>
-                <span style={{fontSize:'24px',fontWeight:'900',color:hasAll?g:mg}}>{hasAll ? syringeUnits.toFixed(1)+' units' : '\u2014'}</span>
+                <span style={{fontSize:'24px',fontWeight:'900',color:hasAll?g:mg}}>{hasAll ? syringeUnits.toFixed(1)+' units' : '\\u2014'}</span>
                 {hasAll && <span style={{fontSize:'12px',color:dg,display:'block',marginTop:'2px'}}>{volumeMl.toFixed(3)} mL</span>}
               </div>
               <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
@@ -272,7 +273,7 @@ export default function ReconstitutionCalculator() {
               </div>
             </div>
           </div>
-          <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>For U-100 insulin syringes only. Reference tool. Not medical advice ï¿½ verify all calculations independently.</p>
+          <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>For U-100 insulin syringes only. Reference tool. Not medical advice — verify all calculations independently.</p>
 
           {hasAll && (
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
@@ -290,3 +291,6 @@ export default function ReconstitutionCalculator() {
     </main>
   )
 }
+`;
+fs.writeFileSync('app/calculator/page.tsx', content, 'utf8');
+console.log('Done!');
