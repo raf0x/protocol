@@ -109,11 +109,11 @@ export default function CommunityPage() {
               const isJoined = joined.includes(sub.id)
               const count = memberCounts[sub.id] || 0
               return (
-                <div key={sub.id} style={{background:cb,border:'1px solid '+(isJoined?mg:bd),borderRadius:'8px',padding:'14px',marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div key={sub.id} style={{background:cb,border:'1px solid '+(isJoined?'var(--color-green)':'var(--color-border)'),borderRadius:'8px',padding:'14px',marginBottom:'8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <div style={{flex:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px'}}>
                       <span style={{fontSize:'14px',fontWeight:'600',color:isJoined?g:'white'}}>{sub.name}</span>
-                      {isJoined && <span style={{fontSize:'10px',color:mg,background:'#0a1a0a',padding:'2px 6px',borderRadius:'4px'}}>JOINED</span>}
+                      {isJoined && <span style={{fontSize:'10px',color:'var(--color-green-text)',background:'var(--color-green)',padding:'2px 8px',borderRadius:'4px',fontWeight:'700'}}>JOINED</span>}
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                       <p style={{fontSize:'12px',color:mg,margin:0}}>{sub.description}</p>
@@ -122,9 +122,9 @@ export default function CommunityPage() {
                   </div>
                   <div style={{display:'flex',gap:'8px',marginLeft:'12px'}}>
                     {isJoined && (
-                      <button onClick={() => router.push('/community/cohorts/'+sub.id)} style={{background:'#0a1a0a',color:dg,fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',border:'none'}}>View</button>
+                      <button onClick={() => router.push('/community/cohorts/'+sub.id)} style={{background:'var(--color-surface)',color:'var(--color-dim)',fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer',border:'1px solid var(--color-border)'}}>View</button>
                     )}
-                    <button onClick={() => toggleJoin(sub.id)} style={{background:isJoined?'#1a0000':'#0a1a0a',border:'1px solid '+(isJoined?'#4a0000':mg),color:isJoined?'#ff6b6b':dg,fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer'}}>{isJoined?'Leave':'Join'}</button>
+                    <button onClick={() => toggleJoin(sub.id)} style={{background:isJoined?'rgba(255,107,107,0.1)':'var(--color-surface)',border:'1px solid '+(isJoined?'rgba(255,107,107,0.4)':'var(--color-border)'),color:isJoined?'#ff6b6b':'var(--color-dim)',fontSize:'12px',padding:'6px 10px',borderRadius:'6px',cursor:'pointer'}}>{isJoined?'Leave':'Join'}</button>
                   </div>
                 </div>
               )
