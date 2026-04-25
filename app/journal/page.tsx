@@ -17,11 +17,11 @@ export default function HistoryPage() {
   const [saving, setSaving] = useState(false)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
 
-  const g = '#39ff14'
-  const dg = '#8b8ba7'
-  const mg = '#3d3d5c'
-  const cb = '#12121a'
-  const bd = '#1e1e2e'
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
 
   useEffect(() => { load() }, [])
 
@@ -73,17 +73,17 @@ export default function HistoryPage() {
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>History</h1>
         <p style={{color:dg,fontSize:'13px',marginBottom:'20px'}}>Your past entries. Tap Edit to update.</p>
 
         {editingId && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'14px'}}>EDIT ENTRY</h2>
+            <h2 style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'14px'}}>EDIT ENTRY</h2>
             <div style={{marginBottom:'10px'}}>
               <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Date</span>
-              <input type='date' value={date} onChange={e => setDate(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark'}} />
+              <input type='date' value={date} onChange={e => setDate(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark'}} />
             </div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
               <span style={{fontSize:'12px',color:dg}}>Mood</span>
@@ -98,10 +98,10 @@ export default function HistoryPage() {
               <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} activeColor='#8b5cf6' />)}</div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}}>
-              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box'}} /></div>
-              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box'}} /></div>
+              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div>
+              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div>
             </div>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
             <div style={{display:'flex',gap:'8px'}}>
               <button onClick={cancelEdit} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
               <button onClick={saveEdit} disabled={saving} style={{flex:2,background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':'Save Changes'}</button>
@@ -113,7 +113,7 @@ export default function HistoryPage() {
 
         {protocolEvents.length > 0 && (
           <div style={{marginBottom:'20px'}}>
-            <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL CHANGES</span>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL CHANGES</span>
             {protocolEvents.map((ev, i) => (
               <div key={ev.id || i} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'4px'}}>
@@ -123,7 +123,7 @@ export default function HistoryPage() {
                   </div>
                   <span style={{fontSize:'12px',color:dg}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                 </div>
-                <span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{ev.description}</span>
+                <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>{ev.description}</span>
               </div>
             ))}
           </div>

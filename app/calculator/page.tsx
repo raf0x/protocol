@@ -131,7 +131,7 @@ export default function ReconstitutionCalculator() {
     if (url) { await navigator.clipboard.writeText(url); alert('Link copied!') }
   }
 
-  const g = '#39ff14', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
+  const g = 'var(--color-green)', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
 
   function PresetBtn({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
     return (
@@ -142,7 +142,7 @@ export default function ReconstitutionCalculator() {
   }
 
   return (
-    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'520px',margin:'0 auto'}}>
         <a href='/' style={{fontSize:'13px',color:mg,textDecoration:'none',display:'block',marginBottom:'24px'}}>Back</a>
         <h1 style={{fontSize:'26px',fontWeight:'900',marginBottom:'4px',color:g,letterSpacing:'-0.5px'}}>Pep Calculator</h1>
@@ -170,11 +170,11 @@ export default function ReconstitutionCalculator() {
           {/* Dose */}
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>DOSE (mg)</span>
+              <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>DOSE (mg)</span>
               <button onClick={() => setShowCustomDose(!showCustomDose)} style={{fontSize:'11px',color:mg,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>{showCustomDose?'Use presets':'Custom'}</button>
             </div>
             {showCustomDose
-              ? <input type='number' value={customDose} onChange={e => setCustomDose(e.target.value)} placeholder='e.g. 0.3' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
+              ? <input type='number' value={customDose} onChange={e => setCustomDose(e.target.value)} placeholder='e.g. 0.3' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
               : <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>{DOSE_PRESETS.map(v => <PresetBtn key={v} value={v} active={!showCustomDose && dose===v} onClick={() => { setDose(v); setShowCustomDose(false) }} />)}</div>
             }
           </div>
@@ -184,11 +184,11 @@ export default function ReconstitutionCalculator() {
           {/* Vial strength */}
           <div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>VIAL STRENGTH (mg)</span>
+              <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>VIAL STRENGTH (mg)</span>
               <button onClick={() => setShowCustomStrength(!showCustomStrength)} style={{fontSize:'11px',color:mg,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>{showCustomStrength?'Use presets':'Custom'}</button>
             </div>
             {showCustomStrength
-              ? <input type='number' value={customStrength} onChange={e => setCustomStrength(e.target.value)} placeholder='e.g. 7' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
+              ? <input type='number' value={customStrength} onChange={e => setCustomStrength(e.target.value)} placeholder='e.g. 7' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
               : <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>{STRENGTH_PRESETS.map(v => <PresetBtn key={v} value={v} active={!showCustomStrength && strength===v} onClick={() => { setStrength(v); setShowCustomStrength(false) }} />)}</div>
             }
           </div>
@@ -198,11 +198,11 @@ export default function ReconstitutionCalculator() {
             <div style={{height:'1px',background:bd}} />
             <div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>BAC WATER (mL)</span>
+                <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>BAC WATER (mL)</span>
                 <button onClick={() => setShowCustomWater(!showCustomWater)} style={{fontSize:'11px',color:mg,background:'none',border:'none',cursor:'pointer',padding:0,textDecoration:'underline'}}>{showCustomWater?'Use presets':'Custom'}</button>
               </div>
               {showCustomWater
-                ? <input type='number' value={customWater} onChange={e => setCustomWater(e.target.value)} placeholder='e.g. 1.2' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
+                ? <input type='number' value={customWater} onChange={e => setCustomWater(e.target.value)} placeholder='e.g. 1.2' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',outline:'none'}} />
                 : <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>{WATER_PRESETS.map(v => <PresetBtn key={v} value={v} active={!showCustomWater && water===v} onClick={() => { setWater(v); setShowCustomWater(false) }} />)}</div>
               }
             </div>
@@ -214,11 +214,11 @@ export default function ReconstitutionCalculator() {
           <div style={{borderRadius:'12px',padding:'16px',marginBottom:'16px',border:'1px solid rgba(57,255,20,0.4)',background:'rgba(57,255,20,0.06)'}}>
             <div style={{fontSize:'11px',fontWeight:'700',color:g,letterSpacing:'1px',marginBottom:'10px'}}>SUGGESTED RECONSTITUTION</div>
             {smartRec ? (<>
-              <div style={{fontSize:'22px',fontWeight:'900',color:'white',marginBottom:'6px'}}>
+              <div style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'6px'}}>
                 Add <span style={{color:g}}>{smartRec.water.toFixed(1)} mL</span> BAC water
               </div>
               <div style={{fontSize:'14px',color:dg,marginBottom:'12px',lineHeight:'1.6'}}>
-                Then draw to the <span style={{color:'white',fontWeight:'700'}}>{smartRec.units} unit</span> mark on your U-100 syringe. This equals exactly <span style={{color:'white',fontWeight:'700'}}>{activeDose}mg</span>.
+                Then draw to the <span style={{color:'var(--color-text)',fontWeight:'700'}}>{smartRec.units} unit</span> mark on your U-100 syringe. This equals exactly <span style={{color:'var(--color-text)',fontWeight:'700'}}>{activeDose}mg</span>.
               </div>
               <div style={{fontSize:'12px',color:mg,lineHeight:'1.5',borderTop:'1px solid rgba(57,255,20,0.15)',paddingTop:'10px'}}>
                 Why {smartRec.units} units? The {smartRec.units}u mark is a bold line on every U-100 syringe � easy to hit accurately. {smartRec.water.toFixed(1)}mL is a stable reconstitution volume for most peptide vials.
@@ -245,28 +245,28 @@ export default function ReconstitutionCalculator() {
 
         {/* Results */}
         <div style={{background:cb,border:'1px solid '+(hasAll?g:bd),borderRadius:'12px',padding:'24px',transition:'border-color 0.3s'}}>
-          <h2 style={{fontSize:'13px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'20px'}}>RESULTS</h2>
+          <h2 style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'20px'}}>RESULTS</h2>
           <div style={{display:'flex',gap:'24px',alignItems:'flex-start'}}>
             <SyringeVisual units={hasAll ? syringeUnits : 0} />
             <div style={{flex:1,display:'flex',flexDirection:'column',gap:'14px'}}>
-              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+              <div style={{background:'var(--color-surface)',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>PEPTIDE DOSE</span>
                 <span style={{fontSize:'16px',fontWeight:'700',color:hasAll?'white':mg}}>{hasAll ? activeDose+'mg ('+(activeDose!*1000)+'mcg)' : 'Select dose'}</span>
               </div>
-              <div style={{background:'#1a1a2e',border:'1px solid '+(hasAll?'#6c63ff':bd),borderRadius:'8px',padding:'12px'}}>
+              <div style={{background:'var(--color-surface)',border:'1px solid '+(hasAll?'#6c63ff':bd),borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>DRAW SYRINGE TO</span>
                 <span style={{fontSize:'24px',fontWeight:'900',color:hasAll?g:mg}}>{hasAll ? syringeUnits.toFixed(1)+' units' : '\u2014'}</span>
                 {hasAll && <span style={{fontSize:'12px',color:dg,display:'block',marginTop:'2px'}}>{volumeMl.toFixed(3)} mL</span>}
               </div>
-              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+              <div style={{background:'var(--color-surface)',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>BAC WATER ADDED</span>
                 <span style={{fontSize:'14px',fontWeight:'600',color:hasAll?'white':mg}}>{hasAll ? activeWater!.toFixed(1)+' mL' : 'Select values'}</span>
               </div>
-              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+              <div style={{background:'var(--color-surface)',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>CONCENTRATION</span>
                 <span style={{fontSize:'14px',fontWeight:'600',color:hasAll?'white':mg}}>{hasAll ? concentration.toFixed(0)+' mcg/mL' : 'Select values'}</span>
               </div>
-              <div style={{background:'#1a1a2e',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
+              <div style={{background:'var(--color-surface)',border:'1px solid #2a2a4e',borderRadius:'8px',padding:'12px'}}>
                 <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginBottom:'4px',letterSpacing:'1px',fontWeight:'700'}}>DOSES PER VIAL</span>
                 <span style={{fontSize:'14px',fontWeight:'600',color:hasAll?'white':mg}}>{hasAll ? dosesPerVial+' doses' : 'Select values'}</span>
               </div>
@@ -277,10 +277,10 @@ export default function ReconstitutionCalculator() {
           {hasAll && (
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
               <div style={{marginBottom:'12px'}}>
-                <input value={compoundLabel} onChange={e => setCompoundLabel(e.target.value)} placeholder='Compound name (optional)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'12px',boxSizing:'border-box',marginBottom:'8px'}} />
+                <input value={compoundLabel} onChange={e => setCompoundLabel(e.target.value)} placeholder='Compound name (optional)' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'var(--color-text)',fontSize:'12px',boxSizing:'border-box',marginBottom:'8px'}} />
               </div>
               <div style={{display:'flex',gap:'8px'}}>
-                <button onClick={copyShareUrl} style={{flex:1,background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:dg,fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share</button>
+                <button onClick={copyShareUrl} style={{flex:1,background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:dg,fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share</button>
                 <a href='/auth/login' style={{flex:1,background:g,color:'#000',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol</a>
               </div>
             </div>

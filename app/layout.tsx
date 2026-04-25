@@ -25,6 +25,7 @@ export default function RootLayout({
         <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover' />
         <link rel='apple-touch-icon' href='/icon-192.png' />
         <link rel='icon' type='image/png' href='/icon-192.png' />
+        <script dangerouslySetInnerHTML={{__html:"(function(){try{var t=localStorage.getItem('protocol-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();"}} />
       </head>
       <body className={inter.className} style={{paddingBottom:'80px'}}>
         {children}

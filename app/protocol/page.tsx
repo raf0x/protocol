@@ -67,11 +67,11 @@ export default function DashboardPage() {
   const [prefillWater, setPrefillWater] = useState('')
   const [creatingProtocol, setCreatingProtocol] = useState(false)
   const [createSuccess, setCreateSuccess] = useState(false)
-  const g = '#39ff14'
-  const dg = '#8b8ba7'
-  const mg = '#3d3d5c'
-  const cb = '#12121a'
-  const bd = '#1e1e2e'
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
 
   useEffect(() => {
     loadAll()
@@ -191,7 +191,7 @@ export default function DashboardPage() {
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',color:'white',padding:'28px 22px 100px 22px'}}>
+    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
         <p style={{color:dg,fontSize:'13px',marginBottom:'16px'}}>Every day logged is data working for you.</p>
@@ -205,9 +205,9 @@ export default function DashboardPage() {
 
         {showNewProtocol && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>CREATE FROM CALCULATOR</span>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>CREATE FROM CALCULATOR</span>
             <p style={{fontSize:'12px',color:dg,marginBottom:'12px'}}>Dose: {prefillDose}mg · Vial: {prefillVial}mg · BAC: {prefillWater}mL</p>
-            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
             <div style={{display:'flex',gap:'8px'}}>
               <button onClick={() => setShowNewProtocol(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
               <button onClick={createProtocolFromCalc} disabled={creatingProtocol || !newName.trim()} style={{flex:2,background:creatingProtocol?'#1a3d1a':g,color:creatingProtocol?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{creatingProtocol ? 'Creating...' : 'Create Protocol'}</button>
@@ -238,7 +238,7 @@ export default function DashboardPage() {
                     const short = item.name.split('/')[0].split(' ')[0].slice(0,6);
                     return (
                       <div key={i} onClick={() => { setActiveCompoundTab(item.id); const el = document.getElementById('active-compounds'); if(el) el.scrollIntoView({behavior:'smooth'}); }} style={{width:'64px',height:'64px',borderRadius:'50%',border:((activeCompoundTab||items[0]?.id)===item.id?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginRight:isLastCol?'0':'-10px',marginBottom:isLastRow?'0':'-10px',background:(activeCompoundTab||items[0]?.id)===item.id?rc+'44':cb,zIndex:row+col,position:'relative',cursor:'pointer',boxShadow:(activeCompoundTab||items[0]?.id)===item.id?'0 0 18px '+rc+', 0 0 6px '+rc:'none',transform:(activeCompoundTab||items[0]?.id)===item.id?'scale(1.15)':'scale(1)',transition:'all 0.2s ease'}}>
-                        <span style={{fontSize:'10px',fontWeight:'800',color:'white',textAlign:'center',lineHeight:'1.2',letterSpacing:'0.2px'}}>{short}</span>
+                        <span style={{fontSize:'10px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2',letterSpacing:'0.2px'}}>{short}</span>
                         <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2'}}>Wk {item.wk}</span>
                       </div>
                     );
@@ -250,7 +250,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Insights */}
-        {vi.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',marginBottom:'10px'}}>INSIGHTS</div>{vi.map((ins2, i) => (<div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 0',fontSize:'13px',color:'white'}}><span style={{color:ins2.accent,fontWeight:'700'}}>→</span><span>{ins2.text}</span></div>))}</div>)}
+        {vi.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'10px'}}>INSIGHTS</div>{vi.map((ins2, i) => (<div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 0',fontSize:'13px',color:'var(--color-text)'}}><span style={{color:ins2.accent,fontWeight:'700'}}>→</span><span>{ins2.text}</span></div>))}</div>)}
 
         {/* Charts */}
         {entries.length > 1 && (<div style={{marginBottom:'16px'}}><button onClick={() => setShowChart(!showChart)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button></div>)}
@@ -265,11 +265,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 {selectedEvent && (
-                  <div style={{marginTop:'8px',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
+                  <div style={{marginTop:'8px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
                     <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(selectedEvent.event_type),marginTop:'4px',flexShrink:0}} />
                     <div style={{flex:1}}>
                       <span style={{fontSize:'10px',color:eventColor(selectedEvent.event_type),fontWeight:'700',textTransform:'uppercase'}}>{selectedEvent.event_type.replace(/_/g,' ')}</span>
-                      <span style={{fontSize:'12px',color:'white',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
+                      <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
                       <span style={{fontSize:'10px',color:dg,display:'block',marginTop:'2px'}}>{new Date(selectedEvent.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                     </div>
                     <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>×</button>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
           return (
             <div style={{marginBottom:'16px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-                <span id='active-compounds' style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span>
+                <span id='active-compounds' style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span>
                 <a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit →</a>
               </div>
               <div ref={tabRowRef} onMouseDown={(e)=>{isDragging.current=true;dragStartX.current=e.pageX;scrollStartX.current=tabRowRef.current!.scrollLeft;tabRowRef.current!.style.cursor='grabbing'}} onMouseMove={(e)=>{if(!isDragging.current)return;e.preventDefault();tabRowRef.current!.scrollLeft=scrollStartX.current-(e.pageX-dragStartX.current)}} onMouseUp={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} onMouseLeave={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} style={{display:'flex',gap:'6px',marginBottom:'12px',overflowX:'auto',paddingBottom:'4px',scrollbarWidth:'none',msOverflowStyle:'none',cursor:'grab',userSelect:'none'}}>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
                 if (active.reconstitution_date) { const rd = new Date(active.reconstitution_date+'T00:00:00'); vialDaysSince = Math.floor((Date.now()-rd.getTime())/86400000); vialDaysLeft = 28-vialDaysSince }
                 return (
                   <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
-                    <div style={{background:'#0a0a0f',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative',marginBottom:'12px'}}>
+                    <div style={{background:'var(--color-bg)',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative',marginBottom:'12px'}}>
                       <div style={{height:'100%',width:lp+'%',background:il?g:'linear-gradient(90deg, #6c63ff, #8b5cf6)',borderRadius:'6px'}} />
                       <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:il?'#000':'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
                     </div>
@@ -356,15 +356,15 @@ export default function DashboardPage() {
             <button onClick={() => setShowAddEvent(true)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>+ Log protocol change</button>
           ) : (
             <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>LOG PROTOCOL CHANGE</span>
-              <select value={eventType} onChange={e => setEventType(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'13px',boxSizing:'border-box',marginBottom:'8px'}}>
+              <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>LOG PROTOCOL CHANGE</span>
+              <select value={eventType} onChange={e => setEventType(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',marginBottom:'8px'}}>
                 <option value='dose_change'>Dose changed</option>
                 <option value='compound_added'>Added compound</option>
                 <option value='compound_removed'>Stopped compound</option>
                 <option value='phase_change'>Phase change</option>
                 <option value='other'>Other</option>
               </select>
-              <input value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder='e.g. Increased Reta to 5mg' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
+              <input value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder='e.g. Increased Reta to 5mg' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
               <div style={{display:'flex',gap:'8px'}}>
                 <button onClick={() => setShowAddEvent(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
                 <button onClick={saveEvent} disabled={!eventDesc.trim()} style={{flex:2,background:!eventDesc.trim()?'#1a3d1a':g,color:!eventDesc.trim()?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Log Event</button>
@@ -376,11 +376,11 @@ export default function DashboardPage() {
         {/* Recent events */}
         {protocolEvents.length > 0 && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL TIMELINE</span>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL TIMELINE</span>
             {protocolEvents.slice(-5).reverse().map((ev: any, i: number) => (
               editingEventId === ev.id ? (
                 <div key={ev.id} style={{padding:'10px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
-                  <select value={editEventType} onChange={e => setEditEventType(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'6px',color:'white',fontSize:'12px',boxSizing:'border-box',marginBottom:'6px'}}>
+                  <select value={editEventType} onChange={e => setEditEventType(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'6px',color:'var(--color-text)',fontSize:'12px',boxSizing:'border-box',marginBottom:'6px'}}>
                     <option value='dose_change'>Dose changed</option>
                     <option value='compound_added'>Added compound</option>
                     <option value='compound_removed'>Stopped compound</option>
@@ -388,7 +388,7 @@ export default function DashboardPage() {
                     <option value='started'>Started</option>
                     <option value='other'>Other</option>
                   </select>
-                  <input value={editEventDesc} onChange={e => setEditEventDesc(e.target.value)} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'13px',boxSizing:'border-box',marginBottom:'6px'}} />
+                  <input value={editEventDesc} onChange={e => setEditEventDesc(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',marginBottom:'6px'}} />
                   <div style={{display:'flex',gap:'6px'}}>
                     <button onClick={() => setEditingEventId(null)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'6px',fontSize:'12px',cursor:'pointer'}}>Cancel</button>
                     <button onClick={updateEvent} style={{flex:2,background:g,color:'#000',border:'none',borderRadius:'6px',padding:'6px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Save</button>
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                 <div key={ev.id || i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'8px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
                   <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(ev.event_type),marginTop:'4px',flexShrink:0}} />
                   <div style={{flex:1}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><span style={{fontSize:'10px',color:'#0a0a0f',background:eventColor(ev.event_type),padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span><span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{ev.description}</span></div>
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}><span style={{fontSize:'10px',color:'#0a0a0f',background:eventColor(ev.event_type),padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span><span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>{ev.description}</span></div>
                     <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginTop:'2px'}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
                   </div>
                   <div style={{display:'flex',gap:'8px',flexShrink:0}}>
@@ -413,12 +413,12 @@ export default function DashboardPage() {
 
         {/* Daily log */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>DAILY LOG</span>{saved && <span style={{fontSize:'11px',color:g}}>✓ saved</span>}</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>DAILY LOG</span>{saved && <span style={{fontSize:'11px',color:g}}>✓ saved</span>}</div>
           <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Mood</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={mood} onChange={setMood} />)}</div></div></div>
           <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Energy</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} activeColor='#f97316' />)}</div></div></div>
           <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Hunger</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} activeColor='#8b5cf6' />)}</div></div></div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep (hrs)</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='7.5' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box'}} /></div><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight (lbs)</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} placeholder='optional' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box'}} /></div></div>
-          <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep (hrs)</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='7.5' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight (lbs)</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} placeholder='optional' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div></div>
+          <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
           <button onClick={saveEntry} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':saved?'Update':'Save'}</button>
         </div>
 

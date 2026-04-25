@@ -13,14 +13,26 @@ export default function ProfilePage() {
   const [reminderHour, setReminderHour] = useState(20)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifStatus, setNotifStatus] = useState('')
+  const [theme, setTheme] = useState('dark')
   const router = useRouter()
-  const g = '#39ff14'
-  const dg = '#8b8ba7'
-  const mg = '#3d3d5c'
-  const cb = '#12121a'
-  const bd = '#1e1e2e'
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
 
   useEffect(() => { loadUser() }, [])
+
+  useEffect(() => {
+    try { const t = localStorage.getItem('protocol-theme') || 'dark'; setTheme(t) } catch(e) {}
+  }, [])
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    try { localStorage.setItem('protocol-theme', next) } catch(e) {}
+    document.documentElement.setAttribute('data-theme', next)
+  }
 
   async function loadUser() {
     const supabase = createClient()
@@ -109,10 +121,10 @@ export default function ProfilePage() {
     return (h - 12) + ':00 PM'
   }
 
-  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',background:'var(--color-bg)',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'24px',color:g}}>Profile</h1>
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
@@ -130,7 +142,7 @@ export default function ProfilePage() {
           <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Get a daily reminder to log your journal entry.</p>
           <div style={{marginBottom:'16px'}}>
             <label style={{fontSize:'12px',color:mg,display:'block',marginBottom:'6px'}}>Reminder time</label>
-            <select value={reminderHour} onChange={e => updateHour(parseInt(e.target.value))} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'white',fontSize:'14px',width:'100%'}}>
+            <select value={reminderHour} onChange={e => updateHour(parseInt(e.target.value))} style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}>
               {hours.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
             </select>
           </div>
@@ -144,6 +156,17 @@ export default function ProfilePage() {
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'12px'}}>About Protocol</h2>
           <p style={{fontSize:'13px',color:mg,lineHeight:'1.6',margin:0}}>Protocol is a personal harm reduction tracking tool. It does not provide medical advice, recommend dosing, or facilitate sourcing of any substances. All data is private to your account.</p>
+        </div>
+        <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <h2 style={{fontSize:'14px',fontWeight:'600',color:'var(--color-dim)',marginBottom:'4px'}}>Appearance</h2>
+              <p style={{fontSize:'12px',color:'var(--color-muted)',margin:0}}>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</p>
+            </div>
+            <button onClick={toggleTheme} style={{position:'relative',width:'52px',height:'28px',borderRadius:'14px',border:'1px solid var(--color-border)',background:theme==='light'?'rgba(57,255,20,0.2)':'var(--color-surface)',cursor:'pointer',padding:0,flexShrink:0}}>
+              <span style={{position:'absolute',top:'3px',left:theme==='dark'?'3px':'25px',width:'20px',height:'20px',borderRadius:'50%',background:theme==='dark'?'var(--color-dim)':'var(--color-green)',transition:'left 0.2s ease',display:'block'}} />
+            </button>
+          </div>
         </div>
         <button onClick={handleSignOut} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'14px',borderRadius:'6px',fontSize:'16px',cursor:'pointer'}}>Sign out</button>
       </div>

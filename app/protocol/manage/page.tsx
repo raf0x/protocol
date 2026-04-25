@@ -29,7 +29,7 @@ export default function ManagePage() {
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const g = '#39ff14', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
+  const g = 'var(--color-green)', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
 
   useEffect(() => { load() }, [])
 
@@ -104,13 +104,13 @@ export default function ManagePage() {
     load()
   }
 
-  const is = { width:'100%', background:'#0a0a0f', border:'1px solid '+bd, borderRadius:'6px', padding:'8px 10px', color:'white', fontSize:'14px', boxSizing:'border-box' as const, colorScheme:'dark' as const }
+  const is = { width:'100%', background:'var(--color-bg)', border:'1px solid '+bd, borderRadius:'6px', padding:'8px 10px', color:'var(--color-text)', fontSize:'14px', boxSizing:'border-box' as const, colorScheme:'dark' as const }
   const ss = { ...is, fontSize:'13px', padding:'6px 8px' }
 
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>← Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
@@ -122,9 +122,9 @@ export default function ManagePage() {
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'20px',marginBottom:'24px'}}>
             <h2 style={{fontSize:'16px',fontWeight:'700',marginBottom:'16px',color:g}}>{editingId ? 'Edit Protocol' : 'New Protocol'}</h2>
             <div style={{marginBottom:'10px'}}><label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'4px',fontWeight:'600'}}>START DATE</label><input type='date' value={startDate} onChange={e => setStartDate(e.target.value)} style={is} /></div>
-            <label style={{display:'block',fontSize:'12px',color:'#ffffff',marginBottom:'10px',fontWeight:'700',letterSpacing:'1px'}}>COMPOUNDS</label>
+            <label style={{display:'block',fontSize:'12px',color:'var(--color-text)',marginBottom:'10px',fontWeight:'700',letterSpacing:'1px'}}>COMPOUNDS</label>
             {compounds.map((c, ci) => (
-              <div key={ci} style={{background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'10px'}}>
+              <div key={ci} style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'10px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}><span style={{fontSize:'12px',color:mg,fontWeight:'700'}}>COMPOUND {ci+1}</span>{compounds.length>1 && <button onClick={() => removeCompound(ci)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Remove</button>}</div>
                 <input value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{...is,marginBottom:'6px'}} />
                 <div style={{display:'flex',gap:'6px',marginBottom:'6px'}}><input type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='Vial mg' style={ss} /><input type='number' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='BAC water mL' style={ss} /></div>
@@ -160,8 +160,8 @@ export default function ManagePage() {
             </div>
             {p.notes && <p style={{color:dg,fontSize:'13px',marginBottom:'8px'}}>{p.notes}</p>}
             {(p.compounds||[]).map((c: any) => (
-              <div key={c.id} style={{background:'#0a0a0f',borderRadius:'8px',padding:'10px',marginTop:'6px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}><span style={{fontSize:'14px',fontWeight:'700',color:'white'}}>{c.name}</span>{c.vial_strength && <span style={{fontSize:'11px',color:dg}}>{c.vial_strength}{c.vial_unit} · {c.bac_water_ml||'?'}mL BAC</span>}</div>
+              <div key={c.id} style={{background:'var(--color-bg)',borderRadius:'8px',padding:'10px',marginTop:'6px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}><span style={{fontSize:'14px',fontWeight:'700',color:'var(--color-text)'}}>{c.name}</span>{c.vial_strength && <span style={{fontSize:'11px',color:dg}}>{c.vial_strength}{c.vial_unit} · {c.bac_water_ml||'?'}mL BAC</span>}</div>
                 {(c.phases||[]).sort((a:any,b:any)=>a.start_week-b.start_week).map((ph:any) => (
                   <div key={ph.id} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',fontSize:'12px',color:dg}}><span>{ph.name} · W{ph.start_week}-{ph.end_week}</span><span>{ph.dose}{ph.dose_unit} · {ph.frequency}</span></div>))}
               </div>))}

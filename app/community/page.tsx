@@ -17,11 +17,11 @@ export default function CommunityPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
-  const g = '#39ff14'
-  const dg = '#8b8ba7'
-  const mg = '#3d3d5c'
-  const cb = '#12121a'
-  const bd = '#1e1e2e'
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
 
   useEffect(() => { loadData() }, [])
 
@@ -77,15 +77,15 @@ export default function CommunityPage() {
   const parents = cohorts.filter(c => !c.parent_id)
   const subCohorts = (parentId: string) => cohorts.filter(c => c.parent_id === parentId)
 
-  if (loading) return <main style={{minHeight:'100vh',background:'#0a0a0f',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) return <main style={{minHeight:'100vh',background:'var(--color-bg)',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   if (!username) {
     return (
-      <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
+      <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
         <div style={{maxWidth:'400px',width:'100%'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'8px',color:g}}>Choose a username</h1>
           <p style={{color:dg,fontSize:'13px',marginBottom:'24px'}}>Your username is how you appear in cohorts. It cannot be changed later. No personal information is visible to other users.</p>
-          <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder='e.g. peptide_tracker' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'6px',padding:'12px',color:'white',fontSize:'16px',outline:'none',boxSizing:'border-box',marginBottom:'12px'}} />
+          <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder='e.g. peptide_tracker' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'6px',padding:'12px',color:'var(--color-text)',fontSize:'16px',outline:'none',boxSizing:'border-box',marginBottom:'12px'}} />
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
           <button onClick={saveUsername} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000000',fontWeight:'700',padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':'Set username'}</button>
           <p style={{color:mg,fontSize:'11px',marginTop:'16px',textAlign:'center'}}>Letters, numbers, and underscores only. Minimum 3 characters.</p>
@@ -95,7 +95,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <main style={{minHeight:'100vh',background:'#0a0a0f',color:'white',padding:'24px'}}>
+    <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Community</h1>
