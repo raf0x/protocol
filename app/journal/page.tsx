@@ -67,7 +67,7 @@ export default function HistoryPage() {
 
   function ScoreBtn({ value, current, onChange, activeColor = g }: { value: number; current: number | null; onChange: (v: number) => void; activeColor?: string }) {
     const isActive = current === value
-    return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:isActive?'none':'1px solid '+bd,background:isActive?activeColor:cb,color:isActive?'#000':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{value}</button>
+    return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:isActive?'none':'1px solid '+bd,background:isActive?activeColor:cb,color:isActive?'var(--color-green-text)':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{value}</button>
   }
 
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
@@ -119,7 +119,7 @@ export default function HistoryPage() {
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'4px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
                     <span style={{width:'8px',height:'8px',borderRadius:'50%',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',display:'inline-block'}} />
-                    <span style={{fontSize:'10px',color:'#0a0a0f',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
+                    <span style={{fontSize:'10px',color:'var(--color-green-text)',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
                   </div>
                   <span style={{fontSize:'12px',color:dg}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                 </div>

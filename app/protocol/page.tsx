@@ -210,7 +210,7 @@ export default function DashboardPage() {
             <input value={newName} onChange={e => setNewName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
             <div style={{display:'flex',gap:'8px'}}>
               <button onClick={() => setShowNewProtocol(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={createProtocolFromCalc} disabled={creatingProtocol || !newName.trim()} style={{flex:2,background:creatingProtocol?'#1a3d1a':g,color:creatingProtocol?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{creatingProtocol ? 'Creating...' : 'Create Protocol'}</button>
+              <button onClick={createProtocolFromCalc} disabled={creatingProtocol || !newName.trim()} style={{flex:2,background:creatingProtocol?'#1a3d1a':g,color:creatingProtocol?mg:'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{creatingProtocol ? 'Creating...' : 'Create Protocol'}</button>
             </div>
           </div>
         )}
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                   <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
                     <div style={{background:'var(--color-bg)',borderRadius:'6px',height:'22px',overflow:'hidden',position:'relative',marginBottom:'12px'}}>
                       <div style={{height:'100%',width:lp+'%',background:il?g:'linear-gradient(90deg, #6c63ff, #8b5cf6)',borderRadius:'6px'}} />
-                      <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:il?'#000':'white',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
+                      <span style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'700',color:il?'var(--color-green-text)':'var(--color-text)',letterSpacing:'0.5px'}}>{il ? '✓ STEADY STATE' : 'Day '+daysIn+'/'+ssd+' · Protocol Loading ('+lp+'%)'}</span>
                     </div>
                     {vialDaysLeft !== null && vialDaysSince !== null && (
                       <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid '+bd,marginBottom:'8px'}}>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                       return (
                         <div key={ph.id||i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:i<phases.length-1?'1px solid '+bd:'none'}}>
                           <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                            <span style={{fontSize:'10px',fontWeight:'700',padding:'2px 7px',borderRadius:'4px',background:isCur?g:'rgba(255,255,255,0.08)',color:isCur?'#000':dg}}>{ph.name||'P'+(i+1)}</span>
+                            <span style={{fontSize:'10px',fontWeight:'700',padding:'2px 7px',borderRadius:'4px',background:isCur?g:'rgba(255,255,255,0.08)',color:isCur?'var(--color-green-text)':dg}}>{ph.name||'P'+(i+1)}</span>
                             <div>
                               <span style={{fontSize:'13px',fontWeight:'600',color:isCur?'white':dg}}>{ph.dose}{ph.dose_unit}</span>
                               <span style={{fontSize:'11px',color:mg,display:'block'}}>W{ph.start_week}–W{ph.end_week} · {ph.frequency}</span>

@@ -135,7 +135,7 @@ export default function ReconstitutionCalculator() {
 
   function PresetBtn({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
     return (
-      <button onClick={onClick} style={{padding:'7px 11px',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'var(--color-green-10)':cb,color:active?g:dg,fontSize:'13px',fontWeight:active?'700':'400',cursor:'pointer'}}>
+      <button onClick={onClick} style={{padding:'7px 11px',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'var(--color-green-10)':cb,color:active?'var(--color-green-text)':dg,fontSize:'13px',fontWeight:active?'700':'400',cursor:'pointer'}}>
         {value}
       </button>
     )

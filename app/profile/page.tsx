@@ -150,7 +150,7 @@ export default function ProfilePage() {
           {notifEnabled ? (
             <button onClick={disableNotifications} disabled={notifLoading} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'12px',borderRadius:'6px',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Updating...':'Disable reminders'}</button>
           ) : (
-            <button onClick={enableNotifications} disabled={notifLoading} style={{width:'100%',background:notifLoading?'#1a3d1a':g,color:notifLoading?mg:'#000000',fontWeight:'700',padding:'12px',borderRadius:'6px',border:'none',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Enabling...':'Enable reminders'}</button>
+            <button onClick={enableNotifications} disabled={notifLoading} style={{width:'100%',background:notifLoading?'#1a3d1a':g,color:notifLoading?mg:'var(--color-green-text)',fontWeight:'700',padding:'12px',borderRadius:'6px',border:'none',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Enabling...':'Enable reminders'}</button>
           )}
         </div>
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
