@@ -222,7 +222,7 @@ export default function DashboardPage() {
           <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
             {(() => {
               const items = activeProtocols.flatMap((p: any) => (p.compounds||[]).map((c: any) => { const di = Math.max(0,Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000)); const wk = Math.max(1,Math.floor(di/7)+1); return {id:c.id,name:c.name,wk} })).slice(0,6);
-              const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'];
+              const colors = ['var(--color-green)','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'];
               const total = items.length <= 4 ? 4 : 6; const padded = [...items, ...Array(total-items.length).fill(null)];
               return (
                 <div style={{display:'grid',gridTemplateColumns:items.length<=4?'1fr 1fr':'1fr 1fr 1fr',gap:'0px'}}>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                 <a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit →</a>
               </div>
               <div ref={tabRowRef} onMouseDown={(e)=>{isDragging.current=true;dragStartX.current=e.pageX;scrollStartX.current=tabRowRef.current!.scrollLeft;tabRowRef.current!.style.cursor='grabbing'}} onMouseMove={(e)=>{if(!isDragging.current)return;e.preventDefault();tabRowRef.current!.scrollLeft=scrollStartX.current-(e.pageX-dragStartX.current)}} onMouseUp={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} onMouseLeave={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} style={{display:'flex',gap:'6px',marginBottom:'12px',overflowX:'auto',paddingBottom:'4px',scrollbarWidth:'none',msOverflowStyle:'none',cursor:'grab',userSelect:'none'}}>
-                {allCompounds.map((c, ci) => { const tc = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'][ci] || g; const isAct = tabId===c.id; return (
+                {allCompounds.map((c, ci) => { const tc = ['var(--color-green)','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'][ci] || g; const isAct = tabId===c.id; return (
                   <button key={c.id} onClick={() => setActiveCompoundTab(c.id)} style={{padding:'8px 14px',borderRadius:'8px',fontSize:'12px',fontWeight:'700',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,border:isAct?'1px solid '+tc:'1px solid '+bd,background:isAct?('rgba('+parseInt(tc.slice(1,3),16)+','+parseInt(tc.slice(3,5),16)+','+parseInt(tc.slice(5,7),16)+',0.12)')  :cb,color:isAct?tc:dg}}>{c.name}</button>
                 )})}
               </div>

@@ -18,7 +18,7 @@ function SyringeVisual({ units }: { units: number }) {
       <svg width='60' height='240' viewBox='0 0 60 240'>
         <polygon points='28,220 32,220 30,238' fill='#8b8ba7' />
         <rect x='16' y='20' width='28' height='200' rx='4' fill='#1a1a2e' stroke='#3d3d6e' strokeWidth='2'/>
-        {fillH > 0 && <rect x='18' y={fillY} width='24' height={fillH} rx='2' fill='#39ff14' opacity='0.7'/>}
+        {fillH > 0 && <rect x='18' y={fillY} width='24' height={fillH} rx='2' fill='var(--color-green)' opacity='0.7'/>}
         {[0,25,50,75,100].map(tick => {
           const y = 20 + bodyH * (1 - tick/100)
           return <g key={tick}>
