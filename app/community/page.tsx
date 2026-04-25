@@ -87,7 +87,7 @@ export default function CommunityPage() {
           <p style={{color:dg,fontSize:'13px',marginBottom:'24px'}}>Your username is how you appear in cohorts. It cannot be changed later. No personal information is visible to other users.</p>
           <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder='e.g. peptide_tracker' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'6px',padding:'12px',color:'var(--color-text)',fontSize:'16px',outline:'none',boxSizing:'border-box',marginBottom:'12px'}} />
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
-          <button onClick={saveUsername} disabled={saving} style={{width:'100%',background:saving?'#1a3d1a':g,color:saving?mg:'#000000',fontWeight:'700',padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':'Set username'}</button>
+          <button onClick={saveUsername} disabled={saving} style={{width:'100%',background:saving?'var(--color-green-20)':g,color:saving?'var(--color-muted)':'var(--color-green-text)',fontWeight:'700',padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:saving?'not-allowed':'pointer'}}>{saving?'Saving...':'Set username'}</button>
           <p style={{color:mg,fontSize:'11px',marginTop:'16px',textAlign:'center'}}>Letters, numbers, and underscores only. Minimum 3 characters.</p>
         </div>
       </main>

@@ -281,7 +281,7 @@ export default function ReconstitutionCalculator() {
               </div>
               <div style={{display:'flex',gap:'8px'}}>
                 <button onClick={copyShareUrl} style={{flex:1,background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:dg,fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share</button>
-                <a href='/auth/login' style={{flex:1,background:g,color:'#000',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol</a>
+                <a href='/auth/login' style={{flex:1,background:g,color:'var(--color-green-text)',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol</a>
               </div>
             </div>
           )}

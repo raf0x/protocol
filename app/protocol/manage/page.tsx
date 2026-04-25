@@ -115,7 +115,7 @@ export default function ManagePage() {
         <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>← Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>Manage Protocols</h1>
-          {!showForm && <button onClick={startNew} style={{background:g,color:'#000',border:'none',borderRadius:'6px',padding:'8px 16px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
+          {!showForm && <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'8px 16px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
         </div>
 
         {showForm && (
@@ -147,7 +147,7 @@ export default function ManagePage() {
             <button onClick={addCompound} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
             <div style={{marginBottom:'16px'}}><label style={{display:'block',fontSize:'12px',color:dg,marginBottom:'4px',fontWeight:'600'}}>NOTES (optional)</label><textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Goals, context...' rows={2} style={{...is,resize:'none'}} /></div>
             {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'13px',color:'#ff6b6b',marginBottom:'12px'}}>{error}</div>}
-            <div style={{display:'flex',gap:'8px'}}><button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'14px',cursor:'pointer'}}>Cancel</button><button onClick={save} disabled={saving} style={{flex:2,background:saving?'#1a3d1a':g,color:saving?mg:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Create Protocol'}</button></div>
+            <div style={{display:'flex',gap:'8px'}}><button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'14px',cursor:'pointer'}}>Cancel</button><button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?'var(--color-muted)':'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Create Protocol'}</button></div>
           </div>)}
 
         {!showForm && protocols.length === 0 && <div style={{textAlign:'center',padding:'48px 0'}}><p style={{color:dg}}>No protocols yet.</p><p style={{color:mg,fontSize:'13px'}}>Tap + New to create your first one.</p></div>}
