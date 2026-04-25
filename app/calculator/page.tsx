@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 
 const DOSE_PRESETS = [0.1, 0.25, 0.5, 1, 2, 2.5, 5, 7.5, 10]
-const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20]
+const STRENGTH_PRESETS = [1, 2, 5, 10, 15, 20, 30, 60]
 const WATER_PRESETS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
 const TARGET_UNITS = [10, 20, 25, 50]
 
