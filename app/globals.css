@@ -18,17 +18,17 @@
 }
 
 [data-theme="light"] {
-  --color-bg: #f5f4f0;
-  --color-card: #ffffff;
-  --color-border: #e0dfd8;
+  --color-bg: #f0e9da;
+  --color-card: #faf4e8;
+  --color-border: #dfd5c0;
   --color-green: #39ff14;
-  --color-text: #1a1714;
-  --color-dim: #6b6a7a;
-  --color-muted: #b0afba;
-  --color-input: #eeecea;
-  --color-surface: #f4f3ef;
-  --color-nav: #ffffff;
-  --color-nav-blur: rgba(245,244,240,0.92);
+  --color-text: #1c1a14;
+  --color-dim: #6b6356;
+  --color-muted: #a09278;
+  --color-input: #ece5d5;
+  --color-surface: #f5efe2;
+  --color-nav: #faf4e8;
+  --color-nav-blur: rgba(250,244,232,0.95);
 }
 
 body {
@@ -60,12 +60,12 @@ body::before {
 }
 
 [data-theme="light"] body {
-  background-color: #f5f4f0;
+  background-color: #f0e9da;
   background-image:
-    radial-gradient(ellipse 80% 50% at 15% 10%, rgba(139, 92, 246, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 45% at 90% 20%, rgba(251, 191, 36, 0.07) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(167, 139, 250, 0.03) 0%, transparent 60%),
-    linear-gradient(180deg, #f5f4f0 0%, #f0efe8 50%, #f5f4f0 100%);
+    radial-gradient(ellipse 80% 50% at 15% 10%, rgba(180, 140, 80, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 45% at 90% 20%, rgba(200, 160, 90, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(160, 130, 80, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #f0e9da 0%, #ece3cf 50%, #f0e9da 100%);
   background-attachment: fixed;
   background-size: cover, cover, cover, cover;
 }
