@@ -7,7 +7,6 @@ import { createClient } from '../lib/supabase'
 export default function BottomNav() {
   const pathname = usePathname()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [theme, setTheme] = useState('dark')
 
   useEffect(() => {
     async function check() {
@@ -16,15 +15,7 @@ export default function BottomNav() {
       if (user?.id === '41266062-c8a7-4a52-aa9b-c1fb96d1c483') setIsAdmin(true)
     }
     check()
-    try { const t = localStorage.getItem('protocol-theme') || 'dark'; setTheme(t) } catch(e) {}
   }, [])
-
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    try { localStorage.setItem('protocol-theme', next) } catch(e) {}
-    document.documentElement.setAttribute('data-theme', next)
-  }
 
   if (pathname === '/') return null
 
@@ -50,10 +41,6 @@ export default function BottomNav() {
           </a>
         )
       })}
-      <button onClick={toggleTheme} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',background:'none',border:'none',cursor:'pointer',flex:1,padding:0}}>
-        <span style={{width:'5px',height:'5px',borderRadius:'50%',background:'transparent',display:'block'}} />
-        <span style={{color:'var(--color-dim)',fontSize:'14px',lineHeight:1}}>{theme === 'dark' ? '☀️' : '🌙'}</span>
-      </button>
     </nav>
   )
 }
