@@ -10,7 +10,7 @@ export default function BottomNav() {
   useEffect(() => { async function check() { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (user?.id === '41266062-c8a7-4a52-aa9b-c1fb96d1c483') setIsAdmin(true) }; check() }, [])
   if (pathname === '/') return null
   const links = [
-    { href: '/calculator', label: 'Calc' },
+    { href: '/calculator', label: '🧮' },
     { href: '/community', label: 'Community' },
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
