@@ -32,8 +32,8 @@ const scrollAnimStyles = `
     100% { background-position: 200% center; }
   }
   @keyframes ctaPulse {
-    0%,100% { box-shadow: 0 0 0px rgba(57,255,20,0.4); }
-    50% { box-shadow: 0 0 30px rgba(57,255,20,0.6); }
+    0%,100% { box-shadow: 0 0 0px var(--color-green-40); }
+    50% { box-shadow: 0 0 30px var(--color-green-60); }
   }
   @keyframes syringeFill {
     0%     { clip-path: inset(0 100% 0 0); }
@@ -134,7 +134,7 @@ export default function Home() {
             <div style={{display:'flex',justifyContent:'center'}}>
               <div style={{position:'relative',display:'inline-block'}}>
                 <h1 style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',WebkitTextStroke:'2px var(--color-green)',color:'transparent',margin:0,display:'block',userSelect:'none',whiteSpace:'nowrap'}}>Protocol</h1>
-                <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'var(--color-green)',position:'absolute',top:0,left:0,margin:0,display:'block',animation:'syringeFill 4s ease-in-out infinite',clipPath:'inset(0 100% 0 0)',textShadow:'0 0 40px rgba(57,255,20,0.6)',whiteSpace:'nowrap'}}>Protocol</h1>
+                <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'var(--color-green)',position:'absolute',top:0,left:0,margin:0,display:'block',animation:'syringeFill 4s ease-in-out infinite',clipPath:'inset(0 100% 0 0)',textShadow:'0 0 40px var(--color-green-60)',whiteSpace:'nowrap'}}>Protocol</h1>
               </div>
             </div>
           </div>

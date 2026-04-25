@@ -135,7 +135,7 @@ export default function ReconstitutionCalculator() {
 
   function PresetBtn({ value, active, onClick }: { value: number; active: boolean; onClick: () => void }) {
     return (
-      <button onClick={onClick} style={{padding:'7px 11px',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'rgba(57,255,20,0.1)':cb,color:active?g:dg,fontSize:'13px',fontWeight:active?'700':'400',cursor:'pointer'}}>
+      <button onClick={onClick} style={{padding:'7px 11px',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'var(--color-green-10)':cb,color:active?g:dg,fontSize:'13px',fontWeight:active?'700':'400',cursor:'pointer'}}>
         {value}
       </button>
     )
@@ -150,7 +150,7 @@ export default function ReconstitutionCalculator() {
 
         {/* Smart / Advanced toggle */}
         <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
-          <button onClick={() => setSmartMode(true)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid '+(smartMode?g:bd),background:smartMode?'rgba(57,255,20,0.1)':cb,color:smartMode?g:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>
+          <button onClick={() => setSmartMode(true)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid '+(smartMode?g:bd),background:smartMode?'var(--color-green-10)':cb,color:smartMode?g:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>
             Smart Mode
           </button>
           <button onClick={() => setSmartMode(false)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid '+(!smartMode?'#6c63ff':bd),background:!smartMode?'rgba(108,99,255,0.1)':cb,color:!smartMode?'#a78bfa':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>
@@ -159,7 +159,7 @@ export default function ReconstitutionCalculator() {
         </div>
 
         {smartMode && (
-          <div style={{background:'rgba(57,255,20,0.05)',border:'1px solid rgba(57,255,20,0.2)',borderRadius:'10px',padding:'12px',marginBottom:'16px',fontSize:'12px',color:dg,lineHeight:'1.6'}}>
+          <div style={{background:'var(--color-green-05)',border:'1px solid var(--color-green-20)',borderRadius:'10px',padding:'12px',marginBottom:'16px',fontSize:'12px',color:dg,lineHeight:'1.6'}}>
             Enter your desired dose and vial strength. We will automatically calculate the ideal amount of BAC water to give you a clean, easy-to-read syringe measurement.
           </div>
         )}
@@ -211,7 +211,7 @@ export default function ReconstitutionCalculator() {
 
         {/* Smart recommendation card */}
         {smartMode && activeDose && activeStrength && (
-          <div style={{borderRadius:'12px',padding:'16px',marginBottom:'16px',border:'1px solid rgba(57,255,20,0.4)',background:'rgba(57,255,20,0.06)'}}>
+          <div style={{borderRadius:'12px',padding:'16px',marginBottom:'16px',border:'1px solid var(--color-green-40)',background:'rgba(57,255,20,0.06)'}}>
             <div style={{fontSize:'11px',fontWeight:'700',color:g,letterSpacing:'1px',marginBottom:'10px'}}>SUGGESTED RECONSTITUTION</div>
             {smartRec ? (<>
               <div style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'6px'}}>
@@ -220,7 +220,7 @@ export default function ReconstitutionCalculator() {
               <div style={{fontSize:'14px',color:dg,marginBottom:'12px',lineHeight:'1.6'}}>
                 Then draw to the <span style={{color:'var(--color-text)',fontWeight:'700'}}>{smartRec.units} unit</span> mark on your U-100 syringe. This equals exactly <span style={{color:'var(--color-text)',fontWeight:'700'}}>{activeDose}mg</span>.
               </div>
-              <div style={{fontSize:'12px',color:mg,lineHeight:'1.5',borderTop:'1px solid rgba(57,255,20,0.15)',paddingTop:'10px'}}>
+              <div style={{fontSize:'12px',color:mg,lineHeight:'1.5',borderTop:'1px solid var(--color-green-15)',paddingTop:'10px'}}>
                 Why {smartRec.units} units? The {smartRec.units}u mark is a bold line on every U-100 syringe � easy to hit accurately. {smartRec.water.toFixed(1)}mL is a stable reconstitution volume for most peptide vials.
               </div>
             </>) : (

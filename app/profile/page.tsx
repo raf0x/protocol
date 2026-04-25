@@ -163,7 +163,7 @@ export default function ProfilePage() {
               <h2 style={{fontSize:'14px',fontWeight:'600',color:'var(--color-dim)',marginBottom:'4px'}}>Appearance</h2>
               <p style={{fontSize:'12px',color:'var(--color-muted)',margin:0}}>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</p>
             </div>
-            <button onClick={toggleTheme} style={{position:'relative',width:'52px',height:'28px',borderRadius:'14px',border:'1px solid var(--color-border)',background:theme==='light'?'rgba(57,255,20,0.2)':'var(--color-surface)',cursor:'pointer',padding:0,flexShrink:0}}>
+            <button onClick={toggleTheme} style={{position:'relative',width:'52px',height:'28px',borderRadius:'14px',border:'1px solid var(--color-border)',background:theme==='light'?'var(--color-green-20)':'var(--color-surface)',cursor:'pointer',padding:0,flexShrink:0}}>
               <span style={{position:'absolute',top:'3px',left:theme==='dark'?'3px':'25px',width:'20px',height:'20px',borderRadius:'50%',background:theme==='dark'?'var(--color-dim)':'var(--color-green)',transition:'left 0.2s ease',display:'block'}} />
             </button>
           </div>
