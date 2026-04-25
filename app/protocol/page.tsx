@@ -237,7 +237,7 @@ export default function DashboardPage() {
                     if (!item) return <div key={i} style={{width:'64px',height:'64px'}} />;
                     const short = item.name.split('/')[0].split(' ')[0].slice(0,6);
                     return (
-                      <div key={i} style={{width:'64px',height:'64px',borderRadius:'50%',border:'3px solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginRight:isLastCol?'0':'-10px',marginBottom:isLastRow?'0':'-10px',background:cb,zIndex:row+col,position:'relative'}}>
+                      <div key={i} onClick={() => { setActiveCompoundTab(item.id); const el = document.getElementById('active-compounds'); if(el) el.scrollIntoView({behavior:'smooth'}); }} style={{width:'64px',height:'64px',borderRadius:'50%',border:'3px solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginRight:isLastCol?'0':'-10px',marginBottom:isLastRow?'0':'-10px',background:cb,zIndex:row+col,position:'relative',cursor:'pointer'}}>
                         <span style={{fontSize:'10px',fontWeight:'800',color:'white',textAlign:'center',lineHeight:'1.2',letterSpacing:'0.2px'}}>{short}</span>
                         <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2'}}>Wk {item.wk}</span>
                       </div>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
           return (
             <div style={{marginBottom:'16px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-                <span style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span>
+                <span id='active-compounds' style={{fontSize:'11px',fontWeight:'700',color:'#ffffff',letterSpacing:'1px'}}>ACTIVE COMPOUNDS</span>
                 <a href='/protocol/manage' style={{color:'#8b8ba7',textDecoration:'none',fontSize:'12px',fontWeight:'700'}}>+ Add / Edit →</a>
               </div>
               <div ref={tabRowRef} onMouseDown={(e)=>{isDragging.current=true;dragStartX.current=e.pageX;scrollStartX.current=tabRowRef.current!.scrollLeft;tabRowRef.current!.style.cursor='grabbing'}} onMouseMove={(e)=>{if(!isDragging.current)return;e.preventDefault();tabRowRef.current!.scrollLeft=scrollStartX.current-(e.pageX-dragStartX.current)}} onMouseUp={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} onMouseLeave={()=>{isDragging.current=false;if(tabRowRef.current)tabRowRef.current.style.cursor='grab'}} style={{display:'flex',gap:'6px',marginBottom:'12px',overflowX:'auto',paddingBottom:'4px',scrollbarWidth:'none',msOverflowStyle:'none',cursor:'grab',userSelect:'none'}}>
