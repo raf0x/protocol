@@ -2,31 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
+import StatsBar from '../../components/dashboard/StatsBar'
+import InsightsCard from '../../components/dashboard/InsightsCard'
+import DailyLogCard from '../../components/dashboard/DailyLogCard'
+import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
 type DueCompound = { id: string; name: string; dose: string; protocol_name: string }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
-function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null): boolean {
-  if (!protocolStart) return false
-  const start = new Date(protocolStart + 'T00:00:00')
-  const today = new Date(); today.setHours(0,0,0,0)
-  const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86400000)
-  if (daysDiff < 0) return false
-  if (frequency === 'daily') return true
-  if (frequency === 'eod') return daysDiff % 2 === 0
-  if (frequency === 'every3days') return daysDiff % 3 === 0
-  if (frequency === 'every4days') return daysDiff % 4 === 0
-  if (frequency === 'every5days') return daysDiff % 5 === 0
-  const todayDay = today.getDay()
-  if (frequency === '1x/week') return dayOfWeek !== null ? todayDay === dayOfWeek : daysDiff % 7 === 0
-  if (frequency === '2x/week') { const d = dayOfWeek ?? 0; return todayDay === d || todayDay === (d+3)%7 }
-  if (frequency === '3x/week') return todayDay === 1 || todayDay === 3 || todayDay === 5
-  if (frequency === '4x/week') return todayDay === 1 || todayDay === 2 || todayDay === 4 || todayDay === 5
-  if (frequency === '5x/week') return todayDay >= 1 && todayDay <= 5
-  if (frequency === '6x/week') return todayDay !== 0
-  return false
-}
+// isDueToday moved to lib/utils.ts
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
@@ -38,7 +23,7 @@ export default function DashboardPage() {
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
   const [showProtocols, setShowProtocols] = useState(false)
-  const [activeCompoundTab, setActiveCompoundTab] = useState(null)
+  const [activeCompoundTab, setActiveCompoundTab] = useState<string | null>(null)
   const tabRowRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
@@ -223,42 +208,17 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Stats */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'16px'}}>
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:'#f59e0b'}}>{lw ? lw+' lbs' : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>CURRENT WEIGHT</div></div>
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><div style={{fontSize:'20px',fontWeight:'900',color:tl !== null ? (parseFloat(tl) > 0 ? g : '#ff6b6b') : g}}>{tl !== null ? (parseFloat(tl) > 0 ? '-'+Math.abs(parseFloat(tl)) : '+'+Math.abs(parseFloat(tl)))+' lbs' : '—'}</div><div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT CHANGE</div></div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
-            {(() => {
-              const items = activeProtocols.flatMap((p: any) => (p.compounds||[]).map((c: any) => { const di = Math.max(0,Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000)); const wk = Math.max(1,Math.floor(di/7)+1); return {id:c.id,name:c.name,wk} })).slice(0,6);
-              const colors = ['var(--color-green)','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'];
-              const total = items.length <= 4 ? 4 : 6; const padded = [...items, ...Array(total-items.length).fill(null)];
-              return (
-                <div style={{display:'grid',gridTemplateColumns:items.length<=4?'1fr 1fr':'1fr 1fr 1fr',gap:'0px'}}>
-                  {padded.map((item: any, i: number) => {
-                    const rc = colors[i] || '#6b7280';
-                    const cols = items.length <= 4 ? 2 : 3;
-                    const col = i % cols;
-                    const row = Math.floor(i / cols);
-                    const rows = Math.ceil(padded.length / cols);
-                    const isLastCol = col === cols - 1;
-                    const isLastRow = row === rows - 1;
-                    if (!item) return <div key={i} style={{width:'64px',height:'64px'}} />;
-                    const short = item.name.split('/')[0].split(' ')[0].slice(0,6);
-                    return (
-                      <div key={i} onClick={() => { setActiveCompoundTab(item.id); }} style={{width:'64px',height:'64px',borderRadius:'50%',border:((activeCompoundTab||items[0]?.id)===item.id?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',marginRight:isLastCol?'0':'-10px',marginBottom:isLastRow?'0':'-10px',background:(activeCompoundTab||items[0]?.id)===item.id?rc+'44':cb,zIndex:row+col,position:'relative',cursor:'pointer',boxShadow:(activeCompoundTab||items[0]?.id)===item.id?'0 0 18px '+rc+', 0 0 6px '+rc:'none',transform:(activeCompoundTab||items[0]?.id)===item.id?'scale(1.15)':'scale(1)',transition:'all 0.2s ease'}}>
-                        <span style={{fontSize:'10px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2',letterSpacing:'0.2px'}}>{short}</span>
-                        <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2'}}>Wk {item.wk}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
+        {/* Stats � StatsBar component */}
+        <StatsBar
+          currentWeight={lw ?? null}
+          totalLost={tl}
+          activeProtocols={activeProtocols}
+          activeCompoundTab={activeCompoundTab}
+          setActiveCompoundTab={setActiveCompoundTab}
+        />
 
-        {/* Insights */}
-        {vi.length > 0 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}><div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'10px'}}>INSIGHTS</div>{vi.map((ins2, i) => (<div key={i} style={{display:'flex',alignItems:'center',gap:'8px',padding:'6px 0',fontSize:'13px',color:'var(--color-text)'}}><span style={{color:ins2.accent,fontWeight:'700'}}>→</span><span>{ins2.text}</span></div>))}</div>)}
+        {/* Insights � InsightsCard component */}
+        <InsightsCard insights={vi} />
 
         {/* Charts */}
         {entries.length > 1 && (<div style={{marginBottom:'16px'}}><button onClick={() => setShowChart(!showChart)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button></div>)}
