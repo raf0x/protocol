@@ -231,7 +231,7 @@ export default function DashboardPage() {
         />
 
         {/* Weekly summary � Sundays only */}
-        <WeeklySummary entries={entries} currentWeek={currentWeek} forceShow={showSummary} />
+        <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
 
         {/* Missed dose banner */}
         {missedDoses.length > 0 && (

@@ -1,4 +1,5 @@
-'use client'
+const fs = require('fs');
+const content = `'use client'
 // WeeklySummary - shown on Sundays by default, togglable any day
 
 type Entry = {
@@ -42,11 +43,11 @@ export default function WeeklySummary({ entries, currentWeek, show }: Props) {
           <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',letterSpacing:'1px'}}>WEIGHT CHANGE</div>
         </div>
         <div style={{background:'var(--color-surface)',borderRadius:'8px',padding:'10px',textAlign:'center'}}>
-          <div style={{fontSize:'22px',fontWeight:'900',color:'#f97316'}}>{week.filter(e => e.mood).length ? avgMood.toFixed(1) : '—'}</div>
+          <div style={{fontSize:'22px',fontWeight:'900',color:'#f97316'}}>{week.filter(e => e.mood).length ? avgMood.toFixed(1) : '\u2014'}</div>
           <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',letterSpacing:'1px'}}>AVG MOOD</div>
         </div>
         <div style={{background:'var(--color-surface)',borderRadius:'8px',padding:'10px',textAlign:'center'}}>
-          <div style={{fontSize:'22px',fontWeight:'900',color:'#06b6d4'}}>{week.filter(e => e.sleep).length ? avgSleep.toFixed(1)+'h' : '—'}</div>
+          <div style={{fontSize:'22px',fontWeight:'900',color:'#06b6d4'}}>{week.filter(e => e.sleep).length ? avgSleep.toFixed(1)+'h' : '\u2014'}</div>
           <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',letterSpacing:'1px'}}>AVG SLEEP</div>
         </div>
       </div>
@@ -56,3 +57,6 @@ export default function WeeklySummary({ entries, currentWeek, show }: Props) {
     </div>
   )
 }
+`;
+fs.writeFileSync('components/dashboard/WeeklySummary.tsx', content, 'utf8');
+console.log('Done!');
