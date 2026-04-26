@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
-  const [showSummary, setShowSummary] = useState(false)
+  const [showSummary, setShowSummary] = useState(new Date().getDay() === 0)
   const [showProtocols, setShowProtocols] = useState(false)
   const [activeCompoundTab, setActiveCompoundTab] = useState<string | null>(null)
   const tabRowRef = useRef<HTMLDivElement>(null)
