@@ -1,4 +1,6 @@
-export const runtime = 'nodejs'
+const fs = require('fs');
+
+const content = `export const runtime = 'nodejs'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -22,7 +24,7 @@ async function sendPush(sub: any, title: string, body: string, url: string) {
 
 export async function GET(request: NextRequest) {
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== \`Bearer \${process.env.CRON_SECRET}\`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
   const today = now.toISOString().split('T')[0]
   let sent = 0
 
-  // 1. Journal reminder ï¿½ send to users whose reminder hour matches now
+  // 1. Journal reminder — send to users whose reminder hour matches now
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('*')
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (ok) sent++
   }
 
-  // 2. Vial expiry warning ï¿½ runs once per day at hour 9
+  // 2. Vial expiry warning — runs once per day at hour 9
   if (currentHour === 9) {
     const { data: compounds } = await supabase
       .from('compounds')
@@ -76,7 +78,7 @@ export async function GET(request: NextRequest) {
         const ok = await sendPush(
           sub,
           'Vial expiring soon',
-          names.join(', ') + ' ï¿½ time to reconstitute a fresh vial.',
+          names.join(', ') + ' — time to reconstitute a fresh vial.',
           '/protocol'
         )
         if (ok) sent++
@@ -86,3 +88,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ sent, hour: currentHour, date: today })
 }
+`;
+
+fs.writeFileSync('app/api/cron/route.ts', content, 'utf8');
+console.log('Done!');
