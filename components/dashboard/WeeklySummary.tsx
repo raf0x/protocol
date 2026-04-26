@@ -13,12 +13,13 @@ type Entry = {
 type Props = {
   entries: Entry[]
   currentWeek: number
+  forceShow?: boolean
 }
 
-export default function WeeklySummary({ entries, currentWeek }: Props) {
+export default function WeeklySummary({ entries, currentWeek, forceShow }: Props) {
   const today = new Date()
   const isSunday = today.getDay() === 0
-  if (!isSunday || entries.length < 3) return null
+  if ((!isSunday && !forceShow) || entries.length < 3) return null
 
   const week = entries.slice(0, 7)
   const logged = week.length

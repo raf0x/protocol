@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
   const [showProtocols, setShowProtocols] = useState(false)
   const [activeCompoundTab, setActiveCompoundTab] = useState<string | null>(null)
   const tabRowRef = useRef<HTMLDivElement>(null)
@@ -230,7 +231,7 @@ export default function DashboardPage() {
         />
 
         {/* Weekly summary � Sundays only */}
-        <WeeklySummary entries={entries} currentWeek={currentWeek} />
+        <WeeklySummary entries={entries} currentWeek={currentWeek} forceShow={showSummary} />
 
         {/* Missed dose banner */}
         {missedDoses.length > 0 && (
@@ -246,8 +247,13 @@ export default function DashboardPage() {
         {/* Insights � InsightsCard component */}
         <InsightsCard insights={vi} />
 
-        {/* Charts */}
-        {entries.length > 1 && (<div style={{marginBottom:'16px'}}><button onClick={() => setShowChart(!showChart)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button></div>)}
+        {/* Charts + Summary toggles */}
+        {entries.length > 1 && (
+          <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+            <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
+            <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
+          </div>
+        )}
         {showChart && cd.length > 1 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
 <p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p><ResponsiveContainer width='100%' height={140}><LineChart data={cd}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={20} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m1_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} label={{value: m.label, position: i % 2 === 0 ? 'insideTopRight' : 'insideBottomRight', fontSize: 10, fill: '#a78bfa', fontWeight: 700, offset: 8}} />)}<Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' /><Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' /><Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep' /></LineChart></ResponsiveContainer>{protocolEvents.length > 0 && (
               <div style={{marginTop:'8px',marginBottom:'8px',padding:'8px 0',borderTop:'1px solid '+bd}}>
