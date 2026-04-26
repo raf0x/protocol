@@ -17,7 +17,7 @@ const retaProtocol = [
   { phase: "Final", weeks: [27], dose: "2mg", units: 40, ml: "0.4ml", dates: "Sep 13" },
 ]
 
-const CURRENT_WEEK = 6
+const CURRENT_WEEK = Math.max(1, Math.floor((Date.now() - new Date('2026-03-15T00:00:00').getTime()) / 86400000 / 7) + 1)
 
 const defaultCjc = [
   { night: 1, date: "Apr 2", units: 10, done: true },
@@ -97,6 +97,7 @@ export default function TrackerPage() {
   const [hcgLog, setHcgLog] = useState(defaultHcg)
   const [ghkLog, setGhkLog] = useState(defaultGhk)
   const [wolverineLog, setWolverineLog] = useState(defaultWolverine)
+  const [retaShots, setRetaShots] = useState<Record<number, boolean>>({})
 
   const g = '#39ff14', dg = '#8b8ba7', mg = '#3d3d5c', cb = '#12121a', bd = '#1e1e2e'
 
@@ -116,6 +117,7 @@ export default function TrackerPage() {
             if (d.hcg) setHcgLog(d.hcg)
             if (d.ghk) setGhkLog(d.ghk)
             if (d.wolverine) setWolverineLog(d.wolverine)
+            if (d.retaShots) setRetaShots(d.retaShots)
           }
         } catch {}
       }
@@ -124,9 +126,15 @@ export default function TrackerPage() {
     check()
   }, [])
 
-  function saveAll(w?: any, c?: any, h?: any, gk?: any, wl?: any) {
-    const data = { weights: w || weights, cjc: c || cjcLog, hcg: h || hcgLog, ghk: gk || ghkLog, wolverine: wl || wolverineLog }
+  function saveAll(w?: any, c?: any, h?: any, gk?: any, wl?: any, rs?: any) {
+    const data = { weights: w || weights, cjc: c || cjcLog, hcg: h || hcgLog, ghk: gk || ghkLog, wolverine: wl || wolverineLog, retaShots: rs || retaShots }
     localStorage.setItem('raf_tracker', JSON.stringify(data))
+  }
+
+  function toggleRetaShot(weekNum: number) {
+    const updated = { ...retaShots, [weekNum]: !retaShots[weekNum] }
+    setRetaShots(updated)
+    saveAll(undefined, undefined, undefined, undefined, undefined, updated)
   }
 
   function handleSaveWeight(weekNum: number) {
