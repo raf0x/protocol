@@ -30,6 +30,7 @@ function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number 
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
@@ -143,6 +144,8 @@ export default function DashboardPage() {
 
   async function loadAll() {
     setLoading(true)
+    setLoadError(false)
+    try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
@@ -161,6 +164,11 @@ export default function DashboardPage() {
     const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
     setProtocolEvents(events || [])
     setLoading(false)
+    } catch (err) {
+      console.error('loadAll failed:', err)
+      setLoadError(true)
+      setLoading(false)
+    }
   }
 
   async function toggleInjection(cid: string) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }) }

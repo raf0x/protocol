@@ -1,9 +1,11 @@
-@tailwind base;
+const fs = require('fs');
+
+const content = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================
-   PROTOCOL DESIGN SYSTEM ï¿½ CSS TOKENS
+   PROTOCOL DESIGN SYSTEM — CSS TOKENS
    Edit colors here. Nowhere else.
    ============================================ */
 
@@ -166,3 +168,7 @@ body::before {
   animation: badgeShimmer 3s linear infinite;
 }
 .cta-pulse { animation: ctaPulse 2s ease-in-out infinite; }
+`;
+
+fs.writeFileSync('app/globals.css', content, 'utf8');
+console.log('Priority 3 done! globals.css rebuilt clean.');
