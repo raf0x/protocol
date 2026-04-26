@@ -5,6 +5,7 @@ import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
 import InsightsCard from '../../components/dashboard/InsightsCard'
 import DailyLogCard from '../../components/dashboard/DailyLogCard'
+import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
@@ -225,6 +226,9 @@ export default function DashboardPage() {
           activeCompoundTab={activeCompoundTab}
           setActiveCompoundTab={setActiveCompoundTab}
         />
+
+        {/* Weekly summary � Sundays only */}
+        <WeeklySummary entries={entries} currentWeek={currentWeek} />
 
         {/* Missed dose banner */}
         {missedDoses.length > 0 && (
