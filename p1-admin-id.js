@@ -1,4 +1,14 @@
-'use client'
+const fs = require('fs');
+
+// Create lib/constants.ts
+const constants = `export const ADMIN_USER_ID = '41266062-c8a7-4a52-aa9b-c1fb96d1c483'
+`;
+fs.writeFileSync('lib/constants.ts', constants, 'utf8');
+console.log('Created lib/constants.ts');
+
+// Replace in BottomNav.tsx
+let nav = fs.readFileSync('components/BottomNav.tsx', 'utf8');
+nav = `'use client'
 
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -21,7 +31,7 @@ export default function BottomNav() {
   if (pathname === '/') return null
 
   const links = [
-    { href: '/calculator', label: '🧮' },
+    { href: '/calculator', label: '\uD83E\uDDEE' },
     { href: '/community', label: 'Community' },
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
@@ -45,3 +55,29 @@ export default function BottomNav() {
     </nav>
   )
 }
+`;
+fs.writeFileSync('components/BottomNav.tsx', nav, 'utf8');
+console.log('Updated BottomNav.tsx');
+
+// Replace in tracker/page.tsx
+let tracker = fs.readFileSync('app/tracker/page.tsx', 'utf8');
+tracker = tracker.replace(
+  `const ADMIN_ID = '41266062-c8a7-4a52-aa9b-c1fb96d1c483'`,
+  `import { ADMIN_USER_ID } from '../../lib/constants'\nconst ADMIN_ID = ADMIN_USER_ID`
+);
+fs.writeFileSync('app/tracker/page.tsx', tracker, 'utf8');
+console.log('Updated tracker/page.tsx');
+
+// Replace in protocol/page.tsx
+let protocol = fs.readFileSync('app/protocol/page.tsx', 'utf8');
+if (protocol.includes("'41266062-c8a7-4a52-aa9b-c1fb96d1c483'")) {
+  protocol = `import { ADMIN_USER_ID } from '../../lib/constants'\n` + protocol;
+  protocol = protocol.replace(
+    "'41266062-c8a7-4a52-aa9b-c1fb96d1c483'",
+    'ADMIN_USER_ID'
+  );
+  fs.writeFileSync('app/protocol/page.tsx', protocol, 'utf8');
+  console.log('Updated protocol/page.tsx');
+}
+
+console.log('Priority 1 done!');
