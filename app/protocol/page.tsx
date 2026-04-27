@@ -12,7 +12,7 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
-type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string }
+type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 // isDueToday moved to lib/utils.ts
@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
+  const [tomorrowCompounds, setTomorrowCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
@@ -164,6 +165,22 @@ export default function DashboardPage() {
           })
         } }) })
     setDueCompounds(due)
+
+    // Tomorrow compounds
+    const tmr: DueCompound[] = []
+    const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]
+    ;(protocols || []).forEach((p: any) => {
+      const daysIn = Math.max(0, Math.floor((tomorrowDate.getTime() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000))
+      const wk = Math.max(1, Math.floor(daysIn/7)+1)
+      ;(p.compounds||[]).forEach((c: any) => {
+        const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]
+        if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, tomorrowStr)) {
+          tmr.push({ id: c.id, name: c.name, dose: phase.dose, dose_unit: phase.dose_unit || 'mg', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency, day_of_week: phase.day_of_week })
+        }
+      })
+    })
+    setTomorrowCompounds(tmr)
     const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
     const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
@@ -248,6 +265,7 @@ export default function DashboardPage() {
         {/* Today's injections � always visible */}
         <TodaysInjections
           dueCompounds={dueCompounds}
+          tomorrowCompounds={tomorrowCompounds}
           logs={logs}
           onToggle={toggleInjection}
         />

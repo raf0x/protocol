@@ -3,10 +3,10 @@
 // Shared logic used across multiple pages.
 // ============================================
 
-export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null): boolean {
+export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null, checkDateStr?: string): boolean {
   if (!protocolStart) return false
   const start = new Date(protocolStart + 'T00:00:00')
-  const today = new Date(); today.setHours(0,0,0,0)
+  const today = checkDateStr ? new Date(checkDateStr + 'T00:00:00') : new Date(); today.setHours(0,0,0,0)
   const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86400000)
   if (daysDiff < 0) return false
   if (frequency === 'daily') return true

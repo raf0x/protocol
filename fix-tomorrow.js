@@ -1,4 +1,6 @@
-'use client'
+const fs = require('fs');
+
+const content = `'use client'
 import { useState } from 'react'
 import { isDueToday } from '../../lib/utils'
 
@@ -9,9 +11,9 @@ type DueCompound = {
   dose_unit: string
   time_of_day: string
   protocol_name: string
-  start_date?: string
-  frequency?: string
-  day_of_week?: number | null
+  start_date: string
+  frequency: string
+  day_of_week: number | null
 }
 
 type LogEntry = {
@@ -92,7 +94,7 @@ export default function TodaysInjections({ dueCompounds, tomorrowCompounds, logs
                 <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
                   {viewing === 'today' && (
                     <button onClick={() => onToggle(c.id)} style={{width:'28px',height:'28px',borderRadius:'7px',flexShrink:0,border:'1.5px solid '+(taken?'var(--color-green)':'rgba(200,80,80,0.5)'),background:taken?'var(--color-green)':'transparent',cursor:'pointer',color:'var(--color-green-text)',fontWeight:'800',padding:0,fontSize:'14px'}}>
-                      {taken ? '✓' : ''}
+                      {taken ? '\u2713' : ''}
                     </button>
                   )}
                   {viewing === 'tomorrow' && (
@@ -113,7 +115,7 @@ export default function TodaysInjections({ dueCompounds, tomorrowCompounds, logs
           })}
           {allDone && viewing === 'today' && (
             <div style={{textAlign:'center',padding:'8px 0 2px',fontSize:'13px',color:'var(--color-green)',fontWeight:'700'}}>
-              All injections logged ✓
+              All injections logged \u2713
             </div>
           )}
         </div>
@@ -121,3 +123,7 @@ export default function TodaysInjections({ dueCompounds, tomorrowCompounds, logs
     </div>
   )
 }
+`;
+
+fs.writeFileSync('components/dashboard/TodaysInjections.tsx', content, 'utf8');
+console.log('Done! TodaysInjections updated.');
