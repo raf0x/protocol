@@ -1,26 +1,13 @@
 'use client'
-import { useState } from 'react'
+
+type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 type Props = {
   activeProtocols: any[]
-  currentWeek: number
+  activeCompoundTab: string | null
+  logs: Record<string, LogEntry>
+  allLogs: { compound_id: string; taken: boolean; date: string }[]
   totalLost: string | null
-}
-
-function VialSVG({ name, color }: { name: string; color: string }) {
-  const short = name.split('/')[0].split(' ')[0].slice(0, 8)
-  return (
-    <svg width='64' height='100' viewBox='0 0 64 100' fill='none' xmlns='http://www.w3.org/2000/svg'>
-      <rect x='20' y='0' width='24' height='14' rx='4' fill={color} opacity='0.9'/>
-      <rect x='24' y='12' width='16' height='6' rx='2' fill={color} opacity='0.7'/>
-      <rect x='12' y='18' width='40' height='62' rx='8' fill='white' stroke={color} strokeWidth='1.5'/>
-      <rect x='16' y='30' width='32' height='36' rx='4' fill={color} opacity='0.12'/>
-      <rect x='13.5' y='52' width='37' height='27' rx='0' fill={color} opacity='0.15'/>
-      <rect x='16' y='20' width='6' height='30' rx='3' fill='white' opacity='0.4'/>
-      <text x='32' y='44' textAnchor='middle' fontSize='7' fontWeight='800' fill={color} fontFamily='Inter,sans-serif'>{short}</text>
-      <rect x='12' y='76' width='40' height='4' rx='2' fill={color} opacity='0.2'/>
-    </svg>
-  )
 }
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -37,60 +24,131 @@ function getCompoundColor(name: string): string {
   return '#6c63ff'
 }
 
-export default function HeroProtocolCard({ activeProtocols, currentWeek, totalLost }: Props) {
-  if (!activeProtocols || activeProtocols.length === 0) return null
-  const primary = activeProtocols[0]
-  const compounds = primary.compounds || []
-  const daysIn = Math.max(0, Math.floor((Date.now() - new Date(primary.start_date + 'T00:00:00').getTime()) / 86400000))
-  const totalDays = compounds.reduce((max: number, c: any) => {
-    const lastPhase = (c.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
-    return Math.max(max, lastPhase ? lastPhase.end_week * 7 : 84)
-  }, 84)
-  const progress = Math.min(100, Math.round((daysIn / totalDays) * 100))
+function DynamicVial({ name, color, fillPct }: { name: string; color: string; fillPct: number }) {
+  const short = name.split('/')[0].split(' ')[0].slice(0, 8)
+  const bodyTop = 18
+  const bodyH = 62
+  const fill = Math.max(0, Math.min(1, fillPct))
+  const fillH = bodyH * fill
+  const fillY = bodyTop + bodyH - fillH
   return (
-    <div style={{background:'linear-gradient(135deg, #111111 0%, #1a1a2e 100%)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid rgba(255,255,255,0.08)'}}>
-      <div style={{position:'absolute',top:'-20px',right:'-20px',width:'120px',height:'120px',borderRadius:'50%',background:'rgba(57,255,20,0.06)',filter:'blur(30px)',pointerEvents:'none'}} />
+    <svg width='72' height='110' viewBox='0 0 64 110' fill='none' xmlns='http://www.w3.org/2000/svg'>
+      <rect x='20' y='0' width='24' height='14' rx='4' fill={color} opacity='0.9'/>
+      <rect x='24' y='12' width='16' height='6' rx='2' fill={color} opacity='0.7'/>
+      <rect x='12' y={bodyTop} width='40' height={bodyH} rx='8' fill='#1a1a2e' stroke={color} strokeWidth='1.5'/>
+      {fillH > 0 && (
+        <rect x='13.5' y={fillY} width='37' height={fillH} rx={fillH >= bodyH ? '6' : '0 0 6 6'} fill={color} opacity='0.35'/>
+      )}
+      <rect x='13.5' y={fillY} width='37' height='3' fill={color} opacity={fill > 0.05 ? 0.6 : 0}/>
+      <rect x='16' y={bodyTop + 2} width='6' height='28' rx='3' fill='white' opacity='0.12'/>
+      <text x='32' y='54' textAnchor='middle' fontSize='7' fontWeight='800' fill={color} fontFamily='Inter,sans-serif'>{short}</text>
+      <rect x='12' y={bodyTop + bodyH - 4} width='40' height='4' rx='2' fill={color} opacity='0.2'/>
+      {[0.25, 0.5, 0.75].map((tick) => (
+        <line key={tick} x1='44' y1={bodyTop + bodyH * (1 - tick)} x2='50' y2={bodyTop + bodyH * (1 - tick)} stroke={color} strokeWidth='0.8' opacity='0.3'/>
+      ))}
+    </svg>
+  )
+}
+
+export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost }: Props) {
+  if (!activeProtocols || activeProtocols.length === 0) return null
+
+  // Find the active compound across all protocols
+  let activeCompound: any = null
+  let activeProtocol: any = null
+  for (const p of activeProtocols) {
+    for (const c of (p.compounds || [])) {
+      if (c.id === activeCompoundTab) { activeCompound = c; activeProtocol = p; break }
+    }
+    if (activeCompound) break
+  }
+  // Fallback to first compound
+  if (!activeCompound) {
+    activeProtocol = activeProtocols[0]
+    activeCompound = activeProtocol?.compounds?.[0]
+  }
+  if (!activeCompound || !activeProtocol) return null
+
+  const color = getCompoundColor(activeCompound.name)
+
+  // Correct week for this specific compound's protocol
+  const daysIn = Math.max(0, Math.floor((Date.now() - new Date(activeProtocol.start_date + 'T00:00:00').getTime()) / 86400000))
+  const compoundWeek = Math.max(1, Math.floor(daysIn / 7) + 1)
+
+  // Protocol progress
+  const phases = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)
+  const lastPhase = phases[0]
+  const totalDays = lastPhase ? lastPhase.end_week * 7 : 84
+  const progress = Math.min(100, Math.round((daysIn / totalDays) * 100))
+
+  // Current phase
+  const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
+
+  // Vial status
+  const reconDate = activeCompound.reconstitution_date
+  const bacWater = activeCompound.bac_water_ml || 0
+  const vialStrength = activeCompound.vial_strength || 0
+  let vialDaysLeft: number | null = null
+  let mlRemaining: number | null = null
+  let fillPct = 1
+
+  if (reconDate && bacWater > 0 && currentPhase) {
+    const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
+    vialDaysLeft = 28 - daysSinceRecon
+
+    // Calculate mL used from injection logs
+    const concentration = vialStrength > 0 ? (vialStrength * 1000) / bacWater : 0
+    const mlPerDose = concentration > 0 ? (currentPhase.dose * 1000) / concentration : 0
+    const takenCount = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
+    const mlUsed = takenCount * mlPerDose
+    mlRemaining = Math.max(0, bacWater - mlUsed)
+    fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
+  }
+
+  return (
+    <div style={{background:'linear-gradient(135deg, #111111 0%, #1a1a2e 100%)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid rgba(255,255,255,0.08)',transition:'all 0.3s ease'}}>
+      <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.06)',filter:'blur(40px)',pointerEvents:'none'}} />
+
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:'10px',fontWeight:'700',color:'rgba(255,255,255,0.4)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE PROTOCOL</div>
-          <h2 style={{fontSize:'20px',fontWeight:'900',color:'white',marginBottom:'4px',lineHeight:'1.2'}}>{primary.name}</h2>
-          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'16px',flexWrap:'wrap'}}>
-            <span style={{fontSize:'12px',fontWeight:'700',color:'#39ff14',background:'rgba(57,255,20,0.1)',padding:'3px 8px',borderRadius:'20px'}}>Week {currentWeek}</span>
+          <div style={{fontSize:'10px',fontWeight:'700',color:'rgba(255,255,255,0.4)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
+          <h2 style={{fontSize:'22px',fontWeight:'900',color:'white',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
+
+          <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
+            <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
+            {currentPhase && <span style={{fontSize:'12px',color:'rgba(255,255,255,0.5)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
             {totalLost && parseFloat(totalLost) > 0 && (
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
             )}
-            <span style={{fontSize:'12px',color:'rgba(255,255,255,0.4)'}}>{compounds.length} compound{compounds.length !== 1 ? 's' : ''}</span>
           </div>
-          <div style={{marginBottom:'6px'}}>
+
+          {vialDaysLeft !== null && mlRemaining !== null && (
+            <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
+              <div>
+                <div style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'rgba(255,255,255,0.8)'}}>{vialDaysLeft}d left</div>
+              </div>
+              <div>
+                <div style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:'rgba(255,255,255,0.8)'}}>{mlRemaining.toFixed(2)} mL</div>
+              </div>
+            </div>
+          )}
+
+          <div>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-              <span style={{fontSize:'10px',color:'rgba(255,255,255,0.4)',fontWeight:'600'}}>PROTOCOL PROGRESS</span>
-              <span style={{fontSize:'10px',color:'rgba(255,255,255,0.6)',fontWeight:'700'}}>{progress}%</span>
+              <span style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px'}}>PROTOCOL PROGRESS</span>
+              <span style={{fontSize:'9px',color:'rgba(255,255,255,0.5)',fontWeight:'700'}}>{progress}%</span>
             </div>
-            <div style={{height:'4px',background:'rgba(255,255,255,0.1)',borderRadius:'2px',overflow:'hidden'}}>
-              <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg, #39ff14, #5DD879)',borderRadius:'2px'}} />
+            <div style={{height:'4px',background:'rgba(255,255,255,0.08)',borderRadius:'2px',overflow:'hidden'}}>
+              <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,'+color+','+color+'99)',borderRadius:'2px',transition:'width 0.5s ease'}} />
             </div>
           </div>
         </div>
-        <div style={{display:'flex',marginLeft:'12px',flexShrink:0}}>
-          {compounds.slice(0, 3).map((c: any, i: number) => (
-            <div key={c.id} style={{marginLeft: i > 0 ? '-12px' : '0', zIndex: compounds.length - i, filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.3))'}}>
-              <VialSVG name={c.name} color={getCompoundColor(c.name)} />
-            </div>
-          ))}
+
+        <div style={{marginLeft:'16px',flexShrink:0,filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
+          <DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} />
         </div>
-      </div>
-      <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}}>
-        {compounds.map((c: any) => {
-          const color = getCompoundColor(c.name)
-          const phase = (c.phases || [])[0]
-          return (
-            <div key={c.id} style={{display:'flex',alignItems:'center',gap:'4px',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'6px',padding:'4px 8px'}}>
-              <div style={{width:'6px',height:'6px',borderRadius:'50%',background:color,flexShrink:0}} />
-              <span style={{fontSize:'11px',fontWeight:'600',color:'rgba(255,255,255,0.8)'}}>{c.name}</span>
-              {phase && <span style={{fontSize:'10px',color:'rgba(255,255,255,0.4)'}}>{phase.dose}{phase.dose_unit}</span>}
-            </div>
-          )
-        })}
       </div>
     </div>
   )

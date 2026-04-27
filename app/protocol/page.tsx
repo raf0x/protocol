@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [tomorrowCompounds, setTomorrowCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
+  const [allLogs, setAllLogs] = useState<any[]>([])
   const [currentWeek, setCurrentWeek] = useState(0)
   const [showChart, setShowChart] = useState(false)
   const [showSummary, setShowSummary] = useState(new Date().getDay() === 0)
@@ -211,6 +212,8 @@ export default function DashboardPage() {
     })
     setTomorrowCompounds(tmr)
     const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
+    const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
+    setAllLogs(allLogsData || [])
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
     const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
     setProtocolEvents(events || [])
@@ -285,7 +288,9 @@ export default function DashboardPage() {
         {/* Hero protocol card */}
         <HeroProtocolCard
           activeProtocols={activeProtocols}
-          currentWeek={currentWeek}
+          activeCompoundTab={activeCompoundTab}
+          logs={logs}
+          allLogs={allLogs}
           totalLost={tl}
         />
 
