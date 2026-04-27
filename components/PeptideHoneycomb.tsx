@@ -87,7 +87,7 @@ export default function PeptideHoneycomb() {
   })
 
   return (
-    <div style={{width:'100%',padding:'0 8px',boxSizing:'border-box'}}>
+    <div style={{width:'100%',maxWidth:'640px',margin:'0 auto',padding:'0 8px',boxSizing:'border-box'}}>
       <style>{`
         .hex-cell { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), filter 0.2s ease; cursor: default; }
         .hex-cell:hover { transform: translateY(-8px); }
