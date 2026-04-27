@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
-type Phase = { name: string; dose: string; dose_unit: string; start_week: string; end_week: string; frequency: string; day_of_week: string }
+type Phase = { name: string; dose: string; dose_unit: string; start_week: string; end_week: string; frequency: string; day_of_week: string; time_of_day: string }
 type Compound = { name: string; vial_strength: string; vial_unit: string; bac_water_ml: string; reconstitution_date: string; phases: Phase[] }
 
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -15,7 +15,7 @@ const FREQS = [
   { value: 'every3days', label: 'Every 3 days' }, { value: 'every4days', label: 'Every 4 days' }, { value: 'every5days', label: 'Every 5 days' },
 ]
 
-function newPhase(): Phase { return { name: '', dose: '', dose_unit: 'mg', start_week: '1', end_week: '4', frequency: '1x/week', day_of_week: '0' } }
+function newPhase(): Phase { return { name: '', dose: '', dose_unit: 'mg', start_week: '1', end_week: '4', frequency: '1x/week', day_of_week: '0', time_of_day: 'morning' } }
 function newCompound(): Compound { const t = new Date().toISOString().split('T')[0]; return { name: '', vial_strength: '', vial_unit: 'mg', bac_water_ml: '', reconstitution_date: t, phases: [newPhase()] } }
 
 export default function ManagePage() {
@@ -53,7 +53,7 @@ export default function ManagePage() {
       phases: (c.phases || []).sort((a: any, b: any) => a.start_week - b.start_week).map((ph: any) => ({
         name: ph.name, dose: ph.dose?.toString() || '', dose_unit: ph.dose_unit || 'mg',
         start_week: ph.start_week?.toString() || '1', end_week: ph.end_week?.toString() || '1',
-        frequency: ph.frequency || '1x/week', day_of_week: ph.day_of_week?.toString() || '0'
+        frequency: ph.frequency || '1x/week', day_of_week: ph.day_of_week?.toString() || '0', time_of_day: ph.time_of_day || 'morning'
       }))
     }))
     setCompounds(cs.length ? cs : [newCompound()]); setShowForm(true); setError('')
@@ -88,7 +88,7 @@ export default function ManagePage() {
       const c = compounds[ci]
       const { data: ins } = await supabase.from('compounds').insert({ protocol_id: protocolId, user_id: user.id, name: c.name.trim(), vial_strength: c.vial_strength ? parseFloat(c.vial_strength) : null, vial_unit: c.vial_unit, bac_water_ml: c.bac_water_ml ? parseFloat(c.bac_water_ml) : null, reconstitution_date: c.reconstitution_date || null, position: ci }).select().single()
       if (!ins) continue
-      const rows = c.phases.map((ph, pi) => ({ compound_id: ins.id, user_id: user.id, name: ph.name.trim() || ('Phase '+(pi+1)), dose: parseFloat(ph.dose), dose_unit: ph.dose_unit, start_week: parseInt(ph.start_week)||1, end_week: parseInt(ph.end_week)||1, frequency: ph.frequency, day_of_week: (ph.frequency==='1x/week'||ph.frequency==='2x/week') ? parseInt(ph.day_of_week) : null, position: pi }))
+      const rows = c.phases.map((ph, pi) => ({ compound_id: ins.id, user_id: user.id, name: ph.name.trim() || ('Phase '+(pi+1)), dose: parseFloat(ph.dose), dose_unit: ph.dose_unit, start_week: parseInt(ph.start_week)||1, end_week: parseInt(ph.end_week)||1, frequency: ph.frequency, day_of_week: (ph.frequency==='1x/week'||ph.frequency==='2x/week') ? parseInt(ph.day_of_week) : null, time_of_day: ph.time_of_day || 'morning', position: pi }))
       if (rows.length) await supabase.from('phases').insert(rows)
     }
     if (!editingId) {
@@ -139,6 +139,13 @@ export default function ManagePage() {
                       <div style={{display:'grid',gridTemplateColumns:'1fr auto 1fr',gap:'6px',marginBottom:'6px',alignItems:'center'}}><input type='number' min='1' value={ph.start_week} onChange={e => updatePhase(ci,pi,'start_week',e.target.value)} placeholder='Start' style={ss} /><span style={{color:mg,fontSize:'12px'}}>to</span><input type='number' min='1' value={ph.end_week} onChange={e => updatePhase(ci,pi,'end_week',e.target.value)} placeholder='End' style={ss} /></div>
                       <label style={{display:'block',fontSize:'10px',color:mg,marginBottom:'2px',fontWeight:'600'}}>FREQUENCY</label>
                       <select value={ph.frequency} onChange={e => updatePhase(ci,pi,'frequency',e.target.value)} style={{...ss,marginBottom:'6px'}}>{FREQS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select>
+                      <label style={{display:'block',fontSize:'10px',color:mg,marginBottom:'2px',marginTop:'6px',fontWeight:'600'}}>TIME OF DAY</label>
+                      <select value={ph.time_of_day} onChange={e => updatePhase(ci,pi,'time_of_day',e.target.value)} style={{...ss,marginBottom:'6px'}}>
+                        <option value='morning'>Morning</option>
+                        <option value='afternoon'>Afternoon</option>
+                        <option value='evening'>Evening</option>
+                        <option value='night'>Night</option>
+                      </select>
                       {(ph.frequency==='1x/week'||ph.frequency==='2x/week') && <select value={ph.day_of_week} onChange={e => updatePhase(ci,pi,'day_of_week',e.target.value)} style={ss}>{DAYS.map((d,i) => <option key={i} value={i}>Inject on {d}</option>)}</select>}
                     </div>))}
                   <button onClick={() => addPhase(ci)} style={{marginTop:'8px',background:'none',border:'1px dashed '+mg,borderRadius:'6px',padding:'6px',color:dg,fontSize:'12px',cursor:'pointer',width:'100%'}}>+ Add phase</button>
