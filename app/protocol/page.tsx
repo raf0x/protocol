@@ -9,6 +9,7 @@ import CompoundNotes from '../../components/dashboard/CompoundNotes'
 import VialInventory from '../../components/dashboard/VialInventory'
 import TodaysInjections from '../../components/dashboard/TodaysInjections'
 import WeeklySummary from '../../components/dashboard/WeeklySummary'
+import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
@@ -280,6 +281,13 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Hero protocol card */}
+        <HeroProtocolCard
+          activeProtocols={activeProtocols}
+          currentWeek={currentWeek}
+          totalLost={tl}
+        />
 
         {/* Stats � StatsBar component */}
         <StatsBar
