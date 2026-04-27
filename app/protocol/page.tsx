@@ -134,6 +134,34 @@ export default function DashboardPage() {
     setEditEventType(ev.event_type)
   }
 
+  async function shareProtocol(protocolId: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    // Check if share already exists
+    const { data: existing } = await supabase
+      .from('shared_protocols')
+      .select('token')
+      .eq('protocol_id', protocolId)
+      .eq('user_id', user.id)
+      .single()
+    if (existing) {
+      await navigator.clipboard.writeText(window.location.origin + '/share/' + existing.token)
+      alert('Share link copied!')
+      return
+    }
+    // Create new share
+    const { data: share } = await supabase
+      .from('shared_protocols')
+      .insert({ protocol_id: protocolId, user_id: user.id })
+      .select('token')
+      .single()
+    if (share) {
+      await navigator.clipboard.writeText(window.location.origin + '/share/' + share.token)
+      alert('Share link copied!')
+    }
+  }
+
   async function loadAll() {
     setLoading(true)
     setLoadError(false)
