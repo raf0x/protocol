@@ -22,7 +22,7 @@ type Props = {
   dueCompounds: DueCompound[]
   logs: Record<string, LogEntry>
   onToggle: (id: string) => void
-  onDiscomfort: (id: string, v: number) => void
+
 }
 
 const TIME_ICONS: Record<string, string> = {
@@ -36,17 +36,9 @@ const TIME_ORDER: Record<string, number> = {
   morning: 0, afternoon: 1, evening: 2, night: 3,
 }
 
-function DiscomfortBtn({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) {
-  const a = current === value
-  const c = value === 0 ? 'var(--color-green)' : '#ff6b6b'
-  return (
-    <button onClick={() => onChange(value)} style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid '+(a?c:'var(--color-border)'),background:a?(value===0?'var(--color-green-15)':'rgba(255,107,107,0.15)'):'transparent',color:a?c:'var(--color-dim)',fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
-      {value}
-    </button>
-  )
-}
 
-export default function TodaysInjections({ dueCompounds, logs, onToggle, onDiscomfort }: Props) {
+
+export default function TodaysInjections({ dueCompounds, logs, onToggle }: Props) {
   const [open, setOpen] = useState(true)
 
   if (dueCompounds.length === 0) return null
@@ -70,7 +62,6 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
           {sorted.map(c => {
             const log = logs[c.id]
             const taken = log?.taken || false
-            const dis = log?.discomfort || 0
             const timeLabel = TIME_ICONS[c.time_of_day] || 'AM'
             return (
               <div key={c.id} style={{borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',border:'1px solid '+(taken?'var(--color-green-30)':'rgba(200,70,70,0.25)'),background:taken?'var(--color-green-05)':'rgba(160,40,40,0.06)',transition:'all 0.2s ease'}}>
@@ -88,14 +79,7 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
                     </span>
                   </div>
                 </div>
-                {taken && (
-                  <div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--color-border)'}}>
-                    <span style={{fontSize:'10px',color:'var(--color-muted)',display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span>
-                    <div style={{display:'flex',gap:'6px'}}>
-                      {[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={dis} onChange={v => onDiscomfort(c.id, v)} />)}
-                    </div>
-                  </div>
-                )}
+
               </div>
             )
           })}

@@ -250,7 +250,6 @@ export default function DashboardPage() {
           dueCompounds={dueCompounds}
           logs={logs}
           onToggle={toggleInjection}
-          onDiscomfort={setDiscomfortVal}
         />
 
         {/* Weekly summary � Sundays only */}
