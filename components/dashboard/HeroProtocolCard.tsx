@@ -106,11 +106,30 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const daysIn = Math.max(0, Math.floor((Date.now() - new Date(activeProtocol.start_date + 'T00:00:00').getTime()) / 86400000))
   const compoundWeek = Math.max(1, Math.floor(daysIn / 7) + 1)
 
-  // Protocol progress
-  const phases = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)
-  const lastPhase = phases[0]
-  const totalDays = lastPhase ? lastPhase.end_week * 7 : 84
-  const progress = Math.min(100, Math.round((daysIn / totalDays) * 100))
+  // Protocol progress - dose based if override exists, otherwise time based
+  let totalDosesEstimate = 0
+  try {
+    const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
+    const allPhases = (activeCompound.phases || []).sort((a: any, b: any) => a.start_week - b.start_week)
+    // Estimate total doses from phase timeline
+    for (const ph of allPhases) {
+      const phaseWeeks = ph.end_week - ph.start_week + 1
+      const dosesPerWeek = ph.frequency === 'daily' ? 7 : ph.frequency === 'eod' ? 3.5 : ph.frequency === 'every3days' ? 2.3 : ph.frequency === '1x/week' ? 1 : ph.frequency === '2x/week' ? 2 : ph.frequency === '3x/week' ? 3 : ph.frequency === '4x/week' ? 4 : ph.frequency === '5x/week' ? 5 : 2
+      totalDosesEstimate += phaseWeeks * dosesPerWeek
+    }
+    if (override !== null && totalDosesEstimate > 0) {
+      const taken = parseInt(override)
+      var progress = Math.min(100, Math.round((taken / totalDosesEstimate) * 100))
+    } else {
+      const lastPhase2 = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
+      const totalDays2 = lastPhase2 ? lastPhase2.end_week * 7 : 84
+      var progress = Math.min(100, Math.round((daysIn / totalDays2) * 100))
+    }
+  } catch(e) {
+    const lastPhase3 = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
+    const totalDays3 = lastPhase3 ? lastPhase3.end_week * 7 : 84
+    var progress = Math.min(100, Math.round((daysIn / totalDays3) * 100))
+  }
 
   // Current phase
   const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
@@ -127,24 +146,25 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
     vialDaysLeft = 28 - daysSinceRecon
 
-    // Check localStorage for manual doses override first
-    let totalDosesTaken = 0
-    try {
-      const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
-      if (override !== null) {
-        totalDosesTaken = parseInt(override)
-      } else {
-        totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-      }
-    } catch(e) {
+  // Check localStorage for manual doses override - dosesRefresh triggers re-read
+  let totalDosesTaken = 0
+  try {
+    const _refresh = dosesRefresh // reference so React re-runs on change
+    const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
+    if (override !== null) {
+      totalDosesTaken = parseInt(override)
+    } else {
       totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
     }
-    const mlPerDose = currentPhase.dose_unit === 'IU'
-      ? currentPhase.dose / 100
-      : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
-    const mlUsed = totalDosesTaken * mlPerDose
-    mlRemaining = Math.max(0, bacWater - mlUsed)
-    fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
+  } catch(e) {
+    totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
+  }
+  const mlPerDose = currentPhase.dose_unit === 'IU'
+    ? currentPhase.dose / 100
+    : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
+  const mlUsed = totalDosesTaken * mlPerDose
+  mlRemaining = Math.max(0, bacWater - mlUsed)
+  fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
 
   return (
