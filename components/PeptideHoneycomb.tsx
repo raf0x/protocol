@@ -6,11 +6,9 @@ const CELLS = [
   { name: 'Semaglutide', cat: 'glp1' },
   { name: 'Tirzepatide', cat: 'glp1' },
   { name: 'Liraglutide', cat: 'glp1' },
-  { name: 'Irasploritide', cat: 'glp1' },
   { name: 'AOD-9604', cat: 'glp1' },
   { name: 'BPC-157', cat: 'repair' },
   { name: 'TB-500', cat: 'repair' },
-  { name: 'Pentadeca', cat: 'repair' },
   { name: 'KPV', cat: 'repair' },
   { name: 'LL-37', cat: 'repair' },
   { name: 'Thymosin A1', cat: 'repair' },
@@ -19,25 +17,18 @@ const CELLS = [
   { name: 'GHRP-6', cat: 'gh' },
   { name: 'Sermorelin', cat: 'gh' },
   { name: 'Tesamorelin', cat: 'gh' },
-  { name: 'Hexarelin', cat: 'gh' },
   { name: 'GHK-Cu', cat: 'longevity' },
   { name: 'Epithalon', cat: 'longevity' },
   { name: 'Selank', cat: 'longevity' },
   { name: 'Semax', cat: 'longevity' },
-  { name: 'Dihexa', cat: 'longevity' },
-  { name: 'Pinealon', cat: 'longevity' },
   { name: 'HCG', cat: 'hormone' },
   { name: 'IGF-1', cat: 'hormone' },
-  { name: 'MGF', cat: 'hormone' },
   { name: 'PT-141', cat: 'hormone' },
-  { name: 'Kisspeptin', cat: 'hormone' },
   { name: 'Follistatin', cat: 'hormone' },
   { name: 'Melanotan II', cat: 'antiage' },
   { name: 'MOTS-C', cat: 'antiage' },
   { name: 'Humanin', cat: 'antiage' },
   { name: 'SS-31', cat: 'antiage' },
-  { name: 'MDS', cat: 'antiage' },
-  { name: 'Foxo4-DRI', cat: 'antiage' },
 ]
 
 const CAT_COLOR: Record<string, string> = {
@@ -60,15 +51,13 @@ const CAT_LABEL: Record<string, string> = {
 
 export default function PeptideHoneycomb() {
   const [hovered, setHovered] = useState<number | null>(null)
-  const cols = 4
-  const hexR = 38
-  const hexW = hexR * 2 * 0.866
-  const hexH = hexR * 2
-  const colSpacing = hexW + 4
-  const rowSpacing = hexH * 0.76
+  const cols = 5
+  const hexR = 52
+  const colSpacing = hexR * 1.78
+  const rowSpacing = hexR * 1.56
   const rows = Math.ceil(CELLS.length / cols)
-  const svgW = cols * colSpacing + hexW * 0.5 + 8
-  const svgH = rows * rowSpacing + hexH * 0.28 + 8
+  const svgW = cols * colSpacing + colSpacing * 0.5 + 16
+  const svgH = rows * rowSpacing + hexR * 0.6 + 16
 
   function hexPoints(cx: number, cy: number, r: number) {
     return Array.from({ length: 6 }, (_, i) => {
@@ -80,73 +69,63 @@ export default function PeptideHoneycomb() {
   const positioned = CELLS.map((cell, idx) => {
     const col = idx % cols
     const row = Math.floor(idx / cols)
-    const cx = col * colSpacing + (row % 2 === 1 ? colSpacing * 0.5 : 0) + hexR + 4
-    const cy = row * rowSpacing + hexR + 4
+    const cx = col * colSpacing + (row % 2 === 1 ? colSpacing * 0.5 : 0) + hexR + 8
+    const cy = row * rowSpacing + hexR + 8
     return { ...cell, cx, cy, idx }
   })
 
   return (
     <div style={{width:'100%',overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
       <style>{`
-        .hex-cell { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), filter 0.18s ease; cursor: default; }
-        .hex-cell:hover { transform: translateY(-6px); }
+        .hex-cell { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), filter 0.2s ease; cursor: default; }
+        .hex-cell:hover { transform: translateY(-8px); }
       `}</style>
-      <div style={{minWidth: Math.min(svgW, 420) + 'px', maxWidth: svgW + 'px', margin:'0 auto'}}>
-        <svg width='100%' viewBox={'0 0 ' + svgW + ' ' + svgH} style={{display:'block',margin:'0 auto',maxWidth: svgW + 'px'}}>
-          <defs>
-            <filter id='hex-shadow' x='-20%' y='-20%' width='140%' height='140%'>
-              <feDropShadow dx='0' dy='3' stdDeviation='3' floodOpacity='0.4'/>
-            </filter>
-          </defs>
+      <div style={{width: svgW + 'px', margin:'0 auto'}}>
+        <svg width={svgW} height={svgH} viewBox={'0 0 ' + svgW + ' ' + svgH} style={{display:'block'}}>
           {positioned.map((cell) => {
             const color = CAT_COLOR[cell.cat]
             const isHov = hovered === cell.idx
+            const parts = cell.name.split(' ')
+            const line1 = parts[0]
+            const line2 = parts.slice(1).join(' ')
+            const fontSize = cell.name.length > 9 ? '8' : '9.5'
             return (
               <g
                 key={cell.idx}
                 className='hex-cell'
                 onMouseEnter={() => setHovered(cell.idx)}
                 onMouseLeave={() => setHovered(null)}
-                style={{filter: isHov ? 'drop-shadow(0 6px 12px ' + color + '55)' : 'none'}}
+                style={{filter: isHov ? 'drop-shadow(0 8px 16px ' + color + '66)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'}}
               >
                 <polygon
-                  points={hexPoints(cell.cx, cell.cy, hexR - 1)}
+                  points={hexPoints(cell.cx, cell.cy, hexR - 1.5)}
                   fill='#0d0d1a'
                   stroke={color}
-                  strokeWidth={isHov ? '1.5' : '0.8'}
-                  opacity={isHov ? 1 : 0.75}
+                  strokeWidth={isHov ? '2' : '1'}
+                  opacity={isHov ? 1 : 0.7}
                 />
                 <polygon
-                  points={hexPoints(cell.cx, cell.cy - hexR * 0.35, hexR * 0.45)}
-                  fill='rgba(255,255,255,0.03)'
+                  points={hexPoints(cell.cx, cell.cy - hexR * 0.3, hexR * 0.5)}
+                  fill='rgba(255,255,255,0.04)'
                 />
-                <text
-                  x={cell.cx}
-                  y={cell.cy + (cell.name.length > 8 ? -2 : 4)}
-                  textAnchor='middle'
-                  fontSize={cell.name.length > 10 ? '6.5' : cell.name.length > 7 ? '7.5' : '8.5'}
-                  fontWeight='700'
-                  fill={isHov ? color : 'rgba(255,255,255,0.7)'}
-                  fontFamily='Inter,system-ui,sans-serif'
-                  style={{userSelect:'none',transition:'fill 0.15s'}}
-                >
-                  {cell.name.length > 10 ? (
-                    <>
-                      <tspan x={cell.cx} dy='0'>{cell.name.split(' ')[0]}</tspan>
-                      <tspan x={cell.cx} dy='9'>{cell.name.split(' ').slice(1).join(' ')}</tspan>
-                    </>
-                  ) : cell.name}
-                </text>
+                {line2 ? (
+                  <>
+                    <text x={cell.cx} y={cell.cy - 3} textAnchor='middle' fontSize={fontSize} fontWeight='700' fill={isHov ? color : 'rgba(255,255,255,0.75)'} fontFamily='Inter,system-ui,sans-serif' style={{userSelect:'none',transition:'fill 0.15s'}}>{line1}</text>
+                    <text x={cell.cx} y={cell.cy + 11} textAnchor='middle' fontSize={fontSize} fontWeight='700' fill={isHov ? color : 'rgba(255,255,255,0.75)'} fontFamily='Inter,system-ui,sans-serif' style={{userSelect:'none',transition:'fill 0.15s'}}>{line2}</text>
+                  </>
+                ) : (
+                  <text x={cell.cx} y={cell.cy + 4} textAnchor='middle' fontSize={fontSize} fontWeight='700' fill={isHov ? color : 'rgba(255,255,255,0.75)'} fontFamily='Inter,system-ui,sans-serif' style={{userSelect:'none',transition:'fill 0.15s'}}>{line1}</text>
+                )}
               </g>
             )
           })}
         </svg>
       </div>
-      <div style={{display:'flex',flexWrap:'wrap',gap:'12px',justifyContent:'center',marginTop:'20px',padding:'0 16px'}}>
+      <div style={{display:'flex',flexWrap:'wrap',gap:'16px',justifyContent:'center',marginTop:'24px',padding:'0 16px'}}>
         {Object.entries(CAT_LABEL).map(([cat, label]) => (
-          <div key={cat} style={{display:'flex',alignItems:'center',gap:'5px'}}>
-            <div style={{width:'8px',height:'8px',borderRadius:'2px',background:CAT_COLOR[cat]}} />
-            <span style={{fontSize:'11px',color:'#8b8ba7',fontWeight:'600'}}>{label}</span>
+          <div key={cat} style={{display:'flex',alignItems:'center',gap:'6px'}}>
+            <div style={{width:'8px',height:'8px',borderRadius:'2px',background:CAT_COLOR[cat],opacity:0.8}} />
+            <span style={{fontSize:'11px',color:'#8b8ba7',fontWeight:'600',letterSpacing:'0.5px'}}>{label}</span>
           </div>
         ))}
       </div>
