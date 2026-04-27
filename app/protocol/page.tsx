@@ -292,6 +292,7 @@ export default function DashboardPage() {
           logs={logs}
           allLogs={allLogs}
           totalLost={tl}
+          compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
         />
 
         {/* Stats � StatsBar component */}

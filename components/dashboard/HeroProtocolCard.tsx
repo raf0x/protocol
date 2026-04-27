@@ -8,6 +8,7 @@ type Props = {
   logs: Record<string, LogEntry>
   allLogs: { compound_id: string; taken: boolean; date: string }[]
   totalLost: string | null
+  compoundIndex: number
 }
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -50,7 +51,9 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
   )
 }
 
-export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost }: Props) {
+const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
+
+export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex }: Props) {
   if (!activeProtocols || activeProtocols.length === 0) return null
 
   // Find the active compound across all protocols
@@ -69,7 +72,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
   if (!activeCompound || !activeProtocol) return null
 
-  const color = getCompoundColor(activeCompound.name)
+  const color = RING_COLORS[compoundIndex] || RING_COLORS[0]
 
   // Correct week for this specific compound's protocol
   const daysIn = Math.max(0, Math.floor((Date.now() - new Date(activeProtocol.start_date + 'T00:00:00').getTime()) / 86400000))
