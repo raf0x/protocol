@@ -1,4 +1,6 @@
-'use client'
+const fs = require('fs');
+
+const content = `'use client'
 import { useState } from 'react'
 
 type DueCompound = {
@@ -76,7 +78,7 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
               <div key={c.id} style={{borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',border:'1px solid '+(taken?'var(--color-green-30)':'rgba(200,70,70,0.25)'),background:taken?'var(--color-green-05)':'rgba(160,40,40,0.06)',transition:'all 0.2s ease'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
                   <button onClick={() => onToggle(c.id)} style={{width:'28px',height:'28px',borderRadius:'7px',flexShrink:0,border:'1.5px solid '+(taken?'var(--color-green)':'rgba(200,80,80,0.5)'),background:taken?'var(--color-green)':'transparent',cursor:'pointer',color:'var(--color-green-text)',fontWeight:'800',padding:0,fontSize:'14px'}}>
-                    {taken ? '✓' : ''}
+                    {taken ? '\u2713' : ''}
                   </button>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'2px'}}>
@@ -85,8 +87,8 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
                     </div>
                     <span style={{fontSize:'12px',color:'var(--color-muted)'}}>
                       {c.dose}{c.dose_unit}
-                      {c.syringe_units > 0 ? ' · ' + c.syringe_units.toFixed(0) + ' IU' : ''}
-                      {c.volume_ml > 0 ? ' · ' + c.volume_ml.toFixed(2) + ' mL' : ''}
+                      {c.syringe_units > 0 ? ' \u00b7 ' + c.syringe_units.toFixed(0) + ' IU' : ''}
+                      {c.volume_ml > 0 ? ' \u00b7 ' + c.volume_ml.toFixed(2) + ' mL' : ''}
                     </span>
                   </div>
                 </div>
@@ -103,7 +105,7 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
           })}
           {allDone && (
             <div style={{textAlign:'center',padding:'8px 0 2px',fontSize:'13px',color:'var(--color-green)',fontWeight:'700'}}>
-              All injections logged ✓
+              All injections logged \u2713
             </div>
           )}
         </div>
@@ -111,3 +113,7 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
     </div>
   )
 }
+`;
+
+fs.writeFileSync('components/dashboard/TodaysInjections.tsx', content, 'utf8');
+console.log('Done!');
