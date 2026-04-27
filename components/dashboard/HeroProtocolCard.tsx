@@ -117,12 +117,22 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
     vialDaysLeft = 28 - daysSinceRecon
 
-    // Calculate mL used from injection logs
+    // Check localStorage for manual doses override first
+    let totalDosesTaken = 0
+    try {
+      const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
+      if (override !== null) {
+        totalDosesTaken = parseInt(override)
+      } else {
+        totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
+      }
+    } catch(e) {
+      totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
+    }
     const mlPerDose = currentPhase.dose_unit === 'IU'
       ? currentPhase.dose / 100
       : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
-    const takenCount = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-    const mlUsed = takenCount * mlPerDose
+    const mlUsed = totalDosesTaken * mlPerDose
     mlRemaining = Math.max(0, bacWater - mlUsed)
     fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
