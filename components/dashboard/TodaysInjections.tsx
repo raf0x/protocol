@@ -83,10 +83,8 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle, onDisco
                       <span style={{fontSize:'14px',fontWeight:'700',color:taken?'var(--color-dim)':'var(--color-text)',textDecoration:taken?'line-through':'none'}}>{c.name}</span>
                       <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-dim)',background:'var(--color-surface)',padding:'2px 5px',borderRadius:'4px'}}>{timeLabel}</span>
                     </div>
-                    <span style={{fontSize:'12px',color:'var(--color-muted)'}}>
-                      {c.dose}{c.dose_unit}
-                      {c.syringe_units > 0 ? ' · ' + c.syringe_units.toFixed(0) + ' IU' : ''}
-                      {c.volume_ml > 0 ? ' · ' + c.volume_ml.toFixed(2) + ' mL' : ''}
+                    <span style={{fontSize:'12px',color:'var(--color-dim)'}}>
+                      {c.dose}{c.dose_unit} · {c.protocol_name}
                     </span>
                   </div>
                 </div>
