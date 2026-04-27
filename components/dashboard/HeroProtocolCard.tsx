@@ -26,27 +26,45 @@ function getCompoundColor(name: string): string {
 }
 
 function DynamicVial({ name, color, fillPct }: { name: string; color: string; fillPct: number }) {
-  const short = name.split('/')[0].split(' ')[0].slice(0, 8)
-  const bodyTop = 18
-  const bodyH = 62
+  const short = name.split('/')[0].split('-')[0].split(' ')[0].slice(0, 7)
   const fill = Math.max(0, Math.min(1, fillPct))
-  const fillH = bodyH * fill
-  const fillY = bodyTop + bodyH - fillH
+  const W = 80; const H = 160; const capH = 18; const neckH = 12; const neckW = 28
+  const bodyX = 10; const bodyY = capH + neckH; const bodyW = W - 20; const bodyH = H - bodyY - 16
+  const fillH = bodyH * fill; const fillY = bodyY + bodyH - fillH
+  const id = short.replace(/[^a-z0-9]/gi, '') + Math.random().toString(36).slice(2,5)
   return (
-    <svg width='72' height='110' viewBox='0 0 64 110' fill='none' xmlns='http://www.w3.org/2000/svg'>
-      <rect x='20' y='0' width='24' height='14' rx='4' fill={color} opacity='0.9'/>
-      <rect x='24' y='12' width='16' height='6' rx='2' fill={color} opacity='0.7'/>
-      <rect x='12' y={bodyTop} width='40' height={bodyH} rx='8' fill='#1a1a2e' stroke={color} strokeWidth='1.5'/>
-      {fillH > 0 && (
-        <rect x='13.5' y={fillY} width='37' height={fillH} rx={fillH >= bodyH ? '6' : '0 0 6 6'} fill={color} opacity='0.35'/>
-      )}
-      <rect x='13.5' y={fillY} width='37' height='3' fill={color} opacity={fill > 0.05 ? 0.6 : 0}/>
-      <rect x='16' y={bodyTop + 2} width='6' height='28' rx='3' fill='white' opacity='0.12'/>
-      <text x='32' y='54' textAnchor='middle' fontSize='7' fontWeight='800' fill={color} fontFamily='Inter,sans-serif'>{short}</text>
-      <rect x='12' y={bodyTop + bodyH - 4} width='40' height='4' rx='2' fill={color} opacity='0.2'/>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill='none' xmlns='http://www.w3.org/2000/svg'>
+      <defs>
+        <linearGradient id={`fill-${id}`} x1='0' y1='0' x2='0' y2='1'>
+          <stop offset='0%' stopColor={color} stopOpacity='0.7'/>
+          <stop offset='100%' stopColor={color} stopOpacity='0.35'/>
+        </linearGradient>
+        <clipPath id={`clip-${id}`}>
+          <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6'/>
+        </clipPath>
+      </defs>
+      {/* Cap */}
+      <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill={color} opacity='0.9'/>
+      <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill='white' opacity='0.12'/>
+      {/* Neck */}
+      <rect x={(W - neckW) / 2} y={capH} width={neckW} height={neckH + 2} rx='3' fill={color} opacity='0.45'/>
+      {/* Body */}
+      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='#0d0d1a' stroke={color} strokeWidth='1.2' strokeOpacity='0.5'/>
+      {/* Liquid */}
+      {fillH > 0 && <rect x={bodyX} y={fillY} width={bodyW} height={fillH} clipPath={`url(#clip-${id})`} fill={`url(#fill-${id})`}/>}
+      {/* Liquid surface */}
+      {fillH > 2 && <rect x={bodyX + 1} y={fillY} width={bodyW - 2} height='2.5' fill={color} opacity='0.6' clipPath={`url(#clip-${id})`}/>}
+      {/* Glass shine */}
+      <rect x={bodyX + 3} y={bodyY + 4} width='5' height={bodyH - 12} rx='2.5' fill='white' opacity='0.06'/>
+      {/* Tick marks */}
       {[0.25, 0.5, 0.75].map((tick) => (
-        <line key={tick} x1='44' y1={bodyTop + bodyH * (1 - tick)} x2='50' y2={bodyTop + bodyH * (1 - tick)} stroke={color} strokeWidth='0.8' opacity='0.3'/>
+        <line key={tick} x1={bodyX + bodyW - 1} y1={bodyY + bodyH * (1 - tick)} x2={bodyX + bodyW + 8} y2={bodyY + bodyH * (1 - tick)} stroke={color} strokeWidth='1.5' opacity='0.8'/>
       ))}
+      {/* Label */}
+      <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
+      <text x={W/2} y={bodyY + bodyH * 0.42 + 13} textAnchor='middle' fontSize='7' fontWeight='600' fill='rgba(255,255,255,0.4)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      {/* Base */}
+      <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
   )
 }
@@ -100,8 +118,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     vialDaysLeft = 28 - daysSinceRecon
 
     // Calculate mL used from injection logs
-    const concentration = vialStrength > 0 ? (vialStrength * 1000) / bacWater : 0
-    const mlPerDose = concentration > 0 ? (currentPhase.dose * 1000) / concentration : 0
+    const mlPerDose = currentPhase.dose_unit === 'IU'
+      ? currentPhase.dose / 100
+      : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
     const takenCount = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
     const mlUsed = takenCount * mlPerDose
     mlRemaining = Math.max(0, bacWater - mlUsed)
