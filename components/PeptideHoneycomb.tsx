@@ -91,8 +91,8 @@ export default function PeptideHoneycomb() {
         .hex-cell { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), filter 0.18s ease; cursor: default; }
         .hex-cell:hover { transform: translateY(-6px); }
       `}</style>
-      <div style={{minWidth: svgW + 'px', maxWidth:'100%'}}>
-        <svg width='100%' viewBox={'0 0 ' + svgW + ' ' + svgH} style={{display:'block',margin:'0 auto'}}>
+      <div style={{minWidth: Math.min(svgW, 420) + 'px', maxWidth: svgW + 'px', margin:'0 auto'}}>
+        <svg width='100%' viewBox={'0 0 ' + svgW + ' ' + svgH} style={{display:'block',margin:'0 auto',maxWidth: svgW + 'px'}}>
           <defs>
             <filter id='hex-shadow' x='-20%' y='-20%' width='140%' height='140%'>
               <feDropShadow dx='0' dy='3' stdDeviation='3' floodOpacity='0.4'/>
