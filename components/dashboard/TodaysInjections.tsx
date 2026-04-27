@@ -75,7 +75,7 @@ export default function TodaysInjections({ dueCompounds, logs, onToggle }: Props
                       <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-dim)',background:'var(--color-surface)',padding:'2px 5px',borderRadius:'4px'}}>{timeLabel}</span>
                     </div>
                     <span style={{fontSize:'12px',color:'var(--color-dim)'}}>
-                      {c.dose}{c.dose_unit} · {c.protocol_name}
+                      {c.dose}{c.dose_unit}
                     </span>
                   </div>
                 </div>
