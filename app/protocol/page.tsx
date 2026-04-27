@@ -411,6 +411,13 @@ export default function DashboardPage() {
                         {taken && <div><span style={{fontSize:'10px',color:mg,display:'block',marginBottom:'6px',letterSpacing:'1px'}}>DISCOMFORT (0 = none)</span><div style={{display:'flex',gap:'6px'}}>{[0,1,2,3,4,5].map(n => <DiscomfortBtn key={n} value={n} current={dis} onChange={v => setDiscomfortVal(active.id, v)} />)}</div></div>}
                       </div>
                     )}
+                  <div style={{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--color-border)'}}>
+                    <CompoundNotes compoundId={active.id} initialNotes={active.notes || ''} />
+                    <VialInventory compoundId={active.id} compoundName={active.name} />
+                    <div style={{display:'flex',justifyContent:'flex-end',marginTop:'10px'}}>
+                      <button onClick={() => shareProtocol(ap.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share protocol →</button>
+                    </div>
+                  </div>
                   </div>
                 )
               })()}
