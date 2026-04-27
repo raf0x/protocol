@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
@@ -72,6 +73,15 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
 const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
 
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex }: Props) {
+  const [dosesRefresh, setDosesRefresh] = React.useState(0)
+  React.useEffect(() => {
+    function onStorage(e: StorageEvent) { if (e.key?.includes('_doses')) setDosesRefresh(n => n + 1) }
+    window.addEventListener('storage', onStorage)
+    // Also listen for custom event from same tab
+    function onDoses() { setDosesRefresh(n => n + 1) }
+    window.addEventListener('doses_updated', onDoses)
+    return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('doses_updated', onDoses) }
+  }, [])
   if (!activeProtocols || activeProtocols.length === 0) return null
 
   // Find the active compound across all protocols

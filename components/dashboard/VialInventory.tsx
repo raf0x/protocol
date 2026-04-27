@@ -39,7 +39,10 @@ export default function VialInventory({ compoundId, compoundName }: Props) {
     const val = parseInt(dosesInput)
     if (!isNaN(val) && val >= 0) {
       setDosesOverride(val)
-      try { localStorage.setItem(key + '_doses', String(val)) } catch(e) {}
+      try {
+        localStorage.setItem(key + '_doses', String(val))
+        window.dispatchEvent(new Event('doses_updated'))
+      } catch(e) {}
     }
     setEditingDoses(false)
   }
