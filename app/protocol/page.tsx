@@ -285,6 +285,15 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Stats � StatsBar component */}
+        <StatsBar
+          currentWeight={lw ?? null}
+          totalLost={tl}
+          activeProtocols={activeProtocols}
+          activeCompoundTab={activeCompoundTab}
+          setActiveCompoundTab={setActiveCompoundTab}
+        />
+
         {/* Hero protocol card */}
         <HeroProtocolCard
           activeProtocols={activeProtocols}
@@ -293,15 +302,6 @@ export default function DashboardPage() {
           allLogs={allLogs}
           totalLost={tl}
           compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
-        />
-
-        {/* Stats � StatsBar component */}
-        <StatsBar
-          currentWeight={lw ?? null}
-          totalLost={tl}
-          activeProtocols={activeProtocols}
-          activeCompoundTab={activeCompoundTab}
-          setActiveCompoundTab={setActiveCompoundTab}
         />
 
         {/* Today's injections � always visible */}
