@@ -1,5 +1,7 @@
 'use client'
 import React from 'react'
+import CompoundNotes from './CompoundNotes'
+import VialInventory from './VialInventory'
 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
@@ -10,6 +12,7 @@ type Props = {
   allLogs: { compound_id: string; taken: boolean; date: string }[]
   totalLost: string | null
   compoundIndex: number
+  onShare: (protocolId: string) => void
 }
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -72,7 +75,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
 
 const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
 
-export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex }: Props) {
+export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, onShare }: Props) {
   const [dosesRefresh, setDosesRefresh] = React.useState(0)
   React.useEffect(() => {
     function onStorage(e: StorageEvent) { if (e.key?.includes('_doses')) setDosesRefresh(n => n + 1) }
@@ -210,6 +213,14 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
         <div style={{marginLeft:'16px',flexShrink:0,filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
           <DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} />
+        </div>
+      </div>
+      <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+        <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
+        <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} />
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
+          <a href='/protocol/manage' style={{color:'rgba(255,255,255,0.4)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
+          <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'6px',padding:'6px 12px',color:'rgba(255,255,255,0.5)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
         </div>
       </div>
     </div>
