@@ -53,7 +53,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       {/* Neck */}
       <rect x={(W - neckW) / 2} y={capH} width={neckW} height={neckH + 2} rx='3' fill={color} opacity='0.45'/>
       {/* Body */}
-      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='#0d0d1a' stroke={color} strokeWidth='1.2' strokeOpacity='0.5'/>
+      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-card)' stroke={color} strokeWidth='1.2' strokeOpacity='0.5'/>
       {/* Liquid */}
       {fillH > 0 && <rect x={bodyX} y={fillY} width={bodyW} height={fillH} clipPath={`url(#clip-${id})`} fill={`url(#fill-${id})`}/>}
       {/* Liquid surface */}
@@ -66,7 +66,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       ))}
       {/* Label */}
       <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
-      <text x={W/2} y={bodyY + bodyH * 0.42 + 13} textAnchor='middle' fontSize='7' fontWeight='600' fill='rgba(255,255,255,0.4)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      <text x={W/2} y={bodyY + bodyH * 0.42 + 13} textAnchor='middle' fontSize='7' fontWeight='600' fill='rgba(128,128,128,0.5)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
       {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
@@ -171,17 +171,17 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
 
   return (
-    <div style={{background:'linear-gradient(135deg, #111111 0%, #1a1a2e 100%)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid rgba(255,255,255,0.08)',transition:'all 0.3s ease'}}>
+    <div style={{background:'var(--color-surface)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid var(--color-border)',transition:'all 0.3s ease'}}>
       <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.06)',filter:'blur(40px)',pointerEvents:'none'}} />
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:'10px',fontWeight:'700',color:'rgba(255,255,255,0.4)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
-          <h2 style={{fontSize:'22px',fontWeight:'900',color:'white',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
+          <div style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
+          <h2 style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
 
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
             <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
-            {currentPhase && <span style={{fontSize:'12px',color:'rgba(255,255,255,0.5)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
+            {currentPhase && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
             {totalLost && parseFloat(totalLost) > 0 && (
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
             )}
@@ -190,22 +190,22 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           {vialDaysLeft !== null && mlRemaining !== null && (
             <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
               <div>
-                <div style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
                 <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'rgba(255,255,255,0.8)'}}>{vialDaysLeft}d left</div>
               </div>
               <div>
-                <div style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
-                <div style={{fontSize:'13px',fontWeight:'700',color:'rgba(255,255,255,0.8)'}}>{mlRemaining.toFixed(2)} mL</div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
               </div>
             </div>
           )}
 
           <div>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-              <span style={{fontSize:'9px',color:'rgba(255,255,255,0.3)',fontWeight:'600',letterSpacing:'1px'}}>PROTOCOL PROGRESS</span>
-              <span style={{fontSize:'9px',color:'rgba(255,255,255,0.5)',fontWeight:'700'}}>{progress}%</span>
+              <span style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px'}}>PROTOCOL PROGRESS</span>
+              <span style={{fontSize:'9px',color:'var(--color-dim)',fontWeight:'700'}}>{progress}%</span>
             </div>
-            <div style={{height:'4px',background:'rgba(255,255,255,0.08)',borderRadius:'2px',overflow:'hidden'}}>
+            <div style={{height:'4px',background:'var(--color-border)',borderRadius:'2px',overflow:'hidden'}}>
               <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,'+color+','+color+'99)',borderRadius:'2px',transition:'width 0.5s ease'}} />
             </div>
           </div>
@@ -215,12 +215,12 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} />
         </div>
       </div>
-      <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+      <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
         <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
         <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} />
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
-          <a href='/protocol/manage' style={{color:'rgba(255,255,255,0.4)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
-          <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'6px',padding:'6px 12px',color:'rgba(255,255,255,0.5)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
+          <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
+          <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
         </div>
       </div>
     </div>
