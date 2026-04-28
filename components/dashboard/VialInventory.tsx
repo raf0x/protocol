@@ -112,8 +112,8 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         <div style={{background:'rgba(0,0,0,0.85)',position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
           <div style={{background:'#1a1a2e',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'380px'}}>
             <div style={{fontSize:'11px',fontWeight:'700',color:'rgba(255,255,255,0.4)',letterSpacing:'2px',marginBottom:'8px'}}>NEW VIAL</div>
-            <h3 style={{fontSize:'18px',fontWeight:'800',color:'white',marginBottom:'4px'}}>{compoundName}</h3>
-            <p style={{fontSize:'12px',color:'rgba(255,255,255,0.4)',marginBottom:'20px'}}>Log your new vial. Doses taken will reset to 0.</p>
+            <h3 style={{fontSize:'18px',fontWeight:'800',color:'white',marginBottom:'4px'}}>Starting a new {compoundName} vial?</h3>
+            <p style={{fontSize:'12px',color:'rgba(255,255,255,0.4)',marginBottom:'20px'}}>Your previous vial will be marked as finished. Doses taken will reset to 0.</p>
             <label style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',fontWeight:'600',letterSpacing:'1px',display:'block',marginBottom:'4px'}}>RECONSTITUTION DATE</label>
             <input type='date' value={newReconDate} onChange={e => setNewReconDate(e.target.value)} style={{width:'100%',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:'8px',padding:'10px',color:'white',fontSize:'14px',boxSizing:'border-box',marginBottom:'12px',colorScheme:'dark'}} />
             <label style={{fontSize:'11px',color:'rgba(255,255,255,0.4)',fontWeight:'600',letterSpacing:'1px',display:'block',marginBottom:'4px'}}>BAC WATER (mL)</label>
@@ -135,12 +135,12 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
               {count} vial{count !== 1 ? 's' : ''}{weeksLeft ? ' · ~' + weeksLeft + 'wk supply' : ' — reorder soon'}
             </span>
           ) : (
-            <span style={{fontSize:'12px',color:'rgba(255,255,255,0.3)'}}>Not set</span>
+            <span style={{fontSize:'12px',color:'rgba(255,255,255,0.3)'}}>Not set · tap Edit to add</span>
           )}
         </div>
         <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
           {count !== null && count > 0 && (
-            <button onClick={handleDecrement} style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'6px',padding:'5px 10px',color:'rgba(255,255,255,0.5)',fontSize:'12px',cursor:'pointer'}}>-1 vial</button>
+            <button onClick={handleDecrement} style={{background:'rgba(57,255,20,0.1)',border:'1px solid rgba(57,255,20,0.3)',borderRadius:'6px',padding:'5px 10px',color:'#39ff14',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>+ New Vial</button>
           )}
           {editing ? (
             <div style={{display:'flex',gap:'4px'}}>
