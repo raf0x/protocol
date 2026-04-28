@@ -111,28 +111,18 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   // Protocol progress - dose based if override exists, otherwise time based
   let totalDosesEstimate = 0
-  try {
-    const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
-    const allPhases = (activeCompound.phases || []).sort((a: any, b: any) => a.start_week - b.start_week)
-    // Estimate total doses from phase timeline
-    for (const ph of allPhases) {
-      const phaseWeeks = ph.end_week - ph.start_week + 1
-      const dosesPerWeek = ph.frequency === 'daily' ? 7 : ph.frequency === 'eod' ? 3.5 : ph.frequency === 'every3days' ? 2.3 : ph.frequency === '1x/week' ? 1 : ph.frequency === '2x/week' ? 2 : ph.frequency === '3x/week' ? 3 : ph.frequency === '4x/week' ? 4 : ph.frequency === '5x/week' ? 5 : 2
-      totalDosesEstimate += phaseWeeks * dosesPerWeek
-    }
-    if (override !== null && totalDosesEstimate > 0) {
-      const taken = parseInt(override)
-      var progress = Math.min(100, Math.round((taken / totalDosesEstimate) * 100))
-    } else {
-      const lastPhase2 = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
-      const totalDays2 = lastPhase2 ? lastPhase2.end_week * 7 : 84
-      var progress = Math.min(100, Math.round((daysIn / totalDays2) * 100))
-    }
-  } catch(e) {
-    const lastPhase3 = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
-    const totalDays3 = lastPhase3 ? lastPhase3.end_week * 7 : 84
-    var progress = Math.min(100, Math.round((daysIn / totalDays3) * 100))
+  const dosesOverride = activeCompound.doses_taken_override ?? null
+  const allPhases = (activeCompound.phases || []).sort((a: any, b: any) => a.start_week - b.start_week)
+  for (const ph of allPhases) {
+    const phaseWeeks = ph.end_week - ph.start_week + 1
+    const dosesPerWeek = ph.frequency === 'daily' ? 7 : ph.frequency === 'eod' ? 3.5 : ph.frequency === 'every3days' ? 2.3 : ph.frequency === '1x/week' ? 1 : ph.frequency === '2x/week' ? 2 : ph.frequency === '3x/week' ? 3 : ph.frequency === '4x/week' ? 4 : ph.frequency === '5x/week' ? 5 : 2
+    totalDosesEstimate += phaseWeeks * dosesPerWeek
   }
+  const lastPhaseForProgress = (activeCompound.phases || []).sort((a: any, b: any) => b.end_week - a.end_week)[0]
+  const totalDaysForProgress = lastPhaseForProgress ? lastPhaseForProgress.end_week * 7 : 84
+  const progress = dosesOverride !== null && totalDosesEstimate > 0
+    ? Math.min(100, Math.round((dosesOverride / totalDosesEstimate) * 100))
+    : Math.min(100, Math.round((daysIn / totalDaysForProgress) * 100))
 
   // Current phase
   const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
@@ -149,19 +139,10 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
     vialDaysLeft = 28 - daysSinceRecon
 
-  // Check localStorage for manual doses override - dosesRefresh triggers re-read
-  let totalDosesTaken = 0
-  try {
-    const _refresh = dosesRefresh // reference so React re-runs on change
-    const override = localStorage.getItem('vial_inventory_' + activeCompound.id + '_doses')
-    if (override !== null) {
-      totalDosesTaken = parseInt(override)
-    } else {
-      totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-    }
-  } catch(e) {
-    totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-  }
+  // Use doses_taken_override from Supabase directly - no localStorage
+  const totalDosesTaken = dosesOverride !== null
+    ? dosesOverride
+    : allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
   // vial_unit='IU' means real IU vial (HCG) - use concentration math
   // vial_unit='mg' means mg vial with IU syringe units (Reta, CJC etc) - use /100
   const vialUnit = activeCompound.vial_unit || 'mg'
