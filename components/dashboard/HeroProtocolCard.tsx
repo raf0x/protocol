@@ -217,7 +217,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
       </div>
       <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
         <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
-        <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} />
+        <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} />
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
           <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
           <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
