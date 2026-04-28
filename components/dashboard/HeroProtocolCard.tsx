@@ -162,8 +162,8 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   } catch(e) {
     totalDosesTaken = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
   }
-  const mlPerDose = currentPhase.dose_unit === 'IU'
-    ? currentPhase.dose / 100
+  const mlPerDose = currentPhase.dose_unit === 'IU' && vialStrength > 0 && bacWater > 0
+    ? currentPhase.dose / (vialStrength / bacWater)
     : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
   const mlUsed = totalDosesTaken * mlPerDose
   mlRemaining = Math.max(0, bacWater - mlUsed)
