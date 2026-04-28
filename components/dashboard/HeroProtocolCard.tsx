@@ -66,7 +66,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       ))}
       {/* Label */}
       <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
-      <text x={W/2} y={bodyY + bodyH * 0.42 + 13} textAnchor='middle' fontSize='7' fontWeight='600' fill='rgba(128,128,128,0.5)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill='white' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
       {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
