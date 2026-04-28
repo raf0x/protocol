@@ -143,7 +143,8 @@ export default function Home() {
           <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-green)',marginBottom:'20px',lineHeight:'1.3'}}>Start knowing what works.</p>
           <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Optimize. The private protocol tracker for peptide and GLP-1 users. Not just logging — real insights.</p>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
-            <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
+            <a href='/auth/login' style={{background:'var(--color-green)',color:'var(--color-green-text)',textDecoration:'none',fontWeight:'800',padding:'16px 36px',borderRadius:'8px',fontSize:'16px',letterSpacing:'0.5px'}}>Get early access</a>
+            <a href='/demo' style={{background:'rgba(255,255,255,0.06)',color:'white',textDecoration:'none',fontWeight:'700',padding:'16px 28px',borderRadius:'8px',fontSize:'16px',border:'1px solid rgba(255,255,255,0.15)'}}>See it in action →</a>
             <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'16px 24px',borderRadius:'8px',fontSize:'16px',border:'1px solid var(--color-border)'}}>Try the calculator →</a>
           </div>
         </div>
