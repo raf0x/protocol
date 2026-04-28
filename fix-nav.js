@@ -1,4 +1,5 @@
-'use client'
+const fs = require('fs');
+const content = `'use client'
 
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -21,7 +22,7 @@ export default function BottomNav() {
   if (pathname === '/') return null
 
   const links = [
-    { href: '/calculator', label: '🧮' },
+    { href: '/calculator', label: '\uD83E\uDDEE' },
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
     { href: '/profile', label: 'Profile' },
@@ -44,3 +45,6 @@ export default function BottomNav() {
     </nav>
   )
 }
+`;
+fs.writeFileSync('components/BottomNav.tsx', content, 'utf8');
+console.log('Done!');
