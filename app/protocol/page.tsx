@@ -180,7 +180,7 @@ export default function DashboardPage() {
     setActiveProtocols(protocols || [])
     if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
-    ;(protocols || []).forEach((p: any) => { const daysIn = Math.floor((Date.now() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000); const wk = Math.max(1, Math.floor(daysIn/7)+1); (p.compounds||[]).forEach((c: any) => { const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]; if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week)) {
+    ;(protocols || []).forEach((p: any) => { const daysIn = Math.floor((Date.now() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000); const wk = Math.max(1, Math.floor(daysIn/7)+1); (p.compounds||[]).forEach((c: any) => { const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]; if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, undefined, phase.days_of_week)) {
           const concentration = c.vial_strength && c.bac_water_ml ? (c.vial_strength * 1000) / c.bac_water_ml : 0
           const volumeMl = concentration > 0 ? (phase.dose * 1000) / concentration : 0
           const syringeUnits = volumeMl * 100
@@ -206,7 +206,7 @@ export default function DashboardPage() {
       const wk = Math.max(1, Math.floor(daysIn/7)+1)
       ;(p.compounds||[]).forEach((c: any) => {
         const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]
-        if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, tomorrowStr)) {
+        if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, tomorrowStr, phase.days_of_week)) {
           tmr.push({ id: c.id, name: c.name, dose: phase.dose, dose_unit: phase.dose_unit || 'mg', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency, day_of_week: phase.day_of_week })
         }
       })

@@ -3,18 +3,20 @@
 // Shared logic used across multiple pages.
 // ============================================
 
-export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null, checkDateStr?: string): boolean {
+export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: number | null, checkDateStr?: string, daysOfWeek?: number[]): boolean {
   if (!protocolStart) return false
   const start = new Date(protocolStart + 'T00:00:00')
   const today = checkDateStr ? new Date(checkDateStr + 'T00:00:00') : new Date(); today.setHours(0,0,0,0)
   const daysDiff = Math.floor((today.getTime() - start.getTime()) / 86400000)
+  const todayDay = today.getDay()
   if (daysDiff < 0) return false
+  // If days_of_week array is provided, use it directly
+  if (daysOfWeek && daysOfWeek.length > 0) return daysOfWeek.includes(todayDay)
   if (frequency === 'daily') return true
   if (frequency === 'eod') return daysDiff % 2 === 0
   if (frequency === 'every3days') return daysDiff % 3 === 0
   if (frequency === 'every4days') return daysDiff % 4 === 0
   if (frequency === 'every5days') return daysDiff % 5 === 0
-  const todayDay = today.getDay()
   if (frequency === '1x/week') return dayOfWeek !== null ? todayDay === dayOfWeek : daysDiff % 7 === 0
   if (frequency === '2x/week') { const d = dayOfWeek ?? 0; return todayDay === d || todayDay === (d+3)%7 }
   if (frequency === '3x/week') return todayDay === 1 || todayDay === 3 || todayDay === 5
