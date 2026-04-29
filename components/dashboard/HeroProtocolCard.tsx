@@ -49,24 +49,24 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       </defs>
       {/* Cap */}
       <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill={color} opacity='0.9'/>
-      <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill='white' opacity='0.12'/>
+      <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill='var(--color-text)' opacity='0.12'/>
       {/* Neck */}
       <rect x={(W - neckW) / 2} y={capH} width={neckW} height={neckH + 2} rx='3' fill={color} opacity='0.45'/>
       {/* Body */}
-      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-card)' stroke={color} strokeWidth='1.2' strokeOpacity='0.7'/>
+      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-input)' stroke={color} strokeWidth='1.2' strokeOpacity='0.7'/>
       {/* Liquid */}
       {fillH > 0 && <rect x={bodyX} y={fillY} width={bodyW} height={fillH} clipPath={`url(#clip-${id})`} fill={`url(#fill-${id})`}/>}
       {/* Liquid surface */}
       {fillH > 2 && <rect x={bodyX + 1} y={fillY} width={bodyW - 2} height='2.5' fill={color} opacity='0.6' clipPath={`url(#clip-${id})`}/>}
       {/* Glass shine */}
-      <rect x={bodyX + 3} y={bodyY + 4} width='5' height={bodyH - 12} rx='2.5' fill='white' opacity='0.06'/>
+      <rect x={bodyX + 3} y={bodyY + 4} width='5' height={bodyH - 12} rx='2.5' fill='var(--color-text)' opacity='0.06'/>
       {/* Tick marks */}
       {[0.25, 0.5, 0.75].map((tick) => (
         <line key={tick} x1={bodyX + bodyW - 1} y1={bodyY + bodyH * (1 - tick)} x2={bodyX + bodyW + 8} y2={bodyY + bodyH * (1 - tick)} stroke={color} strokeWidth='1.5' opacity='0.8'/>
       ))}
       {/* Label */}
       <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
-      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill={fill > 0.4 ? '#000000' : 'white'} fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
       {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
@@ -162,7 +162,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   return (
     <div style={{background:'var(--color-surface)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid var(--color-border)',transition:'all 0.3s ease'}}>
-      <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.06)',filter:'blur(40px)',pointerEvents:'none'}} />
+      <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.08)',filter:'blur(40px)',pointerEvents:'none'}} />
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{flex:1,minWidth:0}}>
