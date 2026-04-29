@@ -19,11 +19,12 @@ type Props = {
   saveEntry: () => void
 }
 
-function ScoreBtn({ value, current, onChange, activeColor }: { value: number; current: number | null; onChange: (v: number) => void; activeColor?: string }) {
-  const c = activeColor || 'var(--color-green)'
+function ScoreBtn({ value, current, onChange }: { value: number; current: number | null; onChange: (v: number) => void }) {
   const a = current === value
+  const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']
+  const sc = scoreColors[value-1]
   return (
-    <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:a?'none':'1px solid var(--color-border)',background:a?c:'var(--color-card)',color:a?'var(--color-green-text)':'var(--color-dim)',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>
+    <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:a?'none':'1px solid var(--color-border)',background:a?sc:'var(--color-card)',color:a?'#fff':'var(--color-dim)',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:a?1:0.5}}>
       {value}
     </button>
   )
@@ -50,13 +51,13 @@ export default function DailyLogCard({ mood, energy, hunger, sleep, weight, entr
       <div style={{marginBottom:'12px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:'12px',color:dg}}>Energy</span>
-          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} activeColor='#f97316' />)}</div>
+          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} />)}</div>
         </div>
       </div>
       <div style={{marginBottom:'12px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:'12px',color:dg}}>Hunger</span>
-          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} activeColor='#8b5cf6' />)}</div>
+          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} />)}</div>
         </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}>
