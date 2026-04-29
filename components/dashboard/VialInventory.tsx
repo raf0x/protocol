@@ -239,7 +239,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
               <button onClick={saveMl} disabled={saving} style={{background:'#39ff14',color:'#000',border:'none',borderRadius:'6px',padding:'5px 8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>✓</button>
             </div>
           ) : (
-            <button onClick={() => { setShowMlWizard(true); setWizardMethod(null); setWizardDose(''); setWizardBacWater(bacWaterMl ? String(bacWaterMl) : '') }} style={{background: mlPerDose === null ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.06)',border:'1px solid '+(mlPerDose === null ? 'rgba(249,115,22,0.4)' : 'rgba(255,255,255,0.1)'),borderRadius:'6px',padding:'5px 10px',color: mlPerDose === null ? '#f97316' : 'rgba(255,255,255,0.5)',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>{mlPerDose === null ? 'Set now' : 'Edit'}</button>
+            <button onClick={() => { setShowMlWizard(true); setWizardMethod(null); setWizardDose(''); setWizardBacWater(bacWaterMl ? String(bacWaterMl) : '') }} style={{background: mlPerDose === null ? 'rgba(249,115,22,0.15)' : 'var(--color-surface)',border:'1px solid '+(mlPerDose === null ? 'rgba(249,115,22,0.4)' : 'var(--color-border)'),borderRadius:'6px',padding:'5px 10px',color: mlPerDose === null ? '#f97316' : 'var(--color-dim)',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>{mlPerDose === null ? 'Set now' : 'Edit'}</button>
           )}
         </div>
       </div>
@@ -249,7 +249,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         <div>
           <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px',display:'block',marginBottom:'2px'}}>VIALS IN STOCK</span>
           {count !== null ? (
-            <span style={{fontSize:'13px',color:count<=1?'#ff6b6b':count<=2?'#f59e0b':'rgba(255,255,255,0.8)',fontWeight:'700'}}>
+            <span style={{fontSize:'13px',color:count<=1?'#ff6b6b':count<=2?'#f59e0b':'var(--color-text)',fontWeight:'700'}}>
               {count} vial{count !== 1 ? 's' : ''}{weeksLeft ? ' · ~' + weeksLeft + 'wk supply' : ' — reorder soon'}
             </span>
           ) : (
