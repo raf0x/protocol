@@ -19,7 +19,7 @@ type Props = {
   saveEntry: () => void
 }
 
-function ScoreBtn({ value, current, onChange }: { value: number; current: number | null; onChange: (v: number) => void }) {
+function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) {
   const a = current === value
   const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']
   const sc = scoreColors[value-1]
@@ -57,7 +57,7 @@ export default function DailyLogCard({ mood, energy, hunger, sleep, weight, entr
       <div style={{marginBottom:'12px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <span style={{fontSize:'12px',color:dg}}>Hunger</span>
-          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} />)}</div>
+          <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} reverse />)}</div>
         </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}>

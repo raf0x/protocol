@@ -65,7 +65,7 @@ export default function HistoryPage() {
     load()
   }
 
-  function ScoreBtn({ value, current, onChange }: { value: number; current: number | null; onChange: (v: number) => void }) {
+  function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) {
     const isActive = current === value
     const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']; const sc = scoreColors[value-1]
     return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:isActive?'none':'1px solid var(--color-border)',background:isActive?sc:'var(--color-card)',color:isActive?'#fff':'var(--color-dim)',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:isActive?1:0.5}}>{value}</button>
@@ -96,7 +96,7 @@ export default function HistoryPage() {
             </div>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
               <span style={{fontSize:'12px',color:dg}}>Hunger</span>
-              <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} />)}</div>
+              <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} reverse />)}</div>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}}>
               <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div>
