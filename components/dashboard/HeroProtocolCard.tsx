@@ -181,7 +181,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
               <div>
                 <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
-                <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'white'}}>{vialDaysLeft}d left</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)'}}>{vialDaysLeft}d left</div>
               </div>
               <div>
                 <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>

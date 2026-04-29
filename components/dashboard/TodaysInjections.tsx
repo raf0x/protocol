@@ -102,10 +102,10 @@ export default function TodaysInjections({ dueCompounds, tomorrowCompounds, logs
                   )}
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'2px'}}>
-                      <span style={{fontSize:'14px',fontWeight:'700',color:taken?'var(--color-dim)':'var(--color-text)',textDecoration:taken?'line-through':'none'}}>{c.name}</span>
-                      <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-dim)',background:'var(--color-surface)',padding:'2px 5px',borderRadius:'4px'}}>{timeLabel}</span>
+                      <span style={{fontSize:'14px',fontWeight:'700',color:taken?'var(--color-muted)':'var(--color-text)',textDecoration:taken?'line-through':'none'}}>{c.name}</span>
+                      <span style={{fontSize:'10px',fontWeight:'800',color:'var(--color-text)',background:'var(--color-border)',padding:'3px 7px',borderRadius:'4px'}}>{timeLabel}</span>
                     </div>
-                    <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{c.dose}{c.dose_unit}</span>
+                    <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600'}}>{c.dose}{c.dose_unit}</span>
                   </div>
                 </div>
               </div>
