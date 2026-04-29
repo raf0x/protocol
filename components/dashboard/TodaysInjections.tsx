@@ -88,7 +88,7 @@ export default function TodaysInjections({ dueCompounds, tomorrowCompounds, logs
             const taken = viewing === 'today' ? (logs[c.id]?.taken || false) : false
             const timeLabel = TIME_ICONS[c.time_of_day] || 'AM'
             return (
-              <div key={c.id} style={{borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',border:'1px solid '+(taken?'var(--color-green-30)':viewing==='today'?'rgba(200,70,70,0.25)':'var(--color-border)'),background:taken?'var(--color-green-05)':viewing==='today'?'rgba(160,40,40,0.06)':'var(--color-surface)',transition:'all 0.2s ease'}}>
+              <div key={c.id} style={{borderRadius:'10px',padding:'12px 14px',marginBottom:'8px',border:'1px solid '+(taken?'var(--color-green-30)':viewing==='today'?'rgba(200,70,70,0.25)':'var(--color-border)'),background:taken?'var(--color-green-05)':viewing==='today'?'rgba(160,40,40,0.06)':'var(--color-card)',transition:'all 0.2s ease'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
                   {viewing === 'today' && (
                     <button onClick={() => onToggle(c.id)} style={{width:'28px',height:'28px',borderRadius:'7px',flexShrink:0,border:'1.5px solid '+(taken?'var(--color-green)':'rgba(200,80,80,0.5)'),background:taken?'var(--color-green)':'transparent',cursor:'pointer',color:'var(--color-green-text)',fontWeight:'800',padding:0,fontSize:'14px'}}>

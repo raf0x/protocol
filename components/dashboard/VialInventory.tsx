@@ -239,7 +239,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
               <button onClick={saveMl} disabled={saving} style={{background:'#39ff14',color:'#000',border:'none',borderRadius:'6px',padding:'5px 8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>✓</button>
             </div>
           ) : (
-            <button onClick={() => { setShowMlWizard(true); setWizardMethod(null); setWizardDose(''); setWizardBacWater(bacWaterMl ? String(bacWaterMl) : '') }} style={{background: mlPerDose === null ? 'rgba(249,115,22,0.15)' : 'var(--color-surface)',border:'1px solid '+(mlPerDose === null ? 'rgba(249,115,22,0.4)' : 'var(--color-border)'),borderRadius:'6px',padding:'5px 10px',color: mlPerDose === null ? '#f97316' : 'var(--color-dim)',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>{mlPerDose === null ? 'Set now' : 'Edit'}</button>
+            <button onClick={() => { setShowMlWizard(true); setWizardMethod(null); setWizardDose(''); setWizardBacWater(bacWaterMl ? String(bacWaterMl) : '') }} style={{background: mlPerDose === null ? 'rgba(249,115,22,0.15)' : 'var(--color-card)',border:'1px solid '+(mlPerDose === null ? 'rgba(249,115,22,0.4)' : 'var(--color-border)'),borderRadius:'6px',padding:'5px 10px',color: mlPerDose === null ? '#f97316' : 'var(--color-text)',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>{mlPerDose === null ? 'Set now' : 'Edit'}</button>
           )}
         </div>
       </div>
