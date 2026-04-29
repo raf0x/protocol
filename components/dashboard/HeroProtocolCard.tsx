@@ -161,7 +161,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
 
   return (
-    <div style={{background:'var(--color-surface)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid var(--color-border)',transition:'all 0.3s ease'}}>
+    <div style={{background:'var(--color-card)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid var(--color-border)',transition:'all 0.3s ease'}}>
       <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.08)',filter:'blur(40px)',pointerEvents:'none'}} />
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
