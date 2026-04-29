@@ -20,6 +20,7 @@ type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [streakDays, setStreakDays] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
@@ -174,6 +175,15 @@ export default function DashboardPage() {
     if (!user) { setLoading(false); return }
     const { data: js } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
     setEntries(js || [])
+    // Calculate logging streak
+    let streak = 0
+    const today2 = new Date(); today2.setHours(0,0,0,0)
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today2); d.setDate(d.getDate() - i)
+      const ds = d.toISOString().split('T')[0]
+      if ((js || []).find((e: any) => e.date === ds)) { streak++ } else { break }
+    }
+    setStreakDays(streak)
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
     const { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, phases(dose, dose_unit, frequency, day_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
@@ -265,7 +275,14 @@ export default function DashboardPage() {
     <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
-        <p style={{color:dg,fontSize:'13px',marginBottom:'16px'}}>Every day logged is data working for you.</p>
+        <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
+          <p style={{color:dg,fontSize:'13px',margin:0}}>Every day logged is data working for you.</p>
+          {streakDays > 0 && (
+            <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.2)',padding:'3px 8px',borderRadius:'20px',whiteSpace:'nowrap'}}>
+              🔥 {streakDays} day streak
+            </span>
+          )}
+        </div>
 
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>

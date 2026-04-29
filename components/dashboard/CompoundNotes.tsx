@@ -12,6 +12,7 @@ type Props = {
 export default function CompoundNotes({ compoundId, initialNotes }: Props) {
   const [notes, setNotes] = useState(initialNotes || '')
   const [editing, setEditing] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -27,14 +28,17 @@ export default function CompoundNotes({ compoundId, initialNotes }: Props) {
 
   return (
     <div style={{marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--color-border)'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom: collapsed ? '0' : '6px',cursor:'pointer'}} onClick={() => !editing && setCollapsed(!collapsed)}>
         <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-dim)',letterSpacing:'1px'}}>COMPOUND NOTES</span>
         <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-          {saved && <span style={{fontSize:'11px',color:'var(--color-green)'}}>&#10003; saved</span>}
-          {!editing && <button onClick={() => setEditing(true)} style={{background:'none',border:'none',color:'var(--color-dim)',cursor:'pointer',fontSize:'12px',padding:0}}>{notes ? 'Edit' : '+ Add note'}</button>}
+          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+            {saved && <span style={{fontSize:'11px',color:'var(--color-green)'}}>&#10003; saved</span>}
+            {!editing && <button onClick={e => {e.stopPropagation();setEditing(true);setCollapsed(false)}} style={{background:'none',border:'none',color:'var(--color-dim)',cursor:'pointer',fontSize:'12px',padding:0}}>{notes ? 'Edit' : '+ Add note'}</button>}
+            <span style={{fontSize:'10px',color:'var(--color-muted)'}}>{collapsed ? '▶' : '▼'}</span>
+          </div>
         </div>
       </div>
-      {editing ? (
+      {!collapsed && editing ? (
         <div>
           <textarea
             value={notes}
@@ -48,7 +52,7 @@ export default function CompoundNotes({ compoundId, initialNotes }: Props) {
             <button onClick={save} disabled={saving} style={{flex:2,background:'var(--color-green)',color:'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'7px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>{saving ? 'Saving...' : 'Save'}</button>
           </div>
         </div>
-      ) : notes ? (
+      ) : !collapsed && notes ? (
         <p style={{fontSize:'12px',color:'var(--color-dim)',margin:0,lineHeight:'1.6'}}>{notes}</p>
       ) : null}
     </div>
