@@ -60,9 +60,9 @@ export default function StatsBar({ currentWeight, totalLost, activeProtocols, ac
                   display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                   marginRight:isLastCol?'0':'-10px',
                   marginBottom:isLastRow?'0':'-10px',
-                  background:isActive?rc+'44':cb,
+                  background:isActive?rc+'44':'var(--color-card)',
                   zIndex:row+col,position:'relative',cursor:'pointer',
-                  boxShadow:isActive?'0 0 18px '+rc+', 0 0 6px '+rc:'none',
+                  boxShadow:isActive?'0 0 18px '+rc+', 0 0 6px '+rc:'0 2px 8px rgba(0,0,0,0.1)',
                   transform:isActive?'scale(1.15)':'scale(1)',
                   transition:'all 0.2s ease'
                 }}>

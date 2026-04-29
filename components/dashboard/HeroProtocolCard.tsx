@@ -53,7 +53,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       {/* Neck */}
       <rect x={(W - neckW) / 2} y={capH} width={neckW} height={neckH + 2} rx='3' fill={color} opacity='0.45'/>
       {/* Body */}
-      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-card)' stroke={color} strokeWidth='1.2' strokeOpacity='0.5'/>
+      <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-card)' stroke={color} strokeWidth='1.2' strokeOpacity='0.7'/>
       {/* Liquid */}
       {fillH > 0 && <rect x={bodyX} y={fillY} width={bodyW} height={fillH} clipPath={`url(#clip-${id})`} fill={`url(#fill-${id})`}/>}
       {/* Liquid surface */}
@@ -66,7 +66,7 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       ))}
       {/* Label */}
       <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
-      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill='white' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill={fill > 0.4 ? '#000000' : 'white'} fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
       {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
