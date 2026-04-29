@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [weight, setWeight] = useState('')
   const [entryNotes, setEntryNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [missedDoses, setMissedDoses] = useState<string[]>([])
   const [showNewProtocol, setShowNewProtocol] = useState(false)
@@ -233,7 +234,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function toggleInjection(cid: string) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }) }
+  async function toggleInjection(cid: string) { if (togglingId === cid) return; setTogglingId(cid); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setTogglingId(null); return; } const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }); setTogglingId(null) }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
   async function saveEntry() { setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (mood !== null) row.mood = mood; if (energy !== null) row.energy = energy; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = parseFloat(weight); if (hunger !== null) row.hunger = hunger; await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
 

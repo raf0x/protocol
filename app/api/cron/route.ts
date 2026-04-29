@@ -20,7 +20,14 @@ async function sendPush(sub: any, title: string, body: string, url: string) {
   }
 }
 
+import { rateLimit } from '../../../lib/rateLimit'
+
 export async function GET(request: NextRequest) {
+  // Rate limit: 10 requests per minute per IP
+  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  if (!rateLimit('cron:' + ip, 10, 60000)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
   const auth = request.headers.get('authorization')
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
