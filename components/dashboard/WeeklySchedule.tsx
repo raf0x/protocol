@@ -101,7 +101,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
                   const isPast = date.getTime() < today.getTime() && !isToday
                   const isFuture = date.getTime() > today.getTime() && !isToday
                   const isDue = isDueOnDate(compound, date)
-                  const isLogged = !!logs[compound.id + '_' + dateStr]
+                  const isLogged = !!logs[compound.id + '_' + dateStr] && !isFuture
                   const canTap = isDue && !isFuture
                   return (
                     <td key={di} style={{padding:'6px 4px',textAlign:'center',background:isToday?'rgba(57,255,20,0.08)':'transparent',borderLeft:isToday?'1px solid rgba(57,255,20,0.2)':'none',borderRight:isToday?'1px solid rgba(57,255,20,0.2)':'none'}}>
