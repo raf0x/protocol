@@ -11,7 +11,7 @@ export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: 
   const todayDay = today.getDay()
   if (daysDiff < 0) return false
   // If days_of_week array is provided, use it directly
-  if (daysOfWeek && daysOfWeek.length > 0) return daysOfWeek.includes(todayDay)
+  if (daysOfWeek && daysOfWeek.length > 0) return daysOfWeek.map(Number).includes(todayDay)
   if (frequency === 'daily') return true
   if (frequency === 'eod') return daysDiff % 2 === 0
   if (frequency === 'every3days') return daysDiff % 3 === 0
