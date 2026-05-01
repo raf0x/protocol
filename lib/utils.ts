@@ -19,10 +19,12 @@ export function isDueToday(frequency: string, protocolStart: string, dayOfWeek: 
   if (frequency === 'every5days') return daysDiff % 5 === 0
   if (frequency === '1x/week') return dayOfWeek !== null ? todayDay === dayOfWeek : daysDiff % 7 === 0
   if (frequency === '2x/week') { const d = dayOfWeek ?? 0; return todayDay === d || todayDay === (d+3)%7 }
-  if (frequency === '3x/week') return todayDay === 1 || todayDay === 3 || todayDay === 5
-  if (frequency === '4x/week') return todayDay === 1 || todayDay === 2 || todayDay === 4 || todayDay === 5
-  if (frequency === '5x/week') return todayDay >= 1 && todayDay <= 5
-  if (frequency === '6x/week') return todayDay !== 0
+  // For Nx/week without days_of_week set, return false � user needs to set their schedule
+  // This prevents wrong days showing up from hardcoded assumptions
+  if (frequency === '3x/week') return false
+  if (frequency === '4x/week') return false
+  if (frequency === '5x/week') return todayDay >= 1 && todayDay <= 5 // weekdays is safe assumption
+  if (frequency === '6x/week') return todayDay !== 0 // every day except sunday is safe
   return false
 }
 
