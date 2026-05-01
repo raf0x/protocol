@@ -7,6 +7,7 @@ import InsightsCard from '../../components/dashboard/InsightsCard'
 import DailyLogCard from '../../components/dashboard/DailyLogCard'
 import CompoundNotes from '../../components/dashboard/CompoundNotes'
 import VialInventory from '../../components/dashboard/VialInventory'
+import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
 import TodaysInjections from '../../components/dashboard/TodaysInjections'
 import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
@@ -322,6 +323,9 @@ export default function DashboardPage() {
           compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
           onShare={shareProtocol}
         />
+
+        {/* Weekly schedule */}
+        <WeeklySchedule activeProtocols={activeProtocols} />
 
         {/* Today's injections � always visible */}
         <TodaysInjections
