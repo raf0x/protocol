@@ -75,7 +75,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
   return (
     <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',marginBottom:'16px',overflow:'hidden'}}>
       <div style={{padding:'12px 16px 8px',fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>MY SCHEDULE</div>
-      <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+      <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch',position:'relative'}}>
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:'340px'}}>
           <thead>
             <tr>
@@ -98,13 +98,13 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
                 {weekDates.map((date, di) => {
                   const dateStr = date.toISOString().split('T')[0]
                   const isToday = dateStr === todayStr
-                  const isPast = date.getTime() < today.getTime()
-                  const isFuture = date.getTime() > today.getTime()
+                  const isPast = date.getTime() < today.getTime() && !isToday
+                  const isFuture = date.getTime() > today.getTime() && !isToday
                   const isDue = isDueOnDate(compound, date)
                   const isLogged = !!logs[compound.id + '_' + dateStr]
                   const canTap = isDue && !isFuture
                   return (
-                    <td key={di} style={{padding:'6px 4px',textAlign:'center',background:isToday?'var(--color-green-05)':'transparent'}}>
+                    <td key={di} style={{padding:'6px 4px',textAlign:'center',background:isToday?'rgba(57,255,20,0.08)':'transparent',borderLeft:isToday?'1px solid rgba(57,255,20,0.2)':'none',borderRight:isToday?'1px solid rgba(57,255,20,0.2)':'none'}}>
                       {isDue && (
                         <button onClick={() => canTap && toggleLog(compound.id, dateStr)} style={{width:'26px',height:'26px',borderRadius:'50%',border:'none',cursor:canTap?'pointer':'default',display:'inline-flex',alignItems:'center',justifyContent:'center',background:isLogged?g:isPast?'rgba(255,107,107,0.15)':isToday?'rgba(57,255,20,0.15)':'transparent'}}>
                           {isLogged ? <span style={{color:isToday?'var(--color-green-text)':'var(--color-green-text)',fontWeight:'900',fontSize:'13px'}}>✓</span>

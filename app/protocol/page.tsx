@@ -327,13 +327,7 @@ export default function DashboardPage() {
         {/* Weekly schedule */}
         <WeeklySchedule activeProtocols={activeProtocols} />
 
-        {/* Today's injections � always visible */}
-        <TodaysInjections
-          dueCompounds={dueCompounds}
-          tomorrowCompounds={tomorrowCompounds}
-          logs={logs}
-          onToggle={toggleInjection}
-        />
+
 
         {/* Weekly summary � Sundays only */}
         <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
