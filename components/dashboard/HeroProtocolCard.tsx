@@ -126,6 +126,28 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   // Current phase
   const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
+  // Next dose countdown
+  let nextDoseText: string | null = null
+  if (currentPhase && activeProtocol) {
+    try {
+      const ph = currentPhase as any
+      const today3 = new Date(); today3.setHours(0,0,0,0)
+      const compoundLogs = allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken)
+      const lastLog = compoundLogs.sort((a: any, b: any) => b.date.localeCompare(a.date))[0]
+      if (lastLog) {
+        const lastDate = new Date(lastLog.date + 'T00:00:00')
+        const freq = ph.frequency || '1x/week'
+        const gapDays = freq === 'daily' ? 1 : freq === 'eod' ? 2 : freq === 'every3days' ? 3 : freq === 'every4days' ? 4 : freq === '1x/week' ? 7 : freq === '2x/week' ? 3 : freq === '3x/week' ? 2 : 1
+        const nextDate = new Date(lastDate); nextDate.setDate(nextDate.getDate() + gapDays)
+        const diffMs = nextDate.getTime() - today3.getTime()
+        const diffDays = Math.ceil(diffMs / 86400000)
+        if (diffDays <= 0) nextDoseText = 'Due today'
+        else if (diffDays === 1) nextDoseText = 'Tomorrow'
+        else nextDoseText = 'In ' + diffDays + ' days'
+      }
+    } catch(e) {}
+  }
+
 
   // Vial status
   const reconDate = activeCompound.reconstitution_date
@@ -172,6 +194,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
             <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
             {currentPhase && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
+            {nextDoseText && <span style={{fontSize:'12px',fontWeight:'700',color:nextDoseText==='Due today'?'#f97316':'var(--color-dim)',background:nextDoseText==='Due today'?'rgba(249,115,22,0.1)':'var(--color-surface)',padding:'3px 8px',borderRadius:'20px'}}>⏰ {nextDoseText}</span>}
             {totalLost && parseFloat(totalLost) > 0 && (
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
             )}
