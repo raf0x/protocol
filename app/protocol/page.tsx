@@ -22,6 +22,8 @@ type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [streakDays, setStreakDays] = useState(0)
+
+
   const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
