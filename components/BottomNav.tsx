@@ -23,9 +23,8 @@ export default function BottomNav() {
   const links = [
     { href: '/calculator', label: '🧮' },
     { href: '/protocol', label: 'Dashboard' },
-    { href: '/journal', label: 'History' },
     { href: '/profile', label: 'Profile' },
-    // ...(isAdmin ? [{ href: '/tracker', label: 'Admin' }] : []),
+    ...(isAdmin ? [{ href: '/admin', label: '📊' }] : []),
   ]
 
   return (
