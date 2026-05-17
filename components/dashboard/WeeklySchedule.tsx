@@ -77,9 +77,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
     }
   }
 
-  function handleDragStart(id: string) {
-    setDraggingId(id)
-  }
+  function handleDragStart(id: string) { setDraggingId(id) }
 
   function handleDragOver(e: React.DragEvent, id: string) {
     e.preventDefault()
@@ -100,10 +98,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
     saveOrder(newOrder)
   }
 
-  // Touch drag support
-  function handleTouchStart(e: React.TouchEvent, id: string) {
-    setDraggingId(id)
-  }
+  function handleTouchStart(e: React.TouchEvent, id: string) { setDraggingId(id) }
 
   function handleTouchMove(e: React.TouchEvent) {
     e.preventDefault()
@@ -182,18 +177,56 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
                   const dateStr = date.toISOString().split('T')[0]
                   const isToday = dateStr === todayStr
                   const isPast = date.getTime() < today.getTime() && !isToday
-                  const isFuture = date.getTime() > today.getTime() && !isToday
+                  const isFuture = date.getTime() > today.getTime()
                   const isDue = isDueOnDate(compound, date)
-                  const isLogged = !!logs[compound.id + '_' + dateStr] && !isFuture
-                  const canTap = isDue && !isFuture
+                  const isLogged = !!logs[compound.id + '_' + dateStr]
+                  const canTap = !isFuture
+
+                  let content = null
+                  let bg = 'transparent'
+                  let cursor: string = 'default'
+
+                  if (isLogged) {
+                    const checkColor = isDue ? g : '#f59e0b'
+                    const checkBg = isDue ? g : 'rgba(245,158,11,0.9)'
+                    bg = checkBg
+                    cursor = canTap ? 'pointer' : 'default'
+                    content = <span style={{color: isDue ? 'var(--color-green-text)' : '#000',fontWeight:'900',fontSize:'13px'}}>✓</span>
+                  } else if (isDue && isToday) {
+                    bg = 'rgba(57,255,20,0.15)'
+                    cursor = 'pointer'
+                    content = <span style={{color:g,fontWeight:'900',fontSize:'14px'}}>●</span>
+                  } else if (isDue && isPast) {
+                    bg = 'rgba(255,107,107,0.15)'
+                    cursor = 'pointer'
+                    content = <span style={{color:'#ff6b6b',fontWeight:'900',fontSize:'18px',lineHeight:1}}>·</span>
+                  } else if (isDue && isFuture) {
+                    content = <span style={{color:dg,fontSize:'14px',opacity:0.3}}>●</span>
+                  } else if (canTap) {
+                    cursor = 'pointer'
+                    content = <span style={{color:dg,fontSize:'14px',opacity:0.15}}>+</span>
+                  }
+
                   return (
                     <td key={di} style={{padding:'6px 4px',textAlign:'center',background:isToday?'rgba(57,255,20,0.08)':'transparent',borderLeft:isToday?'1px solid rgba(57,255,20,0.2)':'none',borderRight:isToday?'1px solid rgba(57,255,20,0.2)':'none'}}>
-                      {isDue && (
-                        <button onClick={() => canTap && toggleLog(compound.id, dateStr)} style={{width:'26px',height:'26px',borderRadius:'50%',border:'none',cursor:canTap?'pointer':'default',display:'inline-flex',alignItems:'center',justifyContent:'center',background:isLogged?g:isPast?'rgba(255,107,107,0.15)':isToday?'rgba(57,255,20,0.15)':'transparent'}}>
-                          {isLogged ? <span style={{color:isToday?'var(--color-green-text)':'var(--color-green-text)',fontWeight:'900',fontSize:'13px'}}>✓</span>
-                          : isPast ? <span style={{color:'#ff6b6b',fontWeight:'900',fontSize:'18px',lineHeight:1}}>·</span>
-                          : isToday ? <span style={{color:g,fontWeight:'900',fontSize:'14px'}}>●</span>
-                          : <span style={{color:dg,fontSize:'14px',opacity:0.3}}>●</span>}
+                      {content !== null && (
+                        <button
+                          onClick={() => canTap && toggleLog(compound.id, dateStr)}
+                          style={{
+                            width:'26px',
+                            height:'26px',
+                            borderRadius:'50%',
+                            border:'none',
+                            cursor,
+                            display:'inline-flex',
+                            alignItems:'center',
+                            justifyContent:'center',
+                            background: bg,
+                            transition:'transform 0.1s',
+                          }}
+                          aria-label={`${isLogged ? 'Logged' : isDue ? 'Due' : 'Log'} ${compound.name} ${DAY_LABELS[di]}`}
+                        >
+                          {content}
                         </button>
                       )}
                     </td>
@@ -204,11 +237,12 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
           </tbody>
         </table>
       </div>
-      <div style={{padding:'8px 16px',display:'flex',gap:'16px',borderTop:'1px solid '+bd}}>
-        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:'var(--color-green)',fontSize:'12px',fontWeight:'900'}}>✓</span><span style={{fontSize:'10px',color:dg}}>Logged</span></div>
+      <div style={{padding:'8px 16px',display:'flex',gap:'16px',borderTop:'1px solid '+bd,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:g,fontSize:'12px',fontWeight:'900'}}>✓</span><span style={{fontSize:'10px',color:dg}}>Logged</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:'#f59e0b',fontSize:'12px',fontWeight:'900'}}>✓</span><span style={{fontSize:'10px',color:dg}}>Off-plan</span></div>
         <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:'#ff6b6b',fontSize:'16px',fontWeight:'900',lineHeight:1}}>·</span><span style={{fontSize:'10px',color:dg}}>Missed</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:g,fontSize:'12px',fontWeight:'900'}}>●</span><span style={{fontSize:'10px',color:dg}}>Due today</span></div>
-        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:dg,fontSize:'12px',opacity:0.3}}>●</span><span style={{fontSize:'10px',color:dg}}>Scheduled</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:g,fontSize:'12px',fontWeight:'900'}}>●</span><span style={{fontSize:'10px',color:dg}}>Due</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{color:dg,fontSize:'12px',opacity:0.15}}>+</span><span style={{fontSize:'10px',color:dg}}>Tap to log</span></div>
       </div>
     </div>
   )
