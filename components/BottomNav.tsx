@@ -25,7 +25,7 @@ export default function BottomNav() {
     { href: '/protocol', label: 'Dashboard' },
     { href: '/journal', label: 'History' },
     { href: '/profile', label: 'Profile' },
-    ...(isAdmin ? [{ href: '/tracker', label: 'Admin' }] : []),
+    // ...(isAdmin ? [{ href: '/tracker', label: 'Admin' }] : []),
   ]
 
   return (
