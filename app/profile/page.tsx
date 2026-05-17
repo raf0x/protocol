@@ -168,6 +168,9 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+        {userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483' && (
+          <a href="/admin" style={{display:'block',width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'16px',textAlign:'center',textDecoration:'none',color:dg,fontSize:'13px',fontWeight:'600'}}>My Dashboard</a>
+        )}
         <button onClick={handleSignOut} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'14px',borderRadius:'6px',fontSize:'16px',cursor:'pointer'}}>Sign out</button>
       </div>
     </main>
