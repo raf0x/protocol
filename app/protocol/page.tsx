@@ -13,6 +13,9 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import InsightCards from '../../components/dashboard/InsightCards'
+import TodayCard from '../../components/dashboard/TodayCard'
+import ProtocolTimeline from '../../components/dashboard/ProtocolTimeline'
 
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
@@ -292,6 +295,11 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* NEW: Emotional wins first */}
+        <InsightCards allLogs={allLogs} activeProtocols={activeProtocols} totalLost={tl} />
+        <TodayCard activeProtocols={activeProtocols} logs={logs} />
+        <ProtocolTimeline activeProtocols={activeProtocols} allLogs={allLogs} totalLost={tl} />
+        
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
             <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>✓ Protocol created!</span>
