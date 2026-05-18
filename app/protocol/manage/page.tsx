@@ -10,6 +10,7 @@ const UNITS = ['mg','mcg','IU']
 
 type Compound = {
   name: string
+  isPreMixed: boolean  // NEW
   vial_strength: string
   vial_unit: string
   bac_water_ml: string
@@ -17,9 +18,9 @@ type Compound = {
   dose: string
   dose_unit: string
   duration_weeks: string
-  frequency_mode: 'weekly' | 'rolling'  // NEW
+  frequency_mode: 'weekly' | 'rolling'
   days_of_week: number[]
-  cycle_days: string  // NEW - for rolling cycles
+  cycle_days: string
   time_of_day: string
   vials_in_stock: string
   notes: string
@@ -28,6 +29,7 @@ type Compound = {
 function newCompound(): Compound {
   return {
     name: '',
+    isPreMixed: false,  // NEW
     vial_strength: '',
     vial_unit: 'mg',
     bac_water_ml: '',
@@ -35,9 +37,9 @@ function newCompound(): Compound {
     dose: '',
     dose_unit: 'IU',
     duration_weeks: '12',
-    frequency_mode: 'weekly',  // NEW
+    frequency_mode: 'weekly',
     days_of_week: [],
-    cycle_days: '3',  // NEW
+    cycle_days: '3',
     time_of_day: 'Morning',
     vials_in_stock: '',
     notes: '',
@@ -84,13 +86,16 @@ export default function ManagePage() {
     const cs = (p.compounds || []).map((c: any) => {
       const ph = (c.phases || [])[0]
       
-      // Detect if this is a rolling cycle
       const freq = ph?.frequency || ''
       const isRolling = freq.startsWith('every') && freq.endsWith('days')
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
       
+      // NEW: Detect if pre-mixed (no reconstitution data)
+      const isPreMixed = !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
+      
       return {
         name: c.name,
+        isPreMixed,  // NEW
         vial_strength: c.vial_strength?.toString() || '',
         vial_unit: c.vial_unit || 'mg',
         bac_water_ml: c.bac_water_ml?.toString() || '',
@@ -98,9 +103,9 @@ export default function ManagePage() {
         dose: ph?.dose?.toString() || '',
         dose_unit: ph?.dose_unit || 'IU',
         duration_weeks: ph?.duration_weeks?.toString() || ph?.end_week?.toString() || '12',
-        frequency_mode: isRolling ? 'rolling' : 'weekly',  // NEW
+        frequency_mode: isRolling ? 'rolling' : 'weekly',
         days_of_week: ph?.days_of_week || [],
-        cycle_days: cycleDays,  // NEW
+        cycle_days: cycleDays,
         time_of_day: ph?.time_of_day || 'Morning',
         vials_in_stock: c.vials_in_stock?.toString() || '',
         notes: c.notes || '',
@@ -124,12 +129,20 @@ export default function ManagePage() {
     setCompounds(u)
   }
 
- async function save() {
+  async function save() {
     setError('')
     if (compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
     if (compounds.some(c => !c.dose.trim())) { setError('Every compound needs a dose.'); return }
-    if (compounds.some(c => !c.reconstitution_date)) { setError('Reconstitution date is required.'); return }
-    if (compounds.some(c => !c.bac_water_ml)) { setError('BAC water amount is required.'); return }
+    
+    // NEW: Updated validation - only require reconstitution if NOT pre-mixed
+    if (compounds.some(c => !c.isPreMixed && !c.reconstitution_date)) { 
+      setError('Reconstitution date is required for compounds that need mixing.'); 
+      return 
+    }
+    if (compounds.some(c => !c.isPreMixed && !c.bac_water_ml)) { 
+      setError('BAC water amount is required for compounds that need mixing.'); 
+      return 
+    }
     
     for (const c of compounds) {
       if (c.frequency_mode === 'weekly' && c.days_of_week.length === 0) {
@@ -152,7 +165,6 @@ export default function ManagePage() {
     const pName = compounds[0].name.trim()
     let protocolId = editingId
     
-    // NEW: Preserve tracking data before deleting
     let trackingData: Record<string, any> = {}
     if (editingId) {
       const { data: existing } = await supabase.from('compounds').select('name, ml_per_dose, doses_taken_override').eq('protocol_id', editingId)
@@ -174,22 +186,21 @@ export default function ManagePage() {
     
     for (let ci = 0; ci < compounds.length; ci++) {
       const c = compounds[ci]
-      
-      // NEW: Restore tracking data if it exists
       const saved = trackingData[c.name.trim()] || {}
       
+      // NEW: Set reconstitution fields to null if pre-mixed
       const { data: ins } = await supabase.from('compounds').insert({
         protocol_id: protocolId,
         user_id: user.id,
         name: c.name.trim(),
-        vial_strength: c.vial_strength ? parseFloat(c.vial_strength) : null,
-        vial_unit: c.vial_unit,
-        bac_water_ml: c.bac_water_ml ? parseFloat(c.bac_water_ml) : null,
-        reconstitution_date: c.reconstitution_date,
+        vial_strength: c.isPreMixed ? null : (c.vial_strength ? parseFloat(c.vial_strength) : null),
+        vial_unit: c.isPreMixed ? null : c.vial_unit,
+        bac_water_ml: c.isPreMixed ? null : (c.bac_water_ml ? parseFloat(c.bac_water_ml) : null),
+        reconstitution_date: c.isPreMixed ? null : c.reconstitution_date,
         notes: c.notes.trim(),
         vials_in_stock: c.vials_in_stock ? parseInt(c.vials_in_stock) : null,
-        ml_per_dose: saved.ml_per_dose ?? null,  // NEW: Restore ml_per_dose
-        doses_taken_override: saved.doses_taken_override ?? null,  // NEW: Restore doses counter
+        ml_per_dose: saved.ml_per_dose ?? null,
+        doses_taken_override: saved.doses_taken_override ?? null,
         position: ci
       }).select().single()
       if (!ins) continue
@@ -248,7 +259,7 @@ export default function ManagePage() {
   return (
     <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>? Dashboard</button>
+        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>← Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>My Protocols</h1>
           {!showForm && <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
@@ -269,32 +280,55 @@ export default function ManagePage() {
 
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>COMPOUND NAME</label>
-                  <input value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide' style={is} />
+                  <input value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} />
                 </div>
 
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
-                    <div style={{display:'flex',gap:'6px'}}>
-                      <input type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
-                      <select value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>BAC WATER</label>
-                    <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                      <input type='number' step='0.5' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='3' style={{...is,flex:1}} />
-                      <span style={{fontSize:'13px',color:dg,fontWeight:'600',whiteSpace:'nowrap'}}>mL</span>
-                    </div>
-                  </div>
+                {/* NEW: Pre-mixed checkbox */}
+                <div style={{marginBottom:'16px'}}>
+                  <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
+                    <input 
+                      type='checkbox' 
+                      checked={c.isPreMixed} 
+                      onChange={e => updateCompound(ci, 'isPreMixed', e.target.checked)}
+                      style={{width:'18px',height:'18px',cursor:'pointer'}}
+                    />
+                    <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>
+                      Pre-mixed compound (no reconstitution needed)
+                    </span>
+                  </label>
+                  <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginLeft:'28px'}}>
+                    Check this for TRT, pre-mixed peptides, or any compound that doesn't require mixing
+                  </p>
                 </div>
 
-                <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE *</label>
-                  <input type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
-                </div>
+                {/* Conditionally show reconstitution fields */}
+                {!c.isPreMixed && (
+                  <>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
+                        <div style={{display:'flex',gap:'6px'}}>
+                          <input type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
+                          <select value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
+                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>BAC WATER</label>
+                        <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                          <input type='number' step='0.5' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='3' style={{...is,flex:1}} />
+                          <span style={{fontSize:'13px',color:dg,fontWeight:'600',whiteSpace:'nowrap'}}>mL</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{marginBottom:'12px'}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE *</label>
+                      <input type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
+                    </div>
+                  </>
+                )}
 
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>DOSE PER INJECTION</label>
@@ -314,7 +348,6 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* NEW: Frequency mode toggle */}
                 <div style={{marginBottom:'16px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>FREQUENCY MODE</label>
                   <div style={{display:'flex',gap:'8px'}}>
@@ -353,7 +386,6 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* Conditional: Show day pickers for weekly, cycle input for rolling */}
                 {c.frequency_mode === 'weekly' && (
                   <div style={{marginBottom:'16px'}}>
                     <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>MY SCHEDULE</label>
