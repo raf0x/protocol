@@ -6,11 +6,11 @@ import { isDueToday } from '../../lib/utils'
 type Compound = { id: string; name: string; protocol_start: string; phases: any[] }
 type Props = { activeProtocols: any[] }
 
-function getWeekDates(): Date[] {
+function getWeekDates(weekOffset: number = 0): Date[] {
   const today = new Date(); today.setHours(0,0,0,0)
   const day = today.getDay()
   const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(today); monday.setDate(today.getDate() + diff)
+  const monday = new Date(today); monday.setDate(today.getDate() + diff + (weekOffset * 7))
   return Array.from({length:7}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d })
 }
 
@@ -22,7 +22,9 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
   const [order, setOrder] = useState<string[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const weekDates = getWeekDates()
+  const [weekOffset, setWeekOffset] = useState(0)  // NEW: 0 = current week, -1 = last week, +1 = next week
+  
+  const weekDates = getWeekDates(weekOffset)
   const today = new Date(); today.setHours(0,0,0,0)
   const todayStr = today.toISOString().split('T')[0]
   const g = 'var(--color-green)'
@@ -44,8 +46,13 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
     async function loadLogs() {
       if (compounds.length === 0) { setLoading(false); return }
       const supabase = createClient()
-      const startStr = weekDates[0].toISOString().split('T')[0]
-      const endStr = weekDates[6].toISOString().split('T')[0]
+      
+      // NEW: Load logs for a wider date range (4 weeks back, 4 weeks forward)
+      const startDate = new Date(today); startDate.setDate(today.getDate() - 28)
+      const endDate = new Date(today); endDate.setDate(today.getDate() + 28)
+      const startStr = startDate.toISOString().split('T')[0]
+      const endStr = endDate.toISOString().split('T')[0]
+      
       const { data } = await supabase.from('injection_logs').select('compound_id, date, taken').gte('date', startStr).lte('date', endStr).eq('taken', true)
       const map: Record<string,boolean> = {}
       ;(data || []).forEach((l: any) => { map[l.compound_id + '_' + l.date] = true })
@@ -53,7 +60,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
       setLoading(false)
     }
     loadLogs()
-  }, [activeProtocols.length])
+  }, [activeProtocols.length, weekOffset])  // Reload when week changes
 
   async function toggleLog(compoundId: string, dateStr: string) {
     const key = compoundId + '_' + dateStr
@@ -147,9 +154,57 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
     ? [...compounds].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
     : compounds
 
+  // NEW: Week navigation header text
+  const weekStart = weekDates[0]
+  const weekEnd = weekDates[6]
+  const isCurrentWeek = weekOffset === 0
+  const weekLabel = isCurrentWeek 
+    ? 'This Week' 
+    : weekOffset === -1 
+      ? 'Last Week'
+      : weekOffset === 1
+        ? 'Next Week'
+        : weekOffset < 0
+          ? `${Math.abs(weekOffset)} Weeks Ago`
+          : `${weekOffset} Weeks Ahead`
+
   return (
     <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',marginBottom:'16px',overflow:'hidden'}}>
-      <div style={{padding:'12px 16px 8px',fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>MY SCHEDULE</div>
+      {/* NEW: Week navigation header */}
+      <div style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid '+bd}}>
+        <button 
+          onClick={() => setWeekOffset(weekOffset - 1)}
+          style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
+        >
+          ← Prev
+        </button>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>
+            {weekLabel}
+          </div>
+          <div style={{fontSize:'10px',color:dg,marginTop:'2px'}}>
+            {weekStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} - {weekEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+          </div>
+        </div>
+        <button 
+          onClick={() => setWeekOffset(weekOffset + 1)}
+          style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
+        >
+          Next →
+        </button>
+      </div>
+
+      {!isCurrentWeek && (
+        <div style={{padding:'8px 16px',background:'rgba(57,255,20,0.05)',borderBottom:'1px solid '+bd}}>
+          <button 
+            onClick={() => setWeekOffset(0)}
+            style={{background:'none',border:'none',color:g,fontSize:'12px',fontWeight:'700',cursor:'pointer',padding:0}}
+          >
+            ← Back to This Week
+          </button>
+        </div>
+      )}
+
       <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch',position:'relative'}}>
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:'340px'}}>
           <thead>
@@ -198,7 +253,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
                   const isFuture = date.getTime() > today.getTime()
                   const isDue = isDueOnDate(compound, date)
                   const isLogged = !!logs[compound.id + '_' + dateStr]
-                  const canTap = !isFuture
+                  const canTap = !isFuture  // Can tap past and today, not future
 
                   let content = null
                   let bg = 'transparent'
