@@ -48,7 +48,6 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         try {
           if (data.doses_taken_override !== null) localStorage.setItem('vial_inventory_' + compoundId + '_doses', String(data.doses_taken_override))
           if (data.ml_per_dose !== null) localStorage.setItem('vial_inventory_' + compoundId + '_ml', String(data.ml_per_dose))
-          window.dispatchEvent(new Event('doses_updated'))
         } catch(e) {}
       }
       setLoading(false)
