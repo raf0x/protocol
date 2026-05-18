@@ -13,9 +13,6 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import InsightCards from '../../components/dashboard/InsightCards'
-import TodayCard from '../../components/dashboard/TodayCard'
-import ProtocolTimeline from '../../components/dashboard/ProtocolTimeline'
 
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
@@ -294,11 +291,6 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
-
-        {/* NEW: Emotional wins first */}
-        <InsightCards allLogs={allLogs} activeProtocols={activeProtocols} totalLost={tl} />
-        <TodayCard activeProtocols={activeProtocols} logs={logs} />
-        <ProtocolTimeline activeProtocols={activeProtocols} allLogs={allLogs} totalLost={tl} />
         
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
@@ -487,30 +479,6 @@ export default function DashboardPage() {
               </div>
             )}
             {we.length > 1 && (<><p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p><ResponsiveContainer width='100%' height={100}><LineChart data={cd.filter((d: any) => d.weight)}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />)}<Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' /></LineChart></ResponsiveContainer></>)}</div>)}
-
-
-        {/* Event logger */}
-        <div style={{marginBottom:'16px'}}>
-          {!showAddEvent ? (
-            <button onClick={() => setShowAddEvent(true)} style={{width:'100%',background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'12px',cursor:'pointer',fontWeight:'600'}}>+ Log protocol change</button>
-          ) : (
-            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px'}}>
-              <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>LOG PROTOCOL CHANGE</span>
-              <select value={eventType} onChange={e => setEventType(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',marginBottom:'8px'}}>
-                <option value='dose_change'>Dose changed</option>
-                <option value='compound_added'>Added compound</option>
-                <option value='compound_removed'>Stopped compound</option>
-                <option value='phase_change'>Phase change</option>
-                <option value='other'>Other</option>
-              </select>
-              <input value={eventDesc} onChange={e => setEventDesc(e.target.value)} placeholder='e.g. Increased Reta to 5mg' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
-              <div style={{display:'flex',gap:'8px'}}>
-                <button onClick={() => setShowAddEvent(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
-                <button onClick={saveEvent} disabled={!eventDesc.trim()} style={{flex:2,background:!eventDesc.trim()?'var(--color-green-20)':g,color:!eventDesc.trim()?'var(--color-muted)':'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>Log Event</button>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Recent events */}
         {protocolEvents.length > 0 && (
