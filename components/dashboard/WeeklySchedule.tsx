@@ -22,7 +22,23 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
   const [order, setOrder] = useState<string[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const [weekOffset, setWeekOffset] = useState(0)  // NEW: 0 = current week, -1 = last week, +1 = next week
+  // Load saved week offset from localStorage
+const [weekOffset, setWeekOffset] = useState(() => {
+  try {
+    const saved = localStorage.getItem('schedule_week_offset')
+    return saved ? parseInt(saved) : 0
+  } catch {
+    return 0
+  }
+})
+
+// Persist week offset changes to localStorage
+function changeWeekOffset(newOffset: number) {
+  setWeekOffset(newOffset)
+  try {
+    localStorage.setItem('schedule_week_offset', String(newOffset))
+  } catch {}
+}  // NEW: 0 = current week, -1 = last week, +1 = next week
   
   const weekDates = getWeekDates(weekOffset)
   const today = new Date(); today.setHours(0,0,0,0)
@@ -173,7 +189,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
       {/* NEW: Week navigation header */}
       <div style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid '+bd}}>
         <button 
-          onClick={() => setWeekOffset(weekOffset - 1)}
+          onClick={() => changeWeekOffset(weekOffset - 1)}
           style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
         >
           ← Prev
@@ -187,7 +203,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
           </div>
         </div>
         <button 
-          onClick={() => setWeekOffset(weekOffset + 1)}
+          onClick={() => changeWeekOffset(weekOffset + 1)}
           style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
         >
           Next →
@@ -197,7 +213,7 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
       {!isCurrentWeek && (
         <div style={{padding:'8px 16px',background:'rgba(57,255,20,0.05)',borderBottom:'1px solid '+bd}}>
           <button 
-            onClick={() => setWeekOffset(0)}
+            onClick={() => changeWeekOffset(0)}
             style={{background:'none',border:'none',color:g,fontSize:'12px',fontWeight:'700',cursor:'pointer',padding:0}}
           >
             ← Back to This Week
