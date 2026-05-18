@@ -87,6 +87,11 @@ export default function DashboardPage() {
         localStorage.removeItem('pendingProtocol')
       } catch(e) { localStorage.removeItem('pendingProtocol') }
     }
+    
+    // Listen for vial inventory updates
+    function handleDosesUpdate() { loadAll() }
+    window.addEventListener('doses_updated', handleDosesUpdate)
+    return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
 
   async function createProtocolFromCalc() {
