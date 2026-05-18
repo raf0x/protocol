@@ -60,13 +60,31 @@ export default function WeeklySchedule({ activeProtocols }: Props) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    
     if (logs[key]) {
+      // Unchecking - delete log AND decrement dose counter
       await supabase.from('injection_logs').delete().eq('compound_id', compoundId).eq('date', dateStr).eq('user_id', user.id)
       const u = { ...logs }; delete u[key]; setLogs(u)
+      
+      // Decrement doses_taken_override (floor at 0)
+      const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', compoundId).single()
+      const currentDoses = compound?.doses_taken_override ?? 0
+      const newDoses = Math.max(0, currentDoses - 1)
+      await supabase.from('compounds').update({ doses_taken_override: newDoses }).eq('id', compoundId)
+      
     } else {
+      // Checking - create log AND increment dose counter
       await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: compoundId, date: dateStr, taken: true, discomfort: 0 }, { onConflict: 'user_id,compound_id,date' })
       setLogs({ ...logs, [key]: true })
+      
+      // Increment doses_taken_override
+      const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', compoundId).single()
+      const currentDoses = compound?.doses_taken_override ?? 0
+      await supabase.from('compounds').update({ doses_taken_override: currentDoses + 1 }).eq('id', compoundId)
     }
+    
+    // Notify UI to refresh vial display
+    window.dispatchEvent(new Event('doses_updated'))
     try { navigator.vibrate(8) } catch(e) {}
   }
 
