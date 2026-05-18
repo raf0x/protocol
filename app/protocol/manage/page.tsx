@@ -4,7 +4,7 @@ import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-const DAY_NUMS = [1,2,3,4,5,6,0] // JS getDay() mapping
+const DAY_NUMS = [1,2,3,4,5,6,0]
 const TIMES = ['Morning','Afternoon','Evening','Night']
 const UNITS = ['mg','mcg','IU']
 
@@ -17,7 +17,9 @@ type Compound = {
   dose: string
   dose_unit: string
   duration_weeks: string
+  frequency_mode: 'weekly' | 'rolling'  // NEW
   days_of_week: number[]
+  cycle_days: string  // NEW - for rolling cycles
   time_of_day: string
   vials_in_stock: string
   notes: string
@@ -33,7 +35,9 @@ function newCompound(): Compound {
     dose: '',
     dose_unit: 'IU',
     duration_weeks: '12',
+    frequency_mode: 'weekly',  // NEW
     days_of_week: [],
+    cycle_days: '3',  // NEW
     time_of_day: 'Morning',
     vials_in_stock: '',
     notes: '',
@@ -79,6 +83,12 @@ export default function ManagePage() {
     setStartDate(p.start_date)
     const cs = (p.compounds || []).map((c: any) => {
       const ph = (c.phases || [])[0]
+      
+      // Detect if this is a rolling cycle
+      const freq = ph?.frequency || ''
+      const isRolling = freq.startsWith('every') && freq.endsWith('days')
+      const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
+      
       return {
         name: c.name,
         vial_strength: c.vial_strength?.toString() || '',
@@ -88,7 +98,9 @@ export default function ManagePage() {
         dose: ph?.dose?.toString() || '',
         dose_unit: ph?.dose_unit || 'IU',
         duration_weeks: ph?.duration_weeks?.toString() || ph?.end_week?.toString() || '12',
+        frequency_mode: isRolling ? 'rolling' : 'weekly',  // NEW
         days_of_week: ph?.days_of_week || [],
+        cycle_days: cycleDays,  // NEW
         time_of_day: ph?.time_of_day || 'Morning',
         vials_in_stock: c.vials_in_stock?.toString() || '',
         notes: c.notes || '',
@@ -118,13 +130,29 @@ export default function ManagePage() {
     if (compounds.some(c => !c.dose.trim())) { setError('Every compound needs a dose.'); return }
     if (compounds.some(c => !c.reconstitution_date)) { setError('Reconstitution date is required.'); return }
     if (compounds.some(c => !c.bac_water_ml)) { setError('BAC water amount is required.'); return }
-    if (compounds.some(c => c.days_of_week.length === 0)) { setError('Select at least one injection day.'); return }
+    
+    // Validation: weekly mode needs days selected, rolling mode needs valid cycle
+    for (const c of compounds) {
+      if (c.frequency_mode === 'weekly' && c.days_of_week.length === 0) {
+        setError('Select at least one injection day for weekly schedules.')
+        return
+      }
+      if (c.frequency_mode === 'rolling') {
+        const cycle = parseInt(c.cycle_days)
+        if (isNaN(cycle) || cycle < 1 || cycle > 7) {
+          setError('Cycle days must be between 1 and 7.')
+          return
+        }
+      }
+    }
+    
     setSaving(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setError('Not signed in.'); setSaving(false); return }
     const pName = compounds[0].name.trim()
     let protocolId = editingId
+    
     if (editingId) {
       await supabase.from('protocols').update({ name: pName, start_date: startDate }).eq('id', editingId)
       await supabase.from('compounds').delete().eq('protocol_id', editingId)
@@ -133,6 +161,7 @@ export default function ManagePage() {
       if (e) { setError(e.message); setSaving(false); return }
       protocolId = p.id
     }
+    
     for (let ci = 0; ci < compounds.length; ci++) {
       const c = compounds[ci]
       const { data: ins } = await supabase.from('compounds').insert({
@@ -148,10 +177,24 @@ export default function ManagePage() {
         position: ci
       }).select().single()
       if (!ins) continue
-      // Calculate frequency string for backward compat with dashboard
-      const daysCount = c.days_of_week.length
-      const freqMap: Record<number,string> = {1:'1x/week',2:'2x/week',3:'3x/week',4:'4x/week',5:'5x/week',6:'6x/week',7:'daily'}
-      const frequency = freqMap[daysCount] || '1x/week'
+      
+      // Generate frequency string based on mode
+      let frequency: string
+      let daysOfWeek: number[]
+      
+      if (c.frequency_mode === 'rolling') {
+        // Rolling cycle: use 'everyXdays' format, clear days_of_week
+        const cycle = parseInt(c.cycle_days)
+        frequency = `every${cycle}days`
+        daysOfWeek = []  // Empty for rolling cycles
+      } else {
+        // Weekly pattern: use 'Nx/week' format, keep days_of_week
+        const daysCount = c.days_of_week.length
+        const freqMap: Record<number,string> = {1:'1x/week',2:'2x/week',3:'3x/week',4:'4x/week',5:'5x/week',6:'6x/week',7:'daily'}
+        frequency = freqMap[daysCount] || '1x/week'
+        daysOfWeek = c.days_of_week
+      }
+      
       await supabase.from('phases').insert({
         compound_id: ins.id,
         user_id: user.id,
@@ -161,13 +204,14 @@ export default function ManagePage() {
         start_week: 1,
         end_week: parseInt(c.duration_weeks) || 12,
         frequency,
-        day_of_week: c.days_of_week[0] ?? null,
-        days_of_week: c.days_of_week,
+        day_of_week: daysOfWeek[0] ?? null,
+        days_of_week: daysOfWeek,
         time_of_day: c.time_of_day.toLowerCase(),
         duration_weeks: parseInt(c.duration_weeks) || 12,
         position: 0
       })
     }
+    
     if (!editingId) {
       await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocolId, date: startDate, event_type: 'started', description: 'Started ' + pName })
     }
@@ -210,13 +254,11 @@ export default function ManagePage() {
                   </div>
                 )}
 
-                {/* Compound name */}
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>COMPOUND NAME</label>
                   <input value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide' style={is} />
                 </div>
 
-                {/* Vial strength + BAC water */}
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
                   <div>
                     <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
@@ -236,13 +278,11 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* Reconstitution date */}
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE *</label>
                   <input type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
                 </div>
 
-                {/* Dose */}
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>DOSE PER INJECTION</label>
                   <div style={{display:'flex',gap:'6px'}}>
@@ -253,7 +293,6 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* Duration */}
                 <div style={{marginBottom:'16px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL DURATION</label>
                   <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
@@ -262,36 +301,96 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* Schedule */}
+                {/* NEW: Frequency mode toggle */}
                 <div style={{marginBottom:'16px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>MY SCHEDULE</label>
-                  <div style={{background:'var(--color-surface)',borderRadius:'10px',padding:'14px'}}>
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'12px'}}>
-                      {DAYS.map((day, di) => {
-                        const dayNum = DAY_NUMS[di]
-                        const active = c.days_of_week.includes(dayNum)
-                        return (
-                          <button key={day} onClick={() => toggleDay(ci, dayNum)} style={{padding:'10px 0',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'var(--color-green-10)':'transparent',color:active?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
-                            <span>{day}</span>
-                            {active && <span style={{width:'5px',height:'5px',borderRadius:'50%',background:g,display:'block'}} />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {c.days_of_week.length > 0 && (
-                      <p style={{fontSize:'12px',color:dg,margin:'0 0 10px',textAlign:'center'}}>{c.days_of_week.length}x per week</p>
-                    )}
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px'}}>
-                      {TIMES.map(t => (
-                        <button key={t} onClick={() => updateCompound(ci,'time_of_day',t)} style={{padding:'8px 4px',borderRadius:'8px',border:'1px solid '+(c.time_of_day===t?g:bd),background:c.time_of_day===t?'var(--color-green-10)':'transparent',color:c.time_of_day===t?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
-                          {t}
-                        </button>
-                      ))}
-                    </div>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>FREQUENCY MODE</label>
+                  <div style={{display:'flex',gap:'8px'}}>
+                    <button
+                      onClick={() => updateCompound(ci, 'frequency_mode', 'weekly')}
+                      style={{
+                        flex:1,
+                        padding:'10px',
+                        borderRadius:'8px',
+                        border:'1px solid '+(c.frequency_mode==='weekly'?g:bd),
+                        background:c.frequency_mode==='weekly'?'var(--color-green-10)':'transparent',
+                        color:c.frequency_mode==='weekly'?g:dg,
+                        fontSize:'13px',
+                        fontWeight:'700',
+                        cursor:'pointer'
+                      }}
+                    >
+                      Weekly Pattern
+                    </button>
+                    <button
+                      onClick={() => updateCompound(ci, 'frequency_mode', 'rolling')}
+                      style={{
+                        flex:1,
+                        padding:'10px',
+                        borderRadius:'8px',
+                        border:'1px solid '+(c.frequency_mode==='rolling'?g:bd),
+                        background:c.frequency_mode==='rolling'?'var(--color-green-10)':'transparent',
+                        color:c.frequency_mode==='rolling'?g:dg,
+                        fontSize:'13px',
+                        fontWeight:'700',
+                        cursor:'pointer'
+                      }}
+                    >
+                      Rolling Cycle
+                    </button>
                   </div>
                 </div>
 
-                {/* Inventory */}
+                {/* Conditional: Show day pickers for weekly, cycle input for rolling */}
+                {c.frequency_mode === 'weekly' && (
+                  <div style={{marginBottom:'16px'}}>
+                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>MY SCHEDULE</label>
+                    <div style={{background:'var(--color-surface)',borderRadius:'10px',padding:'14px'}}>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'12px'}}>
+                        {DAYS.map((day, di) => {
+                          const dayNum = DAY_NUMS[di]
+                          const active = c.days_of_week.includes(dayNum)
+                          return (
+                            <button key={day} onClick={() => toggleDay(ci, dayNum)} style={{padding:'10px 0',borderRadius:'8px',border:'1px solid '+(active?g:bd),background:active?'var(--color-green-10)':'transparent',color:active?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
+                              <span>{day}</span>
+                              {active && <span style={{width:'5px',height:'5px',borderRadius:'50%',background:g,display:'block'}} />}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {c.days_of_week.length > 0 && (
+                        <p style={{fontSize:'12px',color:dg,margin:'0 0 10px',textAlign:'center'}}>{c.days_of_week.length}x per week</p>
+                      )}
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px'}}>
+                        {TIMES.map(t => (
+                          <button key={t} onClick={() => updateCompound(ci,'time_of_day',t)} style={{padding:'8px 4px',borderRadius:'8px',border:'1px solid '+(c.time_of_day===t?g:bd),background:c.time_of_day===t?'var(--color-green-10)':'transparent',color:c.time_of_day===t?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {c.frequency_mode === 'rolling' && (
+                  <div style={{marginBottom:'16px'}}>
+                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>INJECT EVERY</label>
+                    <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                      <input
+                        type='number'
+                        min='1'
+                        max='7'
+                        value={c.cycle_days}
+                        onChange={e => updateCompound(ci, 'cycle_days', e.target.value)}
+                        style={{...is,width:'80px',flex:'none'}}
+                      />
+                      <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>days</span>
+                    </div>
+                    <p style={{fontSize:'11px',color:mg,marginTop:'6px'}}>
+                      Pattern will shift naturally across weeks. Example: every 3 days from {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})} = {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+6*86400000).toLocaleDateString('en-US',{weekday:'short'})}...
+                    </p>
+                  </div>
+                )}
+
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIALS IN STOCK</label>
                   <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
@@ -300,7 +399,6 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                {/* Notes */}
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>NOTES (optional)</label>
                   <textarea value={c.notes} onChange={e => updateCompound(ci,'notes',e.target.value)} placeholder='Goals, context, side effects...' rows={2} style={{...is,resize:'none'}} />
@@ -312,7 +410,6 @@ export default function ManagePage() {
 
             <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
 
-            {/* Start date */}
             <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL START DATE</label>
               <input type='date' value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
@@ -330,7 +427,7 @@ export default function ManagePage() {
         {!showForm && protocols.length === 0 && (
           <div style={{textAlign:'center',padding:'48px 0'}}>
             <p style={{color:dg,marginBottom:'8px'}}>No protocols yet.</p>
-            <p style={{color:mg,fontSize:'13px'}}>Tap + New to create your first one.</p>
+            <p style={{fontSize:'13px',color:mg}}>Tap + New to create your first one.</p>
           </div>
         )}
 
@@ -348,6 +445,8 @@ export default function ManagePage() {
             </div>
             {(p.compounds||[]).map((c: any) => {
               const ph = (c.phases||[])[0]
+              const freq = ph?.frequency || ''
+              const isRolling = freq.startsWith('every') && freq.endsWith('days')
               const days = ph?.days_of_week || []
               const activeDays = DAYS.filter((_,i) => days.includes(DAY_NUMS[i]))
               return (
@@ -356,12 +455,18 @@ export default function ManagePage() {
                     <span style={{fontSize:'14px',fontWeight:'700',color:'var(--color-text)'}}>{c.name}</span>
                     <span style={{fontSize:'12px',color:dg}}>{ph?.dose}{ph?.dose_unit}</span>
                   </div>
-                  <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
-                    {activeDays.length > 0 ? activeDays.map(d => (
-                      <span key={d} style={{fontSize:'10px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 6px',borderRadius:'4px'}}>{d}</span>
-                    )) : <span style={{fontSize:'11px',color:mg}}>No schedule set</span>}
-                    {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>· {ph.time_of_day}</span>}
-                  </div>
+                  {isRolling ? (
+                    <span style={{fontSize:'11px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 8px',borderRadius:'4px',display:'inline-block'}}>
+                      Every {freq.replace('every','').replace('days','')} days
+                    </span>
+                  ) : (
+                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                      {activeDays.length > 0 ? activeDays.map(d => (
+                        <span key={d} style={{fontSize:'10px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 6px',borderRadius:'4px'}}>{d}</span>
+                      )) : <span style={{fontSize:'11px',color:mg}}>No schedule set</span>}
+                      {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>· {ph.time_of_day}</span>}
+                    </div>
+                  )}
                   {ph?.duration_weeks && <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginBottom:0}}>{ph.duration_weeks} week protocol</p>}
                 </div>
               )
