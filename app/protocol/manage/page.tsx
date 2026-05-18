@@ -124,14 +124,13 @@ export default function ManagePage() {
     setCompounds(u)
   }
 
-  async function save() {
+ async function save() {
     setError('')
     if (compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
     if (compounds.some(c => !c.dose.trim())) { setError('Every compound needs a dose.'); return }
     if (compounds.some(c => !c.reconstitution_date)) { setError('Reconstitution date is required.'); return }
     if (compounds.some(c => !c.bac_water_ml)) { setError('BAC water amount is required.'); return }
     
-    // Validation: weekly mode needs days selected, rolling mode needs valid cycle
     for (const c of compounds) {
       if (c.frequency_mode === 'weekly' && c.days_of_week.length === 0) {
         setError('Select at least one injection day for weekly schedules.')
@@ -153,7 +152,18 @@ export default function ManagePage() {
     const pName = compounds[0].name.trim()
     let protocolId = editingId
     
+    // NEW: Preserve tracking data before deleting
+    let trackingData: Record<string, any> = {}
     if (editingId) {
+      const { data: existing } = await supabase.from('compounds').select('name, ml_per_dose, doses_taken_override').eq('protocol_id', editingId)
+      if (existing) {
+        existing.forEach((c: any) => {
+          trackingData[c.name] = {
+            ml_per_dose: c.ml_per_dose,
+            doses_taken_override: c.doses_taken_override
+          }
+        })
+      }
       await supabase.from('protocols').update({ name: pName, start_date: startDate }).eq('id', editingId)
       await supabase.from('compounds').delete().eq('protocol_id', editingId)
     } else {
@@ -164,6 +174,10 @@ export default function ManagePage() {
     
     for (let ci = 0; ci < compounds.length; ci++) {
       const c = compounds[ci]
+      
+      // NEW: Restore tracking data if it exists
+      const saved = trackingData[c.name.trim()] || {}
+      
       const { data: ins } = await supabase.from('compounds').insert({
         protocol_id: protocolId,
         user_id: user.id,
@@ -174,21 +188,20 @@ export default function ManagePage() {
         reconstitution_date: c.reconstitution_date,
         notes: c.notes.trim(),
         vials_in_stock: c.vials_in_stock ? parseInt(c.vials_in_stock) : null,
+        ml_per_dose: saved.ml_per_dose ?? null,  // NEW: Restore ml_per_dose
+        doses_taken_override: saved.doses_taken_override ?? null,  // NEW: Restore doses counter
         position: ci
       }).select().single()
       if (!ins) continue
       
-      // Generate frequency string based on mode
       let frequency: string
       let daysOfWeek: number[]
       
       if (c.frequency_mode === 'rolling') {
-        // Rolling cycle: use 'everyXdays' format, clear days_of_week
         const cycle = parseInt(c.cycle_days)
         frequency = `every${cycle}days`
-        daysOfWeek = []  // Empty for rolling cycles
+        daysOfWeek = []
       } else {
-        // Weekly pattern: use 'Nx/week' format, keep days_of_week
         const daysCount = c.days_of_week.length
         const freqMap: Record<number,string> = {1:'1x/week',2:'2x/week',3:'3x/week',4:'4x/week',5:'5x/week',6:'6x/week',7:'daily'}
         frequency = freqMap[daysCount] || '1x/week'
