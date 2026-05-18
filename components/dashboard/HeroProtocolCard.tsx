@@ -76,14 +76,25 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
 const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
 
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, onShare }: Props) {
-  const [dosesRefresh, setDosesRefresh] = React.useState(0)
-  React.useEffect(() => {
-    function onStorage(e: StorageEvent) { if (e.key?.includes('_doses')) setDosesRefresh(n => n + 1) }
-    window.addEventListener('storage', onStorage)
-    // Also listen for custom event from same tab
-    function onDoses() { setDosesRefresh(n => n + 1) }
-    window.addEventListener('doses_updated', onDoses)
-    return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('doses_updated', onDoses) }
+  useEffect(() => {
+    loadAll()
+    const pending = localStorage.getItem('pendingProtocol')
+    if (pending) {
+      try {
+        const p = JSON.parse(pending)
+        setNewName(p.name || '')
+        setPrefillDose(p.dose?.toString() || '')
+        setPrefillVial(p.vial?.toString() || '')
+        setPrefillWater(p.water?.toString() || '')
+        setShowNewProtocol(true)
+        localStorage.removeItem('pendingProtocol')
+      } catch(e) { localStorage.removeItem('pendingProtocol') }
+    }
+    
+    // Listen for vial inventory updates
+    function handleDosesUpdate() { loadAll() }
+    window.addEventListener('doses_updated', handleDosesUpdate)
+    return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
   if (!activeProtocols || activeProtocols.length === 0) return null
 
