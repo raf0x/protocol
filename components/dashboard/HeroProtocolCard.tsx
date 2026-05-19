@@ -29,13 +29,18 @@ function getCompoundColor(name: string): string {
   return '#6c63ff'
 }
 
-function DynamicVial({ name, color, fillPct }: { name: string; color: string; fillPct: number }) {
+function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: string; color: string; fillPct: number; vialStrength?: number; vialUnit?: string }) {
   const short = name.split('/')[0].split('-')[0].split(' ')[0].slice(0, 7)
   const fill = Math.max(0, Math.min(1, fillPct))
   const W = 80; const H = 160; const capH = 18; const neckH = 12; const neckW = 28
   const bodyX = 10; const bodyY = capH + neckH; const bodyW = W - 20; const bodyH = H - bodyY - 16
   const fillH = bodyH * fill; const fillY = bodyY + bodyH - fillH
   const id = short.replace(/[^a-z0-9]/gi, '') + Math.random().toString(36).slice(2,5)
+  
+  // Ribbon positioning
+  const ribbonY = bodyY + bodyH * 0.35
+  const ribbonH = 24
+  
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} fill='none' xmlns='http://www.w3.org/2000/svg'>
       <defs>
@@ -64,9 +69,30 @@ function DynamicVial({ name, color, fillPct }: { name: string; color: string; fi
       {[0.25, 0.5, 0.75].map((tick) => (
         <line key={tick} x1={bodyX + bodyW - 1} y1={bodyY + bodyH * (1 - tick)} x2={bodyX + bodyW + 8} y2={bodyY + bodyH * (1 - tick)} stroke={color} strokeWidth='1.5' opacity='0.8'/>
       ))}
-      {/* Label */}
-      <text x={W/2} y={bodyY + bodyH * 0.42} textAnchor='middle' fontSize='8' fontWeight='800' fill={color} fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>{short}</text>
-      <text x={W/2} y={bodyY + bodyH * 0.42 + 16} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      
+      {/* Ribbon label */}
+      <g>
+        {/* Ribbon background */}
+        <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height={ribbonH} fill='rgba(0,0,0,0.85)' />
+        <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height={ribbonH} fill={color} opacity='0.15' />
+        {/* Top border */}
+        <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height='1' fill={color} opacity='0.6' />
+        {/* Bottom border */}
+        <rect x={bodyX - 2} y={ribbonY + ribbonH - 1} width={bodyW + 4} height='1' fill={color} opacity='0.6' />
+        
+        {/* Text */}
+        <text x={W/2} y={ribbonY + 10} textAnchor='middle' fontSize='7' fontWeight='800' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>
+          {short.toUpperCase()}
+        </text>
+        {vialStrength && vialUnit && (
+          <text x={W/2} y={ribbonY + 18} textAnchor='middle' fontSize='8' fontWeight='900' fill={color} fontFamily='Inter,system-ui,sans-serif'>
+            {vialStrength} {vialUnit}
+          </text>
+        )}
+      </g>
+      
+      {/* Fill percentage below ribbon */}
+      <text x={W/2} y={ribbonY + ribbonH + 24} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
       {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
@@ -225,7 +251,13 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
-          <DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} />
+         <DynamicVial 
+  name={activeCompound.name} 
+  color={color} 
+  fillPct={fillPct}
+  vialStrength={activeCompound.vial_strength}
+  vialUnit={activeCompound.vial_unit}
+/>
         </div>
       </div>
       <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
