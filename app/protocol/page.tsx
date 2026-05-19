@@ -3,10 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
-import InsightsCard from '../../components/dashboard/InsightsCard'
-import DailyLogCard from '../../components/dashboard/DailyLogCard'
-import CompoundNotes from '../../components/dashboard/CompoundNotes'
-import VialInventory from '../../components/dashboard/VialInventory'
 import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
 import TodaysInjections from '../../components/dashboard/TodaysInjections'
 import WeeklySummary from '../../components/dashboard/WeeklySummary'
@@ -446,7 +442,6 @@ export default function DashboardPage() {
         )}
 
         {/* Insights � InsightsCard component */}
-        <InsightsCard insights={vi} />
 
         {/* Charts + Summary toggles */}
         {entries.length > 1 && (
