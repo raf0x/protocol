@@ -4,13 +4,13 @@ type Props={currentWeight:number|null;totalLost:number;weightStartDate:string|nu
 export default function StatsBoxes({currentWeight,totalLost,weightStartDate,dueCompounds}:Props){
   const formatDate=(d:string|null)=>{if(!d)return '';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
   return(
-    <div style={{display:'flex',flexDirection:'row',gap:'8px',width:'100%',flexWrap:'wrap'}}>
-      <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center'}}>
+    <div style={{display:'flex',flexDirection:'row',gap:'8px',width:'100%'}}>
+      <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center',flex:'1'}}>
         <div style={{fontSize:'24px',fontWeight:'800',color:'#f59e0b',lineHeight:'1'}}>{currentWeight?`${currentWeight}`:'—'}</div>
         <div style={{fontSize:'14px',fontWeight:'700',color:'#f59e0b',marginTop:'2px'}}>lbs</div>
         <div style={{fontSize:'9px',fontWeight:'600',color:'var(--color-dim)',marginTop:'6px',letterSpacing:'0.5px'}}>CURRENT WEIGHT</div>
       </div>
-      <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center'}}>
+      <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center',flex:'1'}}>
         <div style={{fontSize:'24px',fontWeight:'800',color:totalLost>0?'#22c55e':totalLost<0?'#ef4444':'var(--color-dim)',lineHeight:'1'}}>{totalLost>0?'-':totalLost<0?'+':''}{Math.abs(totalLost)}</div>
         <div style={{fontSize:'14px',fontWeight:'700',color:totalLost>0?'#22c55e':totalLost<0?'#ef4444':'var(--color-dim)',marginTop:'2px'}}>lbs</div>
         <div style={{fontSize:'9px',fontWeight:'600',color:'var(--color-dim)',marginTop:'6px',letterSpacing:'0.5px'}}>WEIGHT CHANGE</div>
