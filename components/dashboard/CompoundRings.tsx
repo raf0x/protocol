@@ -26,7 +26,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
       background:'var(--color-card)',
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
-      padding:'16px',
+     padding:'24px 16px 16px 16px',
       display:'flex',
       flexDirection:'column',
       alignItems:'center',
