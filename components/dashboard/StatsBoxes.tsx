@@ -3,8 +3,8 @@
 type Props = {
   currentWeight: number | null
   totalLost: string | null
-  weightStartDate: string | null  // NEW
-  dueCompounds: { id: string; name: string }[]  // NEW
+  weightStartDate: string | null
+  dueCompounds: { id: string; name: string }[]
 }
 
 export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, dueCompounds }: Props) {
@@ -18,7 +18,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
   const hasMore = dueCompounds.length > 3
 
   return (
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
       {/* Current Weight */}
       <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
         <div style={{fontSize:'20px',fontWeight:'900',color:'#f59e0b'}}>{currentWeight ? currentWeight+' lbs' : '—'}</div>
@@ -34,7 +34,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
           WEIGHT CHANGE
         </div>
         {weightStartDate && (
-  <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',fontWeight:'600'}}>
+          <div style={{fontSize:'10px',color:dg,marginTop:'2px',fontWeight:'600'}}>
             since {new Date(weightStartDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </div>
         )}
@@ -46,7 +46,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
           <>
             <div style={{fontSize:'20px',fontWeight:'900',color:g}}>{dueCount}</div>
             <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>DUE TODAY</div>
-            <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'4px',textAlign:'center',lineHeight:'1.3',fontWeight:'600'}}>
+            <div style={{fontSize:'10px',color:dg,marginTop:'4px',textAlign:'center',lineHeight:'1.3',fontWeight:'600'}}>
               {dueNames}{hasMore ? '...' : ''}
             </div>
           </>
