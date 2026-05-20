@@ -1,62 +1,87 @@
 'use client'
+import Link from 'next/link'
 
 type Props = {
   currentWeight: number | null
-  totalLost: string | null
+  totalLost: number
   weightStartDate: string | null
   dueCompounds: { id: string; name: string }[]
 }
 
 export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, dueCompounds }: Props) {
-  const g = 'var(--color-green)'
-  const dg = 'var(--color-dim)'
-  const cb = 'var(--color-card)'
-  const bd = 'var(--color-border)'
-
-  const dueCount = dueCompounds.length
-  const dueNames = dueCompounds.map(c => c.name.split('/')[0].split(' ')[0]).slice(0, 3).join(', ')
-  const hasMore = dueCompounds.length > 3
+  const formatDate = (d: string | null) => {
+    if (!d) return ''
+    const dt = new Date(d + 'T00:00:00')
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '140px' }}>
       {/* Current Weight */}
-      <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <div style={{fontSize:'20px',fontWeight:'900',color:'#f59e0b'}}>{currentWeight ? currentWeight+' lbs' : '—'}</div>
-        <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>CURRENT WEIGHT</div>
+      <div style={{
+        background: 'var(--color-card)',
+        border: '1px solid var(--color-border)',
+        borderRadius: '10px',
+        padding: '16px 12px',
+        textAlign: 'center'
+      }}>
+        <div style={{ fontSize: '28px', fontWeight: '800', color: '#f59e0b', lineHeight: '1' }}>
+          {currentWeight ? `${currentWeight}` : '—'}
+        </div>
+        <div style={{ fontSize: '18px', fontWeight: '700', color: '#f59e0b', marginTop: '2px' }}>lbs</div>
+        <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
+          CURRENT WEIGHT
+        </div>
       </div>
 
       {/* Weight Change */}
-      <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        <div style={{fontSize:'20px',fontWeight:'900',color:totalLost !== null ? (parseFloat(totalLost) > 0 ? g : '#ff6b6b') : g}}>
-          {totalLost !== null ? (parseFloat(totalLost) > 0 ? '-'+Math.abs(parseFloat(totalLost)) : '+'+Math.abs(parseFloat(totalLost)))+' lbs' : '—'}
+      <div style={{
+        background: 'var(--color-card)',
+        border: '1px solid var(--color-border)',
+        borderRadius: '10px',
+        padding: '16px 12px',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          fontSize: '28px',
+          fontWeight: '800',
+          color: totalLost > 0 ? '#22c55e' : totalLost < 0 ? '#ef4444' : 'var(--color-dim)',
+          lineHeight: '1'
+        }}>
+          {totalLost > 0 ? '-' : totalLost < 0 ? '+' : ''}{Math.abs(totalLost)}
         </div>
-        <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>
+        <div style={{
+          fontSize: '18px',
+          fontWeight: '700',
+          color: totalLost > 0 ? '#22c55e' : totalLost < 0 ? '#ef4444' : 'var(--color-dim)',
+          marginTop: '2px'
+        }}>
+          lbs
+        </div>
+        <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
           WEIGHT CHANGE
         </div>
         {weightStartDate && (
-          <div style={{fontSize:'10px',color:dg,marginTop:'2px',fontWeight:'600'}}>
-            since {new Date(weightStartDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          <div style={{ fontSize: '8px', color: 'var(--color-muted)', marginTop: '4px' }}>
+            since {formatDate(weightStartDate)}
           </div>
         )}
       </div>
 
-      {/* Today's Injections */}
-      <div style={{background:cb,border:'1px solid '+bd,borderRadius:'10px',padding:'12px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-        {dueCount > 0 ? (
-          <>
-            <div style={{fontSize:'20px',fontWeight:'900',color:g}}>{dueCount}</div>
-            <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>DUE TODAY</div>
-            <div style={{fontSize:'10px',color:dg,marginTop:'4px',textAlign:'center',lineHeight:'1.3',fontWeight:'600'}}>
-              {dueNames}{hasMore ? '...' : ''}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{fontSize:'16px',fontWeight:'700',color:g}}>✓</div>
-            <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>ALL LOGGED</div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
+      {/* Due Today */}
+      <div style={{
+        background: 'var(--color-card)',
+        border: '1px solid var(--color-border)',
+        borderRadius: '10px',
+        padding: '16px 12px',
+        textAlign: 'center',
+        flex: '1'
+      }}>
+        <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--color-green)', lineHeight: '1' }}>
+          {dueCompounds.length}
+        </div>
+        <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '8px', letterSpacing: '0.5px' }}>
+          DUE TODAY
+        </div>
+        {dueCompounds.length > 0 ? (
+          <div style={{ fontSize: '10px', color: 'var(
