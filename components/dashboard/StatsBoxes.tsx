@@ -4,7 +4,7 @@ type Props={currentWeight:number|null;totalLost:number;weightStartDate:string|nu
 export default function StatsBoxes({currentWeight,totalLost,weightStartDate,dueCompounds}:Props){
   const formatDate=(d:string|null)=>{if(!d)return '';const dt=new Date(d+'T00:00:00');return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'})}
   return(
-    <div style={{display:'flex',flexDirection:'column',gap:'8px',width:'110px'}}>
+    <div style={{display:'flex',flexDirection:'row',gap:'8px',width:'100%',flexWrap:'wrap'}}>
       <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center'}}>
         <div style={{fontSize:'24px',fontWeight:'800',color:'#f59e0b',lineHeight:'1'}}>{currentWeight?`${currentWeight}`:'—'}</div>
         <div style={{fontSize:'14px',fontWeight:'700',color:'#f59e0b',marginTop:'2px'}}>lbs</div>
