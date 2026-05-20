@@ -21,7 +21,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const rows = 2
   const total = 6
   const padded = [...items, ...Array(total - items.length).fill(null)]
-  const ringSize = 76  // BIGGER rings
+  const ringSize = 76
   const overlapH = 14
   const overlapV = 14
 
@@ -30,22 +30,21 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
       background:'var(--color-card)',
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
-      padding:'16px',
-      display:'flex',
+      padding:'20px',
+      display:'inline-flex',  // Changed from flex to inline-flex
       alignItems:'center',
       justifyContent:'center',
       position:'relative',
       overflow:'hidden'
     }}>
-      {/* Subtle glow effect behind rings */}
       <div style={{
         position:'absolute',
         top:'50%',
         left:'50%',
         transform:'translate(-50%, -50%)',
-        width:'200px',
-        height:'200px',
-        background:'radial-gradient(circle, rgba(57,255,20,0.08) 0%, transparent 70%)',
+        width:'180px',
+        height:'180px',
+        background:'radial-gradient(circle, rgba(57,255,20,0.06) 0%, transparent 70%)',
         filter:'blur(40px)',
         pointerEvents:'none'
       }} />
@@ -61,8 +60,8 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
           const isLastCol = col === cols - 1
           const isLastRow = row === rows - 1
           return (
-            <div key={item.id} onClick={() => setActiveCompoundTab(item.id)} style={{width:`${ringSize}px`,height:`${ringSize}px`,borderRadius:'50%',border:(isActive?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?rc+'33':'var(--color-surface)',cursor:'pointer',boxShadow:isActive?`0 0 24px ${rc}, 0 0 12px ${rc}`:'0 2px 10px rgba(0,0,0,0.3)',transform:isActive?'scale(1.12)':'scale(1)',transition:'all 0.25s ease',marginRight:isLastCol?'0':`-${overlapH}px`,marginBottom:isLastRow?'0':`-${overlapV}px`,zIndex:isActive?100:row*10+col,position:'relative'}}>
-              <span style={{fontSize:'11px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
+            <div key={item.id} onClick={() => setActiveCompoundTab(item.id)} style={{width:`${ringSize}px`,height:`${ringSize}px`,borderRadius:'50%',border:(isActive?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?rc+'33':'rgba(10,10,15,0.85)',cursor:'pointer',boxShadow:isActive?`0 0 24px ${rc}, 0 0 12px ${rc}`:'0 2px 10px rgba(0,0,0,0.3)',transform:isActive?'scale(1.12)':'scale(1)',transition:'all 0.25s ease',marginRight:isLastCol?'0':`-${overlapH}px`,marginBottom:isLastRow?'0':`-${overlapV}px`,zIndex:isActive?100:row*10+col,position:'relative'}}>
+              <span style={{fontSize:'11px',fontWeight:'800',color:'#ffffff',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
               <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2',marginTop:'2px'}}>Wk {item.wk}</span>
             </div>
           )
