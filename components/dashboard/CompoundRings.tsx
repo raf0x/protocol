@@ -21,13 +21,36 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const rows = 2
   const total = 6
   const padded = [...items, ...Array(total - items.length).fill(null)]
-  const ringSize = 64
-  const overlapH = 10
-  const overlapV = 10
+  const ringSize = 76  // BIGGER rings
+  const overlapH = 14
+  const overlapV = 14
 
   return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{display:'grid',gridTemplateColumns:`repeat(${cols}, ${ringSize}px)`,gap:'0px',position:'relative'}}>
+    <div style={{
+      background:'var(--color-card)',
+      border:'1px solid var(--color-border)',
+      borderRadius:'12px',
+      padding:'16px',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      position:'relative',
+      overflow:'hidden'
+    }}>
+      {/* Subtle glow effect behind rings */}
+      <div style={{
+        position:'absolute',
+        top:'50%',
+        left:'50%',
+        transform:'translate(-50%, -50%)',
+        width:'200px',
+        height:'200px',
+        background:'radial-gradient(circle, rgba(57,255,20,0.08) 0%, transparent 70%)',
+        filter:'blur(40px)',
+        pointerEvents:'none'
+      }} />
+      
+      <div style={{display:'grid',gridTemplateColumns:`repeat(${cols}, ${ringSize}px)`,gap:'0px',position:'relative',zIndex:1}}>
         {padded.map((item: any, i: number) => {
           if (!item) return <div key={`empty-${i}`} style={{width:`${ringSize}px`,height:`${ringSize}px`}} />
           const rc = colors[i % colors.length]
@@ -38,9 +61,9 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
           const isLastCol = col === cols - 1
           const isLastRow = row === rows - 1
           return (
-            <div key={item.id} onClick={() => setActiveCompoundTab(item.id)} style={{width:`${ringSize}px`,height:`${ringSize}px`,borderRadius:'50%',border:(isActive?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?rc+'33':'var(--color-card)',cursor:'pointer',boxShadow:isActive?`0 0 20px ${rc}, 0 0 8px ${rc}`:'0 2px 8px rgba(0,0,0,0.2)',transform:isActive?'scale(1.15)':'scale(1)',transition:'all 0.25s ease',marginRight:isLastCol?'0':`-${overlapH}px`,marginBottom:isLastRow?'0':`-${overlapV}px`,zIndex:isActive?100:row*10+col,position:'relative'}}>
-              <span style={{fontSize:'10px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
-              <span style={{fontSize:'9px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2',marginTop:'2px'}}>Wk {item.wk}</span>
+            <div key={item.id} onClick={() => setActiveCompoundTab(item.id)} style={{width:`${ringSize}px`,height:`${ringSize}px`,borderRadius:'50%',border:(isActive?'4px':'3px')+' solid '+rc,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:isActive?rc+'33':'var(--color-surface)',cursor:'pointer',boxShadow:isActive?`0 0 24px ${rc}, 0 0 12px ${rc}`:'0 2px 10px rgba(0,0,0,0.3)',transform:isActive?'scale(1.12)':'scale(1)',transition:'all 0.25s ease',marginRight:isLastCol?'0':`-${overlapH}px`,marginBottom:isLastRow?'0':`-${overlapV}px`,zIndex:isActive?100:row*10+col,position:'relative'}}>
+              <span style={{fontSize:'11px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
+              <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2',marginTop:'2px'}}>Wk {item.wk}</span>
             </div>
           )
         })}
