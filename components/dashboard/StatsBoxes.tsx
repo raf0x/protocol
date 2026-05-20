@@ -1,5 +1,5 @@
 'use client'
-import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../lib/weightUtils'
+import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
 type Props = {
   currentWeight: number | null
