@@ -96,10 +96,10 @@ export default function Home() {
       <style dangerouslySetInnerHTML={{__html: scrollAnimStyles}} />
 
       {/* Nav */}
-      <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid var(--color-border)',position:'sticky',top:0,background:'var(--color-nav-blur)',backdropFilter:'blur(12px)',zIndex:50}}>
+      <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid var(--color-border)',position:'sticky',top:0,background:'var(--colo[...]
         <span style={{fontSize:'20px',fontWeight:'800',color:'var(--color-green)',letterSpacing:'2px'}}>PROTOCOL</span>
         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-          <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
+          <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'no[...]
         </div>
       </nav>
 
@@ -112,7 +112,7 @@ export default function Home() {
           <div style={{animation:'tickerDown 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
             <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}<[...]
             ))}
           </div>
         </div>
@@ -123,30 +123,30 @@ export default function Home() {
           <div style={{animation:'tickerDown2 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
             <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
             {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
+              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}<[...]
             ))}
           </div>
         </div>
 
         {/* Hero content */}
         <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
-          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
+          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fon[...]
           <div style={{marginBottom:'28px'}}>
             <div style={{display:'flex',justifyContent:'center'}}>
               <div style={{position:'relative',display:'inline-block'}}>
-                <h1 style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',WebkitTextStroke:'2px var(--color-green)',color:'transparent',margin:0,display:'block',userSelect:'none',whiteSpace:'nowrap'}}>Protocol</h1>
-                <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'var(--color-green)',position:'absolute',top:0,left:0,margin:0,display:'block',animation:'syringeFill 4s ease-in-out infinite',clipPath:'inset(0 100% 0 0)',textShadow:'0 0 40px var(--color-green-60)',whiteSpace:'nowrap'}}>Protocol</h1>
+                <h1 style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',WebkitTextStroke:'2px var(--color-green)',color:'transparent',margin:0,display:'b[...]
+                <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'var(--color-green)',position:'absolute',top:0,left:0,ma[...]
               </div>
             </div>
           </div>
           <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-text)',marginBottom:'10px',lineHeight:'1.3'}}>Stop guessing your protocol.</p>
           <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-green)',marginBottom:'20px',lineHeight:'1.3'}}>Start knowing what works.</p>
-          <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Optimize. The private protocol tracker for peptide and GLP-1 users. Not just logging — real insights.</p>
+          <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Optimize. The private protocol tracker for [...]
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'12px'}}>
-          <a href='/demo' style={{background:'var(--color-green)',color:'var(--color-green-text)',textDecoration:'none',fontWeight:'800',padding:'16px 48px',borderRadius:'8px',fontSize:'18px',letterSpacing:'0.5px',textAlign:'center',width:'100%',maxWidth:'320px',boxSizing:'border-box',display:'block'}}>See it in action →</a>
+          <a href='/demo' style={{background:'var(--color-green)',color:'var(--color-green-text)',textDecoration:'none',fontWeight:'800',padding:'16px 48px',borderRadius:'8px',fontSize:'18px',let[...]
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
-            <a href='/auth/login' style={{background:'var(--color-text)',color:'var(--color-bg)',textDecoration:'none',fontWeight:'800',padding:'12px 24px',borderRadius:'8px',fontSize:'14px'}}>Get early access</a>
-            <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'12px 24px',borderRadius:'8px',fontSize:'14px',border:'1px solid #1e1e2e'}}>Try the calculator →</a>
+            <a href='/auth/login' style={{background:'var(--color-text)',color:'var(--color-bg)',textDecoration:'none',fontWeight:'800',padding:'12px 24px',borderRadius:'8px',fontSize:'14px'}}>Ge[...]
+            <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'12px 24px',borderRadius:'8px',fontSize:'14px',border:'1px solid [...]
           </div>
         </div>
         </div>
@@ -155,7 +155,7 @@ export default function Home() {
       {/* Product screenshot */}
       <section style={{padding:'20px 24px 60px',maxWidth:'480px',margin:'0 auto',textAlign:'center'}}>
         <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'20px'}}>SEE YOUR PROGRESS</p>
-        <div className='scroll-hidden stagger-1' style={{borderRadius:'24px',overflow:'hidden',border:'1px solid var(--color-border)',boxShadow:'0 20px 60px rgba(108,99,255,0.15)',background:'var(--color-card)'}}>
+        <div className='scroll-hidden stagger-1' style={{borderRadius:'24px',overflow:'hidden',border:'1px solid var(--color-border)',boxShadow:'0 20px 60px rgba(108,99,255,0.15)',background:'var[...]
           <img src='/protocol.jpg' alt='Protocol Journal showing weight tracking, mood/energy/sleep charts, and weekly stats' style={{width:'100%',display:'block'}} />
         </div>
         <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginTop:'16px',lineHeight:'1.6'}}>Real data. Real trends. Real insights.</p>
@@ -165,7 +165,7 @@ export default function Home() {
       <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto',textAlign:'center'}}>
         <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'16px'}}>THE PROBLEM</p>
         <h2 className='scroll-hidden stagger-1' style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px',lineHeight:'1.3'}}>Most health apps weren't built for this.</h2>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7'}}>Generic fitness trackers don't understand peptide protocols. Reddit threads disappear. Spreadsheets don't give you insights. You deserve a tool built specifically for how you actually manage your wellness.</p>
+        <p className='scroll-hidden stagger-2' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7'}}>Generic fitness trackers don't understand peptide protocols. Reddit threads disappear. Sp[...]
       </section>
 
       {/* Features */}
@@ -185,7 +185,7 @@ export default function Home() {
           <div className='scroll-hidden glow-card stagger-2' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Private Community</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Anonymous cohorts for GLP-1, peptides, and TRT users. Real experiences from real people. No vendors, no noise, no exposure.</p>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Anonymous cohorts for GLP-1, peptides, and TRT users. Real experiences from real people. No vendors, no noise, no exposur[...]
           </div>
         </div>
       </section>
@@ -194,7 +194,7 @@ export default function Home() {
       <section style={{padding:'40px 0 60px',overflowX:'hidden'}}>
         <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'8px',textAlign:'center'}}>THE PEPTIDE UNIVERSE</p>
         <h2 className='scroll-hidden stagger-1' style={{fontSize:'22px',fontWeight:'800',marginBottom:'6px',textAlign:'center',color:'white'}}>Track any compound in your stack</h2>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginBottom:'28px',textAlign:'center',padding:'0 24px'}}>Protocol supports every major peptide and GLP-1. Your data stays private.</p>
+        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginBottom:'28px',textAlign:'center',padding:'0 24px'}}>Protocol supports every major peptide and GLP-1. Y[...]
         <div className='scroll-hidden stagger-3'>
           <PeptideHoneycomb />
         </div>
@@ -230,7 +230,7 @@ export default function Home() {
       {/* Privacy */}
       <section style={{padding:'60px 24px',background:'rgba(108,99,255,0.05)',borderTop:'1px solid var(--color-border)',borderBottom:'1px solid var(--color-border)',textAlign:'center'}}>
         <h2 className='scroll-hidden' style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px'}}>Privacy isn't a feature.<br/>It's the foundation.</h2>
-        <p className='scroll-hidden stagger-1' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7',maxWidth:'480px',margin:'0 auto 32px'}}>Your protocols, your journal, your data — none of it is ever sold, shared, or used for advertising. Protocol is a tool you own, not a platform that owns you.</p>
+        <p className='scroll-hidden stagger-1' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7',maxWidth:'480px',margin:'0 auto 32px'}}>Your protocols, your journal, your data — none of[...]
         <div style={{display:'flex',gap:'24px',justifyContent:'center',flexWrap:'wrap'}}>
           {['No ads ever','No data selling','End-to-end private','You own your data'].map(item => (
             <div key={item} style={{display:'flex',alignItems:'center',gap:'8px',color:'#8b8ba7',fontSize:'14px'}}>
@@ -242,9 +242,9 @@ export default function Home() {
 
       {/* FAQ */}
       <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto'}}>
-        <p id='faq' className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center',scrollMarginTop:'80px'}}>QUESTIONS</p>
+        <p id='faq' className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center',scrollMarginTop:'80px'}}>QUESTION[...]
         {[
-          { q: 'Is this medical advice?', a: 'No. Protocol is a personal tracking tool. It does not recommend doses, suggest compounds, or provide medical guidance. Always consult a qualified healthcare provider.' },
+          { q: 'Is this medical advice?', a: 'No. Protocol is a personal tracking tool. It does not recommend doses, suggest compounds, or provide medical guidance. Always consult a qualified hea[...]
           { q: 'Is my data private?', a: 'Yes. Your protocols, journal entries, and health data are visible only to you. We never sell, share, or use your data for advertising. Period.' },
           { q: 'What can I track?', a: 'Compounds with dose phases, injection schedules, mood, energy, sleep, hunger, weight, and discomfort. The app shows insights and trends over time.' },
           { q: 'Does it work on iPhone?', a: 'Yes. Protocol is a Progressive Web App — add it to your home screen from Safari and it works like a native app. No App Store needed.' },
@@ -259,14 +259,14 @@ export default function Home() {
 
       {/* Final CTA */}
       <section style={{padding:'80px 24px',textAlign:'center',maxWidth:'480px',margin:'0 auto'}}>
-        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'var(--color-green)'}}>actually matters.</span></h2>
+        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'var(--color-green)'}}>actually m[...]
         <p style={{color:'#8b8ba7',marginBottom:'32px',fontSize:'16px'}}>Free during early access. No credit card required.</p>
-        <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
+        <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'[...]
       </section>
 
       {/* Footer */}
       <footer style={{borderTop:'1px solid var(--color-border)',padding:'24px',textAlign:'center'}}>
-        <p style={{color:'#3d3d5c',fontSize:'13px'}}>© 2026 Protocol · <a href='/learn' style={{color:'#3d3d5c',textDecoration:'none'}}>Harm Reduction</a> · <a href='/calculator' style={{color:'#3d3d5c',textDecoration:'none'}}>Calculator</a></p>
+        <p style={{color:'#3d3d5c',fontSize:'13px'}}>© 2026 Protocol · <a href='/learn' style={{color:'#3d3d5c',textDecoration:'none'}}>Harm Reduction</a> · <a href='/calculator' style={{color[...]
         <p style={{color:'#3d3d5c',fontSize:'11px',marginTop:'8px'}}>Not medical advice. For personal harm reduction tracking only.</p>
       </footer>
 
