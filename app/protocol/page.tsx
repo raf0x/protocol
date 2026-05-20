@@ -1,5 +1,8 @@
 'use client'
 
+import StatsBoxes from '../../components/dashboard/StatsBoxes'
+import CompoundRings from '../../components/dashboard/CompoundRings'
+import CompactDailyLog from '../../components/dashboard/CompactDailyLog'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
@@ -307,14 +310,39 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Stats � StatsBar component */}
-        <StatsBar
-          currentWeight={lw ?? null}
-          totalLost={tl}
-          activeProtocols={activeProtocols}
-          activeCompoundTab={activeCompoundTab}
-          setActiveCompoundTab={setActiveCompoundTab}
-        />
+        {/* Three stat boxes */}
+<StatsBoxes
+  currentWeight={lw ?? null}
+  totalLost={tl}
+  weightStartDate={we[0]?.date ?? null}
+  dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
+/>
+
+{/* Compound rings */}
+<CompoundRings
+  activeProtocols={activeProtocols}
+  activeCompoundTab={activeCompoundTab}
+  setActiveCompoundTab={setActiveCompoundTab}
+/>
+
+{/* Compact daily log */}
+<CompactDailyLog
+  mood={mood}
+  energy={energy}
+  hunger={hunger}
+  sleep={sleep}
+  weight={weight}
+  notes={entryNotes}
+  saving={saving}
+  saved={saved}
+  onMoodChange={setMood}
+  onEnergyChange={setEnergy}
+  onHungerChange={setHunger}
+  onSleepChange={setSleep}
+  onWeightChange={setWeight}
+  onNotesChange={setEntryNotes}
+  onSave={saveEntry}
+/>
 
         {/* Hero protocol card */}
         <HeroProtocolCard
@@ -513,16 +541,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Daily log */}
-        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}><span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>DAILY LOG</span>{saved && <span style={{fontSize:'11px',color:g}}>✓ saved</span>}</div>
-          <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Mood</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={mood} onChange={setMood} />)}</div></div></div>
-          <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Energy</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} />)}</div></div></div>
-          <div style={{marginBottom:'12px'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'12px',color:dg}}>Hunger</span><div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} reverse />)}</div></div></div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'12px'}}><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep (hrs)</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} placeholder='7.5' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div><div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight (lbs)</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} placeholder='optional' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div></div>
-          <textarea value={entryNotes} onChange={e => setEntryNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
-          <button onClick={saveEntry} disabled={saving} style={{width:'100%',background:saving?'var(--color-green-20)':g,color:saving?'var(--color-muted)':'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':saved?'Update':'Save'}</button>
-        </div>
 
 
 
