@@ -26,19 +26,19 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const overlapV = 14
 
   return (
-    <div style={{
-      background:'var(--color-card)',
-      border:'1px solid var(--color-border)',
-      borderRadius:'12px',
-      padding:'20px',
-      display:'flex',
-      flexDirection:'column',
-      alignItems:'center',
-      justifyContent:'center',
-      gap:'16px',
-      position:'relative',
-      overflow:'hidden'
-    }}>
+   <div style={{
+  background:'var(--color-card)',
+  border:'1px solid var(--color-border)',
+  borderRadius:'12px',
+  padding:'16px',  // Reduced from 20px
+  display:'flex',
+  flexDirection:'column',
+  alignItems:'center',
+  justifyContent:'center',
+  gap:'24px',  // Increased from 16px
+  position:'relative',
+  overflow:'hidden'
+}}>
       <div style={{
         position:'absolute',
         top:'50%',
