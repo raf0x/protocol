@@ -276,10 +276,49 @@ export default function DashboardPage() {
   protocolEvents.forEach((ev: any) => { const evDate = new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); mk.push({ date: evDate, label: ev.description }) })
 
   const ins: { text: string; accent: string }[] = []
-  if (we.length >= 2) { const diff = sw! - lw!; const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000)); const wb = Math.max(1, db/7); if (diff > 0) { ins.push({ text: `You're down ${diff.toFixed(1)} lbs since you started — keep going`, accent: g }); if (wb >= 2) { const wr = diff/wb; ins.push({ text: `Averaging ${wr.toFixed(1)} lbs lost per week`, accent: g }); ins.push({ text: `At this rate: ${(lw!-(wr*3)).toFixed(0)} lbs in 3 weeks`, accent: '#6c63ff' }) } } }
-  if (entries.length >= 5) { const me = entries.filter((e: any) => e.mood !== null); if (me.length >= 3) { const am = me.reduce((s: number, e: any) => s+e.mood, 0)/me.length; ins.push({ text: `Mood trend: averaging ${am.toFixed(1)}/5 — ${am >= 4 ? 'strong' : am >= 3 ? 'stable' : 'review your recent changes'}`, accent: g }) } const rw = entries.slice(0,7).filter((e: any) => e.sleep !== null); if (rw.length >= 3) { const as2 = rw.reduce((s: number, e: any) => s+e.sleep, 0)/rw.length; ins.push({ text: `Sleep: ${as2.toFixed(1)} hrs avg this week — ${as2 >= 7.5 ? 'recovery on track' : as2 >= 6 ? 'watch for decline' : 'sleep quality needs attention'}`, accent: '#06b6d4' }) } }
-  const he = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined); if (he.length >= 3) { const ah = he.reduce((s: number, e: any) => s+e.hunger, 0)/he.length; if (ah <= 2.5) ins.push({ text: `Appetite: suppressed (${ah.toFixed(1)}/5) — protocol is delivering`, accent: '#8b5cf6' }); else if (ah >= 4) ins.push({ text: `Appetite: elevated (${ah.toFixed(1)}/5) — track closely this week`, accent: '#f59e0b' }) }
-  if (currentWeek > 0) ins.push({ text: `${currentWeek} week${currentWeek > 1 ? 's' : ''} into your cycle — consistency is paying off`, accent: '#6c63ff' })
+  
+  // Weight tracking - pure observation
+  if (we.length >= 2) {
+    const diff = sw! - lw!
+    const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000))
+    const wb = Math.max(1, db/7)
+    if (diff > 0) {
+      ins.push({ text: `Weight change: down ${diff.toFixed(1)} lbs since you started`, accent: g })
+      if (wb >= 2) {
+        const wr = diff/wb
+        ins.push({ text: `Average: ${wr.toFixed(1)} lbs per week over ${wb.toFixed(0)} weeks`, accent: g })
+      }
+    }
+  }
+  
+  // Mood tracking - pure observation
+  if (entries.length >= 5) {
+    const me = entries.filter((e: any) => e.mood !== null)
+    if (me.length >= 3) {
+      const am = me.reduce((s: number, e: any) => s+e.mood, 0)/me.length
+      ins.push({ text: `Mood: averaging ${am.toFixed(1)}/5 over ${me.length} entries`, accent: g })
+    }
+    
+    // Sleep tracking - pure observation
+    const rw = entries.slice(0,7).filter((e: any) => e.sleep !== null)
+    if (rw.length >= 3) {
+      const as2 = rw.reduce((s: number, e: any) => s+e.sleep, 0)/rw.length
+      ins.push({ text: `Sleep: ${as2.toFixed(1)} hours average this week`, accent: '#06b6d4' })
+    }
+  }
+  
+  // Hunger tracking - pure observation
+  const he = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined)
+  if (he.length >= 3) {
+    const ah = he.reduce((s: number, e: any) => s+e.hunger, 0)/he.length
+    ins.push({ text: `Appetite: ${ah.toFixed(1)}/5 average over ${he.length} entries`, accent: '#8b5cf6' })
+  }
+  
+  // Timeline tracking - pure observation
+  if (currentWeek > 0) {
+    ins.push({ text: `Week ${currentWeek} — ${entries.length} total journal entries logged`, accent: '#6c63ff' })
+  }
+  
   const vi = ins.slice(0, 3)
 
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
@@ -530,7 +569,7 @@ export default function DashboardPage() {
                   </div>
                   <div style={{display:'flex',gap:'8px',flexShrink:0}}>
                     <button onClick={() => startEditEvent(ev)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'11px'}}>Edit</button>
-                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>Delete</button>
+                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>×</button>
                   </div>
                 </div>
               )
