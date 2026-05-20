@@ -34,7 +34,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
           WEIGHT CHANGE
         </div>
         {weightStartDate && (
-          <div style={{fontSize:'9px',color:'var(--color-muted)',marginTop:'2px'}}>
+  <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',fontWeight:'600'}}>
             since {new Date(weightStartDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </div>
         )}
@@ -46,7 +46,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
           <>
             <div style={{fontSize:'20px',fontWeight:'900',color:g}}>{dueCount}</div>
             <div style={{fontSize:'10px',color:dg,marginTop:'2px',letterSpacing:'1px',fontWeight:'600'}}>DUE TODAY</div>
-            <div style={{fontSize:'9px',color:'var(--color-muted)',marginTop:'4px',textAlign:'center',lineHeight:'1.3'}}>
+            <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'4px',textAlign:'center',lineHeight:'1.3',fontWeight:'600'}}>
               {dueNames}{hasMore ? '...' : ''}
             </div>
           </>
