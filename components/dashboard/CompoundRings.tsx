@@ -26,7 +26,7 @@ const overlapV = 14  // Back to 14
       background:'var(--color-card)',
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
-      padding:'16px',
+      padding:'12px',
       display:'flex',
       flexDirection:'column',
       alignItems:'center',
