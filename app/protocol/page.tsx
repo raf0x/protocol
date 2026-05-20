@@ -314,7 +314,7 @@ export default function DashboardPage() {
 <div style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:'8px',marginBottom:'16px'}}>
   <StatsBoxes
     currentWeight={lw ?? null}
-    totalLost={tl}
+    totalLost={tl ? Number(tl) : 0}
     weightStartDate={we[0]?.date ?? null}
     dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
   />
@@ -332,7 +332,7 @@ export default function DashboardPage() {
           activeCompoundTab={activeCompoundTab}
           logs={logs}
           allLogs={allLogs}
-          totalLost={tl}
+         totalLost={tl ? Number(tl) : 0}
           compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
           onShare={shareProtocol}
         />
