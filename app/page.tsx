@@ -265,10 +265,10 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer style={{borderTop:'1px solid var(--color-border)',padding:'24px',textAlign:'center'}}>
-        <p style={{color:'#3d3d5c',fontSize:'13px'}}>© 2026 Protocol · <a href='/learn' style={{color:'#3d3d5c',textDecoration:'none'}}>Harm Reduction</a> · <a href='/calculator' style={{color:'#3d3d5c',textDecoration:'none'}}>Calculator</a></p>
-        <p style={{color:'#3d3d5c',fontSize:'11px',marginTop:'8px'}}>Not medical advice. For personal harm reduction tracking only.</p>
-      </footer>
+<footer style={{borderTop:'1px solid var(--color-border)',padding:'24px',textAlign:'center'}}>
+  <p style={{color:'#3d3d5c',fontSize:'13px'}}>© 2026 Protocol · <a href='/privacy' style={{color:'#3d3d5c',textDecoration:'none'}}>Privacy</a> · <a href='/calculator' style={{color:'#3d3d5c',textDecoration:'none'}}>Calculator</a></p>
+  <p style={{color:'#3d3d5c',fontSize:'11px',marginTop:'8px'}}>Not medical advice. For personal harm reduction tracking only.</p>
+</footer>
 
     </main>
   )
