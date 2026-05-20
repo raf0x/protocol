@@ -310,20 +310,21 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Three stat boxes */}
-<StatsBoxes
-  currentWeight={lw ?? null}
-  totalLost={tl}
-  weightStartDate={we[0]?.date ?? null}
-  dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
-/>
-
-{/* Compound rings */}
-<CompoundRings
-  activeProtocols={activeProtocols}
-  activeCompoundTab={activeCompoundTab}
-  setActiveCompoundTab={setActiveCompoundTab}
-/>
+        {/* Side-by-side: Stats on left, Rings on right */}
+<div style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:'12px',marginBottom:'16px'}}>
+  <StatsBoxes
+    currentWeight={lw ?? null}
+    totalLost={tl}
+    weightStartDate={we[0]?.date ?? null}
+    dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
+  />
+  
+  <CompoundRings
+    activeProtocols={activeProtocols}
+    activeCompoundTab={activeCompoundTab}
+    setActiveCompoundTab={setActiveCompoundTab}
+  />
+</div>
 
         {/* Hero protocol card */}
         <HeroProtocolCard
