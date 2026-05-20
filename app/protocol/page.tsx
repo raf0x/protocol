@@ -311,7 +311,7 @@ export default function DashboardPage() {
         )}
 
         {/* Side-by-side: Stats on left, Rings on right */}
-<div style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:'8px',marginBottom:'16px'}}>
+<div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '8px', marginBottom: '16px' }}>  // Was 140px
   <StatsBoxes
     currentWeight={lw ?? null}
     totalLost={tl ? Number(tl) : 0}
