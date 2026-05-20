@@ -114,48 +114,54 @@ export default function CompactDailyLog({
           </button>
         ))}
 
-        {/* Sleep inline */}
-        <input
-          type='number'
-          step='0.5'
-          value={sleep}
-          onChange={e => onSleepChange(e.target.value)}
-          placeholder='Sleep'
-          style={{
-            flex:'1 1 0',
-            minWidth:'90px',
-            background:cb,
-            border:'1px solid '+bd,
-            borderRadius:'8px',
-            padding:'8px 10px',
-            color:'var(--color-text)',
-            fontSize:'12px',
-            textAlign:'center',
-            boxSizing:'border-box'
-          }}
-        />
+        {/* Sleep & Weight with labels */}
+<div style={{display:'flex',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
+  <div style={{flex:'1 1 0',minWidth:'90px'}}>
+    <span style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'700',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>SLEEP (HRS)</span>
+    <input
+      type='number'
+      step='0.5'
+      value={sleep}
+      onChange={e => onSleepChange(e.target.value)}
+      placeholder='7.5'
+      style={{
+        width:'100%',
+        background:cb,
+        border:'1px solid '+bd,
+        borderRadius:'8px',
+        padding:'10px',
+        color:'var(--color-text)',
+        fontSize:'14px',
+        fontWeight:'600',
+        textAlign:'center',
+        boxSizing:'border-box'
+      }}
+    />
+  </div>
 
-        {/* Weight inline */}
-        <input
-          type='number'
-          step='0.1'
-          value={weight}
-          onChange={e => onWeightChange(e.target.value)}
-          placeholder='Weight'
-          style={{
-            flex:'1 1 0',
-            minWidth:'90px',
-            background:cb,
-            border:'1px solid '+bd,
-            borderRadius:'8px',
-            padding:'8px 10px',
-            color:'var(--color-text)',
-            fontSize:'12px',
-            textAlign:'center',
-            boxSizing:'border-box'
-          }}
-        />
-      </div>
+  <div style={{flex:'1 1 0',minWidth:'90px'}}>
+    <span style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'700',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>WEIGHT (LBS)</span>
+    <input
+      type='number'
+      step='0.1'
+      value={weight}
+      onChange={e => onWeightChange(e.target.value)}
+      placeholder='175'
+      style={{
+        width:'100%',
+        background:cb,
+        border:'1px solid '+bd,
+        borderRadius:'8px',
+        padding:'10px',
+        color:'var(--color-text)',
+        fontSize:'14px',
+        fontWeight:'600',
+        textAlign:'center',
+        boxSizing:'border-box'
+      }}
+    />
+  </div>
+</div>
 
       {/* Expanded rating buttons */}
       {openTab && tabs.find(t => t.id === openTab) && (
