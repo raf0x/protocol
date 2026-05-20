@@ -17,21 +17,21 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const tabId = activeCompoundTab || items[0]?.id
   if (items.length === 0) return null
 
-const ringSize = 76  // Back to 76
-const overlapH = 14  // Back to 14
-const overlapV = 14  // Back to 14
+  const ringSize = 76
+  const overlapH = 14
+  const overlapV = 14
 
   return (
     <div style={{
       background:'var(--color-card)',
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
-      padding:'12px',
+      padding:'16px',
       display:'flex',
       flexDirection:'column',
       alignItems:'center',
       justifyContent:'center',
-      gap:'20px',
+      gap:'24px',
       position:'relative',
       overflow:'hidden'
     }}>
@@ -47,7 +47,6 @@ const overlapV = 14  // Back to 14
         pointerEvents:'none'
       }} />
       
-      {/* Dynamic grid - NO empty placeholders */}
       <div style={{
         display:'grid',
         gridTemplateColumns:`repeat(3, ${ringSize}px)`,
@@ -97,9 +96,9 @@ const overlapV = 14  // Back to 14
           background:'var(--color-green-10)',
           border:'2px solid var(--color-green-30)',
           borderRadius:'8px',
-          padding:'12px 24px',
+          padding:'10px 20px',
           color:'var(--color-green)',
-          fontSize:'13px',
+          fontSize:'12px',
           fontWeight:'700',
           cursor:'pointer',
           transition:'all 0.2s ease',
