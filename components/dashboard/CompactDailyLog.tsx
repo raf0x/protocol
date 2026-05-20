@@ -32,16 +32,16 @@ export default function CompactDailyLog({ mood, energy, hunger, sleep, weight, n
           {[1,2,3,4,5].map(v => { const activeTab = tabs.find(t => t.id === openTab)!; return <ScoreBtn key={v} value={v} current={activeTab.value} onChange={activeTab.onChange} reverse={activeTab.reverse} /> })}
         </div>
       )}
-      <div style={{display:'flex',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
-        <div style={{flex:'1 1 0',minWidth:'90px'}}>
-          <span style={{fontSize:'9px',color:mg,fontWeight:'700',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>SLEEP (HRS)</span>
-          <input type='number' step='0.5' value={sleep} onChange={e => onSleepChange(e.target.value)} placeholder='7.5' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',fontWeight:'600',textAlign:'center',boxSizing:'border-box'}} />
-        </div>
-        <div style={{flex:'1 1 0',minWidth:'90px'}}>
-          <span style={{fontSize:'9px',color:mg,fontWeight:'700',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>WEIGHT (LBS)</span>
-          <input type='number' step='0.1' value={weight} onChange={e => onWeightChange(e.target.value)} placeholder='175' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',fontWeight:'600',textAlign:'center',boxSizing:'border-box'}} />
-        </div>
-      </div>
+     <div style={{display:'flex',gap:'6px',marginBottom:'10px',flexWrap:'wrap'}}>
+  <div style={{flex:'1 1 0',minWidth:'90px'}}>
+    <span style={{fontSize:'11px',color:'var(--color-text)',fontWeight:'600',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>SLEEP (HRS)</span>
+    <input type='number' step='0.5' value={sleep} onChange={e => onSleepChange(e.target.value)} placeholder='7.5' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',fontWeight:'600',textAlign:'center',boxSizing:'border-box'}} />
+  </div>
+  <div style={{flex:'1 1 0',minWidth:'90px'}}>
+    <span style={{fontSize:'11px',color:'var(--color-text)',fontWeight:'600',letterSpacing:'0.5px',display:'block',marginBottom:'4px'}}>WEIGHT (LBS)</span>
+    <input type='number' step='0.1' value={weight} onChange={e => onWeightChange(e.target.value)} placeholder='175' style={{width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',fontWeight:'600',textAlign:'center',boxSizing:'border-box'}} />
+  </div>
+</div>
       <textarea value={notes} onChange={e => onNotesChange(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'var(--color-surface)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'12px',boxSizing:'border-box',resize:'none',marginBottom:'10px'}} />
       <button onClick={onSave} disabled={saving} style={{width:'100%',background:saving?'var(--color-green-20)':g,color:saving?'var(--color-muted)':'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':saved?'Update':'Save'}</button>
     </div>
