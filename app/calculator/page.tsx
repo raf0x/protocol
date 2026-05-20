@@ -158,11 +158,11 @@ export default function ReconstitutionCalculator() {
           </button>
         </div>
 
-        {smartMode && (
-          <div style={{background:'var(--color-green-05)',border:'1px solid var(--color-green-20)',borderRadius:'10px',padding:'12px',marginBottom:'16px',fontSize:'12px',color:dg,lineHeight:'1.6'}}>
-            Enter your desired dose and vial strength. We will automatically calculate the ideal amount of BAC water to give you a clean, easy-to-read syringe measurement.
-          </div>
-        )}
+       {smartMode && (
+  <div style={{background:'var(--color-green-05)',border:'1px solid var(--color-green-20)',borderRadius:'10px',padding:'12px',marginBottom:'16px',fontSize:'12px',color:dg,lineHeight:'1.6'}}>
+    Enter your desired dose and vial strength. We will suggest an amount of BAC water that gives you a clean, easy-to-read syringe measurement. Always verify calculations with your healthcare provider.
+  </div>
+)}
 
         {/* Inputs */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px',display:'flex',flexDirection:'column',gap:'14px'}}>
@@ -221,8 +221,8 @@ export default function ReconstitutionCalculator() {
                 Then draw to the <span style={{color:'var(--color-text)',fontWeight:'700'}}>{smartRec.units} unit</span> mark on your U-100 syringe. This equals exactly <span style={{color:'var(--color-text)',fontWeight:'700'}}>{activeDose}mg</span>.
               </div>
               <div style={{fontSize:'12px',color:mg,lineHeight:'1.5',borderTop:'1px solid var(--color-green-15)',paddingTop:'10px'}}>
-                Why {smartRec.units} units? The {smartRec.units}u mark is a bold line on every U-100 syringe � easy to hit accurately. {smartRec.water.toFixed(1)}mL is a stable reconstitution volume for most peptide vials.
-              </div>
+  Why {smartRec.units} units? The {smartRec.units}u mark is clearly visible on U-100 syringes for accurate measurement. {smartRec.water.toFixed(1)}mL is a common reconstitution volume. This is a calculation tool - verify all measurements with your provider.
+</div>
             </>) : (
               <div style={{fontSize:'13px',color:'#f97316'}}>No clean syringe reading found for this combination. Switch to Advanced mode to set BAC water manually.</div>
             )}
@@ -272,7 +272,9 @@ export default function ReconstitutionCalculator() {
               </div>
             </div>
           </div>
-          <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>For U-100 insulin syringes only. Reference tool. Not medical advice � verify all calculations independently.</p>
+          <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>
+  For U-100 insulin syringes only. Calculation tool for reference. Not medical advice — always consult a healthcare provider and verify all measurements independently.
+</p>
 
           {hasAll && (
             <div style={{marginTop:'16px',paddingTop:'16px',borderTop:'1px solid '+bd}}>
