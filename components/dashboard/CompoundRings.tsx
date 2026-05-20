@@ -71,33 +71,39 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
         })}
       </div>
 
-      {/* Add Protocol button */}
-      <button
-        onClick={() => window.location.href = '/protocol/manage'}
-        style={{
-          background:'none',
-          border:'1px dashed var(--color-border)',
-          borderRadius:'8px',
-          padding:'10px 20px',
-          color:'var(--color-dim)',
-          fontSize:'12px',
-          fontWeight:'600',
-          cursor:'pointer',
-          transition:'all 0.2s ease',
-          zIndex:1,
-          position:'relative'
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.borderColor = 'var(--color-green)'
-          e.currentTarget.style.color = 'var(--color-green)'
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.borderColor = 'var(--color-border)'
-          e.currentTarget.style.color = 'var(--color-dim)'
-        }}
-      >
-        + Add Protocol
-      </button>
+    {/* Add Protocol button */}
+<button
+  onClick={() => window.location.href = '/protocol/manage'}
+  style={{
+    background:'var(--color-green-10)',
+    border:'2px solid var(--color-green-30)',
+    borderRadius:'8px',
+    padding:'12px 24px',
+    color:'var(--color-green)',
+    fontSize:'13px',
+    fontWeight:'700',
+    cursor:'pointer',
+    transition:'all 0.2s ease',
+    zIndex:1,
+    position:'relative',
+    display:'flex',
+    alignItems:'center',
+    gap:'6px'
+  }}
+  onMouseOver={(e) => {
+    e.currentTarget.style.background = 'var(--color-green-15)'
+    e.currentTarget.style.borderColor = 'var(--color-green)'
+    e.currentTarget.style.transform = 'scale(1.02)'
+  }}
+  onMouseOut={(e) => {
+    e.currentTarget.style.background = 'var(--color-green-10)'
+    e.currentTarget.style.borderColor = 'var(--color-green-30)'
+    e.currentTarget.style.transform = 'scale(1)'
+  }}
+>
+  <span style={{fontSize:'16px'}}>+</span>
+  <span>Add Protocol</span>
+</button>
     </div>
   )
 }
