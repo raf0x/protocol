@@ -95,13 +95,13 @@ export default function Home() {
     <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
       <style dangerouslySetInnerHTML={{__html: scrollAnimStyles}} />
 
-      {/* Nav */}
-      <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid var(--color-border)',position:'sticky',top:0,background:'var(--color-nav-blur)',backdropFilter:'blur(12px)',zIndex:50}}>
-        <span style={{fontSize:'20px',fontWeight:'800',color:'var(--color-green)',letterSpacing:'2px'}}>PROTOCOL</span>
-        <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-          <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'no[...]
-        </div>
-      </nav>
+     {/* Nav */}
+<nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid var(--color-border)',position:'sticky',top:0,background:'var(--color-nav-blur)',backdropFilter:'blur(12px)',zIndex:50}}>
+  <span style={{fontSize:'20px',fontWeight:'800',color:'var(--color-green)',letterSpacing:'2px'}}>PROTOCOL</span>
+  <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
+    <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
+  </div>
+</nav>
 
       {/* Hero */}
       <section style={{padding:'60px 24px 40px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
