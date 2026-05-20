@@ -325,25 +325,6 @@ export default function DashboardPage() {
   setActiveCompoundTab={setActiveCompoundTab}
 />
 
-{/* Compact daily log */}
-<CompactDailyLog
-  mood={mood}
-  energy={energy}
-  hunger={hunger}
-  sleep={sleep}
-  weight={weight}
-  notes={entryNotes}
-  saving={saving}
-  saved={saved}
-  onMoodChange={setMood}
-  onEnergyChange={setEnergy}
-  onHungerChange={setHunger}
-  onSleepChange={setSleep}
-  onWeightChange={setWeight}
-  onNotesChange={setEntryNotes}
-  onSave={saveEntry}
-/>
-
         {/* Hero protocol card */}
         <HeroProtocolCard
           activeProtocols={activeProtocols}
@@ -453,7 +434,24 @@ export default function DashboardPage() {
         {/* Weekly schedule */}
         <WeeklySchedule activeProtocols={activeProtocols} />
 
-
+{/* Compact daily log */}
+<CompactDailyLog
+  mood={mood}
+  energy={energy}
+  hunger={hunger}
+  sleep={sleep}
+  weight={weight}
+  notes={entryNotes}
+  saving={saving}
+  saved={saved}
+  onMoodChange={setMood}
+  onEnergyChange={setEnergy}
+  onHungerChange={setHunger}
+  onSleepChange={setSleep}
+  onWeightChange={setWeight}
+  onNotesChange={setEntryNotes}
+  onSave={saveEntry}
+/>
 
         {/* Weekly summary � Sundays only */}
         <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
