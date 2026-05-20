@@ -28,7 +28,10 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
         <div style={{ fontSize: '24px', fontWeight: '800', color: '#f59e0b', lineHeight: '1' }}>
           {displayWeight ? formatWeight(displayWeight, weightUnit) : '—'}
         </div>
-        <div style={{ fontSize: '14px', fontWeight: '700', color: '#f59e0b', marginTop: '2px' }}>{unit}</div>
+        <div style={{ fontSize: '14px', fontWeight: '700', color: '#f59e0b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+  {unit}
+  <span style={{ fontSize: '10px', opacity: 0.6 }}>⇄</span>
+</div>
         <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
           CURRENT WEIGHT
         </div>
