@@ -11,15 +11,15 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
     const di = Math.max(0, Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000))
     const wk = Math.max(1, Math.floor(di/7)+1)
     return { id: c.id, name: c.name, wk }
-  })).slice(0, 6)
+  })).slice(0, 9)  // Increased to 9
 
-  const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
+  const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635','#8b5cf6','#ec4899','#14b8a6']  // Added 3 more colors
   const tabId = activeCompoundTab || items[0]?.id
   if (items.length === 0) return null
 
   const cols = 3
-  const rows = 2
-  const total = 6
+  const rows = 3  // Changed from 2 to 3
+  const total = 9  // Changed from 6 to 9
   const padded = [...items, ...Array(total - items.length).fill(null)]
   const ringSize = 76
   const overlapH = 14
@@ -71,39 +71,39 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
         })}
       </div>
 
-    {/* Add Protocol button */}
-<button
-  onClick={() => window.location.href = '/protocol/manage'}
-  style={{
-    background:'var(--color-green-10)',
-    border:'2px solid var(--color-green-30)',
-    borderRadius:'8px',
-    padding:'12px 24px',
-    color:'var(--color-green)',
-    fontSize:'13px',
-    fontWeight:'700',
-    cursor:'pointer',
-    transition:'all 0.2s ease',
-    zIndex:1,
-    position:'relative',
-    display:'flex',
-    alignItems:'center',
-    gap:'6px'
-  }}
-  onMouseOver={(e) => {
-    e.currentTarget.style.background = 'var(--color-green-15)'
-    e.currentTarget.style.borderColor = 'var(--color-green)'
-    e.currentTarget.style.transform = 'scale(1.02)'
-  }}
-  onMouseOut={(e) => {
-    e.currentTarget.style.background = 'var(--color-green-10)'
-    e.currentTarget.style.borderColor = 'var(--color-green-30)'
-    e.currentTarget.style.transform = 'scale(1)'
-  }}
->
-  <span style={{fontSize:'16px'}}>+</span>
-  <span>Add Protocol</span>
-</button>
+      {/* Add Protocol button */}
+      <button
+        onClick={() => window.location.href = '/protocol/manage'}
+        style={{
+          background:'var(--color-green-10)',
+          border:'2px solid var(--color-green-30)',
+          borderRadius:'8px',
+          padding:'12px 24px',
+          color:'var(--color-green)',
+          fontSize:'13px',
+          fontWeight:'700',
+          cursor:'pointer',
+          transition:'all 0.2s ease',
+          zIndex:1,
+          position:'relative',
+          display:'flex',
+          alignItems:'center',
+          gap:'6px'
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.background = 'var(--color-green-15)'
+          e.currentTarget.style.borderColor = 'var(--color-green)'
+          e.currentTarget.style.transform = 'scale(1.02)'
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.background = 'var(--color-green-10)'
+          e.currentTarget.style.borderColor = 'var(--color-green-30)'
+          e.currentTarget.style.transform = 'scale(1)'
+        }}
+      >
+        <span style={{fontSize:'16px'}}>+</span>
+        <span>Add Protocol</span>
+      </button>
     </div>
   )
 }
