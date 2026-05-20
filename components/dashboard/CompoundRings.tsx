@@ -21,12 +21,17 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   // Determine layout: 2 columns for ≤6 items, 3 columns for 7+
   const cols = items.length <= 6 ? 2 : 3
   const rows = Math.ceil(items.length / cols)
+  
+  // Ring sizing - bigger rings, tighter overlap
+  const ringSize = 76
+  const overlapH = 18  // horizontal overlap
+  const overlapV = 18  // vertical overlap
 
   return (
     <div style={{marginBottom:'16px',display:'flex',justifyContent:'center'}}>
       <div style={{
         display:'grid',
-        gridTemplateColumns:`repeat(${cols}, 70px)`,
+        gridTemplateColumns:`repeat(${cols}, ${ringSize}px)`,
         gap:'0px',
         position:'relative'
       }}>
@@ -45,8 +50,8 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
               key={item.id}
               onClick={() => setActiveCompoundTab(item.id)}
               style={{
-                width:'70px',
-                height:'70px',
+                width:`${ringSize}px`,
+                height:`${ringSize}px`,
                 borderRadius:'50%',
                 border:(isActive?'4px':'3px')+' solid '+rc,
                 display:'flex',
@@ -55,12 +60,12 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
                 justifyContent:'center',
                 background:isActive?rc+'33':'var(--color-card)',
                 cursor:'pointer',
-                boxShadow:isActive?'0 0 20px '+rc+', 0 0 8px '+rc:'0 2px 8px rgba(0,0,0,0.15)',
-                transform:isActive?'scale(1.1)':'scale(1)',
+                boxShadow:isActive?`0 0 20px ${rc}, 0 0 8px ${rc}`:'0 2px 8px rgba(0,0,0,0.2)',
+                transform:isActive?'scale(1.12)':'scale(1)',
                 transition:'all 0.25s ease',
-                marginRight:isLastCol?'0':'-12px',
-                marginBottom:isLastRow?'0':'-12px',
-                zIndex:isActive?100:row+col,
+                marginRight:isLastCol?'0':`-${overlapH}px`,
+                marginBottom:isLastRow?'0':`-${overlapV}px`,
+                zIndex:isActive?100:row*10+col,
                 position:'relative'
               }}
             >
