@@ -332,7 +332,7 @@ export default function DashboardPage() {
           activeCompoundTab={activeCompoundTab}
           logs={logs}
           allLogs={allLogs}
-         totalLost={tl ? Number(tl) : 0}
+         totalLost={tl}
           compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
           onShare={shareProtocol}
         />
