@@ -17,32 +17,36 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  // Convert weights from lbs (stored) to display unit
   const displayWeight = currentWeight ? convertWeight(currentWeight, 'lbs', weightUnit) : null
   const displayLost = convertWeight(Math.abs(totalLost), 'lbs', weightUnit)
   const unit = getWeightLabel(weightUnit)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', width: '100%' }}>
+      {/* Current Weight */}
       <div onClick={onToggleUnit} style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', flex: '1', cursor: 'pointer' }}>
         <div style={{ fontSize: '24px', fontWeight: '800', color: '#f59e0b', lineHeight: '1' }}>
           {displayWeight ? formatWeight(displayWeight, weightUnit) : '—'}
         </div>
-        <div style={{ fontSize: '14px', fontWeight: '700', color: '#f59e0b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
-  {unit}
-  <span style={{ fontSize: '10px', opacity: 0.6 }}>⇄</span>
-</div>
+        <div style={{ fontSize: '14px', fontWeight: '700', color: '#f59e0b', marginTop: '2px' }}>{unit}</div>
+        <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', marginTop: '4px', fontWeight: '600' }}>
+          tap to switch to {weightUnit === 'lbs' ? 'kg' : 'lbs'}
+        </div>
         <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
           CURRENT WEIGHT
         </div>
       </div>
 
+      {/* Weight Change */}
       <div onClick={onToggleUnit} style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', flex: '1', cursor: 'pointer' }}>
         <div style={{ fontSize: '24px', fontWeight: '800', color: totalLost > 0 ? '#22c55e' : totalLost < 0 ? '#ef4444' : 'var(--color-dim)', lineHeight: '1' }}>
           {totalLost > 0 ? '-' : totalLost < 0 ? '+' : ''}{formatWeight(displayLost, weightUnit)}
         </div>
         <div style={{ fontSize: '14px', fontWeight: '700', color: totalLost > 0 ? '#22c55e' : totalLost < 0 ? '#ef4444' : 'var(--color-dim)', marginTop: '2px' }}>
           {unit}
+        </div>
+        <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', marginTop: '4px', fontWeight: '600' }}>
+          tap to switch to {weightUnit === 'lbs' ? 'kg' : 'lbs'}
         </div>
         <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
           WEIGHT CHANGE
@@ -54,6 +58,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
         )}
       </div>
 
+      {/* Due Today */}
       <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '16px 12px', textAlign: 'center', flex: '1' }}>
         <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--color-green)', lineHeight: '1' }}>
           {dueCompounds.length}
