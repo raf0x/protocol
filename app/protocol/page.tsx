@@ -319,15 +319,13 @@ export default function DashboardPage() {
     dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
   />
   
-  <div style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <CompoundRings
-      activeProtocols={activeProtocols}
-      activeCompoundTab={activeCompoundTab}
-      setActiveCompoundTab={setActiveCompoundTab}
-    />
-  </div>
+  <CompoundRings
+    activeProtocols={activeProtocols}
+    activeCompoundTab={activeCompoundTab}
+    setActiveCompoundTab={setActiveCompoundTab}
+  />
 </div>
-
+        
         {/* Hero protocol card */}
         <HeroProtocolCard
           activeProtocols={activeProtocols}
