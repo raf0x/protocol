@@ -16,14 +16,14 @@ export default function ProfilePage() {
   const [notifStatus, setNotifStatus] = useState('')
   const [theme, setTheme] = useState('dark')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
-const [weightSaving, setWeightSaving] = useState(false)
+  const [weightSaving, setWeightSaving] = useState(false)
   const router = useRouter()
   const g = 'var(--color-green)'
   const dg = 'var(--color-dim)'
   const mg = 'var(--color-muted)'
   const cb = 'var(--color-card)'
   const bd = 'var(--color-border)'
-  
+
   useEffect(() => { loadUser() }, [])
 
   useEffect(() => {
@@ -38,22 +38,29 @@ const [weightSaving, setWeightSaving] = useState(false)
   }
 
   async function loadUser() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) { router.push('/'); return }
-  setUserId(user.id)
-  setEmail(user.email || '')
-  const date = new Date(user.created_at)
-  setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
-  
-  // Fetch weight unit preference
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/'); return }
+    setUserId(user.id)
+    setEmail(user.email || '')
+    const date = new Date(user.created_at)
+    setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
+    
+    const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+    if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
+    
+    const { data: sub } = await supabase.from('push_subscriptions').select('reminder_hour').eq('user_id', user.id).single()
+    if (sub) { setNotifEnabled(true); setReminderHour(sub.reminder_hour) }
+    setLoading(false)
+  }
+
   async function updateWeightUnit(unit: WeightUnit) {
-  setWeightUnit(unit)
-  setWeightSaving(true)
-  const supabase = createClient()
-  await supabase.from('user_profiles').update({ weight_unit: unit }).eq('user_id', userId)
-  setWeightSaving(false)
-}
+    setWeightUnit(unit)
+    setWeightSaving(true)
+    const supabase = createClient()
+    await supabase.from('user_profiles').update({ weight_unit: unit }).eq('user_id', userId)
+    setWeightSaving(false)
+  }
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -165,22 +172,22 @@ const [weightSaving, setWeightSaving] = useState(false)
           <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'12px'}}>About Protocol</h2>
           <p style={{fontSize:'13px',color:mg,lineHeight:'1.6',margin:0}}>Protocol is a personal harm reduction tracking tool. It does not provide medical advice, recommend dosing, or facilitate sourcing of any substances. All data is private to your account.</p>
         </div>
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Weight unit</h2>
+          <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Choose how weight is displayed throughout the app.</p>
+          <select 
+            value={weightUnit} 
+            onChange={e => updateWeightUnit(e.target.value as WeightUnit)}
+            disabled={weightSaving}
+            style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}
+          >
+            <option value="lbs">Pounds (lbs)</option>
+            <option value="kg">Kilograms (kg)</option>
+          </select>
+        </div>
         <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div>
-              <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
-  <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Weight unit</h2>
-  <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Choose how weight is displayed throughout the app.</p>
-  <select 
-    value={weightUnit} 
-    onChange={e => updateWeightUnit(e.target.value as WeightUnit)}
-    disabled={weightSaving}
-    style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}
-  >
-    <option value="lbs">Pounds (lbs)</option>
-    <option value="kg">Kilograms (kg)</option>
-  </select>
-</div>
               <h2 style={{fontSize:'14px',fontWeight:'600',color:'var(--color-dim)',marginBottom:'4px'}}>Appearance</h2>
               <p style={{fontSize:'12px',color:'var(--color-muted)',margin:0}}>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</p>
             </div>
@@ -190,7 +197,7 @@ const [weightSaving, setWeightSaving] = useState(false)
           </div>
         </div>
         {userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483' && (
-          <a href="/admin" style={{display:'block',width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'16px',textAlign:'center',textDecoration:'none',color:dg,fontSize:'13px',fontWeight:'600'}}>My Dashboard</a>
+          <a href="/admin" style={{display:'block',width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'16px',textAlign:'center',textDecoration:'none',color:dg,fontSize:'13px',fontWeight:'600'}}>Admin Dashboard</a>
         )}
         <button onClick={handleSignOut} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'14px',borderRadius:'6px',fontSize:'16px',cursor:'pointer'}}>Sign out</button>
       </div>
