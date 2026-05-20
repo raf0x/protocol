@@ -1,5 +1,6 @@
 'use client'
 
+import type { WeightUnit } from '../../lib/weightUtils'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -14,13 +15,15 @@ export default function ProfilePage() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifStatus, setNotifStatus] = useState('')
   const [theme, setTheme] = useState('dark')
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
+const [weightSaving, setWeightSaving] = useState(false)
   const router = useRouter()
   const g = 'var(--color-green)'
   const dg = 'var(--color-dim)'
   const mg = 'var(--color-muted)'
   const cb = 'var(--color-card)'
   const bd = 'var(--color-border)'
-
+  
   useEffect(() => { loadUser() }, [])
 
   useEffect(() => {
@@ -35,17 +38,22 @@ export default function ProfilePage() {
   }
 
   async function loadUser() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/'); return }
-    setUserId(user.id)
-    setEmail(user.email || '')
-    const date = new Date(user.created_at)
-    setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
-    const { data: sub } = await supabase.from('push_subscriptions').select('reminder_hour').eq('user_id', user.id).single()
-    if (sub) { setNotifEnabled(true); setReminderHour(sub.reminder_hour) }
-    setLoading(false)
-  }
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) { router.push('/'); return }
+  setUserId(user.id)
+  setEmail(user.email || '')
+  const date = new Date(user.created_at)
+  setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
+  
+  // Fetch weight unit preference
+  async function updateWeightUnit(unit: WeightUnit) {
+  setWeightUnit(unit)
+  setWeightSaving(true)
+  const supabase = createClient()
+  await supabase.from('user_profiles').update({ weight_unit: unit }).eq('user_id', userId)
+  setWeightSaving(false)
+}
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -160,6 +168,19 @@ export default function ProfilePage() {
         <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div>
+              <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+  <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Weight unit</h2>
+  <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Choose how weight is displayed throughout the app.</p>
+  <select 
+    value={weightUnit} 
+    onChange={e => updateWeightUnit(e.target.value as WeightUnit)}
+    disabled={weightSaving}
+    style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}
+  >
+    <option value="lbs">Pounds (lbs)</option>
+    <option value="kg">Kilograms (kg)</option>
+  </select>
+</div>
               <h2 style={{fontSize:'14px',fontWeight:'600',color:'var(--color-dim)',marginBottom:'4px'}}>Appearance</h2>
               <p style={{fontSize:'12px',color:'var(--color-muted)',margin:0}}>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</p>
             </div>
