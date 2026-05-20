@@ -14,7 +14,7 @@ export default function StatsBoxes({currentWeight,totalLost,weightStartDate,dueC
         <div style={{fontSize:'28px',fontWeight:'800',color:totalLost>0?'#22c55e':totalLost<0?'#ef4444':'var(--color-dim)',lineHeight:'1'}}>{totalLost>0?'-':totalLost<0?'+':''}{Math.abs(totalLost)}</div>
         <div style={{fontSize:'18px',fontWeight:'700',color:totalLost>0?'#22c55e':totalLost<0?'#ef4444':'var(--color-dim)',marginTop:'2px'}}>lbs</div>
         <div style={{fontSize:'9px',fontWeight:'600',color:'var(--color-dim)',marginTop:'6px',letterSpacing:'0.5px'}}>WEIGHT CHANGE</div>
-        {weightStartDate&&<div style={{ fontSize: '9px', color: 'var(--color-dim)', fontWeight: '600', marginTop: '4px' }}>since {formatDate(weightStartDate)}</div>}
+        {weightStartDate&&<div style={{ fontSize: '9px', color: totalLost > 0 ? '#22c55e' : totalLost < 0 ? '#ef4444' : 'var(--color-text)', fontWeight: '600', marginTop: '4px' }}>since {formatDate(weightStartDate)}</div>}
       </div>
       <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'10px',padding:'16px 12px',textAlign:'center',flex:'1'}}>
         <div style={{fontSize:'28px',fontWeight:'800',color:'var(--color-green)',lineHeight:'1'}}>{dueCompounds.length}</div>
