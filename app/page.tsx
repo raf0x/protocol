@@ -139,9 +139,9 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-text)',marginBottom:'10px',lineHeight:'1.3'}}>Stop guessing your protocol.</p>
-          <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-green)',marginBottom:'20px',lineHeight:'1.3'}}>Start knowing what works.</p>
-          <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Optimize. The private protocol tracker for peptide and GLP-1 users. Not just logging — real insights.</p>
+         <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-text)',marginBottom:'10px',lineHeight:'1.3'}}>Track your protocol.</p>
+<p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-green)',marginBottom:'20px',lineHeight:'1.3'}}>See your data clearly.</p>
+         <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Understand. A private wellness tracker for self-experimenters. Personal data, personal insights.</p>
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'12px'}}>
           <a href='/demo' style={{background:'var(--color-green)',color:'var(--color-green-text)',textDecoration:'none',fontWeight:'800',padding:'16px 48px',borderRadius:'8px',fontSize:'18px',letterSpacing:'0.5px',textAlign:'center',width:'100%',maxWidth:'320px',boxSizing:'border-box',display:'block'}}>See it in action →</a>
           <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
@@ -158,7 +158,7 @@ export default function Home() {
         <div className='scroll-hidden stagger-1' style={{borderRadius:'24px',overflow:'hidden',border:'1px solid var(--color-border)',boxShadow:'0 20px 60px rgba(108,99,255,0.15)',background:'var(--color-card)'}}>
           <img src='/protocol.png' alt='Protocol dashboard showing compound rings, weight stats, and daily journal' style={{width:'100%',display:'block'}} />
         </div>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginTop:'16px',lineHeight:'1.6'}}>Real data. Real trends. Real insights.</p>
+        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginTop:'16px',lineHeight:'1.6'}}>Your data. Your trends. Your insights.</p>
       </section>
 
       {/* Problem */}
@@ -175,12 +175,12 @@ export default function Home() {
           <div className='scroll-hidden glow-card' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>📓</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Smart Journal</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Mood, energy, sleep, hunger, weight — logged in seconds. Real-time insights tell you what's working and what's not.</p>
+            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Mood, energy, sleep, hunger, weight — logged in seconds. Track patterns and trends over time.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-1' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Protocol Dashboard</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Your daily command center. Active compounds, injection checklist, insights, and progress — all in one scroll.</p>
+            <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginBottom:'28px',textAlign:'center',padding:'0 24px'}}>Track any wellness protocol you choose. Your data stays private.</p>
           </div>
           <div className='scroll-hidden glow-card stagger-2' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
             <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
@@ -259,7 +259,7 @@ export default function Home() {
 
       {/* Final CTA */}
       <section style={{padding:'80px 24px',textAlign:'center',maxWidth:'480px',margin:'0 auto'}}>
-        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking what<br/><span style={{color:'var(--color-green)'}}>actually matters.</span></h2>
+        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking<br/><span style={{color:'var(--color-green)'}}>your wellness journey.</span></h2>
         <p style={{color:'#8b8ba7',marginBottom:'32px',fontSize:'16px'}}>Free during early access. No credit card required.</p>
         <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
       </section>
