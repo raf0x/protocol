@@ -31,9 +31,11 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
       padding:'20px',
-      display:'inline-flex',  // Changed from flex to inline-flex
+      display:'flex',
+      flexDirection:'column',
       alignItems:'center',
       justifyContent:'center',
+      gap:'16px',
       position:'relative',
       overflow:'hidden'
     }}>
@@ -49,6 +51,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
         pointerEvents:'none'
       }} />
       
+      {/* Rings grid */}
       <div style={{display:'grid',gridTemplateColumns:`repeat(${cols}, ${ringSize}px)`,gap:'0px',position:'relative',zIndex:1}}>
         {padded.map((item: any, i: number) => {
           if (!item) return <div key={`empty-${i}`} style={{width:`${ringSize}px`,height:`${ringSize}px`}} />
@@ -67,6 +70,34 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
           )
         })}
       </div>
+
+      {/* Add Protocol button */}
+      <button
+        onClick={() => window.location.href = '/protocol/manage'}
+        style={{
+          background:'none',
+          border:'1px dashed var(--color-border)',
+          borderRadius:'8px',
+          padding:'10px 20px',
+          color:'var(--color-dim)',
+          fontSize:'12px',
+          fontWeight:'600',
+          cursor:'pointer',
+          transition:'all 0.2s ease',
+          zIndex:1,
+          position:'relative'
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.borderColor = 'var(--color-green)'
+          e.currentTarget.style.color = 'var(--color-green)'
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.borderColor = 'var(--color-border)'
+          e.currentTarget.style.color = 'var(--color-dim)'
+        }}
+      >
+        + Add Protocol
+      </button>
     </div>
   )
 }
