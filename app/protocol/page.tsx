@@ -12,18 +12,14 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../lib/weightUtils'
+import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
-// isDueToday moved to lib/utils.ts
-
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [streakDays, setStreakDays] = useState(0)
-
-
   const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
@@ -89,7 +85,6 @@ export default function DashboardPage() {
       } catch(e) { localStorage.removeItem('pendingProtocol') }
     }
     
-    // Listen for vial inventory updates
     function handleDosesUpdate() { loadAll() }
     window.addEventListener('doses_updated', handleDosesUpdate)
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
@@ -151,7 +146,6 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    // Check if share already exists
     const { data: existing } = await supabase
       .from('shared_protocols')
       .select('token')
@@ -163,7 +157,6 @@ export default function DashboardPage() {
       alert('Share link copied!')
       return
     }
-    // Create new share
     const { data: share } = await supabase
       .from('shared_protocols')
       .insert({ protocol_id: protocolId, user_id: user.id })
@@ -182,9 +175,12 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
+    
+    const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+    if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
+    
     const { data: js } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
     setEntries(js || [])
-    // Calculate logging streak
     let streak = 0
     const today2 = new Date(); today2.setHours(0,0,0,0)
     for (let i = 0; i < 365; i++) {
@@ -215,12 +211,7 @@ export default function DashboardPage() {
           })
         } }) })
     setDueCompounds(due)
-
-// After fetching user
-const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
-if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
       
-    // Tomorrow compounds
     const tmr: DueCompound[] = []
     const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1)
     const tomorrowStr = tomorrowDate.toISOString().split('T')[0]
@@ -241,7 +232,6 @@ if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
     const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
     setProtocolEvents(events || [])
-    // Missed dose detection � flag due compounds not logged after 8pm
     const hour = new Date().getHours()
     if (hour >= 20) {
       const logMap: Record<string, boolean> = {}
@@ -260,15 +250,17 @@ if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
   async function toggleInjection(cid: string) { if (togglingId === cid) return; try { navigator.vibrate(10) } catch(e) {} setTogglingId(cid); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setTogglingId(null); return; } const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }); setTogglingId(null) }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
   async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (mood !== null) row.mood = mood; if (energy !== null) row.energy = energy; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = parseFloat(weight); if (hunger !== null) row.hunger = hunger; await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
-async function toggleWeightUnit() {
-  const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
-  setWeightUnit(newUnit)
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) {
-    await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('user_id', user.id)
+  
+  async function toggleWeightUnit() {
+    const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
+    setWeightUnit(newUnit)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('user_id', user.id)
+    }
   }
-}
+  
   function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) { const a = current === value; const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']; const reverseColors = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444']; const sc = (reverse ? reverseColors : scoreColors)[value-1]; return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:a?'none':'1px solid '+bd,background:a?sc:cb,color:a?'#fff':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:a?1:0.5}}>{value}</button> }
   function DiscomfortBtn({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) { const a = current === value; const c = value === 0 ? g : '#ff6b6b'; return <button onClick={() => onChange(value)} style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid '+(a?c:bd),background:a?(value===0?'var(--color-green-15)':'rgba(255,107,107,0.15)'):'transparent',color:a?c:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>{value}</button> }
 
@@ -324,36 +316,33 @@ async function toggleWeightUnit() {
           </div>
         )}
 
-        {/* Side-by-side: Stats on left, Rings on right */}
-<div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-  <StatsBoxes
-  currentWeight={lw ?? null}
-  totalLost={tl ? Number(tl) : 0}
-  weightStartDate={we[0]?.date ?? null}
-  dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
-  weightUnit={weightUnit}
-  onToggleUnit={toggleWeightUnit}
-/>
-  
-  <CompoundRings
-    activeProtocols={activeProtocols}
-    activeCompoundTab={activeCompoundTab}
-    setActiveCompoundTab={setActiveCompoundTab}
-  />
-</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+          <StatsBoxes
+            currentWeight={lw ?? null}
+            totalLost={tl ? Number(tl) : 0}
+            weightStartDate={we[0]?.date ?? null}
+            dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
+            weightUnit={weightUnit}
+            onToggleUnit={toggleWeightUnit}
+          />
+          
+          <CompoundRings
+            activeProtocols={activeProtocols}
+            activeCompoundTab={activeCompoundTab}
+            setActiveCompoundTab={setActiveCompoundTab}
+          />
+        </div>
         
-        {/* Hero protocol card */}
         <HeroProtocolCard
           activeProtocols={activeProtocols}
           activeCompoundTab={activeCompoundTab}
           logs={logs}
           allLogs={allLogs}
-         totalLost={tl}
+          totalLost={tl}
           compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
           onShare={shareProtocol}
         />
 
-{/* Quick actions for active compound */}
         {(() => {
           const activeCompound = activeProtocols
             .flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol_id: p.id, protocol_start: p.start_date })))
@@ -448,32 +437,28 @@ async function toggleWeightUnit() {
           )
         })()}
         
-        {/* Weekly schedule */}
         <WeeklySchedule activeProtocols={activeProtocols} />
 
-{/* Compact daily log */}
-<CompactDailyLog
-  mood={mood}
-  energy={energy}
-  hunger={hunger}
-  sleep={sleep}
-  weight={weight}
-  notes={entryNotes}
-  saving={saving}
-  saved={saved}
-  onMoodChange={setMood}
-  onEnergyChange={setEnergy}
-  onHungerChange={setHunger}
-  onSleepChange={setSleep}
-  onWeightChange={setWeight}
-  onNotesChange={setEntryNotes}
-  onSave={saveEntry}
-/>
+        <CompactDailyLog
+          mood={mood}
+          energy={energy}
+          hunger={hunger}
+          sleep={sleep}
+          weight={weight}
+          notes={entryNotes}
+          saving={saving}
+          saved={saved}
+          onMoodChange={setMood}
+          onEnergyChange={setEnergy}
+          onHungerChange={setHunger}
+          onSleepChange={setSleep}
+          onWeightChange={setWeight}
+          onNotesChange={setEntryNotes}
+          onSave={saveEntry}
+        />
 
-        {/* Weekly summary � Sundays only */}
         <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
 
-        {/* Missed dose banner */}
         {missedDoses.length > 0 && (
           <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>&#9888;</span>
@@ -484,15 +469,13 @@ async function toggleWeightUnit() {
           </div>
         )}
 
-        {/* Insights � InsightsCard component */}
-
-        {/* Charts + Summary toggles */}
         {entries.length > 1 && (
           <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
             <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
             <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
           </div>
         )}
+        
         {showChart && cd.length > 1 && (<div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
 <p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p><ResponsiveContainer width='100%' height={140}><LineChart data={cd}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={20} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m1_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} label={{value: m.label, position: i % 2 === 0 ? 'insideTopRight' : 'insideBottomRight', fontSize: 10, fill: '#a78bfa', fontWeight: 700, offset: 8}} />)}<Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' /><Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' /><Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep' /></LineChart></ResponsiveContainer>{protocolEvents.length > 0 && (
               <div style={{marginTop:'8px',marginBottom:'8px',padding:'8px 0',borderTop:'1px solid '+bd}}>
@@ -518,7 +501,6 @@ async function toggleWeightUnit() {
             )}
             {we.length > 1 && (<><p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p><ResponsiveContainer width='100%' height={100}><LineChart data={cd.filter((d: any) => d.weight)}><XAxis dataKey='date' tick={{fontSize:10,fill:mg}} /><YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} /><Tooltip {...ts} />{mk.map((m, i) => <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />)}<Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' /></LineChart></ResponsiveContainer></>)}</div>)}
 
-        {/* Recent events */}
         {protocolEvents.length > 0 && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
             <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL TIMELINE</span>
@@ -555,13 +537,6 @@ async function toggleWeightUnit() {
             ))}
           </div>
         )}
-
-
-
-
-
-
-
       </div>
     </main>
   )
