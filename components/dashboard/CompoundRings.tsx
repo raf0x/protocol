@@ -17,9 +17,9 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const tabId = activeCompoundTab || items[0]?.id
   if (items.length === 0) return null
 
-  const ringSize = 76
-  const overlapH = 14
-  const overlapV = 14
+const ringSize = 64  // Smaller rings
+const overlapH = 16  // More overlap
+const overlapV = 16  // More overlap
 
   return (
     <div style={{
