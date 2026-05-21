@@ -323,18 +323,19 @@ export default function DashboardPage() {
 
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
+  if (!loading && activeProtocols.length === 0) {
+    return (
+      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
+        <div style={{fontSize:'48px',marginBottom:'16px'}}>🧪</div>
+        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
+        <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey.</p>
+        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+      </div>
+    )
+  }
+
   return (
-    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
-      <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
-        <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
-          <p style={{color:dg,fontSize:'13px',margin:0}}>Every day logged is data working for you.</p>
-          {streakDays > 0 && (
-            <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.2)',padding:'3px 8px',borderRadius:'20px',whiteSpace:'nowrap'}}>
-              🔥 {streakDays} day streak
-            </span>
-          )}
-        </div>
+    <main style={{...}}>
         
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
