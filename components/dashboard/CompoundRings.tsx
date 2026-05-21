@@ -23,6 +23,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
 
   return (
     <div style={{
+      width:'100%',
       background:'var(--color-card)',
       border:'1px solid var(--color-border)',
       borderRadius:'12px',
