@@ -335,7 +335,7 @@ export default function DashboardPage() {
   }
 
   return (
-<<<<<<< HEAD
+
   <>
     {!loading && activeProtocols.length === 0 && (
       <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
@@ -360,9 +360,9 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
-=======
+
     <main style={{...}}>
->>>>>>> 4150ed73231bc3c586048d7dc5ecd19361ed37a6
+
         
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
