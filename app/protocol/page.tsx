@@ -416,13 +416,11 @@ export default function DashboardPage() {
             onToggleUnit={toggleWeightUnit}
           />
           
-          <div style={{display:'flex',justifyContent:'center',width:'100%'}}>
-            <CompoundRings
-              activeProtocols={activeProtocols}
-              activeCompoundTab={activeCompoundTab}
-              setActiveCompoundTab={setActiveCompoundTab}
-            />
-          </div>
+          <CompoundRings
+            activeProtocols={activeProtocols}
+            activeCompoundTab={activeCompoundTab}
+            setActiveCompoundTab={setActiveCompoundTab}
+          />
         </div>
         
         <HeroProtocolCard
