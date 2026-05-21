@@ -1,9 +1,10 @@
 export const runtime = 'nodejs'
-
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 import webpush from 'web-push'
+import { rateLimit } from '../../../lib/rateLimit'
 
 webpush.setVapidDetails(
   process.env.VAPID_EMAIL!,
@@ -11,40 +12,102 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY!,
 )
 
-export async function POST(request: NextRequest) {
-  const { user_id, subscription, reminder_hour } = await request.json()
-  const supabase = createClient(
+async function getAuthenticatedUser(request: NextRequest) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
   )
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+export async function POST(request: NextRequest) {
+  // Rate limit: 5 subscriptions per minute
+  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  if (!rateLimit('push-subscribe:' + ip, 5, 60000)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
+  const user = await getAuthenticatedUser(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  const { subscription, reminder_hour } = await request.json()
+
+  if (!subscription || typeof subscription !== 'object') {
+    return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
+  }
+
+  const hour = reminder_hour || 20
+  if (typeof hour !== 'number' || hour < 0 || hour > 23) {
+    return NextResponse.json({ error: 'Invalid reminder_hour' }, { status: 400 })
+  }
+
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
+  )
+
   const { error } = await supabase.from('push_subscriptions').upsert({
-    user_id,
+    user_id: user.id,
     subscription,
-    reminder_hour: reminder_hour || 20,
+    reminder_hour: hour,
   })
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
 
 export async function GET(request: NextRequest) {
-  const userId = request.headers.get('x-user-id')
-  const cronSecret = request.headers.get('authorization')
-  const isAdmin = userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483'
-  const isCron = cronSecret === `Bearer ${process.env.CRON_SECRET}`
-  if (!isAdmin && !isCron) {
+  // Only cron job can call this
+  const auth = request.headers.get('authorization')
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const supabase = createClient(
+
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
   )
+
   const now = new Date()
   const currentHour = now.getHours()
+
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('*')
     .eq('reminder_hour', currentHour)
+
   if (!subs || subs.length === 0) return NextResponse.json({ sent: 0 })
+
   let sent = 0
   for (const sub of subs) {
     try {
@@ -61,15 +124,30 @@ export async function GET(request: NextRequest) {
       console.error('Push failed for user:', sub.user_id, e)
     }
   }
+
   return NextResponse.json({ sent })
 }
 
 export async function DELETE(request: NextRequest) {
-  const { user_id } = await request.json()
-  const supabase = createClient(
+  const user = await getAuthenticatedUser(request)
+  if (!user) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
   )
-  await supabase.from('push_subscriptions').delete().eq('user_id', user_id)
+
+  await supabase.from('push_subscriptions').delete().eq('user_id', user.id)
   return NextResponse.json({ success: true })
 }
