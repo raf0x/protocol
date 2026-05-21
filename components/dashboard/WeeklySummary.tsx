@@ -1,6 +1,5 @@
 'use client'
 // WeeklySummary - shown on Sundays by default, togglable any day
-
 type Entry = {
   date: string
   mood: number | null
@@ -9,16 +8,13 @@ type Entry = {
   weight: number | null
   hunger: number | null
 }
-
 type Props = {
   entries: Entry[]
   currentWeek: number
   show: boolean
 }
-
 export default function WeeklySummary({ entries, currentWeek, show }: Props) {
   if (!show || entries.length < 3) return null
-
   const week = entries.slice(0, 7)
   const logged = week.length
   const avgMood = week.filter(e => e.mood).reduce((s, e) => s + (e.mood||0), 0) / (week.filter(e => e.mood).length || 1)
@@ -26,7 +22,6 @@ export default function WeeklySummary({ entries, currentWeek, show }: Props) {
   const weights = week.filter(e => e.weight).map(e => e.weight as number)
   const weightChange = weights.length >= 2 ? (weights[weights.length-1] - weights[0]).toFixed(1) : null
   const g = 'var(--color-green)'
-
   return (
     <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
       <div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'12px'}}>WEEK {currentWeek} RECAP</div>
@@ -50,9 +45,6 @@ export default function WeeklySummary({ entries, currentWeek, show }: Props) {
           <div style={{fontSize:'10px',color:'var(--color-dim)',marginTop:'2px',letterSpacing:'1px'}}>AVG SLEEP</div>
         </div>
       </div>
-      <p style={{fontSize:'12px',color:'var(--color-dim)',margin:0,textAlign:'center'}}>
-        {logged >= 6 ? 'Excellent consistency this week.' : logged >= 4 ? 'Good week. Keep the streak going.' : 'Log more days for better insights.'}
-      </p>
     </div>
   )
 }
