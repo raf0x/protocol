@@ -277,7 +277,6 @@ export default function DashboardPage() {
 
   const ins: { text: string; accent: string }[] = []
   
-  // Weight tracking - pure observation
   if (we.length >= 2) {
     const diff = sw! - lw!
     const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000))
@@ -291,7 +290,6 @@ export default function DashboardPage() {
     }
   }
   
-  // Mood tracking - pure observation
   if (entries.length >= 5) {
     const me = entries.filter((e: any) => e.mood !== null)
     if (me.length >= 3) {
@@ -299,7 +297,6 @@ export default function DashboardPage() {
       ins.push({ text: `Mood: averaging ${am.toFixed(1)}/5 over ${me.length} entries`, accent: g })
     }
     
-    // Sleep tracking - pure observation
     const rw = entries.slice(0,7).filter((e: any) => e.sleep !== null)
     if (rw.length >= 3) {
       const as2 = rw.reduce((s: number, e: any) => s+e.sleep, 0)/rw.length
@@ -307,16 +304,14 @@ export default function DashboardPage() {
     }
   }
   
-  // Hunger tracking - pure observation
   const he = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined)
   if (he.length >= 3) {
     const ah = he.reduce((s: number, e: any) => s+e.hunger, 0)/he.length
     ins.push({ text: `Appetite: ${ah.toFixed(1)}/5 average over ${he.length} entries`, accent: '#8b5cf6' })
   }
   
-  // Timeline tracking - pure observation
   if (currentWeek > 0) {
-    ins.push({ text: `Week ${currentWeek} — ${entries.length} total journal entries logged`, accent: '#6c63ff' })
+    ins.push({ text: `Week ${currentWeek} � ${entries.length} total journal entries logged`, accent: '#6c63ff' })
   }
   
   const vi = ins.slice(0, 3)
@@ -325,48 +320,30 @@ export default function DashboardPage() {
 
   if (!loading && activeProtocols.length === 0) {
     return (
-      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
-        <div style={{fontSize:'48px',marginBottom:'16px'}}>🧪</div>
+      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px',minHeight:'100vh'}}>
+        <div style={{fontSize:'48px',marginBottom:'16px'}}>??</div>
         <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
         <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey.</p>
-        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',fontSize:'16px',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+        {showNewProtocol && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
+            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'24px',width:'90%',maxWidth:'400px'}}>
+              <h3 style={{fontSize:'18px',fontWeight:'700',marginBottom:'16px',color:g}}>Quick Protocol</h3>
+              <input placeholder='Protocol name' value={newName} onChange={e=>setNewName(e.target.value)} style={{width:'100%',padding:'12px',marginBottom:'12px',background:'var(--color-surface)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)'}}/>
+              <button disabled={creatingProtocol||!newName.trim()} onClick={createProtocolFromCalc} style={{width:'100%',background:createSuccess?'#10b981':g,color:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'default':'pointer'}}>{createSuccess?'? Created!':creatingProtocol?'Creating...':'Create'}</button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
 
   return (
-
-  <>
-    {!loading && activeProtocols.length === 0 && (
-      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
-        <div style={{fontSize:'48px',marginBottom:'16px'}}>🧪</div>
-        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
-        <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey with a custom protocol.</p>
-        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',fontSize:'16px',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
-      </div>
-   )}
-    </>
-  )
-}
-    {activeProtocols.length > 0 && ( 
-   <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
-      <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
-        <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
-          <p style={{color:dg,fontSize:'13px',margin:0}}>Every day logged is data working for you.</p>
-          {streakDays > 0 && (
-            <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',border:'1px solid rgba(245,158,11,0.2)',padding:'3px 8px',borderRadius:'20px',whiteSpace:'nowrap'}}>
-              🔥 {streakDays} day streak
-            </span>
-          )}
-        </div>
-
-    <main style={{...}}>
-
-        
+    <main style={{minHeight:'100vh',paddingBottom:'100px'}}>
+      <div style={{maxWidth:'600px',margin:'0 auto',padding:'16px'}}>        
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
-            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>✓ Protocol created!</span>
+            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>? Protocol created!</span>
             <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
           </div>
         )}
@@ -374,7 +351,7 @@ export default function DashboardPage() {
         {showNewProtocol && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
             <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>CREATE FROM CALCULATOR</span>
-            <p style={{fontSize:'12px',color:dg,marginBottom:'12px'}}>Dose: {prefillDose}mg · Vial: {prefillVial}mg · BAC: {prefillWater}mL</p>
+            <p style={{fontSize:'12px',color:dg,marginBottom:'12px'}}>Dose: {prefillDose}mg � Vial: {prefillVial}mg � BAC: {prefillWater}mL</p>
             <input value={newName} onChange={e => setNewName(e.target.value)} placeholder='Compound name (e.g. Retatrutide)' style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'10px'}} />
             <div style={{display:'flex',gap:'8px'}}>
               <button onClick={() => setShowNewProtocol(false)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'13px',cursor:'pointer'}}>Cancel</button>
@@ -466,7 +443,7 @@ export default function DashboardPage() {
                   opacity: isLoggedToday ? 0.6 : 1
                 }}
               >
-                {isLoggedToday ? '✓ Logged Today' : '+ Log Shot'}
+                {isLoggedToday ? '? Logged Today' : '+ Log Shot'}
               </button>
               <button 
                 onClick={handleQuickNewVial}
@@ -561,7 +538,7 @@ export default function DashboardPage() {
                       <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
                       <span style={{fontSize:'10px',color:dg,display:'block',marginTop:'2px'}}>{new Date(selectedEvent.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                     </div>
-                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>×</button>
+                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>�</button>
                   </div>
                 )}
               </div>
@@ -597,7 +574,7 @@ export default function DashboardPage() {
                   </div>
                   <div style={{display:'flex',gap:'8px',flexShrink:0}}>
                     <button onClick={() => startEditEvent(ev)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'11px'}}>Edit</button>
-                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>×</button>
+                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>�</button>
                   </div>
                 </div>
               )
