@@ -323,7 +323,19 @@ export default function DashboardPage() {
 
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
+  if (!loading && activeProtocols.length === 0) {
+    return (
+      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
+        <div style={{fontSize:'48px',marginBottom:'16px'}}>🧪</div>
+        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
+        <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey.</p>
+        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+      </div>
+    )
+  }
+
   return (
+<<<<<<< HEAD
   <>
     {!loading && activeProtocols.length === 0 && (
       <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
@@ -348,6 +360,9 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
+=======
+    <main style={{...}}>
+>>>>>>> 4150ed73231bc3c586048d7dc5ecd19361ed37a6
         
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
