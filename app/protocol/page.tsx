@@ -361,7 +361,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-    <main style={{...}}>
+    <main style={{minHeight:'100vh',paddingBottom:'100px'}}>
 
         
         {createSuccess && (
