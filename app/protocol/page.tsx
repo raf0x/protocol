@@ -324,7 +324,20 @@ export default function DashboardPage() {
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   return (
-    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
+  <>
+    {!loading && activeProtocols.length === 0 && (
+      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px'}}>
+        <div style={{fontSize:'48px',marginBottom:'16px'}}>🧪</div>
+        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
+        <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey with a custom protocol.</p>
+        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',fontSize:'16px',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+      </div>
+   )}
+    </>
+  )
+}
+    {activeProtocols.length > 0 && ( 
+   <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'28px 22px 100px 22px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
         <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>Dashboard</h1>
         <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
