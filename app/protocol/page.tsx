@@ -250,6 +250,100 @@ export default function DashboardPage() {
         <StatsBoxes currentWeight={lw ?? null} totalLost={tl ? Number(tl) : 0} weightStartDate={we[0]?.date ?? null} dueCompounds={[]} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit} />
         <CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={setActiveCompoundTab} />
         <HeroProtocolCard activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl} compoundIndex={0} onShare={shareProtocol} />
+        {(() => {
+          const activeCompound = activeProtocols
+            .flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol_id: p.id, protocol_start: p.start_date })))
+            .find((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))
+          
+          if (!activeCompound) return null
+
+          const handleQuickLog = async () => {
+            try { navigator.vibrate(10) } catch(e) {}
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            await supabase.from('injection_logs').upsert({ 
+              user_id: user.id, 
+              compound_id: activeCompound.id, 
+              date: today, 
+              taken: true, 
+              discomfort: 0 
+            }, { onConflict: 'user_id,compound_id,date' })
+            const currentDoses = activeCompound.doses_taken_override || 0
+            await supabase.from('compounds').update({ doses_taken_override: currentDoses + 1 }).eq('id', activeCompound.id)
+            loadAll()
+          }
+
+          const handleQuickNewVial = async () => {
+            if (!confirm(`Start a new vial of ${activeCompound.name}? This will reset doses taken to 0 and decrement your stock.`)) return
+            const supabase = createClient()
+            const currentStock = activeCompound.vials_in_stock || 1
+            await supabase.from('compounds').update({
+              vials_in_stock: Math.max(0, currentStock - 1),
+              doses_taken_override: 0,
+              reconstitution_date: today
+            }).eq('id', activeCompound.id)
+            loadAll()
+          }
+
+          const isLoggedToday = !!logs[activeCompound.id]?.taken
+
+          return (
+            <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+              <button 
+                onClick={handleQuickLog}
+                disabled={isLoggedToday}
+                style={{
+                  flex:2,
+                  background: isLoggedToday ? 'var(--color-green-10)' : g,
+                  color: isLoggedToday ? 'var(--color-green)' : 'var(--color-green-text)',
+                  border: isLoggedToday ? '1px solid var(--color-green-30)' : 'none',
+                  borderRadius:'8px',
+                  padding:'12px',
+                  fontSize:'14px',
+                  fontWeight:'700',
+                  cursor: isLoggedToday ? 'default' : 'pointer',
+                  opacity: isLoggedToday ? 0.6 : 1
+                }}
+              >
+                {isLoggedToday ? '? Logged Today' : '+ Log Shot'}
+              </button>
+              <button 
+                onClick={handleQuickNewVial}
+                style={{
+                  flex:1,
+                  background:'var(--color-card)',
+                  color:dg,
+                  border:'1px solid '+bd,
+                  borderRadius:'8px',
+                  padding:'12px',
+                  fontSize:'13px',
+                  fontWeight:'600',
+                  cursor:'pointer'
+                }}
+              >
+                New Vial
+              </button>
+              <button 
+                onClick={() => window.location.href = '/protocol/manage'}
+                style={{
+                  flex:1,
+                  background:'var(--color-card)',
+                  color:dg,
+                  border:'1px solid '+bd,
+                  borderRadius:'8px',
+                  padding:'12px',
+                  fontSize:'13px',
+                  fontWeight:'600',
+                  cursor:'pointer'
+                }}
+              >
+                Edit
+              </button>
+            </div>
+          )
+        })()}
+        
         <WeeklySchedule activeProtocols={activeProtocols} />
         <CompactDailyLog mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight} notes={entryNotes} saving={saving} saved={saved} onMoodChange={setMood} onEnergyChange={setEnergy} onHungerChange={setHunger} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry} />
         <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
