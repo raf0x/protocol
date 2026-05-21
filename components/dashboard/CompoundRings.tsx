@@ -50,7 +50,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
       
       <div style={{
         display:'grid',
-        gridTemplateColumns:`repeat(3, ${ringSize}px)`,
+        gridTemplateColumns:`repeat(${Math.min(3, items.length)}, ${ringSize}px)`,
         gap:'0px',
         position:'relative',
         zIndex:1
