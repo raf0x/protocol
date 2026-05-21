@@ -29,7 +29,7 @@ export default function StatsBoxes({ currentWeight, totalLost, weightStartDate, 
           {displayWeight ? formatWeight(displayWeight, weightUnit) : '—'}
         </div>
         <div style={{ fontSize: '14px', fontWeight: '700', color: '#f59e0b', marginTop: '2px' }}>{unit}</div>
-        <div style={{ fontSize: '9px', color: 'var(--color-text-secondary)', marginTop: '4px', fontWeight: '600' }}>
+        <div style={{ fontSize: '9px', color: '#ffffff', marginTop: '4px', fontWeight: '600' }}>
           tap to switch to {weightUnit === 'lbs' ? 'kg' : 'lbs'}
         </div>
         <div style={{ fontSize: '9px', fontWeight: '600', color: 'var(--color-dim)', marginTop: '6px', letterSpacing: '0.5px' }}>
