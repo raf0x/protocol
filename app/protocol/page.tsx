@@ -91,6 +91,7 @@ export default function DashboardPage() {
   }, [])
 
   async function createProtocolFromCalc() {
+    console.log('CREATE CLICKED', { newName, prefillDose, prefillVial, prefillWater })
     if (!newName.trim()) return
     setCreatingProtocol(true)
     const supabase = createClient()
