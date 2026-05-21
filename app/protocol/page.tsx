@@ -91,35 +91,22 @@ export default function DashboardPage() {
   }, [])
 
   async function createProtocolFromCalc() {
-    console.log('CREATE CLICKED', { newName, prefillDose, prefillVial, prefillWater })
     if (!newName.trim()) return
     setCreatingProtocol(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const res = await fetch('/api/create-protocol', { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ 
-        name: newName.trim(), 
-        dose: prefillDose || '2.5', 
-        vial: prefillVial || '5', 
-        water: prefillWater || '2' 
-      }) 
-    })
-    if (res.ok) { 
-      setCreateSuccess(true)
-      setTimeout(() => { 
-        setShowNewProtocol(false)
-        setCreateSuccess(false)
-        setNewName('')
-        setPrefillDose('')
-        setPrefillVial('')
-        setPrefillWater('')
-        loadAll() 
-      }, 1500) 
-    }
+    if (!user) { setCreatingProtocol(false); return }
+    const todayStr = new Date().toISOString().split('T')[0]
+    const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: newName.trim(), start_date: todayStr }).select().single()
+    if (!protocol) { setCreatingProtocol(false); return }
+    const { data: compound } = await supabase.from('compounds').insert({ protocol_id: protocol.id, user_id: user.id, name: newName.trim(), vial_strength: prefillVial ? parseFloat(prefillVial) : 5, vial_unit: 'mg', bac_water_ml: prefillWater ? parseFloat(prefillWater) : 2, reconstitution_date: todayStr }).select().single()
+    if (!compound) { setCreatingProtocol(false); return }
+    await supabase.from('phases').insert({ compound_id: compound.id, user_id: user.id, name: 'Phase 1', dose: parseFloat(prefillDose || '2.5'), dose_unit: 'mg', start_week: 1, end_week: 4, frequency: '1x/week' })
+    await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocol.id, compound_id: compound.id, date: todayStr, event_type: 'started', description: 'Started ' + newName.trim() + ' at ' + (prefillDose || '2.5') + 'mg' })
     setCreatingProtocol(false)
+    setCreateSuccess(true)
+    setShowNewProtocol(false)
+    loadAll()
   }
 
   async function saveEvent() {
