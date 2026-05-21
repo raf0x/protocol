@@ -406,7 +406,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
           <StatsBoxes
             currentWeight={lw ?? null}
             totalLost={tl ? Number(tl) : 0}
@@ -416,11 +416,13 @@ export default function DashboardPage() {
             onToggleUnit={toggleWeightUnit}
           />
           
-          <CompoundRings
-            activeProtocols={activeProtocols}
-            activeCompoundTab={activeCompoundTab}
-            setActiveCompoundTab={setActiveCompoundTab}
-          />
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <CompoundRings
+              activeProtocols={activeProtocols}
+              activeCompoundTab={activeCompoundTab}
+              setActiveCompoundTab={setActiveCompoundTab}
+            />
+          </div>
         </div>
         
         <HeroProtocolCard
