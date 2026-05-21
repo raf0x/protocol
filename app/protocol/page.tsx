@@ -401,7 +401,7 @@ export default function DashboardPage() {
       <div style={{maxWidth:'600px',margin:'0 auto',padding:'16px'}}>
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
-            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>? Protocol created!</span>
+            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>Protocol Created!</span>
             <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
           </div>
         )}
@@ -416,11 +416,13 @@ export default function DashboardPage() {
             onToggleUnit={toggleWeightUnit}
           />
           
-          <CompoundRings
-            activeProtocols={activeProtocols}
-            activeCompoundTab={activeCompoundTab}
-            setActiveCompoundTab={setActiveCompoundTab}
-          />
+          <div style={{display:'flex',justifyContent:'center',width:'100%'}}>
+            <CompoundRings
+              activeProtocols={activeProtocols}
+              activeCompoundTab={activeCompoundTab}
+              setActiveCompoundTab={setActiveCompoundTab}
+            />
+          </div>
         </div>
         
         <HeroProtocolCard
