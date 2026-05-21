@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import StatsBoxes from '../../components/dashboard/StatsBoxes'
 import CompoundRings from '../../components/dashboard/CompoundRings'
@@ -322,7 +322,6 @@ export default function DashboardPage() {
   if (!loading && activeProtocols.length === 0) {
     return (
       <div style={{padding:'20px',textAlign:'center',paddingTop:'80px',minHeight:'100vh'}}>
-        <div style={{fontSize:'48px',marginBottom:'16px'}}>??</div>
         <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
         <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey with Protocol.</p>
         <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',fontSize:'16px',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
