@@ -121,7 +121,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
         }}
       >
         <span style={{fontSize:'16px'}}>+</span>
-        <span>Add Protocol</span>
+        <span>Add/Edit Protocol</span>
       </button>
     </div>
   )
