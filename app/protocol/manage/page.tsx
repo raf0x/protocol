@@ -524,7 +524,7 @@ export default function ManagePage() {
                 <div style={{display:'flex',gap:'10px'}}>
                   {!isCompleted && (
                     <>
-                      <button onClick={() => setConfirmComplete(p)} style={{background:'none',border:'none',color:'#22c55e',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Complete</button>
+                      <button onClick={() => setConfirmComplete(p)} style={{background:'none',border:'none',color:'#22c55e',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Mark Complete</button>
                       <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
                       <button onClick={() => deleteProtocol(p.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
                     </>
