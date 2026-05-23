@@ -238,6 +238,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   {reconDate ? new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
   <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
 </div>
+</div> 
     <div>
       <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
       <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
