@@ -227,17 +227,21 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           </div>
 
           {vialDaysLeft !== null && mlRemaining !== null && (
-            <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
-              <div>
-                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
-                <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)'}}>{vialDaysLeft}d left</div>
-              </div>
-              <div>
-                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
-                <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
-              </div>
-            </div>
-          )}
+  <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
+    <div>
+      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL RECONSTITUTION DATE</div>
+      <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+    </div>
+    <div>
+      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
+      <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)'}}>{vialDaysLeft}d left</div>
+    </div>
+    <div>
+      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
+      <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
+    </div>
+  </div>
+)}
 
           <div>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
