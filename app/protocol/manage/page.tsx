@@ -274,7 +274,7 @@ export default function ManagePage() {
   return (
     <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>? Dashboard</button>
+        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:'#fff',fontSize:'16px',cursor:'pointer',padding:0,marginBottom:'14px',fontWeight:'600'}}>↑ Return to Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>My Protocols</h1>
           {!showForm && <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
