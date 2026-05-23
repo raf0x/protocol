@@ -55,6 +55,9 @@ export default function ManagePage() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [confirmComplete, setConfirmComplete] = useState<any>(null)
+  const [showConfetti, setShowConfetti] = useState(false)
   const [error, setError] = useState('')
 
   const g = 'var(--color-green)', dg = 'var(--color-dim)', mg = 'var(--color-muted)'
@@ -70,6 +73,20 @@ export default function ManagePage() {
     const { data } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
     setProtocols(data || [])
     setLoading(false)
+  }
+
+  async function completeProtocol() {
+    if (!confirmComplete) return
+    const supabase = createClient()
+    await supabase.from('protocols').update({ 
+      status: 'completed', 
+      completed_date: new Date().toISOString() 
+    }).eq('id', confirmComplete.id)
+    
+    setShowConfetti(true)
+    setTimeout(() => setShowConfetti(false), 3000)
+    setConfirmComplete(null)
+    load()
   }
 
   function startNew() {
@@ -251,6 +268,11 @@ export default function ManagePage() {
     await supabase.from('protocols').delete().eq('id', id)
     load()
   }
+
+    
+  const activeProtocols = protocols.filter(p => p.status !== 'completed')
+  const completedProtocols = protocols.filter(p => p.status === 'completed')
+  const displayProtocols = showCompleted ? [...activeProtocols, ...completedProtocols] : activeProtocols
 
   const is = { width:'100%', background:inp, border:'1px solid '+bd, borderRadius:'8px', padding:'10px 12px', color:'var(--color-text)', fontSize:'15px', boxSizing:'border-box' as const, colorScheme:'dark' as const }
 
@@ -469,19 +491,37 @@ export default function ManagePage() {
           </div>
         )}
 
-        {!showForm && protocols.length === 0 && (
+        {!showForm && completedProtocols.length > 0 && (
+          <label style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'20px',cursor:'pointer'}}>
+            <input 
+              type='checkbox' 
+              checked={showCompleted} 
+              onChange={e => setShowCompleted(e.target.checked)}
+              style={{width:'18px',height:'18px',cursor:'pointer'}}
+            />
+            <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>
+              Show completed protocols ({completedProtocols.length})
+            </span>
+          </label>
+        )}
+
+        {!showForm && displayProtocols.length === 0 && !showCompleted && (
           <div style={{textAlign:'center',padding:'48px 0'}}>
             <p style={{color:dg,marginBottom:'8px'}}>No protocols yet.</p>
             <p style={{fontSize:'13px',color:mg}}>Tap + New to create your first one.</p>
           </div>
         )}
 
-        {!showForm && protocols.map((p: any) => (
+        {!showForm && displayProtocols.map((p: any) => {
+          const isCompleted = p.status === 'completed'
+          return (
           <div key={p.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
               <div>
-                <h2 style={{fontSize:'17px',fontWeight:'700',color:g,marginBottom:'2px'}}>{p.name}</h2>
-                <p style={{fontSize:'12px',color:dg}}>Started {new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</p>
+                <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
+                <p style={{fontSize:'12px',color:dg}}>
+                  {isCompleted ? `Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
+                </p>
               </div>
               <div style={{display:'flex',gap:'10px'}}>
                 <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
@@ -518,6 +558,99 @@ export default function ManagePage() {
             })}
           </div>
         ))}
+
+        {/* Confirmation Modal */}
+        {confirmComplete && (
+          <div style={{
+            position:'fixed',
+            inset:0,
+            background:'rgba(0,0,0,0.85)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            zIndex:9999,
+            padding:'20px'
+          }} onClick={() => setConfirmComplete(null)}>
+            <div style={{
+              background:cb,
+              border:'1px solid '+bd,
+              borderRadius:'16px',
+              padding:'24px',
+              maxWidth:'400px',
+              width:'100%'
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:g}}>Mark as Complete?</h3>
+              <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
+                This will archive <strong>{confirmComplete.name}</strong> from your active stack. All data will be preserved.
+              </p>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setConfirmComplete(null)}
+                  style={{
+                    flex:1,
+                    background:cb,
+                    color:dg,
+                    border:'1px solid '+bd,
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    cursor:'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={completeProtocol}
+                  style={{
+                    flex:1,
+                    background:'#22c55e',
+                    color:'#000',
+                    border:'none',
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    fontWeight:'700',
+                    cursor:'pointer'
+                  }}
+                >
+                  Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confetti Celebration */}
+        {showConfetti && (
+          <div style={{
+            position:'fixed',
+            top:'50%',
+            left:'50%',
+            transform:'translate(-50%, -50%)',
+            zIndex:10000,
+            pointerEvents:'none'
+          }}>
+            <div style={{
+              background:'#22c55e',
+              color:'#000',
+              padding:'20px 32px',
+              borderRadius:'16px',
+              fontSize:'24px',
+              fontWeight:'800',
+              boxShadow:'0 10px 40px rgba(34,197,94,0.3)',
+              animation:'celebrate 0.5s ease-out'
+            }}>
+              ?? Protocol Complete!
+            </div>
+            <style>{`
+              @keyframes celebrate {
+                0% { transform: scale(0.8); opacity: 0; }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
+          </div>
+        )}
       </div>
     </main>
   )
