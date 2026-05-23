@@ -439,9 +439,10 @@ export default function DashboardPage() {
             .flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol_id: p.id, protocol_start: p.start_date })))
             .find((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))
           
-          if (!activeCompound) return null
-
-        <WeeklySchedule activeProtocols={activeProtocols} />
+       if (!activeCompound) return null
+        return (
+          <>
+            <WeeklySchedule activeProtocols={activeProtocols} />
 
         <CompactDailyLog
           mood={mood}
