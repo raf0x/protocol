@@ -229,7 +229,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           {vialDaysLeft !== null && mlRemaining !== null && (
   <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
     <div>
-      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL RECONSTITUTION DATE</div>
+      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>RECON. DATE</div>
       <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
     </div>
     <div>
