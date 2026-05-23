@@ -515,7 +515,14 @@ export default function ManagePage() {
         {!showForm && displayProtocols.map((p: any) => {
           const isCompleted = p.status === 'completed'
           return (
-          <div key={p.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
+          <div key={p.id} style={{
+              background:cb,
+              border:`1px solid ${isCompleted?'#2a2a3a':bd}`,
+              borderRadius:'12px',
+              padding:'16px',
+              marginBottom:'12px',
+              opacity:isCompleted?0.6:1
+            }}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
               <div>
                 <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
