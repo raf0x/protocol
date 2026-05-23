@@ -556,7 +556,6 @@ export default function ManagePage() {
                 </div>
               )
             })}
-          </div>
         ))}
 
         {/* Confirmation Modal */}
