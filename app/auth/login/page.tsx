@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -10,7 +10,14 @@ export default function LoginPage() {
   const [step, setStep] = useState<'email'|'code'>('email')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [cooldown, setCooldown] = useState(0)
   const router = useRouter()
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
 
   async function sendCode() {
     setError('')
@@ -19,6 +26,7 @@ export default function LoginPage() {
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
     if (error) { setError(error.message); setLoading(false); return }
+    setCooldown(60)
     setStep('code')
     setLoading(false)
   }
@@ -49,7 +57,7 @@ export default function LoginPage() {
           </div>
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
           <button onClick={verifyCode} disabled={loading} style={loading?btnDisabled:btnStyle}>{loading?'Verifying...':'Sign in'}</button>
-          <button onClick={() => { setStep('email'); setCode(''); setError('') }} style={{width:'100%',background:'none',border:'none',color:'#3d3d5c',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
+          <button onClick={() => { setStep('email'); setCode(''); setError(''); setCooldown(0) }} style={{width:'100%',background:'none',border:'none',color:'#3d3d5c',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
           <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'16px',textAlign:'center'}}>No email? Check your spam. Code expires in 10 minutes.</p>
         </div>
       </main>
@@ -66,7 +74,9 @@ export default function LoginPage() {
           <input type='email' value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&sendCode()} placeholder='you@example.com' style={inputStyle} />
         </div>
         {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
-        <button onClick={sendCode} disabled={loading} style={loading?btnDisabled:btnStyle}>{loading?'Sending...':'Send code'}</button>
+        <button onClick={sendCode} disabled={loading || cooldown > 0} style={loading || cooldown > 0 ? btnDisabled : btnStyle}>
+          {loading ? 'Sending...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Send code'}
+        </button>
         <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'24px',lineHeight:'1.6',textAlign:'center'}}>By signing in you agree to use this tool for personal harm reduction tracking only. Not medical advice.</p>
       </div>
     </main>
