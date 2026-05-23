@@ -432,7 +432,7 @@ export default function ManagePage() {
                           <button key={t} onClick={() => updateCompound(ci,'time_of_day',t)} style={{padding:'8px 4px',borderRadius:'8px',border:'1px solid '+(c.time_of_day===t?g:bd),background:c.time_of_day===t?'var(--color-green-10)':'transparent',color:c.time_of_day===t?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
                             {t}
                           </button>
-                        ))}
+                        })
                       </div>
                     </div>
                   </div>
