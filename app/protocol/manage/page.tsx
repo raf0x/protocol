@@ -645,7 +645,7 @@ export default function ManagePage() {
               boxShadow:'0 10px 40px rgba(34,197,94,0.3)',
               animation:'celebrate 0.5s ease-out'
             }}>
-              ?? Protocol Complete!
+              Protocol Complete!
             </div>
             <style>{`
               @keyframes celebrate {
