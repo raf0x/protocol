@@ -10,7 +10,7 @@ const UNITS = ['mg','mcg','IU']
 
 type Compound = {
   name: string
-  isPreMixed: boolean  // NEW
+  isPreMixed: boolean
   vial_strength: string
   vial_unit: string
   bac_water_ml: string
@@ -29,7 +29,7 @@ type Compound = {
 function newCompound(): Compound {
   return {
     name: '',
-    isPreMixed: false,  // NEW
+    isPreMixed: false,
     vial_strength: '',
     vial_unit: 'mg',
     bac_water_ml: '',
@@ -102,17 +102,14 @@ export default function ManagePage() {
     setStartDate(p.start_date)
     const cs = (p.compounds || []).map((c: any) => {
       const ph = (c.phases || [])[0]
-      
       const freq = ph?.frequency || ''
       const isRolling = freq.startsWith('every') && freq.endsWith('days')
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
-      
-      // NEW: Detect if pre-mixed (no reconstitution data)
       const isPreMixed = !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
       
       return {
         name: c.name,
-        isPreMixed,  // NEW
+        isPreMixed,
         vial_strength: c.vial_strength?.toString() || '',
         vial_unit: c.vial_unit || 'mg',
         bac_water_ml: c.bac_water_ml?.toString() || '',
@@ -150,8 +147,6 @@ export default function ManagePage() {
     setError('')
     if (compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
     if (compounds.some(c => !c.dose.trim())) { setError('Every compound needs a dose.'); return }
-    
-    // NEW: Updated validation - only require reconstitution if NOT pre-mixed
     if (compounds.some(c => !c.isPreMixed && !c.reconstitution_date)) { 
       setError('Reconstitution date is required for compounds that need mixing.'); 
       return 
@@ -205,7 +200,6 @@ export default function ManagePage() {
       const c = compounds[ci]
       const saved = trackingData[c.name.trim()] || {}
       
-      // NEW: Set reconstitution fields to null if pre-mixed
       const { data: ins } = await supabase.from('compounds').insert({
         protocol_id: protocolId,
         user_id: user.id,
@@ -269,7 +263,6 @@ export default function ManagePage() {
     load()
   }
 
-    
   const activeProtocols = protocols.filter(p => p.status !== 'completed')
   const completedProtocols = protocols.filter(p => p.status === 'completed')
   const displayProtocols = showCompleted ? [...activeProtocols, ...completedProtocols] : activeProtocols
@@ -281,7 +274,7 @@ export default function ManagePage() {
   return (
     <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
       <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>← Dashboard</button>
+        <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:dg,fontSize:'13px',cursor:'pointer',padding:0,marginBottom:'14px'}}>? Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>My Protocols</h1>
           {!showForm && <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
@@ -305,7 +298,6 @@ export default function ManagePage() {
                   <input value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} />
                 </div>
 
-                {/* NEW: Pre-mixed checkbox */}
                 <div style={{marginBottom:'16px'}}>
                   <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
                     <input 
@@ -323,7 +315,6 @@ export default function ManagePage() {
                   </p>
                 </div>
 
-                {/* Conditionally show reconstitution fields */}
                 {!c.isPreMixed && (
                   <>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
@@ -432,7 +423,7 @@ export default function ManagePage() {
                           <button key={t} onClick={() => updateCompound(ci,'time_of_day',t)} style={{padding:'8px 4px',borderRadius:'8px',border:'1px solid '+(c.time_of_day===t?g:bd),background:c.time_of_day===t?'var(--color-green-10)':'transparent',color:c.time_of_day===t?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
                             {t}
                           </button>
-                        })
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -515,7 +506,7 @@ export default function ManagePage() {
         {!showForm && displayProtocols.map((p: any) => {
           const isCompleted = p.status === 'completed'
           return (
-          <div key={p.id} style={{
+            <div key={p.id} style={{
               background:cb,
               border:`1px solid ${isCompleted?'#2a2a3a':bd}`,
               borderRadius:'12px',
@@ -523,49 +514,58 @@ export default function ManagePage() {
               marginBottom:'12px',
               opacity:isCompleted?0.6:1
             }}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
-              <div>
-                <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
-                <p style={{fontSize:'12px',color:dg}}>
-                  {isCompleted ? `Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
-                </p>
-              </div>
-              <div style={{display:'flex',gap:'10px'}}>
-                <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
-                <button onClick={() => deleteProtocol(p.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
-              </div>
-            </div>
-            {(p.compounds||[]).map((c: any) => {
-              const ph = (c.phases||[])[0]
-              const freq = ph?.frequency || ''
-              const isRolling = freq.startsWith('every') && freq.endsWith('days')
-              const days = ph?.days_of_week || []
-              const activeDays = DAYS.filter((_,i) => days.includes(DAY_NUMS[i]))
-              return (
-                <div key={c.id} style={{background:'var(--color-surface)',borderRadius:'8px',padding:'10px',marginTop:'6px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
-                    <span style={{fontSize:'14px',fontWeight:'700',color:'var(--color-text)'}}>{c.name}</span>
-                    <span style={{fontSize:'12px',color:dg}}>{ph?.dose}{ph?.dose_unit}</span>
-                  </div>
-                  {isRolling ? (
-                    <span style={{fontSize:'11px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 8px',borderRadius:'4px',display:'inline-block'}}>
-                      Every {freq.replace('every','').replace('days','')} days
-                    </span>
-                  ) : (
-                    <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
-                      {activeDays.length > 0 ? activeDays.map(d => (
-                        <span key={d} style={{fontSize:'10px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 6px',borderRadius:'4px'}}>{d}</span>
-                      )) : <span style={{fontSize:'11px',color:mg}}>No schedule set</span>}
-                      {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>· {ph.time_of_day}</span>}
-                    </div>
-                  )}
-                  {ph?.duration_weeks && <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginBottom:0}}>{ph.duration_weeks} week protocol</p>}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+                <div>
+                  <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
+                  <p style={{fontSize:'12px',color:dg}}>
+                    {isCompleted ? `Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
+                  </p>
                 </div>
-              )
-            })}
-        ))}
+                <div style={{display:'flex',gap:'10px'}}>
+                  {!isCompleted && (
+                    <>
+                      <button onClick={() => setConfirmComplete(p)} style={{background:'none',border:'none',color:'#22c55e',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Complete</button>
+                      <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
+                      <button onClick={() => deleteProtocol(p.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
+                    </>
+                  )}
+                  {isCompleted && (
+                    <span style={{fontSize:'11px',color:mg,fontWeight:'700',background:'rgba(255,255,255,0.05)',padding:'4px 10px',borderRadius:'6px'}}>ARCHIVED</span>
+                  )}
+                </div>
+              </div>
+              {(p.compounds||[]).map((c: any) => {
+                const ph = (c.phases||[])[0]
+                const freq = ph?.frequency || ''
+                const isRolling = freq.startsWith('every') && freq.endsWith('days')
+                const days = ph?.days_of_week || []
+                const activeDays = DAYS.filter((_,i) => days.includes(DAY_NUMS[i]))
+                return (
+                  <div key={c.id} style={{background:'var(--color-surface)',borderRadius:'8px',padding:'10px',marginTop:'6px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:'6px'}}>
+                      <span style={{fontSize:'14px',fontWeight:'700',color:'var(--color-text)'}}>{c.name}</span>
+                      <span style={{fontSize:'12px',color:dg}}>{ph?.dose}{ph?.dose_unit}</span>
+                    </div>
+                    {isRolling ? (
+                      <span style={{fontSize:'11px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 8px',borderRadius:'4px',display:'inline-block'}}>
+                        Every {freq.replace('every','').replace('days','')} days
+                      </span>
+                    ) : (
+                      <div style={{display:'flex',gap:'4px',flexWrap:'wrap'}}>
+                        {activeDays.length > 0 ? activeDays.map(d => (
+                          <span key={d} style={{fontSize:'10px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 6px',borderRadius:'4px'}}>{d}</span>
+                        )) : <span style={{fontSize:'11px',color:mg}}>No schedule set</span>}
+                        {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>� {ph.time_of_day}</span>}
+                      </div>
+                    )}
+                    {ph?.duration_weeks && <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginBottom:0}}>{ph.duration_weeks} week protocol</p>}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
 
-        {/* Confirmation Modal */}
         {confirmComplete && (
           <div style={{
             position:'fixed',
@@ -626,7 +626,6 @@ export default function ManagePage() {
           </div>
         )}
 
-        {/* Confetti Celebration */}
         {showConfetti && (
           <div style={{
             position:'fixed',
