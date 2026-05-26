@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import StatsBoxes from '../../components/dashboard/StatsBoxes'
 import CompoundRings from '../../components/dashboard/CompoundRings'
@@ -89,6 +89,90 @@ export default function DashboardPage() {
     window.addEventListener('doses_updated', handleDosesUpdate)
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
+
+  async function createDemoCompounds() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const todayStr = new Date().toISOString().split('T')[0]
+    
+    const demos = [
+      { name: 'Demo: Retatrutide', strength: 50, unit: 'mg', bac: 3, dose: 2.5, doseUnit: 'mg' },
+      { name: 'Demo: Test Cypionate', strength: 100, unit: 'mg', bac: 10, dose: 100, doseUnit: 'mg' },
+      { name: 'Demo: BPC-157', strength: 5, unit: 'mg', bac: 2, dose: 250, doseUnit: 'mcg' },
+      { name: 'Demo: CJC-1295', strength: 2, unit: 'mg', bac: 2, dose: 1, doseUnit: 'mg' }
+    ]
+
+    for (const demo of demos) {
+      const { data: protocol } = await supabase.from('protocols')
+        .insert({ user_id: user.id, name: demo.name, start_date: todayStr })
+        .select()
+        .single()
+      
+      if (!protocol) continue
+
+      const { data: compound } = await supabase.from('compounds')
+        .insert({
+          protocol_id: protocol.id,
+          user_id: user.id,
+          name: demo.name,
+          vial_strength: demo.strength,
+          vial_unit: demo.unit,
+          bac_water_ml: demo.bac,
+          reconstitution_date: todayStr,
+          vials_in_stock: 1,
+          position: 0
+        })
+        .select()
+        .single()
+
+      if (!compound) continue
+
+      await supabase.from('phases').insert({
+        compound_id: compound.id,
+        user_id: user.id,
+        name: 'Phase 1',
+        dose: demo.dose,
+        dose_unit: demo.doseUnit,
+        start_week: 1,
+        end_week: 4,
+        frequency: '1x/week',
+        days_of_week: [1],
+        time_of_day: 'morning',
+        duration_weeks: 4,
+        position: 0
+      })
+    }
+
+    // Create 7 days of fake journal entries
+    const entries = [
+      { days_ago: 7, mood: 6, energy: 6, sleep: 6.5, weight: 185 },
+      { days_ago: 6, mood: 6, energy: 7, sleep: 7, weight: 185 },
+      { days_ago: 5, mood: 7, energy: 7, sleep: 7.5, weight: 184.5 },
+      { days_ago: 4, mood: 7, energy: 8, sleep: 7.5, weight: 184.5 },
+      { days_ago: 3, mood: 7, energy: 8, sleep: 8, weight: 184 },
+      { days_ago: 2, mood: 8, energy: 8, sleep: 8, weight: 183.5 },
+      { days_ago: 1, mood: 8, energy: 9, sleep: 8.5, weight: 183 },
+    ]
+
+    for (const entry of entries) {
+      const d = new Date()
+      d.setDate(d.getDate() - entry.days_ago)
+      const dateStr = d.toISOString().split('T')[0]
+
+      await supabase.from('journal_entries').insert({
+        user_id: user.id,
+        date: dateStr,
+        mood: entry.mood,
+        energy: entry.energy,
+        sleep: entry.sleep,
+        weight: entry.weight,
+        hunger: null,
+        notes: ''
+      })
+    }
+  }
 
   async function createProtocolFromCalc() {
     if (!newName.trim()) return
@@ -192,7 +276,17 @@ export default function DashboardPage() {
     setStreakDays(streak)
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
-    const { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+    
+    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+    
+    // Check if first login (no protocols) and create demos
+    if (!protocols || protocols.length === 0) {
+      await createDemoCompounds()
+      // Reload to show demos
+      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+      protocols = reloaded
+    }
+    
     setActiveProtocols(protocols || [])
     if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
@@ -267,6 +361,7 @@ export default function DashboardPage() {
 
   function eventColor(type: string) { return type==='started'?g:type==='dose_change'?'#f59e0b':type==='compound_added'?'#06b6d4':type==='compound_removed'?'#ff6b6b':'#6c63ff' }
 
+  const hasDemoCompounds = activeProtocols.some((p: any) => p.name.startsWith('Demo:'))
   const we = entries.filter((e: any) => e.weight).sort((a: any, b: any) => a.date.localeCompare(b.date))
   const sw = we[0]?.weight; const lw = we[we.length-1]?.weight
   const tl = (sw && lw) ? (sw - lw).toFixed(1) : null
@@ -312,7 +407,7 @@ export default function DashboardPage() {
   }
   
   if (currentWeek > 0) {
-    ins.push({ text: `Week ${currentWeek} � ${entries.length} total journal entries logged`, accent: '#6c63ff' })
+    ins.push({ text: `Week ${currentWeek} · ${entries.length} total journal entries logged`, accent: '#6c63ff' })
   }
   
   const vi = ins.slice(0, 3)
@@ -385,7 +480,7 @@ export default function DashboardPage() {
                   onClick={createProtocolFromCalc} 
                   style={{flex:2,background:createSuccess?'#10b981':creatingProtocol?mg:g,color:createSuccess?'#fff':creatingProtocol?dg:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'not-allowed':'pointer',opacity:creatingProtocol||!newName.trim()?0.5:1}}
                 >
-                  {createSuccess?'? Created!':creatingProtocol?'Creating...':'Create Protocol'}
+                  {createSuccess?'✓ Created!':creatingProtocol?'Creating...':'Create Protocol'}
                 </button>
               </div>
             </div>
@@ -398,6 +493,16 @@ export default function DashboardPage() {
   return (
     <main style={{minHeight:'100vh',paddingBottom:'100px'}}>
       <div style={{maxWidth:'600px',margin:'0 auto',padding:'16px'}}>
+        {hasDemoCompounds && (
+          <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
+            <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
+            <div>
+              <span style={{fontSize:'12px',fontWeight:'700',color:g,display:'block',marginBottom:'2px'}}>Delete these samples and create your real protocols</span>
+              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>These are demo compounds. Go to "My Protocols" to delete them and start tracking your stack.</span>
+            </div>
+          </div>
+        )}
+
         {createSuccess && (
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
             <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>Protocol Created!</span>
@@ -466,7 +571,7 @@ export default function DashboardPage() {
 
         {missedDoses.length > 0 && (
           <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
-            <span style={{fontSize:'16px',flexShrink:0}}>&#9888;</span>
+            <span style={{fontSize:'16px',flexShrink:0}}>⚠️</span>
             <div>
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f97316',display:'block',marginBottom:'2px'}}>Looks like you may have missed a dose today</span>
               <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{missedDoses.join(', ')} {missedDoses.length === 1 ? 'was' : 'were'} due but not logged. Tap the compound tab to log it.</span>
@@ -543,7 +648,7 @@ export default function DashboardPage() {
                       <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
                       <span style={{fontSize:'10px',color:dg,display:'block',marginTop:'2px'}}>{new Date(selectedEvent.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
                     </div>
-                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>�</button>
+                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>✕</button>
                   </div>
                 )}
               </div>
@@ -599,7 +704,7 @@ export default function DashboardPage() {
                   </div>
                   <div style={{display:'flex',gap:'8px',flexShrink:0}}>
                     <button onClick={() => startEditEvent(ev)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'11px'}}>Edit</button>
-                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>�</button>
+                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>Delete</button>
                   </div>
                 </div>
               )
