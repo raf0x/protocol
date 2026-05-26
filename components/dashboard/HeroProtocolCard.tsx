@@ -251,23 +251,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             vialUnit={activeCompound.vial_unit}
           />
         {fillPct === 0 && (
-  <button 
-    onClick={() => setConfirmArchive(true)}
-    style={{
-      marginTop:'8px',
-      padding:'8px 10px',
-      background:'rgba(34,197,94,0.15)',
-      border:'1px solid rgba(34,197,94,0.3)',
-      borderRadius:'6px',
-      color:'#22c55e',
-      fontSize:'12px',
-      fontWeight:'700',
-      cursor:'pointer',
-      width:'100%'
-    }}
-  >
-    Mark Complete
-  </button>
 )}
         </div>
       </div>
