@@ -507,7 +507,7 @@ export default function DashboardPage() {
             <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
             <div>
               <span style={{fontSize:'12px',fontWeight:'700',color:g,display:'block',marginBottom:'2px'}}>Delete these samples and create your real protocols</span>
-              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>These are demo compounds. Click on "+ Add/Edit Protocol" to delete demo compounds and start tracking your stack.</span>
+              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>These are demo compounds. Click on <a href="/protocol/manage" style={{color:g,fontWeight:'600',textDecoration:'none',borderBottom:'1px solid '+g}}>+ Add/Edit Protocol</a> to delete demo compounds and start tracking your stack.</span>
             </div>
           </div>
         )}
