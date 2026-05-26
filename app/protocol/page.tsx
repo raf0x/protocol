@@ -424,11 +424,55 @@ export default function DashboardPage() {
   if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
 
   if (!loading && activeProtocols.length === 0) {
+    const hasActivityHistory = entries.length > 0
+    
     return (
       <div style={{padding:'20px',textAlign:'center',paddingTop:'80px',minHeight:'100vh'}}>
-        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>Create Your First Protocol</h2>
-        <p style={{color:dg,marginBottom:'32px'}}>Track your wellness journey with Protocol.</p>
-        <button onClick={() => setShowNewProtocol(true)} style={{background:g,color:'#000',padding:'16px 32px',borderRadius:'12px',fontWeight:'700',fontSize:'16px',border:'none',cursor:'pointer'}}>+ Create Protocol</button>
+        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>
+          {hasActivityHistory ? 'Ready to build your own?' : 'Create Your First Protocol'}
+        </h2>
+        <p style={{color:dg,marginBottom:'32px'}}>
+          {hasActivityHistory 
+            ? 'Delete those samples and create your first real protocol to start tracking.' 
+            : 'Track your wellness journey with Protocol.'}
+        </p>
+        <div style={{display:'flex',justifyContent:'center',marginTop:'48px'}}>
+          <button 
+            onClick={() => setShowNewProtocol(true)}
+            style={{
+              width:'160px',
+              height:'160px',
+              borderRadius:'50%',
+              border:'3px solid '+g,
+              background:'rgba(76,235,55,0.08)',
+              color:g,
+              fontSize:'13px',
+              fontWeight:'700',
+              cursor:'pointer',
+              display:'flex',
+              flexDirection:'column',
+              alignItems:'center',
+              justifyContent:'center',
+              gap:'8px',
+              boxShadow:'0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)',
+              transition:'all 0.3s ease',
+              position:'relative',
+              overflow:'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 50px rgba(76,235,55,0.4), inset 0 0 40px rgba(76,235,55,0.15)'
+              e.currentTarget.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)'
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
+          >
+            <span style={{fontSize:'32px',fontWeight:'700'}}>+</span>
+            <span>Create</span>
+            <span>Protocol</span>
+          </button>
+        </div>
         
         {showNewProtocol && (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
