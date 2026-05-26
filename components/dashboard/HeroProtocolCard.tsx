@@ -1,5 +1,6 @@
 'use client'
 import React from 'react'
+import { createClient } from '../../lib/supabase'
 import CompoundNotes from './CompoundNotes'
 import VialInventory from './VialInventory'
 
@@ -37,7 +38,6 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
   const fillH = bodyH * fill; const fillY = bodyY + bodyH - fillH
   const id = short.replace(/[^a-z0-9]/gi, '') + Math.random().toString(36).slice(2,5)
   
-  // Ribbon positioning
   const ribbonY = bodyY + bodyH * 0.35
   const ribbonH = 24
   
@@ -52,35 +52,23 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
           <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6'/>
         </clipPath>
       </defs>
-      {/* Cap */}
       <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill={color} opacity='0.9'/>
       <rect x={(W - neckW - 8) / 2} y='2' width={neckW + 8} height={capH} rx='5' fill='var(--color-text)' opacity='0.12'/>
-      {/* Neck */}
       <rect x={(W - neckW) / 2} y={capH} width={neckW} height={neckH + 2} rx='3' fill={color} opacity='0.45'/>
-      {/* Body */}
       <rect x={bodyX} y={bodyY} width={bodyW} height={bodyH} rx='6' fill='var(--color-input)' stroke={color} strokeWidth='1.2' strokeOpacity='0.7'/>
-      {/* Liquid */}
       {fillH > 0 && <rect x={bodyX} y={fillY} width={bodyW} height={fillH} clipPath={`url(#clip-${id})`} fill={`url(#fill-${id})`}/>}
-      {/* Liquid surface */}
       {fillH > 2 && <rect x={bodyX + 1} y={fillY} width={bodyW - 2} height='2.5' fill={color} opacity='0.6' clipPath={`url(#clip-${id})`}/>}
-      {/* Glass shine */}
       <rect x={bodyX + 3} y={bodyY + 4} width='5' height={bodyH - 12} rx='2.5' fill='var(--color-text)' opacity='0.06'/>
-      {/* Tick marks */}
       {[0.25, 0.5, 0.75].map((tick) => (
         <line key={tick} x1={bodyX + bodyW - 1} y1={bodyY + bodyH * (1 - tick)} x2={bodyX + bodyW + 8} y2={bodyY + bodyH * (1 - tick)} stroke={color} strokeWidth='1.5' opacity='0.8'/>
       ))}
       
-      {/* Ribbon label */}
       <g>
-        {/* Ribbon background */}
         <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height={ribbonH} fill='rgba(0,0,0,0.85)' />
         <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height={ribbonH} fill={color} opacity='0.15' />
-        {/* Top border */}
         <rect x={bodyX - 2} y={ribbonY} width={bodyW + 4} height='1' fill={color} opacity='0.6' />
-        {/* Bottom border */}
         <rect x={bodyX - 2} y={ribbonY + ribbonH - 1} width={bodyW + 4} height='1' fill={color} opacity='0.6' />
         
-        {/* Text */}
         <text x={W/2} y={ribbonY + 10} textAnchor='middle' fontSize='7' fontWeight='800' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>
           {short.toUpperCase()}
         </text>
@@ -91,9 +79,7 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
         )}
       </g>
       
-      {/* Fill percentage below ribbon */}
       <text x={W/2} y={ribbonY + ribbonH + 24} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
-      {/* Base */}
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
   )
@@ -103,17 +89,18 @@ const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'
 
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, onShare }: Props) {
   const [dosesRefresh, setDosesRefresh] = React.useState(0)
+  const [confirmArchive, setConfirmArchive] = React.useState(false)
+  
   React.useEffect(() => {
     function onStorage(e: StorageEvent) { if (e.key?.includes('_doses')) setDosesRefresh(n => n + 1) }
     window.addEventListener('storage', onStorage)
-    // Also listen for custom event from same tab
     function onDoses() { setDosesRefresh(n => n + 1) }
     window.addEventListener('doses_updated', onDoses)
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('doses_updated', onDoses) }
   }, [])
+  
   if (!activeProtocols || activeProtocols.length === 0) return null
 
-  // Find the active compound across all protocols
   let activeCompound: any = null
   let activeProtocol: any = null
   for (const p of activeProtocols) {
@@ -122,7 +109,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     }
     if (activeCompound) break
   }
-  // Fallback to first compound
   if (!activeCompound) {
     activeProtocol = activeProtocols[0]
     activeCompound = activeProtocol?.compounds?.[0]
@@ -131,11 +117,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   const color = RING_COLORS[compoundIndex] || RING_COLORS[0]
 
-  // Correct week for this specific compound's protocol
   const daysIn = Math.max(0, Math.floor((Date.now() - new Date(activeProtocol.start_date + 'T00:00:00').getTime()) / 86400000))
   const compoundWeek = Math.max(1, Math.floor(daysIn / 7) + 1)
 
-  // Protocol progress - dose based if override exists, otherwise time based
   let totalDosesEstimate = 0
   const dosesOverride = activeCompound.doses_taken_override ?? null
   const allPhases = (activeCompound.phases || []).sort((a: any, b: any) => a.start_week - b.start_week)
@@ -150,9 +134,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     ? Math.min(100, Math.round((dosesOverride / totalDosesEstimate) * 100))
     : Math.min(100, Math.round((daysIn / totalDaysForProgress) * 100))
 
-  // Current phase
   const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
-  // Next dose countdown
   let nextDoseText: string | null = null
   if (currentPhase && activeProtocol) {
     try {
@@ -174,8 +156,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     } catch(e) {}
   }
 
-
-  // Vial status
   const reconDate = activeCompound.reconstitution_date
   const bacWater = activeCompound.bac_water_ml || 0
   const vialStrength = activeCompound.vial_strength || 0
@@ -187,25 +167,30 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
     vialDaysLeft = 28 - daysSinceRecon
 
-  // Use doses_taken_override from Supabase directly - no localStorage
-  const totalDosesTaken = dosesOverride !== null
-    ? dosesOverride
-    : allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-  // vial_unit='IU' means real IU vial (HCG) - use concentration math
-  // vial_unit='mg' means mg vial with IU syringe units (Reta, CJC etc) - use /100
-  // Use ml_per_dose directly if set - most reliable method
-  const mlPerDoseStored = activeCompound.ml_per_dose || null
-  const vialUnit = activeCompound.vial_unit || 'mg'
-  const mlPerDose = mlPerDoseStored !== null
-    ? mlPerDoseStored
-    : vialUnit === 'IU' && vialStrength > 0 && bacWater > 0
-      ? currentPhase.dose / (vialStrength / bacWater)
-      : currentPhase.dose_unit === 'IU'
-        ? currentPhase.dose / 100
-        : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
-  const mlUsed = totalDosesTaken * mlPerDose
-  mlRemaining = Math.max(0, bacWater - mlUsed)
-  fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
+    const totalDosesTaken = dosesOverride !== null
+      ? dosesOverride
+      : allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
+    const mlPerDoseStored = activeCompound.ml_per_dose || null
+    const vialUnit = activeCompound.vial_unit || 'mg'
+    const mlPerDose = mlPerDoseStored !== null
+      ? mlPerDoseStored
+      : vialUnit === 'IU' && vialStrength > 0 && bacWater > 0
+        ? currentPhase.dose / (vialStrength / bacWater)
+        : currentPhase.dose_unit === 'IU'
+          ? currentPhase.dose / 100
+          : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
+    const mlUsed = totalDosesTaken * mlPerDose
+    mlRemaining = Math.max(0, bacWater - mlUsed)
+    fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
+  }
+
+  async function archiveProtocol() {
+    const supabase = createClient()
+    await supabase.from('protocols').update({ 
+      status: 'completed', 
+      completed_date: new Date().toISOString() 
+    }).eq('id', activeProtocol.id)
+    window.location.reload()
   }
 
   return (
@@ -227,24 +212,24 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           </div>
 
           {vialDaysLeft !== null && mlRemaining !== null && (
-  <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
-    <div>
-      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>RECON. DATE</div>
-      <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
-    </div>
-    <div>
-      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
-     <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)'}}>
-  {reconDate ? new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
-  <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
-</div>
-</div> 
-    <div>
-      <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
-      <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
-    </div>
-  </div>
-)}
+            <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
+              <div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>RECON. DATE</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
+              </div>
+              <div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>VIAL EXPIRES</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)'}}>
+                  {reconDate ? new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                  <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>EST. REMAINING</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{mlRemaining.toFixed(2)} mL</div>
+              </div>
+            </div>
+          )}
 
           <div>
             <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
@@ -258,25 +243,58 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
-         <DynamicVial 
-  name={activeCompound.name} 
-  color={color} 
-  fillPct={fillPct}
-  vialStrength={activeCompound.vial_strength}
-  vialUnit={activeCompound.vial_unit}
-/>
+          <DynamicVial 
+            name={activeCompound.name} 
+            color={color} 
+            fillPct={fillPct}
+            vialStrength={activeCompound.vial_strength}
+            vialUnit={activeCompound.vial_unit}
+          />
+          {fillPct === 0 && (
+            <button 
+              onClick={() => setConfirmArchive(true)}
+              style={{
+                marginTop:'12px',
+                padding:'10px 14px',
+                background:'rgba(34,197,94,0.15)',
+                border:'1px solid rgba(34,197,94,0.3)',
+                borderRadius:'8px',
+                color:'#22c55e',
+                fontSize:'13px',
+                fontWeight:'700',
+                cursor:'pointer',
+                width:'100%'
+              }}
+            >
+              Mark Complete
+            </button>
+          )}
         </div>
       </div>
+      
       <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
         <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
         {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
-  <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} />
-)}
+          <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} />
+        )}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
           <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
           <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
         </div>
       </div>
+
+      {confirmArchive && (
+        <div style={{background:'rgba(0,0,0,0.85)',position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}} onClick={() => setConfirmArchive(false)}>
+          <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'16px',padding:'24px',maxWidth:'380px',width:'100%'}} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:'#39ff14'}}>Mark as Complete?</h3>
+            <p style={{fontSize:'14px',color:'var(--color-dim)',marginBottom:'20px',lineHeight:'1.5'}}>Archive <strong>{activeCompound.name}</strong> and mark this protocol phase complete. All data will be preserved.</p>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={() => setConfirmArchive(false)} style={{flex:1,background:'var(--color-card)',color:'var(--color-dim)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
+              <button onClick={() => { archiveProtocol(); setConfirmArchive(false) }} style={{flex:1,background:'#22c55e',color:'#000',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
