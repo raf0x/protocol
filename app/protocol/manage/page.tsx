@@ -57,6 +57,8 @@ export default function ManagePage() {
   const [saving, setSaving] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
   const [confirmComplete, setConfirmComplete] = useState<any>(null)
+  const [confirmDelete, setConfirmDelete] = useState<any>(null)
+  const [confirmReactivate, setConfirmReactivate] = useState<any>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [error, setError] = useState('')
 
@@ -86,6 +88,25 @@ export default function ManagePage() {
     setShowConfetti(true)
     setTimeout(() => setShowConfetti(false), 3000)
     setConfirmComplete(null)
+    load()
+  }
+
+  async function deleteCompletedProtocol() {
+    if (!confirmDelete) return
+    const supabase = createClient()
+    await supabase.from('protocols').delete().eq('id', confirmDelete.id)
+    setConfirmDelete(null)
+    load()
+  }
+
+  async function reactivateProtocol() {
+    if (!confirmReactivate) return
+    const supabase = createClient()
+    await supabase.from('protocols').update({ 
+      status: 'active',
+      completed_date: null
+    }).eq('id', confirmReactivate.id)
+    setConfirmReactivate(null)
     load()
   }
 
@@ -530,7 +551,10 @@ export default function ManagePage() {
                     </>
                   )}
                   {isCompleted && (
-                    <span style={{fontSize:'11px',color:mg,fontWeight:'700',background:'rgba(255,255,255,0.05)',padding:'4px 10px',borderRadius:'6px'}}>ARCHIVED</span>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <button onClick={() => setConfirmReactivate(p)} style={{background:'none',border:'none',color:g,cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Reactivate</button>
+                      <button onClick={() => setConfirmDelete(p)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -555,7 +579,7 @@ export default function ManagePage() {
                         {activeDays.length > 0 ? activeDays.map(d => (
                           <span key={d} style={{fontSize:'10px',fontWeight:'700',color:g,background:'var(--color-green-10)',padding:'2px 6px',borderRadius:'4px'}}>{d}</span>
                         )) : <span style={{fontSize:'11px',color:mg}}>No schedule set</span>}
-                        {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>� {ph.time_of_day}</span>}
+                        {ph?.time_of_day && <span style={{fontSize:'10px',color:dg,marginLeft:'4px'}}>• {ph.time_of_day}</span>}
                       </div>
                     )}
                     {ph?.duration_weeks && <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginBottom:0}}>{ph.duration_weeks} week protocol</p>}
@@ -620,6 +644,126 @@ export default function ManagePage() {
                   }}
                 >
                   Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDelete && (
+          <div style={{
+            position:'fixed',
+            inset:0,
+            background:'rgba(0,0,0,0.85)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            zIndex:9999,
+            padding:'20px'
+          }} onClick={() => setConfirmDelete(null)}>
+            <div style={{
+              background:cb,
+              border:'1px solid '+bd,
+              borderRadius:'16px',
+              padding:'24px',
+              maxWidth:'400px',
+              width:'100%'
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:'#ff6b6b'}}>Delete Protocol?</h3>
+              <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
+                Permanently delete <strong>{confirmDelete.name}</strong> and all its data. This cannot be undone.
+              </p>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setConfirmDelete(null)}
+                  style={{
+                    flex:1,
+                    background:cb,
+                    color:dg,
+                    border:'1px solid '+bd,
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    cursor:'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={deleteCompletedProtocol}
+                  style={{
+                    flex:1,
+                    background:'#ff6b6b',
+                    color:'#fff',
+                    border:'none',
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    fontWeight:'700',
+                    cursor:'pointer'
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmReactivate && (
+          <div style={{
+            position:'fixed',
+            inset:0,
+            background:'rgba(0,0,0,0.85)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            zIndex:9999,
+            padding:'20px'
+          }} onClick={() => setConfirmReactivate(null)}>
+            <div style={{
+              background:cb,
+              border:'1px solid '+bd,
+              borderRadius:'16px',
+              padding:'24px',
+              maxWidth:'400px',
+              width:'100%'
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:g}}>Reactivate Protocol?</h3>
+              <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
+                Restore <strong>{confirmReactivate.name}</strong> to your active protocols. You can resume tracking where you left off.
+              </p>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setConfirmReactivate(null)}
+                  style={{
+                    flex:1,
+                    background:cb,
+                    color:dg,
+                    border:'1px solid '+bd,
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    cursor:'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={reactivateProtocol}
+                  style={{
+                    flex:1,
+                    background:g,
+                    color:'var(--color-green-text)',
+                    border:'none',
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    fontWeight:'700',
+                    cursor:'pointer'
+                  }}
+                >
+                  Reactivate
                 </button>
               </div>
             </div>
