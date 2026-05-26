@@ -341,7 +341,7 @@ export default function ManagePage() {
                 }}
                 style={{background:selectMode?'#ff6b6b':'var(--color-card)',color:selectMode?'#fff':dg,border:'1px solid '+(selectMode?'#ff6b6b':bd),borderRadius:'8px',padding:'10px 16px',fontSize:'13px',fontWeight:'600',cursor:'pointer'}}
               >
-                {selectMode ? '✕ Cancel' : '☑ Select'}
+                {selectMode ? '✕ Cancel' : 'Delete Multiple'}
               </button>
               <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>
             </div>
