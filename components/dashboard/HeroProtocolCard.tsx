@@ -259,14 +259,15 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} />
         )}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
-  <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
-  <div style={{display:'flex',gap:'8px'}}>
-    {fillPct === 0 && (
-      <button onClick={() => setConfirmArchive(true)} style={{background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'6px',padding:'6px 12px',color:'#22c55e',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
-    )}
-    <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
-  </div>
-</div>
+          <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
+          <div style={{display:'flex',gap:'8px'}}>
+            {fillPct === 0 && (
+              <button onClick={() => setConfirmArchive(true)} style={{background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'6px',padding:'6px 12px',color:'#22c55e',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
+            )}
+            <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
+          </div>
+        </div>
+      </div>
 
       {confirmArchive && (
         <div style={{background:'rgba(0,0,0,0.85)',position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}} onClick={() => setConfirmArchive(false)}>
