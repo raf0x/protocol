@@ -242,7 +242,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           </div>
         </div>
 
-        <div style={{marginLeft:'16px',flexShrink:0,filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
+        <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
           <DynamicVial 
             name={activeCompound.name} 
             color={color} 
@@ -250,6 +250,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             vialStrength={activeCompound.vial_strength}
             vialUnit={activeCompound.vial_unit}
           />
+          {fillPct === 0 && (
+            <button onClick={() => setConfirmArchive(true)} style={{marginTop:'8px',background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'4px',padding:'5px 10px',color:'#22c55e',fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
+          )}
         </div>
       </div>
       
@@ -260,12 +263,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         )}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
           <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>
-          <div style={{display:'flex',gap:'8px'}}>
-            {fillPct === 0 && (
-              <button onClick={() => setConfirmArchive(true)} style={{background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'6px',padding:'6px 12px',color:'#22c55e',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
-            )}
-            <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
-          </div>
+          <button onClick={() => onShare(activeProtocol.id)} style={{background:'none',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'6px 12px',color:'var(--color-dim)',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share →</button>
         </div>
       </div>
 
