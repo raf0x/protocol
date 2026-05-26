@@ -101,7 +101,9 @@ export default function DashboardPage() {
       { name: 'Demo: Retatrutide', strength: 50, unit: 'mg', bac: 3, dose: 2.5, doseUnit: 'mg' },
       { name: 'Demo: Test Cypionate', strength: 100, unit: 'mg', bac: 10, dose: 100, doseUnit: 'mg' },
       { name: 'Demo: BPC-157', strength: 5, unit: 'mg', bac: 2, dose: 250, doseUnit: 'mcg' },
-      { name: 'Demo: CJC-1295', strength: 2, unit: 'mg', bac: 2, dose: 1, doseUnit: 'mg' }
+      { name: 'Demo: CJC-1295', strength: 2, unit: 'mg', bac: 2, dose: 1, doseUnit: 'mg' },
+      { name: 'Demo: Ipamorelin', strength: 5, unit: 'mg', bac: 2, dose: 100, doseUnit: 'mcg' },
+      { name: 'Demo: Semaglutide', strength: 5, unit: 'mg', bac: 1.5, dose: 0.25, doseUnit: 'mg' }
     ]
 
     for (const demo of demos) {
@@ -711,6 +713,12 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+
+        <div style={{marginTop:'32px',paddingTop:'16px',borderTop:'1px solid '+bd,display:'flex',justifyContent:'center'}}>
+          <a href='/protocol/manage' style={{color:g,textDecoration:'none',fontSize:'13px',fontWeight:'700',padding:'12px 24px',background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'8px',cursor:'pointer',display:'inline-block'}}>
+            → My Protocols
+          </a>
+        </div>
       </div>
     </main>
   )
