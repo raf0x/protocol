@@ -281,10 +281,17 @@ export default function DashboardPage() {
     
     let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
     
-    // Check if first login (no protocols) and create demos
+    // Check if first login (no active protocols) and create demos only if user has no history
     if (!protocols || protocols.length === 0) {
-      await createDemoCompounds()
-      // Reload to show demos
+      const { data: completedProtocols } = await supabase.from('protocols').select('id').eq('status', 'completed').limit(1)
+      const { data: journalEntries } = await supabase.from('journal_entries').select('id').limit(1)
+      
+      // Only create demos if user has no completed protocols or journal entries (truly first login)
+      if (!completedProtocols?.length && !journalEntries?.length) {
+        await createDemoCompounds()
+      }
+      
+      // Reload to show demos (if created)
       const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
       protocols = reloaded
     }
