@@ -61,6 +61,9 @@ export default function ManagePage() {
   const [confirmReactivate, setConfirmReactivate] = useState<any>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [error, setError] = useState('')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
 
   const g = 'var(--color-green)', dg = 'var(--color-dim)', mg = 'var(--color-muted)'
   const cb = 'var(--color-card)', bd = 'var(--color-border)', inp = 'var(--color-input)'
@@ -108,6 +111,37 @@ export default function ManagePage() {
     }).eq('id', confirmReactivate.id)
     setConfirmReactivate(null)
     load()
+  }
+
+  async function bulkDeleteProtocols() {
+    if (selectedProtocols.size === 0) return
+    const supabase = createClient()
+    for (const id of selectedProtocols) {
+      await supabase.from('protocols').delete().eq('id', id)
+    }
+    setSelectedProtocols(new Set())
+    setSelectMode(false)
+    setConfirmBulkDelete(false)
+    load()
+  }
+
+  function toggleProtocolSelect(id: string) {
+    const newSelected = new Set(selectedProtocols)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedProtocols(newSelected)
+  }
+
+  function selectAll() {
+    const allIds = new Set(displayProtocols.map((p: any) => p.id))
+    setSelectedProtocols(allIds)
+  }
+
+  function clearSelection() {
+    setSelectedProtocols(new Set())
   }
 
   function startNew() {
@@ -298,8 +332,33 @@ export default function ManagePage() {
         <button onClick={() => router.push('/protocol')} style={{background:'none',border:'none',color:'#fff',fontSize:'16px',cursor:'pointer',padding:0,marginBottom:'14px',fontWeight:'600'}}>↑ Return to Dashboard</button>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'24px'}}>
           <h1 style={{fontSize:'24px',fontWeight:'bold',color:g}}>My Protocols</h1>
-          {!showForm && <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>}
+          {!showForm && (
+            <div style={{display:'flex',gap:'8px'}}>
+              <button 
+                onClick={() => {
+                  setSelectMode(!selectMode)
+                  clearSelection()
+                }}
+                style={{background:selectMode?'#ff6b6b':'var(--color-card)',color:selectMode?'#fff':dg,border:'1px solid '+(selectMode?'#ff6b6b':bd),borderRadius:'8px',padding:'10px 16px',fontSize:'13px',fontWeight:'600',cursor:'pointer'}}
+              >
+                {selectMode ? '✕ Cancel' : '☑ Select'}
+              </button>
+              <button onClick={startNew} style={{background:g,color:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'10px 20px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>+ New</button>
+            </div>
+          )}
         </div>
+
+        {selectMode && selectedProtocols.size > 0 && (
+          <div style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{fontSize:'13px',color:dg,fontWeight:'600'}}>
+              {selectedProtocols.size} protocol{selectedProtocols.size !== 1 ? 's' : ''} selected
+            </div>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button onClick={selectAll} style={{background:'none',border:'1px solid #ff6b6b',color:'#ff6b6b',borderRadius:'6px',padding:'6px 12px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Select All</button>
+              <button onClick={() => setConfirmBulkDelete(true)} style={{background:'#ff6b6b',border:'none',color:'#fff',borderRadius:'6px',padding:'6px 16px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Delete Selected</button>
+            </div>
+          </div>
+        )}
 
         {showForm && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'20px',marginBottom:'24px'}}>
@@ -526,37 +585,56 @@ export default function ManagePage() {
 
         {!showForm && displayProtocols.map((p: any) => {
           const isCompleted = p.status === 'completed'
+          const isSelected = selectedProtocols.has(p.id)
           return (
             <div key={p.id} style={{
               background:cb,
-              border:`1px solid ${isCompleted?'#2a2a3a':bd}`,
+              border:`1px solid ${isSelected?'#ff6b6b':isCompleted?'#2a2a3a':bd}`,
               borderRadius:'12px',
               padding:'16px',
               marginBottom:'12px',
-              opacity:isCompleted?0.6:1
+              opacity:isCompleted?0.6:1,
+              position:'relative'
             }}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px'}}>
+              {selectMode && (
+                <input
+                  type='checkbox'
+                  checked={isSelected}
+                  onChange={() => toggleProtocolSelect(p.id)}
+                  style={{
+                    position:'absolute',
+                    top:'16px',
+                    left:'16px',
+                    width:'18px',
+                    height:'18px',
+                    cursor:'pointer'
+                  }}
+                />
+              )}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'10px',marginLeft:selectMode?'32px':'0'}}>
                 <div>
                   <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
                   <p style={{fontSize:'12px',color:dg}}>
                     {isCompleted ? `Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
                   </p>
                 </div>
-                <div style={{display:'flex',gap:'10px'}}>
-                  {!isCompleted && (
-                    <>
-                      <button onClick={() => setConfirmComplete(p)} style={{background:'none',border:'none',color:'#22c55e',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Mark Complete</button>
-                      <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
-                      <button onClick={() => deleteProtocol(p.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
-                    </>
-                  )}
-                  {isCompleted && (
-                    <div style={{display:'flex',gap:'8px'}}>
-                      <button onClick={() => setConfirmReactivate(p)} style={{background:'none',border:'none',color:g,cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Reactivate</button>
-                      <button onClick={() => setConfirmDelete(p)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
-                    </div>
-                  )}
-                </div>
+                {!selectMode && (
+                  <div style={{display:'flex',gap:'10px'}}>
+                    {!isCompleted && (
+                      <>
+                        <button onClick={() => setConfirmComplete(p)} style={{background:'none',border:'none',color:'#22c55e',cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Mark Complete</button>
+                        <button onClick={() => startEdit(p)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'13px'}}>Edit</button>
+                        <button onClick={() => deleteProtocol(p.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
+                      </>
+                    )}
+                    {isCompleted && (
+                      <div style={{display:'flex',gap:'8px'}}>
+                        <button onClick={() => setConfirmReactivate(p)} style={{background:'none',border:'none',color:g,cursor:'pointer',fontSize:'13px',fontWeight:'600'}}>Reactivate</button>
+                        <button onClick={() => setConfirmDelete(p)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'13px'}}>Delete</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {(p.compounds||[]).map((c: any) => {
                 const ph = (c.phases||[])[0]
@@ -764,6 +842,66 @@ export default function ManagePage() {
                   }}
                 >
                   Reactivate
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmBulkDelete && (
+          <div style={{
+            position:'fixed',
+            inset:0,
+            background:'rgba(0,0,0,0.85)',
+            display:'flex',
+            alignItems:'center',
+            justifyContent:'center',
+            zIndex:9999,
+            padding:'20px'
+          }} onClick={() => setConfirmBulkDelete(false)}>
+            <div style={{
+              background:cb,
+              border:'1px solid '+bd,
+              borderRadius:'16px',
+              padding:'24px',
+              maxWidth:'400px',
+              width:'100%'
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:'#ff6b6b'}}>Delete {selectedProtocols.size} Protocol{selectedProtocols.size !== 1 ? 's' : ''}?</h3>
+              <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
+                Permanently delete {selectedProtocols.size} protocol{selectedProtocols.size !== 1 ? 's' : ''} and all their data. This cannot be undone.
+              </p>
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setConfirmBulkDelete(false)}
+                  style={{
+                    flex:1,
+                    background:cb,
+                    color:dg,
+                    border:'1px solid '+bd,
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    cursor:'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={bulkDeleteProtocols}
+                  style={{
+                    flex:1,
+                    background:'#ff6b6b',
+                    color:'#fff',
+                    border:'none',
+                    borderRadius:'8px',
+                    padding:'12px',
+                    fontSize:'14px',
+                    fontWeight:'700',
+                    cursor:'pointer'
+                  }}
+                >
+                  Delete
                 </button>
               </div>
             </div>
