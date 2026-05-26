@@ -250,8 +250,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             vialStrength={activeCompound.vial_strength}
             vialUnit={activeCompound.vial_unit}
           />
-        {fillPct === 0 && (
-)}
         </div>
       </div>
       
