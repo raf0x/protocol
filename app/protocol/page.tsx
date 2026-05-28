@@ -229,6 +229,94 @@ export default function DashboardPage() {
     setEditEventType(ev.event_type)
   }
 
+  async function exportToCSV() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // Fetch all protocols with compounds, phases, and injection logs
+    const { data: allProtocols } = await supabase
+      .from('protocols')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, phases(id, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .eq('user_id', user.id)
+
+    if (!allProtocols || allProtocols.length === 0) {
+      alert('No protocols to export')
+      return
+    }
+
+    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,mL per Injection\n'
+
+    for (const protocol of allProtocols) {
+      const compounds = protocol.compounds || []
+      
+      for (const compound of compounds) {
+        const phases = compound.phases || []
+        const injectionLogs = compound.injection_logs || []
+        const mlPerDose = compound.ml_per_dose || 0
+        const vialStrength = compound.vial_strength || 0
+        
+        if (phases.length === 0) {
+          // No phases, just add compound row
+          const totalInjections = injectionLogs.length
+          const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+          
+          const row = [
+            `"${protocol.name}"`,
+            `"${compound.name}"`,
+            '-',
+            '-',
+            '-',
+            new Date(protocol.start_date).toLocaleDateString('en-US'),
+            '-',
+            totalInjections,
+            vialsUsed,
+            mlPerDose
+          ].join(',')
+          csvContent += row + '\n'
+        } else {
+          // Multiple phases (dose increases)
+          for (const phase of phases) {
+            const phaseStart = phase.start_week ? new Date(new Date(protocol.start_date).getTime() + (phase.start_week - 1) * 7 * 24 * 60 * 60 * 1000) : new Date(protocol.start_date)
+            const phaseEnd = phase.end_week ? new Date(new Date(protocol.start_date).getTime() + (phase.end_week - 1) * 7 * 24 * 60 * 60 * 1000) : new Date()
+            
+            // Count injections in this phase
+            const phaseInjections = injectionLogs.filter((log: any) => {
+              const logDate = new Date(log.date)
+              return logDate >= phaseStart && logDate <= phaseEnd && log.taken
+            })
+            
+            const totalInjections = phaseInjections.length
+            const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+            
+            const row = [
+              `"${protocol.name}"`,
+              `"${compound.name}"`,
+              phase.dose,
+              phase.dose_unit || '-',
+              phase.frequency || '-',
+              phaseStart.toLocaleDateString('en-US'),
+              phaseEnd.toLocaleDateString('en-US'),
+              totalInjections,
+              vialsUsed,
+              mlPerDose
+            ].join(',')
+            csvContent += row + '\n'
+          }
+        }
+      }
+    }
+
+    // Trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `protocol-export-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   async function shareProtocol(protocolId: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -560,6 +648,17 @@ export default function DashboardPage() {
           <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
             <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>Protocol Created!</span>
             <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
+          </div>
+        )}
+
+        {activeProtocols.length > 0 && (
+          <div style={{display:'flex',gap:'8px',marginBottom:'16px',justifyContent:'flex-end'}}>
+            <button 
+              onClick={exportToCSV}
+              style={{background:'var(--color-card)',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}
+            >
+              ↓ Export CSV
+            </button>
           </div>
         )}
 
