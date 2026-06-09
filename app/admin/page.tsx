@@ -285,6 +285,21 @@ function save(key: string, value: Record<string, number>) {
   } catch {}
 }
 
+function loadText(key: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveText(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: Phase["status"] }) {
@@ -332,6 +347,7 @@ function PhaseRow({ phase }: { phase: Phase }) {
 const defaultWeights: Record<string, number> = { "1": 180.6, "3": 178.8, "4": 176.6, "5": 177 };
 const CURRENT_WEEK = 10;
 const STORAGE_KEY = "protocol_admin_weights";
+const SUMMARY_STORAGE_KEY = "protocol_admin_summary";
 
 const retaWeeks = Array.from({ length: 27 }, (_, i) => {
   const weekNum = i + 1;
@@ -503,6 +519,68 @@ function ActionsPanel() {
   );
 }
 
+function SummaryPanel({ summary, setSummary }: { summary: string; setSummary: (s: string) => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempText, setTempText] = useState(summary);
+
+  const handleSave = () => {
+    setSummary(tempText);
+    saveText(SUMMARY_STORAGE_KEY, tempText);
+    setIsEditing(false);
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em" }}>Protocol Summary</div>
+        <button 
+          onClick={() => { setIsEditing(!isEditing); setTempText(summary); }}
+          style={{ background: isEditing ? "#ef4444" : "#06b6d4", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+        >
+          {isEditing ? "Cancel" : "✎ Edit"}
+        </button>
+      </div>
+
+      {isEditing ? (
+        <div>
+          <textarea 
+            value={tempText}
+            onChange={e => setTempText(e.target.value)}
+            style={{
+              width: "100%", minHeight: "300px", background: "#111", border: "1px solid #222", borderRadius: 8,
+              color: "#ccc", padding: "12px", fontSize: 12, fontFamily: "monospace", lineHeight: 1.5,
+              outline: "none", resize: "vertical"
+            }}
+            placeholder="Paste or edit your protocol summary here..."
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button 
+              onClick={handleSave}
+              style={{ flex: 1, background: "#06b6d4", color: "#fff", border: "none", borderRadius: 6, padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              💾 Save
+            </button>
+            <button 
+              onClick={() => setIsEditing(false)}
+              style={{ flex: 1, background: "#222", color: "#888", border: "none", borderRadius: 6, padding: "10px", fontSize: 12, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          background: "#111", border: "1px solid #222", borderRadius: 8, padding: "16px",
+          fontSize: 12, color: "#ccc", lineHeight: 1.7, maxHeight: "500px", overflowY: "auto",
+          whiteSpace: "pre-wrap", wordBreak: "break-word"
+        }}>
+          {summary || <span style={{ color: "#555" }}>No summary yet. Click "Edit" to add one.</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── NAV ─────────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -511,6 +589,7 @@ const NAV_ITEMS = [
   { id: "blood", label: "Labs", color: "#ef4444" },
   { id: "supps", label: "Supps", color: "#a855f7" },
   { id: "actions", label: "To-Do", color: "#f59e0b" },
+  { id: "summary", label: "Summary", color: "#06b6d4" },
 ];
 
 // ─── PAGE ────────────────────────────────────────────────────────────────────
@@ -518,10 +597,12 @@ const NAV_ITEMS = [
 export default function AdminPage() {
   const [active, setActive] = useState("reta");
   const [weights, setWeights] = useState<Record<string, number>>(defaultWeights);
+  const [summary, setSummary] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setWeights(load(STORAGE_KEY, defaultWeights));
+    setSummary(loadText(SUMMARY_STORAGE_KEY, ""));
     setLoaded(true);
   }, []);
 
@@ -564,12 +645,13 @@ export default function AdminPage() {
       </div>
 
       {/* Content Panel */}
-      <div style={{ background: "#0d0d0d", border: `1px solid ${current ? current.color + "22" : "#222"}`, borderRadius: 12, padding: 20 }}>
+      <div style={{ background: "#0d0d0d", border: `1px solid ${current && active !== "summary" ? current.color + "22" : "#222"}`, borderRadius: 12, padding: 20 }}>
 
         {active === "weight" && <WeightLog weights={weights} setWeights={setWeights} />}
         {active === "blood" && <BloodworkPanel />}
         {active === "supps" && <SupplementsPanel />}
         {active === "actions" && <ActionsPanel />}
+        {active === "summary" && <SummaryPanel summary={summary} setSummary={setSummary} />}
 
         {current && (
           <>
