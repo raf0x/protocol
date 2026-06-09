@@ -1,719 +1,875 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
+import StatsBoxes from '../../components/dashboard/StatsBoxes'
+import CompoundRings from '../../components/dashboard/CompoundRings'
+import CompactDailyLog from '../../components/dashboard/CompactDailyLog'
+import { useState, useEffect, useRef } from 'react'
+import { createClient } from '../../lib/supabase'
+import StatsBar from '../../components/dashboard/StatsBar'
+import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
+import TodaysInjections from '../../components/dashboard/TodaysInjections'
+import WeeklySummary from '../../components/dashboard/WeeklySummary'
+import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
+import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
+type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
-interface Phase {
-  label: string;
-  weeks: string;
-  dose: string;
-  units: string;
-  ml: string;
-  dates: string;
-  status: "done" | "current" | "future";
-}
-
-interface Protocol {
-  id: string;
-  name: string;
-  vendor: string;
-  vialSize: string;
-  bac: string;
-  concentration: string;
-  startDate: string;
-  endDate: string | null;
-  totalWeeks: number | null;
-  vialsRemaining: number | string;
-  color: string;
-  bg: string;
-  badge: string;
-  urgent: boolean;
-  urgentMsg?: string;
-  phases: Phase[];
-  notes: string[];
-}
-
-interface BloodMarker {
-  marker: string;
-  result: string;
-  status: "critical" | "low" | "elevated" | "normal";
-  flag: string;
-}
-
-interface ActionItem {
-  text: string;
-  deadline: string;
-  priority: "critical" | "high" | "medium";
-}
-
-// ─── PROTOCOL DATA — Updated May 17, 2026 ────────────────────────────────────
-
-const protocols: Protocol[] = [
-  {
-    id: "reta",
-    name: "Retatrutide",
-    vendor: "Kits4Less",
-    vialSize: "10mg",
-    bac: "2ml",
-    concentration: "5mg/ml",
-    startDate: "Mar 15, 2026",
-    endDate: "Sep 13, 2026",
-    totalWeeks: 27,
-    vialsRemaining: 8,
-    color: "#22c55e",
-    bg: "#052e16",
-    badge: "💉 Weight Loss",
-    urgent: false,
-    phases: [
-      { label: "Phase 1a", weeks: "Wk 1–2", dose: "1mg", units: "20u", ml: "0.2ml", dates: "Mar 15–22", status: "done" },
-      { label: "Phase 1b", weeks: "Wk 3–4", dose: "2mg", units: "40u", ml: "0.4ml", dates: "Mar 29–Apr 5", status: "done" },
-      { label: "Phase 2", weeks: "Wk 5–8", dose: "3mg", units: "60u", ml: "0.6ml", dates: "Apr 12–May 3", status: "done" },
-      { label: "Phase 3", weeks: "Wk 9–14", dose: "4mg", units: "80u", ml: "0.8ml", dates: "May 10–Jun 14", status: "current" },
-      { label: "Phase 4", weeks: "Wk 15–22", dose: "5mg", units: "100u", ml: "1.0ml", dates: "Jun 21–Aug 9", status: "future" },
-      { label: "Taper", weeks: "Wk 23–26", dose: "4mg", units: "80u", ml: "0.8ml", dates: "Aug 16–Sep 6", status: "future" },
-      { label: "Final", weeks: "Wk 27", dose: "2mg", units: "40u", ml: "0.4ml", dates: "Sep 13", status: "future" },
-    ],
-    notes: [
-      "Fresh vial reconstituted May 17. Shot taken today.",
-      "Sunday mornings only. Next shot: May 25.",
-      "2 shots per vial at 4mg. Burns ~2 vials/month.",
-      "Phase 4 escalation to 5mg starts Jun 21.",
-      "8 vials remaining = ~4 months supply.",
-    ],
-  },
-  {
-    id: "cjc",
-    name: "CJC-1295 / Ipamorelin",
-    vendor: "Oath Research",
-    vialSize: "10mg blend",
-    bac: "3ml",
-    concentration: "3.33mg/ml · 1.67mg/ml per peptide",
-    startDate: "Apr 2, 2026",
-    endDate: "Ongoing",
-    totalWeeks: null,
-    vialsRemaining: 2,
-    color: "#3b82f6",
-    bg: "#0c1a3a",
-    badge: "🧬 GH Pulse",
-    urgent: false,
-    phases: [
-      { label: "Wk 1–1.5", weeks: "Nights 1–8", dose: "~167mcg ea", units: "10u", ml: "0.1ml", dates: "Apr 2–10", status: "done" },
-      { label: "Wk 2–4", weeks: "Nights 9–22", dose: "~200mcg ea", units: "12u", ml: "0.12ml", dates: "Apr 13–30", status: "done" },
-      { label: "Current+", weeks: "Night 23+", dose: "~200mcg ea", units: "12u", ml: "0.12ml", dates: "May 1 onward", status: "current" },
-    ],
-    notes: [
-      "On Vial 2. Reconstituted with exactly 3ml BAC.",
-      "Vial 1 was 4ml BAC by accident: expired ~May 2.",
-      "5 nights on (Mon–Fri) / 2 off (Sat–Sun).",
-      "Before bed, minimum 2–3hr fasted.",
-      "2 new vials remaining = ~60 days supply.",
-      "Retest IGF-1 late June 2026 (12 weeks on protocol).",
-    ],
-  },
-  {
-    id: "hcg",
-    name: "HCG: Pubergen HP",
-    vendor: "Kits4Less",
-    vialSize: "10,000 IU",
-    bac: "2ml",
-    concentration: "5,000 IU/ml",
-    startDate: "Apr 20, 2026",
-    endDate: "Ongoing until Test C",
-    totalWeeks: null,
-    vialsRemaining: 0,
-    color: "#f59e0b",
-    bg: "#2d1a00",
-    badge: "🔵 Hormone Support",
-    urgent: true,
-    urgentMsg: "Current vial expires May 20: 3 days left. 0 backup vials. ORDER 2 FROM KITS4LESS NOW.",
-    phases: [
-      { label: "Bridge", weeks: "Apr 20–24", dose: "500 IU", units: "10u", ml: "0.1ml", dates: "Apr 20–24", status: "done" },
-      { label: "Maintenance", weeks: "Apr 28+", dose: "250 IU", units: "5u", ml: "0.05ml", dates: "Mon/Thu ongoing", status: "current" },
-      { label: "With Test C", weeks: "When prescribed", dose: "250 IU", units: "5u", ml: "0.05ml", dates: "Alongside Test C 100mg Mon/Thu", status: "future" },
-    ],
-    notes: [
-      "🚨 Vial expires May 20. No backup. Order immediately.",
-      "8 injections done x 500 IU = 4,000 IU used. ~6,000 IU remains but expires.",
-      "Mon + Thu mornings: 250 IU = 5 units.",
-      "2 new vials = 40 weeks at 250 IU 2x/week.",
-      "Context: Total T 59, LH 0.2, FSH 0.7: secondary hypogonadism.",
-      "TRT Nation consult pending: 813-413-1000, M–F 10am–5pm EST.",
-      "When Test C arrives: HCG 250 IU + Test C 100mg both Mon/Thu.",
-    ],
-  },
-  {
-    id: "ghk",
-    name: "GHK-Cu",
-    vendor: "Kits4Less",
-    vialSize: "50mg",
-    bac: "3ml",
-    concentration: "16.67mg/ml",
-    startDate: "Apr 22, 2026",
-    endDate: "Ongoing",
-    totalWeeks: null,
-    vialsRemaining: 9,
-    color: "#14b8a6",
-    bg: "#022c27",
-    badge: "🩺 Skin + Collagen",
-    urgent: false,
-    phases: [
-      { label: "Week 1", weeks: "Apr 22–27", dose: "1.667mg", units: "10u", ml: "0.1ml", dates: "Apr 22–27", status: "done" },
-      { label: "Week 2+", weeks: "Apr 28+", dose: "2mg", units: "12u", ml: "0.12ml", dates: "Apr 28 – Peru break", status: "done" },
-      { label: "Resumed", weeks: "May 17+", dose: "2mg", units: "12u", ml: "0.12ml", dates: "May 17 onward", status: "current" },
-      { label: "Combined", weeks: "Jun 1+", dose: "2mg", units: "12u", ml: "0.12ml", dates: "Jun 1+: combine w/ BPC", status: "future" },
-    ],
-    notes: [
-      "Resumed today May 17 after Peru pause.",
-      "Current vial reconstituted Apr 22: expires May 22 (5 days).",
-      "Reconstitute fresh vial ~May 22.",
-      "12 units = 2mg daily. Lower abdomen / groin area.",
-      "Purpose: jock itch hypopigmentation, collagen, liver support (AST 49).",
-      "9 vials remaining = ~9 months supply.",
-      "From Jun 1: combine BPC + GHK in same syringe (draw BPC first).",
-    ],
-  },
-  {
-    id: "bpc",
-    name: "Wolverine Blend (BPC-157 + TB-500)",
-    vendor: "Kits4Less",
-    vialSize: "10mg blend",
-    bac: "2ml",
-    concentration: "5mg/ml per peptide",
-    startDate: "Restarted May 17, 2026",
-    endDate: "~May 31, 2026",
-    totalWeeks: null,
-    vialsRemaining: "This vial only",
-    color: "#f97316",
-    bg: "#2d0f00",
-    badge: "🐺 Repair + Recovery",
-    urgent: false,
-    phases: [
-      { label: "Original Run", weeks: "Apr 17–29", dose: "Varied", units: "100u→50u", ml: "1.0→0.5ml", dates: "Apr 17–29", status: "done" },
-      { label: "Shot 1", weeks: "May 17", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 17 ✓", status: "done" },
-      { label: "Shot 2", weeks: "May 19", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 19", status: "current" },
-      { label: "Shot 3", weeks: "May 22", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 22", status: "future" },
-      { label: "Shot 4", weeks: "May 25", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 25", status: "future" },
-      { label: "Shot 5", weeks: "May 28", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 28", status: "future" },
-      { label: "Shot 6", weeks: "May 31", dose: "250mcg ea", units: "50u", ml: "0.5ml", dates: "May 31", status: "future" },
-    ],
-    notes: [
-      "Restarted + reconstituted today May 17.",
-      "50 units every 3 days. 6 shots total: vial done May 31.",
-      "Vial expires June 15.",
-      "Inject near lower back SubQ + abdomen (chronic low back pain).",
-      "TB-500 helps lower back. BPC for systemic repair.",
-      "After May 31: transition to standalone BPC-157 daily from Jun 1.",
-    ],
-  },
-  {
-    id: "bpc-standalone",
-    name: "BPC-157 Standalone",
-    vendor: "Kits4Less",
-    vialSize: "10mg",
-    bac: "2ml",
-    concentration: "5mg/ml",
-    startDate: "Jun 1, 2026",
-    endDate: "Ongoing",
-    totalWeeks: null,
-    vialsRemaining: 10,
-    color: "#a855f7",
-    bg: "#1a0a2e",
-    badge: "🔬 Daily Repair",
-    urgent: false,
-    phases: [
-      { label: "Daily", weeks: "Jun 1+", dose: "500mcg", units: "10u", ml: "0.1ml", dates: "Jun 1 onward", status: "future" },
-    ],
-    notes: [
-      "Starts Jun 1 after Wolverine vial is finished.",
-      "10 units = 500mcg daily. 2ml BAC = 5mg/ml.",
-      "Combine with GHK-Cu in same syringe: draw BPC first, then GHK.",
-      "Total per injection: 10u BPC + 12u GHK = 22 units.",
-      "Lower back SubQ + abdomen.",
-      "10 vials = 200 days supply at 500mcg/day.",
-    ],
-  },
-];
-
-// ─── BLOODWORK — April 10, 2026 ──────────────────────────────────────────────
-
-const bloodwork: BloodMarker[] = [
-  { marker: "Total T", result: "59 ng/dL", status: "critical", flag: "🔴" },
-  { marker: "Free T", result: "7.7 pg/mL", status: "critical", flag: "🔴" },
-  { marker: "LH", result: "0.2 mIU/mL", status: "critical", flag: "🔴" },
-  { marker: "FSH", result: "0.7 mIU/mL", status: "critical", flag: "🔴" },
-  { marker: "Estradiol", result: "<30 pg/mL", status: "normal", flag: "✅" },
-  { marker: "Prolactin", result: "5.6 ng/mL", status: "normal", flag: "✅" },
-  { marker: "IGF-1", result: "126 ng/mL", status: "low", flag: "⚠️" },
-  { marker: "Vitamin D", result: "34 ng/mL", status: "low", flag: "⚠️" },
-  { marker: "AST", result: "49 U/L", status: "elevated", flag: "🔴" },
-  { marker: "LDL", result: "112 mg/dL", status: "low", flag: "⚠️" },
-  { marker: "HbA1c", result: "4.9%", status: "normal", flag: "✅" },
-];
-
-const supplements = [
-  "Vitamin D3 5000 IU + K2", "B12 1000mcg", "NAC 600mg", "Zinc 50mg",
-  "Lion's Mane 1000mg", "Creatine 5g (AM)", "Magnesium Glycinate 350mg (PM)",
-  "Ashwagandha KSM-66", "Boron 6–10mg (pending)",
-];
-
-const actionItems: ActionItem[] = [
-  { text: "Order 2 HCG vials from Kits4Less", deadline: "Before May 20", priority: "critical" },
-  { text: "Reconstitute new GHK-Cu vial", deadline: "~May 22", priority: "high" },
-  { text: "Wolverine shots: May 19, 22, 25, 28, 31", deadline: "Every 3 days", priority: "medium" },
-  { text: "Start standalone BPC-157 + GHK-Cu combined", deadline: "Jun 1", priority: "medium" },
-  { text: "TRT Nation consult: get Test C Rx", deadline: "ASAP", priority: "high" },
-  { text: "Quest Diagnostics labs", deadline: "Late June", priority: "medium" },
-  { text: "Reta escalation to 5mg (Phase 4)", deadline: "Jun 21", priority: "medium" },
-];
-
-// ─── STORAGE ─────────────────────────────────────────────────────────────────
-
-function load(key: string, fallback: Record<string, number>): Record<string, number> {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function save(key: string, value: Record<string, number>) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
-}
-
-function loadText(key: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  try {
-    return localStorage.getItem(key) || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveText(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {}
-}
-
-// ─── COMPONENTS ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: Phase["status"] }) {
-  const map = {
-    done:    { bg: "#1a2e1a", color: "#4ade80", label: "✓ Done" },
-    current: { bg: "#1a2010", color: "#facc15", label: "● Active" },
-    future:  { bg: "#1a1a2e", color: "#60a5fa", label: "○ Upcoming" },
-  };
-  const s = map[status] || map.future;
-  return (
-    <span style={{ background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-      {s.label}
-    </span>
-  );
-}
-
-function PhaseRow({ phase }: { phase: Phase }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "10px 0", borderBottom: "1px solid #1a1a1a", fontSize: 12, gap: 8,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-        <div style={{
-          width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-          background: phase.status === "done" ? "#4ade80" : phase.status === "current" ? "#facc15" : "#333",
-        }} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 600, color: "#ccc" }}>{phase.label}</div>
-          <div style={{ fontSize: 11, color: "#555", marginTop: 1 }}>{phase.dates}</div>
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        <div style={{ color: "#fff", fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>{phase.dose}</div>
-        <div style={{ color: "#666", fontFamily: "monospace", fontSize: 11, minWidth: 36, textAlign: "right" }}>{phase.units}</div>
-        <div style={{ color: "#444", fontFamily: "monospace", fontSize: 11, minWidth: 42, textAlign: "right" }}>{phase.ml}</div>
-        <StatusBadge status={phase.status} />
-      </div>
-    </div>
-  );
-}
-
-// ─── WEIGHT LOG ──────────────────────────────────────────────────────────────
-
-const defaultWeights: Record<string, number> = { "1": 180.6, "3": 178.8, "4": 176.6, "5": 177 };
-const CURRENT_WEEK = 10;
-const STORAGE_KEY = "protocol_admin_weights";
-const SUMMARY_STORAGE_KEY = "protocol_admin_summary";
-
-const retaWeeks = Array.from({ length: 27 }, (_, i) => {
-  const weekNum = i + 1;
-  const d = new Date(2026, 2, 15 + i * 7);
-  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return { weekNum, dateStr };
-});
-
-function WeightLog({ weights, setWeights }: { weights: Record<string, number>; setWeights: (w: Record<string, number>) => void }) {
-  const [editing, setEditing] = useState<number | null>(null);
-  const [val, setVal] = useState("");
-
-  const valid = Object.fromEntries(Object.entries(weights).filter(([, v]) => v != null));
-  const start = weights["1"] || 180.6;
-  const latestWk = Object.keys(valid).map(Number).sort((a, b) => b - a)[0];
-  const latest = valid[String(latestWk)] || start;
-  const lost = (start - latest).toFixed(1);
-
-  const handleSave = (wk: number) => {
-    const n = parseFloat(val);
-    if (!isNaN(n) && n > 0) {
-      const updated = { ...weights, [String(wk)]: n };
-      setWeights(updated);
-      save(STORAGE_KEY, updated);
-    }
-    setEditing(null);
-    setVal("");
-  };
-
-  return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "Start Weight", value: `${start} lbs`, color: "#888" },
-          { label: "Current Weight", value: `${latest} lbs`, color: "#22c55e" },
-          { label: "Total Lost", value: `${lost} lbs`, color: "#f59e0b" },
-        ].map(s => (
-          <div key={s.label} style={{ background: "#111", border: "1px solid #222", borderRadius: 8, padding: "12px", textAlign: "center" }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 10, color: "#555", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>Weekly Log: Tap to Enter</div>
-      {retaWeeks.map(({ weekNum, dateStr }) => {
-        const isCurrent = weekNum === CURRENT_WEEK;
-        const isPast = weekNum < CURRENT_WEEK;
-        const isActive = isCurrent || isPast;
-        const w = weights[String(weekNum)];
-        const prevWks = Object.keys(valid).map(Number).filter(x => x < weekNum).sort((a, b) => b - a);
-        const prev = prevWks.length ? valid[String(prevWks[0])] : null;
-        const change = w && prev ? (w - prev).toFixed(1) : null;
-        return (
-          <div key={weekNum} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "8px 0", borderBottom: "1px solid #111",
-            opacity: isActive ? 1 : 0.25,
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%",
-                background: isCurrent ? "#22c55e" : w ? "#1a2e1a" : "#111",
-                border: `1px solid ${isCurrent ? "#22c55e" : "#222"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 10, fontWeight: 700,
-                color: isCurrent ? "#000" : w ? "#22c55e" : "#444",
-              }}>{weekNum}</div>
-              <div>
-                <div style={{ fontSize: 12, color: "#ccc" }}>
-                  {dateStr}
-                  {isCurrent && <span style={{ marginLeft: 8, fontSize: 9, background: "#22c55e", color: "#000", padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>NOW</span>}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {change && <span style={{ fontSize: 11, color: parseFloat(change) < 0 ? "#22c55e" : "#ef4444" }}>{parseFloat(change) > 0 ? "+" : ""}{change}</span>}
-              {isActive && (editing === weekNum ? (
-                <div style={{ display: "flex", gap: 4 }}>
-                  <input type="number" step="0.1" value={val}
-                    onChange={e => setVal(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleSave(weekNum)}
-                    autoFocus
-                    style={{ width: 70, background: "#111", border: "1px solid #22c55e", borderRadius: 6, color: "#fff", padding: "4px 8px", fontSize: 12, textAlign: "center", outline: "none" }}
-                    placeholder="lbs" />
-                  <button onClick={() => handleSave(weekNum)} style={{ background: "#22c55e", color: "#000", border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓</button>
-                  <button onClick={() => setEditing(null)} style={{ background: "#222", color: "#888", border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>
-                </div>
-              ) : (
-                <button onClick={() => { setEditing(weekNum); setVal(w ? String(w) : ""); }}
-                  style={{ background: w ? "#1a2e1a" : "#111", border: `1px dashed ${w ? "#22c55e" : "#333"}`, borderRadius: 6, color: w ? "#22c55e" : "#444", padding: "4px 10px", fontSize: 12, fontFamily: "monospace", cursor: "pointer" }}>
-                  {w ? `${w} lbs` : "— tap"}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── PANELS ──────────────────────────────────────────────────────────────────
-
-function BloodworkPanel() {
-  const statusColor: Record<string, string> = { critical: "#ef4444", low: "#f59e0b", elevated: "#ef4444", normal: "#4ade80" };
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 }}>
-        Bloodwork: April 10, 2026 · Next Labs: Late June
-      </div>
-      {bloodwork.map((b, i) => (
-        <div key={i} style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          padding: "8px 0", borderBottom: "1px solid #111",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12 }}>{b.flag}</span>
-            <span style={{ fontSize: 13, color: "#ccc", fontWeight: 500 }}>{b.marker}</span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: statusColor[b.status] || "#888" }}>{b.result}</span>
-        </div>
-      ))}
-      <div style={{ marginTop: 14, padding: "10px 12px", background: "#110a00", border: "1px solid #332200", borderRadius: 8, fontSize: 12, color: "#f59e0b", lineHeight: 1.6 }}>
-        Next panel: Total T, Free T, LH, FSH, Estradiol sensitive, IGF-1, CMP, Lipid + ApoB, hs-CRP, Vitamin D, HbA1c, Fasting Insulin
-      </div>
-    </div>
-  );
-}
-
-function SupplementsPanel() {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 }}>Daily Supplements</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {supplements.map((s, i) => (
-          <span key={i} style={{
-            background: "#111", border: "1px solid #222", borderRadius: 6,
-            padding: "5px 10px", fontSize: 11, color: "#999",
-          }}>{s}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ActionsPanel() {
-  const pColor: Record<string, string> = { critical: "#ef4444", high: "#f59e0b", medium: "#3b82f6" };
-  const pLabel: Record<string, string> = { critical: "CRITICAL", high: "HIGH", medium: "MEDIUM" };
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 }}>Action Items</div>
-      {actionItems.map((a, i) => (
-        <div key={i} style={{
-          display: "flex", alignItems: "flex-start", gap: 10,
-          padding: "10px 0", borderBottom: "1px solid #111",
-        }}>
-          <span style={{
-            fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 3,
-            background: pColor[a.priority] + "18", color: pColor[a.priority],
-            letterSpacing: "0.08em", flexShrink: 0, marginTop: 2,
-          }}>{pLabel[a.priority]}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, color: "#ccc", fontWeight: 500 }}>{a.text}</div>
-            <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{a.deadline}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SummaryPanel({ summary, setSummary }: { summary: string; setSummary: (s: string) => void }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempText, setTempText] = useState(summary);
-
-  const handleSave = () => {
-    setSummary(tempText);
-    saveText(SUMMARY_STORAGE_KEY, tempText);
-    setIsEditing(false);
-  };
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em" }}>Protocol Summary</div>
-        <button 
-          onClick={() => { setIsEditing(!isEditing); setTempText(summary); }}
-          style={{ background: isEditing ? "#ef4444" : "#06b6d4", color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
-        >
-          {isEditing ? "Cancel" : "✎ Edit"}
-        </button>
-      </div>
-
-      {isEditing ? (
-        <div>
-          <textarea 
-            value={tempText}
-            onChange={e => setTempText(e.target.value)}
-            style={{
-              width: "100%", minHeight: "300px", background: "#111", border: "1px solid #222", borderRadius: 8,
-              color: "#ccc", padding: "12px", fontSize: 12, fontFamily: "monospace", lineHeight: 1.5,
-              outline: "none", resize: "vertical"
-            }}
-            placeholder="Paste or edit your protocol summary here..."
-          />
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <button 
-              onClick={handleSave}
-              style={{ flex: 1, background: "#06b6d4", color: "#fff", border: "none", borderRadius: 6, padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-            >
-              💾 Save
-            </button>
-            <button 
-              onClick={() => setIsEditing(false)}
-              style={{ flex: 1, background: "#222", color: "#888", border: "none", borderRadius: 6, padding: "10px", fontSize: 12, cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{
-          background: "#111", border: "1px solid #222", borderRadius: 8, padding: "16px",
-          fontSize: 12, color: "#ccc", lineHeight: 1.7, maxHeight: "500px", overflowY: "auto",
-          whiteSpace: "pre-wrap", wordBreak: "break-word"
-        }}>
-          {summary || <span style={{ color: "#555" }}>No summary yet. Click "Edit" to add one.</span>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── NAV ─────────────────────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-  ...protocols.map(p => ({ id: p.id, label: p.name.split(/[:(]/)[0].trim(), color: p.color })),
-  { id: "weight", label: "Weight", color: "#22c55e" },
-  { id: "blood", label: "Labs", color: "#ef4444" },
-  { id: "supps", label: "Supps", color: "#a855f7" },
-  { id: "actions", label: "To-Do", color: "#f59e0b" },
-  { id: "summary", label: "Summary", color: "#06b6d4" },
-];
-
-// ─── PAGE ────────────────────────────────────────────────────────────────────
-
-export default function AdminPage() {
-  const [active, setActive] = useState("reta");
-  const [weights, setWeights] = useState<Record<string, number>>(defaultWeights);
-  const [summary, setSummary] = useState("");
-  const [loaded, setLoaded] = useState(false);
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true)
+  const [streakDays, setStreakDays] = useState(0)
+  const [loadError, setLoadError] = useState(false)
+  const [entries, setEntries] = useState<any[]>([])
+  const [activeProtocols, setActiveProtocols] = useState<any[]>([])
+  const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
+  const [tomorrowCompounds, setTomorrowCompounds] = useState<DueCompound[]>([])
+  const [logs, setLogs] = useState<Record<string, LogEntry>>({})
+  const [allLogs, setAllLogs] = useState<any[]>([])
+  const [currentWeek, setCurrentWeek] = useState(0)
+  const [showChart, setShowChart] = useState(false)
+  const [showSummary, setShowSummary] = useState(new Date().getDay() === 0)
+  const [showProtocols, setShowProtocols] = useState(false)
+  const [activeCompoundTab, setActiveCompoundTab] = useState<string | null>(null)
+  const tabRowRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const scrollStartX = useRef(0)
+  const [protocolEvents, setProtocolEvents] = useState<any[]>([])
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<any>(null)
+  const [eventDesc, setEventDesc] = useState('')
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [editEventDesc, setEditEventDesc] = useState('')
+  const [editEventType, setEditEventType] = useState('')
+  const [eventType, setEventType] = useState('dose_change')
+  const [selectedProtocol, setSelectedProtocol] = useState<any>(null)
+  const today = new Date().toISOString().split('T')[0]
+  const [mood, setMood] = useState<number | null>(null)
+  const [energy, setEnergy] = useState<number | null>(null)
+  const [hunger, setHunger] = useState<number | null>(null)
+  const [sleep, setSleep] = useState('')
+  const [weight, setWeight] = useState('')
+  const [entryNotes, setEntryNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+  const [missedDoses, setMissedDoses] = useState<string[]>([])
+  const [showNewProtocol, setShowNewProtocol] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [prefillDose, setPrefillDose] = useState('')
+  const [prefillVial, setPrefillVial] = useState('')
+  const [prefillWater, setPrefillWater] = useState('')
+  const [creatingProtocol, setCreatingProtocol] = useState(false)
+  const [createSuccess, setCreateSuccess] = useState(false)
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
 
   useEffect(() => {
-    setWeights(load(STORAGE_KEY, defaultWeights));
-    setSummary(loadText(SUMMARY_STORAGE_KEY, ""));
-    setLoaded(true);
-  }, []);
+    loadAll()
+    const pending = localStorage.getItem('pendingProtocol')
+    if (pending) {
+      try {
+        const p = JSON.parse(pending)
+        setNewName(p.name || '')
+        setPrefillDose(p.dose?.toString() || '')
+        setPrefillVial(p.vial?.toString() || '')
+        setPrefillWater(p.water?.toString() || '')
+        setShowNewProtocol(true)
+        localStorage.removeItem('pendingProtocol')
+      } catch(e) { localStorage.removeItem('pendingProtocol') }
+    }
+    
+    function handleDosesUpdate() { loadAll() }
+    window.addEventListener('doses_updated', handleDosesUpdate)
+    return () => window.removeEventListener('doses_updated', handleDosesUpdate)
+  }, [])
 
-  const current = protocols.find(p => p.id === active) || null;
+  async function createDemoCompounds() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-  if (!loaded) return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#444", fontFamily: "monospace" }}>
-      Loading...
-    </div>
-  );
+    const todayStr = new Date().toISOString().split('T')[0]
+    
+    const demos = [
+      { name: 'Demo: Retatrutide', strength: 50, unit: 'mg', bac: 3, dose: 2.5, doseUnit: 'mg' },
+      { name: 'Demo: Test Cypionate', strength: 100, unit: 'mg', bac: 10, dose: 100, doseUnit: 'mg' },
+      { name: 'Demo: BPC-157', strength: 5, unit: 'mg', bac: 2, dose: 250, doseUnit: 'mcg' },
+      { name: 'Demo: CJC-1295', strength: 2, unit: 'mg', bac: 2, dose: 1, doseUnit: 'mg' },
+      { name: 'Demo: Ipamorelin', strength: 5, unit: 'mg', bac: 2, dose: 100, doseUnit: 'mcg' },
+      { name: 'Demo: Semaglutide', strength: 5, unit: 'mg', bac: 1.5, dose: 0.25, doseUnit: 'mg' }
+    ]
 
-  return (
-    <div style={{ background: "#0a0a0a", minHeight: "100vh", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: "#fff", padding: "16px", maxWidth: 720, margin: "0 auto" }}>
+    for (const demo of demos) {
+      const { data: protocol } = await supabase.from('protocols')
+        .insert({ user_id: user.id, name: demo.name, start_date: todayStr })
+        .select()
+        .single()
+      
+      if (!protocol) continue
 
-      {/* Header */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 10, color: "#444", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>Rafael Lemor · Updated May 17, 2026</div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Protocol Dashboard</div>
-        <div style={{ fontSize: 12, color: "#555" }}>6 compounds · Started Mar 15 · Goal: 165–170 lbs · Back from Peru</div>
-      </div>
+      const { data: compound } = await supabase.from('compounds')
+        .insert({
+          protocol_id: protocol.id,
+          user_id: user.id,
+          name: demo.name,
+          vial_strength: demo.strength,
+          vial_unit: demo.unit,
+          bac_water_ml: demo.bac,
+          reconstitution_date: todayStr,
+          vials_in_stock: 1,
+          position: 0
+        })
+        .select()
+        .single()
 
-      {/* Urgent banner */}
-      <div style={{ background: "#1a0000", border: "1px solid #dc2626", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", letterSpacing: "0.1em", textTransform: "uppercase" }}>🚨 Urgent: 3 Days</div>
-        <div style={{ fontSize: 12, color: "#fca5a5", marginTop: 2 }}>HCG vial expires May 20. 0 backup vials. Order 2 from Kits4Less immediately.</div>
-      </div>
+      if (!compound) continue
 
-      {/* Nav tabs */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 16, padding: "4px 0" }}>
-        {NAV_ITEMS.map(n => (
-          <button key={n.id} onClick={() => setActive(n.id)} style={{
-            background: active === n.id ? n.color + "18" : "#111",
-            border: `1px solid ${active === n.id ? n.color + "44" : "#1a1a1a"}`,
-            borderRadius: 6, padding: "6px 10px", cursor: "pointer",
-            fontSize: 11, fontWeight: active === n.id ? 700 : 500,
-            color: active === n.id ? n.color : "#555",
-            transition: "all 0.1s",
-          }}>{n.label}</button>
-        ))}
-      </div>
+      await supabase.from('phases').insert({
+        compound_id: compound.id,
+        user_id: user.id,
+        name: 'Phase 1',
+        dose: demo.dose,
+        dose_unit: demo.doseUnit,
+        start_week: 1,
+        end_week: 4,
+        frequency: '1x/week',
+        days_of_week: [1],
+        time_of_day: 'morning',
+        duration_weeks: 4,
+        position: 0
+      })
+    }
 
-      {/* Content Panel */}
-      <div style={{ background: "#0d0d0d", border: `1px solid ${current && active !== "summary" ? current.color + "22" : "#222"}`, borderRadius: 12, padding: 20 }}>
+    // Create 7 days of fake journal entries
+    const entries = [
+      { days_ago: 7, mood: 6, energy: 6, sleep: 6.5, weight: 185 },
+      { days_ago: 6, mood: 6, energy: 7, sleep: 7, weight: 185 },
+      { days_ago: 5, mood: 7, energy: 7, sleep: 7.5, weight: 184.5 },
+      { days_ago: 4, mood: 7, energy: 8, sleep: 7.5, weight: 184.5 },
+      { days_ago: 3, mood: 7, energy: 8, sleep: 8, weight: 184 },
+      { days_ago: 2, mood: 8, energy: 8, sleep: 8, weight: 183.5 },
+      { days_ago: 1, mood: 8, energy: 9, sleep: 8.5, weight: 183 },
+    ]
 
-        {active === "weight" && <WeightLog weights={weights} setWeights={setWeights} />}
-        {active === "blood" && <BloodworkPanel />}
-        {active === "supps" && <SupplementsPanel />}
-        {active === "actions" && <ActionsPanel />}
-        {active === "summary" && <SummaryPanel summary={summary} setSummary={setSummary} />}
+    for (const entry of entries) {
+      const d = new Date()
+      d.setDate(d.getDate() - entry.days_ago)
+      const dateStr = d.toISOString().split('T')[0]
 
-        {current && (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: current.color }}>{current.name}</div>
-                <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{current.badge} · {current.vendor}</div>
+      await supabase.from('journal_entries').insert({
+        user_id: user.id,
+        date: dateStr,
+        mood: entry.mood,
+        energy: entry.energy,
+        sleep: entry.sleep,
+        weight: entry.weight,
+        hunger: null,
+        notes: ''
+      })
+    }
+  }
+
+  async function createProtocolFromCalc() {
+    if (!newName.trim()) return
+    setCreatingProtocol(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setCreatingProtocol(false); return }
+    const todayStr = new Date().toISOString().split('T')[0]
+    const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: newName.trim(), start_date: todayStr }).select().single()
+    if (!protocol) { setCreatingProtocol(false); return }
+    const { data: compound } = await supabase.from('compounds').insert({ protocol_id: protocol.id, user_id: user.id, name: newName.trim(), vial_strength: prefillVial ? parseFloat(prefillVial) : 5, vial_unit: 'mg', bac_water_ml: prefillWater ? parseFloat(prefillWater) : 2, reconstitution_date: todayStr }).select().single()
+    if (!compound) { setCreatingProtocol(false); return }
+    await supabase.from('phases').insert({ compound_id: compound.id, user_id: user.id, name: 'Phase 1', dose: parseFloat(prefillDose || '2.5'), dose_unit: 'mg', start_week: 1, end_week: 4, frequency: '1x/week' })
+    await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocol.id, compound_id: compound.id, date: todayStr, event_type: 'started', description: 'Started ' + newName.trim() + ' at ' + (prefillDose || '2.5') + 'mg' })
+    setCreatingProtocol(false)
+    setCreateSuccess(true)
+    setShowNewProtocol(false)
+    loadAll()
+  }
+
+  async function saveEvent() {
+    if (!eventDesc.trim()) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const todayStr = new Date().toISOString().split('T')[0]
+    await supabase.from('protocol_events').insert({ user_id: user.id, date: todayStr, event_type: eventType, description: eventDesc.trim() })
+    setEventDesc('')
+    setShowAddEvent(false)
+    loadAll()
+  }
+
+  async function deleteEvent(id: string) {
+    if (!confirm('Delete this event?')) return
+    const supabase = createClient()
+    await supabase.from('protocol_events').delete().eq('id', id)
+    if (selectedEvent?.id === id) setSelectedEvent(null)
+    loadAll()
+  }
+
+  async function updateEvent() {
+    if (!editEventDesc.trim() || !editingEventId) return
+    const supabase = createClient()
+    await supabase.from('protocol_events').update({ description: editEventDesc.trim(), event_type: editEventType }).eq('id', editingEventId)
+    setEditingEventId(null)
+    loadAll()
+  }
+
+  function startEditEvent(ev: any) {
+    setEditingEventId(ev.id)
+    setEditEventDesc(ev.description)
+    setEditEventType(ev.event_type)
+  }
+
+  async function exportToCSV() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    // Fetch all protocols with compounds, phases, and injection logs
+    const { data: allProtocols } = await supabase
+      .from('protocols')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, phases(id, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .eq('user_id', user.id)
+
+    if (!allProtocols || allProtocols.length === 0) {
+      alert('No protocols to export')
+      return
+    }
+
+    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,mL per Injection\n'
+
+    for (const protocol of allProtocols) {
+      const compounds = protocol.compounds || []
+      
+      for (const compound of compounds) {
+        const phases = compound.phases || []
+        const injectionLogs = compound.injection_logs || []
+        const mlPerDose = compound.ml_per_dose || 0
+        const vialStrength = compound.vial_strength || 0
+        
+        if (phases.length === 0) {
+          // No phases, just add compound row
+          const totalInjections = injectionLogs.length
+          const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+          
+          const row = [
+            `"${protocol.name}"`,
+            `"${compound.name}"`,
+            '-',
+            '-',
+            '-',
+            new Date(protocol.start_date).toLocaleDateString('en-US'),
+            '-',
+            totalInjections,
+            vialsUsed,
+            mlPerDose
+          ].join(',')
+          csvContent += row + '\n'
+        } else {
+          // Multiple phases (dose increases)
+          for (const phase of phases) {
+            const phaseStart = phase.start_week ? new Date(new Date(protocol.start_date).getTime() + (phase.start_week - 1) * 7 * 24 * 60 * 60 * 1000) : new Date(protocol.start_date)
+            const phaseEnd = phase.end_week ? new Date(new Date(protocol.start_date).getTime() + (phase.end_week - 1) * 7 * 24 * 60 * 60 * 1000) : new Date()
+            
+            // Count injections in this phase
+            const phaseInjections = injectionLogs.filter((log: any) => {
+              const logDate = new Date(log.date)
+              return logDate >= phaseStart && logDate <= phaseEnd && log.taken
+            })
+            
+            const totalInjections = phaseInjections.length
+            const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+            
+            const row = [
+              `"${protocol.name}"`,
+              `"${compound.name}"`,
+              phase.dose,
+              phase.dose_unit || '-',
+              phase.frequency || '-',
+              phaseStart.toLocaleDateString('en-US'),
+              phaseEnd.toLocaleDateString('en-US'),
+              totalInjections,
+              vialsUsed,
+              mlPerDose
+            ].join(',')
+            csvContent += row + '\n'
+          }
+        }
+      }
+    }
+
+    // Trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `protocol-export-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  async function shareProtocol(protocolId: string) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: existing } = await supabase
+      .from('shared_protocols')
+      .select('token')
+      .eq('protocol_id', protocolId)
+      .eq('user_id', user.id)
+      .single()
+    if (existing) {
+      await navigator.clipboard.writeText(window.location.origin + '/share/' + existing.token)
+      alert('Share link copied!')
+      return
+    }
+    const { data: share } = await supabase
+      .from('shared_protocols')
+      .insert({ protocol_id: protocolId, user_id: user.id })
+      .select('token')
+      .single()
+    if (share) {
+      await navigator.clipboard.writeText(window.location.origin + '/share/' + share.token)
+      alert('Share link copied!')
+    }
+  }
+
+  async function loadAll() {
+    setLoading(true)
+    setLoadError(false)
+    try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    
+    const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+    if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
+    
+    const { data: js } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
+    setEntries(js || [])
+    let streak = 0
+    const today2 = new Date(); today2.setHours(0,0,0,0)
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today2); d.setDate(d.getDate() - i)
+      const ds = d.toISOString().split('T')[0]
+      if ((js || []).find((e: any) => e.date === ds)) { streak++ } else { break }
+    }
+    setStreakDays(streak)
+    const todayEntry = (js || []).find((e: any) => e.date === today)
+    if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
+    
+    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+    
+    // Check if first login (no active protocols) and create demos only if user has no history
+    if (!protocols || protocols.length === 0) {
+      const { data: completedProtocols } = await supabase.from('protocols').select('id').eq('status', 'completed').limit(1)
+      const { data: journalEntries } = await supabase.from('journal_entries').select('id').limit(1)
+      
+      // Only create demos if user has no completed protocols or journal entries (truly first login)
+      if (!completedProtocols?.length && !journalEntries?.length) {
+        await createDemoCompounds()
+      }
+      
+      // Reload to show demos (if created)
+      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+      protocols = reloaded
+    }
+    
+    setActiveProtocols(protocols || [])
+    if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
+    const due: DueCompound[] = []
+    ;(protocols || []).forEach((p: any) => { const daysIn = Math.floor((Date.now() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000); const wk = Math.max(1, Math.floor(daysIn/7)+1); (p.compounds||[]).forEach((c: any) => { const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]; if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, undefined, phase.days_of_week)) {
+          const concentration = c.vial_strength && c.bac_water_ml ? (c.vial_strength * 1000) / c.bac_water_ml : 0
+          const volumeMl = concentration > 0 ? (phase.dose * 1000) / concentration : 0
+          const syringeUnits = volumeMl * 100
+          due.push({
+            id: c.id,
+            name: c.name,
+            dose: phase.dose,
+            dose_unit: phase.dose_unit || 'mg',
+            volume_ml: volumeMl,
+            syringe_units: syringeUnits,
+            time_of_day: phase.time_of_day || 'morning',
+            protocol_name: p.name
+          })
+        } }) })
+    setDueCompounds(due)
+      
+    const tmr: DueCompound[] = []
+    const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]
+    ;(protocols || []).forEach((p: any) => {
+      const daysIn = Math.max(0, Math.floor((tomorrowDate.getTime() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000))
+      const wk = Math.max(1, Math.floor(daysIn/7)+1)
+      ;(p.compounds||[]).forEach((c: any) => {
+        const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]
+        if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, tomorrowStr, phase.days_of_week)) {
+          tmr.push({ id: c.id, name: c.name, dose: phase.dose, dose_unit: phase.dose_unit || 'mg', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency, day_of_week: phase.day_of_week })
+        }
+      })
+    })
+    setTomorrowCompounds(tmr)
+    const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
+    const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
+    setAllLogs(allLogsData || [])
+    const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
+    const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
+    setProtocolEvents(events || [])
+    const hour = new Date().getHours()
+    if (hour >= 20) {
+      const logMap: Record<string, boolean> = {}
+      ;(ls || []).forEach((l: any) => { if (l.taken) logMap[l.compound_id] = true })
+      const missed = due.filter((c: any) => !logMap[c.id]).map((c: any) => c.name)
+      setMissedDoses(missed)
+    }
+    setLoading(false)
+    } catch (err) {
+      console.error('loadAll failed:', err)
+      setLoadError(true)
+      setLoading(false)
+    }
+  }
+
+  async function toggleInjection(cid: string) { if (togglingId === cid) return; try { navigator.vibrate(10) } catch(e) {} setTogglingId(cid); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setTogglingId(null); return; } const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }); setTogglingId(null) }
+  async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
+  async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (mood !== null) row.mood = mood; if (energy !== null) row.energy = energy; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = parseFloat(weight); if (hunger !== null) row.hunger = hunger; await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
+  
+  async function toggleWeightUnit() {
+    const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
+    setWeightUnit(newUnit)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('user_id', user.id)
+    }
+  }
+  
+  function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) { const a = current === value; const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']; const reverseColors = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444']; const sc = (reverse ? reverseColors : scoreColors)[value-1]; return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:a?'none':'1px solid '+bd,background:a?sc:cb,color:a?'#fff':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:a?1:0.5}}>{value}</button> }
+  function DiscomfortBtn({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) { const a = current === value; const c = value === 0 ? g : '#ff6b6b'; return <button onClick={() => onChange(value)} style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid '+(a?c:bd),background:a?(value===0?'var(--color-green-15)':'rgba(255,107,107,0.15)'):'transparent',color:a?c:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>{value}</button> }
+
+  function eventColor(type: string) { return type==='started'?g:type==='dose_change'?'#f59e0b':type==='compound_added'?'#06b6d4':type==='compound_removed'?'#ff6b6b':'#6c63ff' }
+
+  const hasDemoCompounds = activeProtocols.some((p: any) => p.name.startsWith('Demo:'))
+  const we = entries.filter((e: any) => e.weight).sort((a: any, b: any) => a.date.localeCompare(b.date))
+  const sw = we[0]?.weight; const lw = we[we.length-1]?.weight
+  const tl = (sw && lw) ? (sw - lw).toFixed(1) : null
+  const cd = entries.slice().sort((a: any, b: any) => a.date.localeCompare(b.date)).map((e: any) => ({ date: new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}), mood: e.mood, energy: e.energy, sleep: e.sleep, weight: e.weight }))
+  const ts = { contentStyle: { background: cb, border: '1px solid '+bd, borderRadius: '6px', fontSize: '12px' } }
+  const mk: { date: string; label: string }[] = []
+  activeProtocols.forEach((p: any) => { const sl = new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); (p.compounds||[]).forEach((c: any) => { mk.push({ date: sl, label: c.name }) }) })
+  protocolEvents.forEach((ev: any) => { const evDate = new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); mk.push({ date: evDate, label: ev.description }) })
+
+  const ins: { text: string; accent: string }[] = []
+  
+  if (we.length >= 2) {
+    const diff = sw! - lw!
+    const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000))
+    const wb = Math.max(1, db/7)
+    if (diff > 0) {
+      ins.push({ text: `Weight change: down ${diff.toFixed(1)} lbs since you started`, accent: g })
+      if (wb >= 2) {
+        const wr = diff/wb
+        ins.push({ text: `Average: ${wr.toFixed(1)} lbs per week over ${wb.toFixed(0)} weeks`, accent: g })
+      }
+    }
+  }
+  
+  if (entries.length >= 5) {
+    const me = entries.filter((e: any) => e.mood !== null)
+    if (me.length >= 3) {
+      const am = me.reduce((s: number, e: any) => s+e.mood, 0)/me.length
+      ins.push({ text: `Mood: averaging ${am.toFixed(1)}/5 over ${me.length} entries`, accent: g })
+    }
+    
+    const rw = entries.slice(0,7).filter((e: any) => e.sleep !== null)
+    if (rw.length >= 3) {
+      const as2 = rw.reduce((s: number, e: any) => s+e.sleep, 0)/rw.length
+      ins.push({ text: `Sleep: ${as2.toFixed(1)} hours average this week`, accent: '#06b6d4' })
+    }
+  }
+  
+  const he = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined)
+  if (he.length >= 3) {
+    const ah = he.reduce((s: number, e: any) => s+e.hunger, 0)/he.length
+    ins.push({ text: `Appetite: ${ah.toFixed(1)}/5 average over ${he.length} entries`, accent: '#8b5cf6' })
+  }
+  
+  if (currentWeek > 0) {
+    ins.push({ text: `Week ${currentWeek} · ${entries.length} total journal entries logged`, accent: '#6c63ff' })
+  }
+  
+  const vi = ins.slice(0, 3)
+
+  if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+
+  if (!loading && activeProtocols.length === 0) {
+    const hasActivityHistory = entries.length > 0
+    
+    return (
+      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px',minHeight:'100vh'}}>
+        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>
+          {hasActivityHistory ? 'Ready to build your own?' : 'Create Your First Protocol'}
+        </h2>
+        <p style={{color:dg,marginBottom:'32px'}}>
+          {hasActivityHistory 
+            ? 'Delete those samples and create your first real protocol to start tracking.' 
+            : 'Track your wellness journey with Protocol.'}
+        </p>
+        <div style={{display:'flex',justifyContent:'center',marginTop:'48px'}}>
+          <button 
+            onClick={() => setShowNewProtocol(true)}
+            style={{
+              width:'160px',
+              height:'160px',
+              borderRadius:'50%',
+              border:'3px solid '+g,
+              background:'rgba(76,235,55,0.08)',
+              color:g,
+              fontSize:'13px',
+              fontWeight:'700',
+              cursor:'pointer',
+              display:'flex',
+              flexDirection:'column',
+              alignItems:'center',
+              justifyContent:'center',
+              gap:'8px',
+              boxShadow:'0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)',
+              transition:'all 0.3s ease',
+              position:'relative',
+              overflow:'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 50px rgba(76,235,55,0.4), inset 0 0 40px rgba(76,235,55,0.15)'
+              e.currentTarget.style.transform = 'scale(1.05)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)'
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
+          >
+            <span style={{fontSize:'32px',fontWeight:'700'}}>+</span>
+            <span>Create</span>
+            <span>Protocol</span>
+          </button>
+        </div>
+        
+        {showNewProtocol && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
+            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'420px'}}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:g}}>Create Your Protocol</h3>
+              <p style={{fontSize:'13px',color:dg,marginBottom:'20px'}}>Enter your compound details to get started</p>
+              
+              <div style={{marginBottom:'12px'}}>
+                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Compound Name</label>
+                <input 
+                  placeholder='e.g., Semaglutide' 
+                  value={newName} 
+                  onChange={e=>setNewName(e.target.value)} 
+                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                />
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>
-                  {typeof current.vialsRemaining === "number" ? current.vialsRemaining : "—"}
+              
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px'}}>
+                <div>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Starting Dose (mg)</label>
+                  <input 
+                    placeholder='2.5' 
+                    value={prefillDose} 
+                    onChange={e=>setPrefillDose(e.target.value)} 
+                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                  />
                 </div>
-                <div style={{ fontSize: 10, color: "#444" }}>vials left</div>
+                <div>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial Strength (mg)</label>
+                  <input 
+                    placeholder='5' 
+                    value={prefillVial} 
+                    onChange={e=>setPrefillVial(e.target.value)} 
+                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+              
+              <div style={{marginBottom:'20px'}}>
+                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>BAC Water (ml)</label>
+                <input 
+                  placeholder='2' 
+                  value={prefillWater} 
+                  onChange={e=>setPrefillWater(e.target.value)} 
+                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setShowNewProtocol(false)} 
+                  style={{flex:1,background:'transparent',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={creatingProtocol||!newName.trim()} 
+                  onClick={createProtocolFromCalc} 
+                  style={{flex:2,background:createSuccess?'#10b981':creatingProtocol?mg:g,color:createSuccess?'#fff':creatingProtocol?dg:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'not-allowed':'pointer',opacity:creatingProtocol||!newName.trim()?0.5:1}}
+                >
+                  {createSuccess?'✓ Created!':creatingProtocol?'Creating...':'Create Protocol'}
+                </button>
               </div>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 20 }}>
-              {[
-                { label: "Vial Size", value: current.vialSize },
-                { label: "BAC Water", value: current.bac },
-                { label: "Concentration", value: current.concentration },
-              ].map(item => (
-                <div key={item.label} style={{ background: "#111", border: "1px solid #1a1a1a", borderRadius: 6, padding: "10px 12px" }}>
-                  <div style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>{item.label}</div>
-                  <div style={{ fontSize: 11, color: "#ccc", fontWeight: 600 }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
-              {current.startDate.includes("Restart") || current.startDate.includes("Jun")
-                ? `Starting ${current.startDate}`
-                : `Started ${current.startDate}`}
-              {current.endDate && ` · Ends ${current.endDate}`}
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              {current.phases.map((phase, i) => <PhaseRow key={i} phase={phase} />)}
-            </div>
-
-            <div style={{ fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 8 }}>Notes</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {current.notes.map((note, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <div style={{ color: current.color, fontSize: 10, marginTop: 1, flexShrink: 0 }}>→</div>
-                  <div style={{ fontSize: 12, color: note.includes("🚨") || note.includes("⚠️") ? "#fca5a5" : "#666", lineHeight: 1.5 }}>{note}</div>
-                </div>
-              ))}
-            </div>
-
-            {current.urgent && (
-              <div style={{ background: "#1a0000", border: "1px solid #dc2626", borderRadius: 8, padding: "12px 14px", marginTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", marginBottom: 4 }}>🚨 URGENT</div>
-                <div style={{ fontSize: 12, color: "#fca5a5" }}>{current.urgentMsg}</div>
-              </div>
-            )}
-          </>
+          </div>
         )}
       </div>
+    )
+  }
 
-      <div style={{ marginTop: 16, textAlign: "center", fontSize: 10, color: "#222" }}>
-        Reta ends Sep 13 · Next labs: Late June · TRT Nation: Test C pending · 813-413-1000
+  return (
+    <main style={{minHeight:'100vh',paddingBottom:'100px'}}>
+      <div style={{maxWidth:'600px',margin:'0 auto',padding:'16px'}}>
+        {hasDemoCompounds && (
+          <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
+            <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
+            <div>
+              <span style={{fontSize:'12px',fontWeight:'700',color:g,display:'block',marginBottom:'2px'}}>Delete these samples and create your real protocols</span>
+              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>These are demo compounds. Click on <a href="/protocol/manage" style={{color:g,fontWeight:'600',textDecoration:'none',borderBottom:'1px solid '+g}}>+ Add/Edit Protocol</a> to delete demo compounds and start tracking your stack.</span>
+            </div>
+          </div>
+        )}
+
+        {createSuccess && (
+          <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
+            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>Protocol Created!</span>
+            <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
+          </div>
+        )}
+
+        {activeProtocols.length > 0 && (
+          <div style={{display:'flex',gap:'8px',marginBottom:'16px',justifyContent:'flex-end'}}>
+            <button 
+              onClick={exportToCSV}
+              style={{background:'var(--color-card)',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}
+            >
+              ↓ Export CSV
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+          <StatsBoxes
+            currentWeight={lw ?? null}
+            totalLost={tl ? Number(tl) : 0}
+            weightStartDate={we[0]?.date ?? null}
+            dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
+            weightUnit={weightUnit}
+            onToggleUnit={toggleWeightUnit}
+          />
+          
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <CompoundRings
+              activeProtocols={activeProtocols}
+              activeCompoundTab={activeCompoundTab}
+              setActiveCompoundTab={setActiveCompoundTab}
+            />
+          </div>
+        </div>
+        
+        <HeroProtocolCard
+          activeProtocols={activeProtocols}
+          activeCompoundTab={activeCompoundTab}
+          logs={logs}
+          allLogs={allLogs}
+          totalLost={tl}
+          compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
+          onShare={shareProtocol}
+        />
+
+        {(() => {
+          const activeCompound = activeProtocols
+            .flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol_id: p.id, protocol_start: p.start_date })))
+            .find((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))
+          
+       if (!activeCompound) return null
+        return (
+          <>
+            <WeeklySchedule activeProtocols={activeProtocols} />
+
+        <CompactDailyLog
+          mood={mood}
+          energy={energy}
+          hunger={hunger}
+          sleep={sleep}
+          weight={weight}
+          notes={entryNotes}
+          saving={saving}
+          saved={saved}
+          onMoodChange={setMood}
+          onEnergyChange={setEnergy}
+          onHungerChange={setHunger}
+          onSleepChange={setSleep}
+          onWeightChange={setWeight}
+          onNotesChange={setEntryNotes}
+          onSave={saveEntry}
+        />
+
+        <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
+
+        {missedDoses.length > 0 && (
+          <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
+            <span style={{fontSize:'16px',flexShrink:0}}>⚠️</span>
+            <div>
+              <span style={{fontSize:'12px',fontWeight:'700',color:'#f97316',display:'block',marginBottom:'2px'}}>Looks like you may have missed a dose today</span>
+              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{missedDoses.join(', ')} {missedDoses.length === 1 ? 'was' : 'were'} due but not logged. Tap the compound tab to log it.</span>
+            </div>
+          </div>
+        )}
+
+        {entries.length > 1 && (
+  <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+    <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
+    <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
+  </div>
+)}
+          </>
+        )
+        })()}
+        
+        {showChart && cd.length > 1 && (
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+            <p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p>
+            <ResponsiveContainer width='100%' height={140}>
+              <LineChart data={cd}>
+                <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
+                <YAxis tick={{fontSize:10,fill:mg}} width={20} />
+                <Tooltip {...ts} />
+                {mk.map((m, i) => (
+                  <ReferenceLine 
+                    key={'m1_'+i} 
+                    x={m.date} 
+                    stroke='#6c63ff' 
+                    strokeDasharray='4 4' 
+                    strokeOpacity={0.5} 
+                    label={{
+                      value: m.label, 
+                      position: i % 2 === 0 ? 'insideTopRight' : 'insideBottomRight', 
+                      fontSize: 10, 
+                      fill: '#a78bfa', 
+                      fontWeight: 700, 
+                      offset: 8
+                    }} 
+                  />
+                ))}
+                <Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' />
+                <Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' />
+                <Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep' />
+              </LineChart>
+            </ResponsiveContainer>
+            {protocolEvents.length > 0 && (
+              <div style={{marginTop:'8px',marginBottom:'8px',padding:'8px 0',borderTop:'1px solid '+bd}}>
+                <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
+                  <span style={{fontSize:'9px',color:mg,fontWeight:'600',marginRight:'4px'}}>EVENTS</span>
+                  {protocolEvents.map((ev: any, i: number) => (
+                    <button 
+                      key={ev.id||i} 
+                      onClick={() => setSelectedEvent(selectedEvent?.id===ev.id?null:ev)} 
+                      title={ev.description} 
+                      style={{
+                        width:'16px',
+                        height:'16px',
+                        borderRadius:'50%',
+                        background:selectedEvent?.id===ev.id?eventColor(ev.event_type):'transparent',
+                        border:'2px solid '+eventColor(ev.event_type),
+                        cursor:'pointer',
+                        padding:0
+                      }}
+                    />
+                  ))}
+                </div>
+                {selectedEvent && (
+                  <div style={{marginTop:'8px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
+                    <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(selectedEvent.event_type),marginTop:'4px',flexShrink:0}} />
+                    <div style={{flex:1}}>
+                      <span style={{fontSize:'10px',color:eventColor(selectedEvent.event_type),fontWeight:'700',textTransform:'uppercase'}}>{selectedEvent.event_type.replace(/_/g,' ')}</span>
+                      <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
+                      <span style={{fontSize:'10px',color:dg,display:'block',marginTop:'2px'}}>{new Date(selectedEvent.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+                    </div>
+                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>✕</button>
+                  </div>
+                )}
+              </div>
+            )}
+            {we.length > 1 && (
+              <>
+                <p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p>
+                <ResponsiveContainer width='100%' height={100}>
+                  <LineChart data={cd.filter((d: any) => d.weight)}>
+                    <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
+                    <YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} />
+                    <Tooltip {...ts} />
+                    {mk.map((m, i) => (
+                      <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />
+                    ))}
+                    <Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' />
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
+            )}
+          </div>
+        )}
+
+        {protocolEvents.length > 0 && (
+          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL TIMELINE</span>
+            {protocolEvents.slice(-5).reverse().map((ev: any, i: number) => (
+              editingEventId === ev.id ? (
+                <div key={ev.id} style={{padding:'10px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
+                  <select value={editEventType} onChange={e => setEditEventType(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'6px',color:'var(--color-text)',fontSize:'12px',boxSizing:'border-box',marginBottom:'6px'}}>
+                    <option value='dose_change'>Dose changed</option>
+                    <option value='compound_added'>Added compound</option>
+                    <option value='compound_removed'>Stopped compound</option>
+                    <option value='phase_change'>Phase change</option>
+                    <option value='started'>Started</option>
+                    <option value='other'>Other</option>
+                  </select>
+                  <input value={editEventDesc} onChange={e => setEditEventDesc(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',marginBottom:'6px'}} />
+                  <div style={{display:'flex',gap:'6px'}}>
+                    <button onClick={() => setEditingEventId(null)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'6px',fontSize:'12px',cursor:'pointer'}}>Cancel</button>
+                    <button onClick={updateEvent} style={{flex:2,background:g,color:'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'6px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Save</button>
+                  </div>
+                </div>
+              ) : (
+                <div key={ev.id || i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'8px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
+                  <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(ev.event_type),marginTop:'4px',flexShrink:0}} />
+                  <div style={{flex:1}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+                      <span style={{fontSize:'10px',color:'#0a0a0f',background:eventColor(ev.event_type),padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
+                      <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>{ev.description}</span>
+                    </div>
+                    <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginTop:'2px'}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
+                  </div>
+                  <div style={{display:'flex',gap:'8px',flexShrink:0}}>
+                    <button onClick={() => startEditEvent(ev)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'11px'}}>Edit</button>
+                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>Delete</button>
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+
+        <div style={{marginTop:'32px',paddingTop:'16px',borderTop:'1px solid '+bd,display:'flex',justifyContent:'center'}}>
+          <a href='/protocol/manage' style={{color:g,textDecoration:'none',fontSize:'13px',fontWeight:'700',padding:'12px 24px',background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'8px',cursor:'pointer',display:'inline-block'}}>
+            → My Protocols
+          </a>
+        </div>
       </div>
-    </div>
-  );
+    </main>
+  )
 }
