@@ -37,26 +37,34 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
     setCount(null); setDosesOverride(null); setMlPerDose(null)
     setEditing(false); setEditingDoses(false); setEditingMl(false)
     setLoading(true)
-    async function load() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('compounds')
-        .select('vials_in_stock, doses_taken_override, ml_per_dose')
-        .eq('id', compoundId)
-        .single()
-      if (data) {
-        setCount(data.vials_in_stock ?? null)
-        setDosesOverride(data.doses_taken_override ?? null)
-        setMlPerDose(data.ml_per_dose ?? null)
-        try {
-          if (data.doses_taken_override !== null) localStorage.setItem('vial_inventory_' + compoundId + '_doses', String(data.doses_taken_override))
-          if (data.ml_per_dose !== null) localStorage.setItem('vial_inventory_' + compoundId + '_ml', String(data.ml_per_dose))
-        } catch(e) {}
-      }
-      setLoading(false)
-    }
-    load()
+    loadInventory()
   }, [compoundId])
+
+  useEffect(() => {
+    function onDosesUpdated() { loadInventory(true) }
+    window.addEventListener('doses_updated', onDosesUpdated)
+    return () => window.removeEventListener('doses_updated', onDosesUpdated)
+  }, [compoundId])
+
+  async function loadInventory(silent = false) {
+    if (!silent) setLoading(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('compounds')
+      .select('vials_in_stock, doses_taken_override, ml_per_dose')
+      .eq('id', compoundId)
+      .single()
+    if (data) {
+      setCount(data.vials_in_stock ?? null)
+      setDosesOverride(data.doses_taken_override ?? null)
+      setMlPerDose(data.ml_per_dose ?? null)
+      try {
+        if (data.doses_taken_override !== null) localStorage.setItem('vial_inventory_' + compoundId + '_doses', String(data.doses_taken_override))
+        if (data.ml_per_dose !== null) localStorage.setItem('vial_inventory_' + compoundId + '_ml', String(data.ml_per_dose))
+      } catch(e) {}
+    }
+    setLoading(false)
+  }
 
   async function saveCount() {
     const val = parseInt(input)
