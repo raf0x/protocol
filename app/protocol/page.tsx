@@ -85,7 +85,8 @@ export default function DashboardPage() {
       } catch(e) { localStorage.removeItem('pendingProtocol') }
     }
     
-    function handleDosesUpdate() { loadAll() }
+    // FIX: Use silent refresh (no full-page loading flash) when doses are logged
+    function handleDosesUpdate() { refreshProtocolsSilently() }
     window.addEventListener('doses_updated', handleDosesUpdate)
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
@@ -340,6 +341,34 @@ export default function DashboardPage() {
     if (share) {
       await navigator.clipboard.writeText(window.location.origin + '/share/' + share.token)
       alert('Share link copied!')
+    }
+  }
+
+  // NEW: Silent refresh — updates protocol/vial data (for HeroProtocolCard, CompoundRings, WeeklySchedule)
+  // WITHOUT setting `loading` to true, so the page doesn't flash to a blank loading screen
+  // every time an injection is logged from WeeklySchedule.
+  async function refreshProtocolsSilently() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: protocols } = await supabase
+        .from('protocols')
+        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
+        .eq('status', 'active')
+
+      setActiveProtocols(protocols || [])
+
+      const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
+      setAllLogs(allLogsData || [])
+
+      const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
+      const map: Record<string, LogEntry> = {}
+      ;(ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } })
+      setLogs(map)
+    } catch (err) {
+      console.error('refreshProtocolsSilently failed:', err)
     }
   }
 
