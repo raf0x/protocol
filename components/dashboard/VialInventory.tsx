@@ -7,9 +7,11 @@ type Props = {
   compoundName: string
   reconstitutionDate?: string
   bacWaterMl?: number
+  vialStrength?: number
+  vialUnit?: string
 }
 
-export default function VialInventory({ compoundId, compoundName, reconstitutionDate, bacWaterMl }: Props) {
+export default function VialInventory({ compoundId, compoundName, reconstitutionDate, bacWaterMl, vialStrength, vialUnit }: Props) {
   const [count, setCount] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
   const [input, setInput] = useState('')
@@ -29,6 +31,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const [wizardBacWater, setWizardBacWater] = useState(bacWaterMl ? String(bacWaterMl) : '')
   const [newReconDate, setNewReconDate] = useState(new Date().toISOString().split('T')[0])
   const [newBacWater, setNewBacWater] = useState(bacWaterMl ? String(bacWaterMl) : '')
+  const [newVialStrength, setNewVialStrength] = useState(vialStrength ? String(vialStrength) : '')
 
   useEffect(() => {
     setCount(null); setDosesOverride(null); setMlPerDose(null)
@@ -115,6 +118,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   async function handleNewVial() {
     setNewReconDate(new Date().toISOString().split('T')[0])
     setNewBacWater(bacWaterMl ? String(bacWaterMl) : '')
+    setNewVialStrength(vialStrength ? String(vialStrength) : '')
     setShowNewVial(true)
   }
 
@@ -122,11 +126,13 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
     setSaving(true)
     const supabase = createClient()
     const next = Math.max(0, (count || 1) - 1)
+    const parsedStrength = newVialStrength ? parseFloat(newVialStrength) : vialStrength
     await supabase.from('compounds').update({
       vials_in_stock: next,
       doses_taken_override: 0,
       reconstitution_date: newReconDate,
-      bac_water_ml: newBacWater ? parseFloat(newBacWater) : bacWaterMl
+      bac_water_ml: newBacWater ? parseFloat(newBacWater) : bacWaterMl,
+      vial_strength: parsedStrength
     }).eq('id', compoundId)
     setCount(next); setDosesOverride(0)
     try { localStorage.setItem('vial_inventory_' + compoundId + '_doses', '0'); window.dispatchEvent(new Event('doses_updated')) } catch(e) {}
@@ -141,6 +147,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const daysLeft = daysElapsed !== null ? Math.max(0, expiryDays - daysElapsed) : null
   const progress = daysElapsed !== null ? Math.min(100, (daysElapsed / expiryDays) * 100) : 0
   const barColor = progress < 50 ? '#22c55e' : progress < 80 ? '#f59e0b' : '#ef4444'
+  const strengthChanged = newVialStrength && vialStrength && parseFloat(newVialStrength) !== vialStrength
 
   if (loading) return <div style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--color-border)',fontSize:'11px',color:'var(--color-muted)'}}>Loading...</div>
 
@@ -215,6 +222,16 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
             <div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-dim)',letterSpacing:'2px',marginBottom:'8px'}}>NEW VIAL</div>
             <h3 style={{fontSize:'18px',fontWeight:'800',color:'var(--color-text)',marginBottom:'4px'}}>Starting a new {compoundName} vial?</h3>
             <p style={{fontSize:'12px',color:'var(--color-dim)',marginBottom:'20px'}}>Your previous vial will be marked as finished. Doses taken will reset to 0.</p>
+
+            <label style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600',letterSpacing:'1px',display:'block',marginBottom:'4px'}}>VIAL STRENGTH ({vialUnit || 'mg'})</label>
+            <input type='number' step='any' value={newVialStrength} onChange={e => setNewVialStrength(e.target.value)} placeholder='e.g. 10' style={{width:'100%',background:'var(--color-surface)',border:'1px solid '+(strengthChanged ? '#f59e0b' : 'var(--color-border)'),borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'4px'}} />
+            {strengthChanged && (
+              <div style={{fontSize:'11px',color:'#f59e0b',marginBottom:'12px',lineHeight:'1.4'}}>
+                ⚠ Changed from {vialStrength}{vialUnit || 'mg'}. Your mL-per-dose may need updating too.
+              </div>
+            )}
+            {!strengthChanged && <div style={{marginBottom:'12px'}} />}
+
             <label style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600',letterSpacing:'1px',display:'block',marginBottom:'4px'}}>RECONSTITUTION DATE</label>
             <input type='date' value={newReconDate} onChange={e => setNewReconDate(e.target.value)} style={{width:'100%',background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'12px',colorScheme:'dark'}} />
             <label style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600',letterSpacing:'1px',display:'block',marginBottom:'4px'}}>BAC WATER (mL)</label>
