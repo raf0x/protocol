@@ -204,6 +204,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
             <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
+            <span style={{fontSize:'12px',color:'var(--color-dim)'}}>Started {new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             {currentPhase && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
             {nextDoseText && <span style={{fontSize:'12px',fontWeight:'700',color:nextDoseText==='Due today'?'#f97316':'var(--color-dim)',background:nextDoseText==='Due today'?'rgba(249,115,22,0.1)':'var(--color-surface)',padding:'3px 8px',borderRadius:'20px'}}>⏰ {nextDoseText}</span>}
             {totalLost && parseFloat(totalLost) > 0 && (
@@ -212,7 +213,11 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           </div>
 
           {vialDaysLeft !== null && mlRemaining !== null && (
-            <div style={{marginBottom:'12px',display:'flex',gap:'12px'}}>
+            <div style={{marginBottom:'12px',display:'flex',gap:'12px',flexWrap:'wrap'}}>
+              <div>
+                <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>PROTOCOL START</div>
+                <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+              </div>
               <div>
                 <div style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px',marginBottom:'2px'}}>RECON. DATE</div>
                 <div style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)'}}>{reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</div>
