@@ -90,6 +90,7 @@ const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635'
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, onShare }: Props) {
   const [dosesRefresh, setDosesRefresh] = React.useState(0)
   const [confirmArchive, setConfirmArchive] = React.useState(false)
+  const [continuity, setContinuity] = React.useState<{ name: string; start_date: string; completed_date: string } | null>(null)
   
   React.useEffect(() => {
     function onStorage(e: StorageEvent) { if (e.key?.includes('_doses')) setDosesRefresh(n => n + 1) }
@@ -98,6 +99,30 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     window.addEventListener('doses_updated', onDoses)
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('doses_updated', onDoses) }
   }, [])
+
+  // Resolve which protocol is active (same logic as render below), then load its continuity link
+  let effectProtocolId: string | null = null
+  for (const p of (activeProtocols || [])) {
+    if ((p.compounds || []).some((c: any) => c.id === activeCompoundTab)) { effectProtocolId = p.id; break }
+  }
+  if (!effectProtocolId) effectProtocolId = activeProtocols?.[0]?.id ?? null
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function loadContinuity() {
+      setContinuity(null)
+      if (!effectProtocolId) return
+      try {
+        const supabase = createClient()
+        const { data: proto } = await supabase.from('protocols').select('continued_from_protocol_id').eq('id', effectProtocolId).single()
+        if (!proto?.continued_from_protocol_id) return
+        const { data: prev } = await supabase.from('protocols').select('name, start_date, completed_date').eq('id', proto.continued_from_protocol_id).single()
+        if (prev && prev.completed_date && !cancelled) setContinuity(prev)
+      } catch (e) { /* badge is cosmetic; fail silently */ }
+    }
+    loadContinuity()
+    return () => { cancelled = true }
+  }, [effectProtocolId])
   
   if (!activeProtocols || activeProtocols.length === 0) return null
 
@@ -210,6 +235,18 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             {totalLost && parseFloat(totalLost) > 0 && (
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
             )}
+            {continuity && (() => {
+              const prevDays = Math.max(0, Math.round((new Date(continuity.completed_date).getTime() - new Date(continuity.start_date + 'T00:00:00').getTime()) / 86400000))
+              const prevWeeks = Math.round(prevDays / 7)
+              const breakDays = Math.max(0, Math.round((new Date(activeProtocol.start_date + 'T00:00:00').getTime() - new Date(continuity.completed_date).getTime()) / 86400000))
+              const breakWeeks = Math.round(breakDays / 7)
+              const shortPrev = continuity.name.replace(/^Demo:\s*/i, '').split(' ')[0]
+              return (
+                <span title={`Continuing ${continuity.name} — previously ${prevWeeks} weeks, ended ${new Date(continuity.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`} style={{fontSize:'11px',fontWeight:'700',color:'#a78bfa',background:'rgba(139,92,246,0.12)',padding:'3px 8px',borderRadius:'20px'}}>
+                  ↻ {prevWeeks} wks prior on {shortPrev}{breakWeeks >= 1 ? ` · ${breakWeeks} wk break` : ''}
+                </span>
+              )
+            })()}
           </div>
 
           {vialDaysLeft !== null && mlRemaining !== null && (
