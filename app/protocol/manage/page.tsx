@@ -64,6 +64,15 @@ export default function ManagePage() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [continuedFromId, setContinuedFromId] = useState('')
+
+  function protocolDurationLabel(p: any): string {
+    if (!p?.start_date || !p?.completed_date) return ''
+    const days = Math.max(0, Math.round((new Date(p.completed_date).getTime() - new Date(p.start_date + 'T00:00:00').getTime()) / 86400000))
+    if (days < 7) return days + (days === 1 ? ' day protocol' : ' day protocol')
+    const weeks = Math.round(days / 7)
+    return weeks + ' week protocol'
+  }
 
   const g = 'var(--color-green)', dg = 'var(--color-dim)', mg = 'var(--color-muted)'
   const cb = 'var(--color-card)', bd = 'var(--color-border)', inp = 'var(--color-input)'
@@ -236,6 +245,7 @@ export default function ManagePage() {
     setEditingId(null)
     setStartDate(new Date().toISOString().split('T')[0])
     setCompounds([newCompound()])
+    setContinuedFromId('')
     setShowForm(true)
     setError('')
   }
@@ -269,6 +279,7 @@ export default function ManagePage() {
       }
     })
     setCompounds(cs.length ? cs : [newCompound()])
+    setContinuedFromId(p.continued_from_protocol_id || '')
     setShowForm(true)
     setError('')
   }
@@ -331,10 +342,10 @@ export default function ManagePage() {
           }
         })
       }
-      await supabase.from('protocols').update({ name: pName, start_date: startDate }).eq('id', editingId)
+      await supabase.from('protocols').update({ name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).eq('id', editingId)
       await supabase.from('compounds').delete().eq('protocol_id', editingId)
     } else {
-      const { data: p, error: e } = await supabase.from('protocols').insert({ user_id: user.id, name: pName, start_date: startDate }).select().single()
+      const { data: p, error: e } = await supabase.from('protocols').insert({ user_id: user.id, name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).select().single()
       if (e) { setError(e.message); setSaving(false); return }
       protocolId = p.id
     }
@@ -647,6 +658,21 @@ export default function ManagePage() {
               <input type='date' value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
             </div>
 
+            {completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
+              <div style={{marginBottom:'16px'}}>
+                <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>CONTINUING A PREVIOUS PROTOCOL? <span style={{color:mg,fontWeight:'400',textTransform:'none',letterSpacing:0}}>(optional)</span></label>
+                <select value={continuedFromId} onChange={e => setContinuedFromId(e.target.value)} style={is}>
+                  <option value=''>None</option>
+                  {completedProtocols.filter(cp => cp.id !== editingId).map(cp => (
+                    <option key={cp.id} value={cp.id}>
+                      {cp.name} — {protocolDurationLabel(cp).replace(' protocol','s')}, ended {new Date(cp.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                    </option>
+                  ))}
+                </select>
+                <p style={{fontSize:'11px',color:mg,marginTop:'4px'}}>Links this protocol to a completed one — for resuming after a break, or evolving into a new blend. Your history carries over as a badge on the dashboard.</p>
+              </div>
+            )}
+
             {error && <div style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
             <div style={{display:'flex',gap:'8px'}}>
@@ -709,7 +735,7 @@ export default function ManagePage() {
                 <div>
                   <h2 style={{fontSize:'17px',fontWeight:'700',color:isCompleted?mg:g,marginBottom:'2px'}}>{p.name}</h2>
                   <p style={{fontSize:'12px',color:dg}}>
-                    {isCompleted ? `Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
+                    {isCompleted ? `${protocolDurationLabel(p)} · Completed ${new Date(p.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : `Started ${new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`}
                   </p>
                 </div>
                 {!selectMode && (
