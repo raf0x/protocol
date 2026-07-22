@@ -272,13 +272,35 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         </div>
       )}
 
-      {/* mL per dose */}
+      {/* mL per dose — with all equivalent measurements */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
         <div>
-          <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px',display:'block',marginBottom:'2px'}}>mL PER DOSE</span>
-          {mlPerDose !== null ? (
-            <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'700'}}>{mlPerDose} mL</span>
-          ) : (
+          <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px',display:'block',marginBottom:'2px'}}>DOSE MEASUREMENTS</span>
+          {mlPerDose !== null ? (() => {
+            const units = mlPerDose * 100
+            const concentration = vialStrength && bacWaterMl ? vialStrength / bacWaterMl : null // amount per mL, in vialUnit
+            const amountInVialUnit = concentration !== null ? mlPerDose * concentration : null
+            const unit = (vialUnit || 'mg').toLowerCase()
+            let amountLabel: string | null = null
+            if (amountInVialUnit !== null) {
+              if (unit === 'mg') {
+                amountLabel = amountInVialUnit < 0.01 ? amountInVialUnit.toFixed(3) + 'mg' : amountInVialUnit.toFixed(2) + 'mg'
+                if (amountInVialUnit < 1) amountLabel += ` (${(amountInVialUnit*1000).toFixed(0)}mcg)`
+              } else if (unit === 'mcg') {
+                amountLabel = amountInVialUnit.toFixed(0) + 'mcg'
+                if (amountInVialUnit >= 1000) amountLabel += ` (${(amountInVialUnit/1000).toFixed(2)}mg)`
+              } else if (unit === 'iu') {
+                amountLabel = amountInVialUnit.toFixed(0) + ' IU'
+              }
+            }
+            return (
+              <div style={{display:'flex',flexWrap:'wrap',gap:'6px',alignItems:'baseline'}}>
+                <span style={{fontSize:'14px',color:'var(--color-text)',fontWeight:'800'}}>{mlPerDose} mL</span>
+                <span style={{fontSize:'12px',color:'var(--color-dim)'}}>· {units % 1 === 0 ? units.toFixed(0) : units.toFixed(1)} units</span>
+                {amountLabel && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>· {amountLabel}</span>}
+              </div>
+            )
+          })() : (
             <span style={{fontSize:'12px',color:'#f97316'}}>Set this for accurate vial tracking</span>
           )}
         </div>
