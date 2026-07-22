@@ -265,14 +265,14 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
             {currentPhase && (
-              <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
+              <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40',whiteSpace:'nowrap'}}>
+                {currentPhase.dose}{currentPhase.dose_unit}
+                {mgEquivalent !== null && ` · ${parseFloat(mgEquivalent.toFixed(mgEquivalent < 0.01 ? 3 : 2))}mg`}
+                {'/dose'}
+              </span>
             )}
             {currentPhase && (
-              <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40'}}>
-                {currentPhase.dose}{currentPhase.dose_unit}
-                {mgEquivalent !== null && ` · ${mgEquivalent < 0.01 ? mgEquivalent.toFixed(3) : mgEquivalent.toFixed(2)}mg`}
-                {' per dose'}
-              </span>
+              <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
             )}
           </div>
 
@@ -299,16 +299,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
               </div>
             </div>
           )}
-
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'4px'}}>
-              <span style={{fontSize:'9px',color:'var(--color-muted)',fontWeight:'600',letterSpacing:'1px'}}>PROTOCOL PROGRESS</span>
-              <span style={{fontSize:'9px',color:'var(--color-dim)',fontWeight:'700'}}>{progress}%</span>
-            </div>
-            <div style={{height:'4px',background:'var(--color-border)',borderRadius:'2px',overflow:'hidden'}}>
-              <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,'+color+','+color+'99)',borderRadius:'2px',transition:'width 0.5s ease'}} />
-            </div>
-          </div>
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
