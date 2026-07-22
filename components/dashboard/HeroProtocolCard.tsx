@@ -209,6 +209,25 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
 
+  // mg-equivalent per injection, shown next to the dose badge.
+  // - dose already in mg: no conversion shown
+  // - dose in mcg: convert to mg (divide by 1000)
+  // - dose in "IU"/syringe units, vial measured in mg: mg = (dose/100 mL, or stored ml_per_dose) × (vialStrength mg / bacWater mL)
+  // - dose in IU, vial also measured in IU (e.g. HCG): no mg equivalent exists, so nothing shown
+  let mgEquivalent: number | null = null
+  if (currentPhase) {
+    const du = (currentPhase.dose_unit || '').toLowerCase()
+    const vialUnitForMg = (activeCompound.vial_unit || 'mg').toLowerCase()
+    if (du === 'mcg') {
+      mgEquivalent = currentPhase.dose / 1000
+    } else if ((du === 'iu' || du === 'units') && vialUnitForMg === 'mg' && vialStrength > 0 && bacWater > 0) {
+      const storedMl = activeCompound.ml_per_dose || null
+      const mlForThisDose = storedMl !== null ? storedMl : currentPhase.dose / 100
+      const concentration = vialStrength / bacWater // mg per mL
+      mgEquivalent = mlForThisDose * concentration
+    }
+  }
+
   async function archiveProtocol() {
     const supabase = createClient()
     await supabase.from('protocols').update({ 
@@ -230,7 +249,13 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
             <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
             <span style={{fontSize:'12px',color:'var(--color-dim)'}}>Started {new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            {currentPhase && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{currentPhase.dose}{currentPhase.dose_unit} · {currentPhase.frequency}</span>}
+            {currentPhase && (
+              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>
+                {currentPhase.dose}{currentPhase.dose_unit}
+                {mgEquivalent !== null && ` (${mgEquivalent < 0.01 ? mgEquivalent.toFixed(3) : mgEquivalent.toFixed(2)}mg)`}
+                {' · '}{currentPhase.frequency}
+              </span>
+            )}
             {nextDoseText && <span style={{fontSize:'12px',fontWeight:'700',color:nextDoseText==='Due today'?'#f97316':'var(--color-dim)',background:nextDoseText==='Due today'?'rgba(249,115,22,0.1)':'var(--color-surface)',padding:'3px 8px',borderRadius:'20px'}}>⏰ {nextDoseText}</span>}
             {totalLost && parseFloat(totalLost) > 0 && (
               <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
