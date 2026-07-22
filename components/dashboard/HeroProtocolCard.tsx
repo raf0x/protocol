@@ -258,7 +258,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
+          <div style={{fontSize:'11px',fontWeight:'800',color:'var(--color-text)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
           <h2 style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
 
           <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px',flexWrap:'wrap'}}>
