@@ -1,7 +1,6 @@
 'use client'
-// CompoundNotes � per-compound notes field, saves to compounds.notes in Supabase
-
-import { useState } from 'react'
+// CompoundNotes — per-compound notes field, saves to compounds.notes in Supabase
+import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 
 type Props = {
@@ -15,6 +14,16 @@ export default function CompoundNotes({ compoundId, initialNotes }: Props) {
   const [collapsed, setCollapsed] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // FIX: reset local state whenever the active compound changes.
+  // Without this, switching tabs kept the previous compound's notes in state,
+  // and saving would write that stale text to the newly selected compound.
+  useEffect(() => {
+    setNotes(initialNotes || '')
+    setEditing(false)
+    setCollapsed(true)
+    setSaved(false)
+  }, [compoundId])
 
   async function save() {
     setSaving(true)
