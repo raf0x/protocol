@@ -246,20 +246,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <div style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
           <h2 style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
 
-          <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'14px',flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'8px',flexWrap:'wrap'}}>
             <span style={{fontSize:'12px',fontWeight:'700',color:color,background:color+'18',padding:'3px 8px',borderRadius:'20px'}}>Week {compoundWeek}</span>
             <span style={{fontSize:'12px',color:'var(--color-dim)'}}>Started {new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            {currentPhase && (
-              <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40'}}>
-                {currentPhase.dose}{currentPhase.dose_unit}
-                {mgEquivalent !== null && ` · ${mgEquivalent < 0.01 ? mgEquivalent.toFixed(3) : mgEquivalent.toFixed(2)}mg`}
-              </span>
-            )}
-            {currentPhase && <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{currentPhase.frequency}</span>}
-            {nextDoseText && <span style={{fontSize:'12px',fontWeight:'700',color:nextDoseText==='Due today'?'#f97316':'var(--color-dim)',background:nextDoseText==='Due today'?'rgba(249,115,22,0.1)':'var(--color-surface)',padding:'3px 8px',borderRadius:'20px'}}>⏰ {nextDoseText}</span>}
-            {totalLost && parseFloat(totalLost) > 0 && (
-              <span style={{fontSize:'12px',fontWeight:'700',color:'#f59e0b',background:'rgba(245,158,11,0.1)',padding:'3px 8px',borderRadius:'20px'}}>-{totalLost} lbs</span>
-            )}
             {continuity && (() => {
               const prevDays = Math.max(0, Math.round((new Date(continuity.completed_date).getTime() - new Date(continuity.start_date + 'T00:00:00').getTime()) / 86400000))
               const prevWeeks = Math.round(prevDays / 7)
@@ -272,6 +261,19 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
                 </span>
               )
             })()}
+          </div>
+
+          {currentPhase && (
+            <div style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600',marginBottom:'4px'}}>{currentPhase.frequency}</div>
+          )}
+
+          <div style={{marginBottom:'14px'}}>
+            {currentPhase && (
+              <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40'}}>
+                {currentPhase.dose}{currentPhase.dose_unit}
+                {mgEquivalent !== null && ` · ${mgEquivalent < 0.01 ? mgEquivalent.toFixed(3) : mgEquivalent.toFixed(2)}mg`}
+              </span>
+            )}
           </div>
 
           {vialDaysLeft !== null && mlRemaining !== null && (
