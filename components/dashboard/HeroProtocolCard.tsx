@@ -263,15 +263,15 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             })()}
           </div>
 
-          {currentPhase && (
-            <div style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600',marginBottom:'4px'}}>{currentPhase.frequency}</div>
-          )}
-
-          <div style={{marginBottom:'14px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
+            {currentPhase && (
+              <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
+            )}
             {currentPhase && (
               <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40'}}>
                 {currentPhase.dose}{currentPhase.dose_unit}
                 {mgEquivalent !== null && ` · ${mgEquivalent < 0.01 ? mgEquivalent.toFixed(3) : mgEquivalent.toFixed(2)}mg`}
+                {' per dose'}
               </span>
             )}
           </div>
