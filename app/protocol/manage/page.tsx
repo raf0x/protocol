@@ -330,33 +330,33 @@ export default function ManagePage() {
     if (!user) { setError('Not signed in.'); setSaving(false); return }
     const pName = compounds[0].name.trim()
     let protocolId = editingId
-    
-    let trackingData: Record<string, any> = {}
+
+    // FIX: previously this deleted all compound rows on every edit and reinserted
+    // fresh ones with new IDs. injection_logs references compound_id, so that
+    // cascade-deleted the entire logged history for every compound whenever you
+    // edited anything about a protocol. Now we UPDATE existing compound rows in
+    // place — same id, same linked logs — and only insert/delete rows for
+    // compounds that were actually added or removed from the form.
+    let existingCompounds: { id: string; name: string }[] = []
+
     if (editingId) {
-      const { data: existing } = await supabase.from('compounds').select('name, ml_per_dose, doses_taken_override').eq('protocol_id', editingId)
-      if (existing) {
-        existing.forEach((c: any) => {
-          trackingData[c.name] = {
-            ml_per_dose: c.ml_per_dose,
-            doses_taken_override: c.doses_taken_override
-          }
-        })
-      }
+      const { data: existing } = await supabase.from('compounds').select('id, name').eq('protocol_id', editingId)
+      existingCompounds = existing || []
       await supabase.from('protocols').update({ name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).eq('id', editingId)
-      await supabase.from('compounds').delete().eq('protocol_id', editingId)
     } else {
       const { data: p, error: e } = await supabase.from('protocols').insert({ user_id: user.id, name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).select().single()
       if (e) { setError(e.message); setSaving(false); return }
       protocolId = p.id
     }
-    
+
+    const keptCompoundIds = new Set<string>()
+
     for (let ci = 0; ci < compounds.length; ci++) {
       const c = compounds[ci]
-      const saved = trackingData[c.name.trim()] || {}
-      
-      const { data: ins } = await supabase.from('compounds').insert({
-        protocol_id: protocolId,
-        user_id: user.id,
+      const match = existingCompounds.find(ec => ec.name === c.name.trim())
+      let compoundId: string
+
+      const compoundFields = {
         name: c.name.trim(),
         vial_strength: c.isPreMixed ? null : (c.vial_strength ? parseFloat(c.vial_strength) : null),
         vial_unit: c.isPreMixed ? null : c.vial_unit,
@@ -364,15 +364,34 @@ export default function ManagePage() {
         reconstitution_date: c.isPreMixed ? null : c.reconstitution_date,
         notes: c.notes.trim(),
         vials_in_stock: c.vials_in_stock ? parseInt(c.vials_in_stock) : null,
-        ml_per_dose: saved.ml_per_dose ?? null,
-        doses_taken_override: saved.doses_taken_override ?? null,
         position: ci
-      }).select().single()
-      if (!ins) continue
-      
+      }
+
+      if (match) {
+        // Existing compound: update in place. ml_per_dose and doses_taken_override
+        // are intentionally NOT touched here — they're owned by the vial-inventory
+        // wizard, not this form, and the whole point is to leave them (and the
+        // logs tied to this id) untouched.
+        await supabase.from('compounds').update(compoundFields).eq('id', match.id)
+        compoundId = match.id
+        keptCompoundIds.add(match.id)
+        await supabase.from('phases').delete().eq('compound_id', compoundId)
+      } else {
+        // Brand new compound added to this protocol/blend.
+        const { data: ins } = await supabase.from('compounds').insert({
+          ...compoundFields,
+          protocol_id: protocolId,
+          user_id: user.id,
+          ml_per_dose: null,
+          doses_taken_override: null
+        }).select().single()
+        if (!ins) continue
+        compoundId = ins.id
+      }
+
       let frequency: string
       let daysOfWeek: number[]
-      
+
       if (c.frequency_mode === 'rolling') {
         const cycle = parseInt(c.cycle_days)
         frequency = `every${cycle}days`
@@ -383,9 +402,9 @@ export default function ManagePage() {
         frequency = freqMap[daysCount] || '1x/week'
         daysOfWeek = c.days_of_week
       }
-      
+
       await supabase.from('phases').insert({
-        compound_id: ins.id,
+        compound_id: compoundId,
         user_id: user.id,
         name: 'Phase 1',
         dose: parseFloat(c.dose),
@@ -400,7 +419,14 @@ export default function ManagePage() {
         position: 0
       })
     }
-    
+
+    // Only compounds actually removed from the form get deleted (and thus lose
+    // their logs) — editing/saving a protocol no longer touches unrelated compounds.
+    const removedIds = existingCompounds.filter(ec => !keptCompoundIds.has(ec.id)).map(ec => ec.id)
+    if (removedIds.length > 0) {
+      await supabase.from('compounds').delete().in('id', removedIds)
+    }
+
     if (!editingId) {
       await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocolId, date: startDate, event_type: 'started', description: 'Started ' + pName })
     }
