@@ -209,22 +209,37 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
 
-  // mg-equivalent per injection, shown next to the dose badge.
-  // - dose already in mg: no conversion shown
-  // - dose in mcg: convert to mg (divide by 1000)
-  // - dose in "IU"/syringe units, vial measured in mg: mg = (dose/100 mL, or stored ml_per_dose) × (vialStrength mg / bacWater mL)
-  // - dose in IU, vial also measured in IU (e.g. HCG): no mg equivalent exists, so nothing shown
+  // Dose badge and "Dose Measurements" (VialInventory) must always agree.
+  // Both now derive from the same source of truth: activeCompound.ml_per_dose
+  // (the actual mL/injection tracked for vial depletion), converted the same way.
+  // If ml_per_dose hasn't been set yet, fall back to the raw phase dose as entered.
+  let badgeDoseText = ''
   let mgEquivalent: number | null = null
   if (currentPhase) {
-    const du = (currentPhase.dose_unit || '').toLowerCase()
-    const vialUnitForMg = (activeCompound.vial_unit || 'mg').toLowerCase()
-    if (du === 'mcg') {
-      mgEquivalent = currentPhase.dose / 1000
-    } else if ((du === 'iu' || du === 'units') && vialUnitForMg === 'mg' && vialStrength > 0 && bacWater > 0) {
-      const storedMl = activeCompound.ml_per_dose || null
-      const mlForThisDose = storedMl !== null ? storedMl : currentPhase.dose / 100
-      const concentration = vialStrength / bacWater // mg per mL
-      mgEquivalent = mlForThisDose * concentration
+    const storedMl = activeCompound.ml_per_dose ?? null
+    const vialUnitLower = (activeCompound.vial_unit || 'mg').toLowerCase()
+    const concentration = vialStrength > 0 && bacWater > 0 ? vialStrength / bacWater : null // amount per mL, in vialUnit
+
+    if (storedMl !== null && concentration !== null) {
+      // Source of truth: ml_per_dose. Compute syringe units + mg the same way VialInventory does.
+      const units = storedMl * 100
+      const unitsRounded = Math.round(units * 10) / 10
+      badgeDoseText = (unitsRounded % 1 === 0 ? unitsRounded.toFixed(0) : unitsRounded.toFixed(1)) + ' units'
+      const amountInVialUnit = storedMl * concentration
+      if (vialUnitLower === 'mg') {
+        mgEquivalent = amountInVialUnit
+      } else if (vialUnitLower === 'mcg') {
+        mgEquivalent = amountInVialUnit / 1000
+      }
+    } else {
+      // No ml_per_dose set yet — show what was entered at protocol creation, best-effort mg conversion.
+      badgeDoseText = `${currentPhase.dose}${currentPhase.dose_unit}`
+      const du = (currentPhase.dose_unit || '').toLowerCase()
+      if (du === 'mcg') {
+        mgEquivalent = currentPhase.dose / 1000
+      } else if ((du === 'iu' || du === 'units') && vialUnitLower === 'mg' && concentration !== null) {
+        mgEquivalent = (currentPhase.dose / 100) * concentration
+      }
     }
   }
 
@@ -266,7 +281,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
             {currentPhase && (
               <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40',whiteSpace:'nowrap'}}>
-                {currentPhase.dose}{currentPhase.dose_unit}
+                {badgeDoseText}
                 {mgEquivalent !== null && ` · ${parseFloat(mgEquivalent.toFixed(mgEquivalent < 0.01 ? 3 : 2))}mg`}
                 {'/dose'}
               </span>
