@@ -238,7 +238,7 @@ export default function DashboardPage() {
     // Fetch all protocols with compounds, phases, and injection logs
     const { data: allProtocols } = await supabase
       .from('protocols')
-      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, phases(id, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, notes, phases(id, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
       .eq('user_id', user.id)
 
     if (!allProtocols || allProtocols.length === 0) {
@@ -355,7 +355,7 @@ export default function DashboardPage() {
 
       const { data: protocols } = await supabase
         .from('protocols')
-        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
+        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
         .eq('status', 'active')
 
       setActiveProtocols(protocols || [])
@@ -396,7 +396,7 @@ export default function DashboardPage() {
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
     
-    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
     
     // Check if first login (no active protocols) and create demos only if user has no history
     if (!protocols || protocols.length === 0) {
@@ -409,7 +409,7 @@ export default function DashboardPage() {
       }
       
       // Reload to show demos (if created)
-      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
       protocols = reloaded
     }
     
