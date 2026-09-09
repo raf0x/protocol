@@ -109,7 +109,7 @@ test('rendered Today has the requested section order and honest empty states', (
   const Overview = component('../components/today/TodayOverview.tsx').default
   const html = renderToStaticMarkup(React.createElement(Overview, {
     date: '2026-09-09', protocols: [], events: [], entries: [], due: [], logs: {}, saving: false,
-    onTaken() {}, error: null, selected: null, onSelect() {}, rings: null, detail: null, weightUnit: 'lbs', onToggleUnit() {},
+    onTaken() {}, error: null, selected: null, onViewDetails() {}, detailsOpen: false, rings: null, detail: null, weightUnit: 'lbs', onToggleUnit() {},
   }))
   const positions = ['Today’s focus', 'Active protocols', 'Recent changes', 'Health trends'].map(text => html.indexOf(text))
   assert.ok(positions.every((position, index) => position >= 0 && (!index || position > positions[index - 1])))
@@ -140,8 +140,27 @@ test('completed focus shows real progress and active rows expose textual status'
   assert.match(html, /<progress value="1" max="1"/)
   assert.doesNotMatch(html, /Mark taken/)
   const List = component('../components/today/ActiveProtocolList.tsx').default
-  const rows = renderToStaticMarkup(React.createElement(List, { items: [{ id: 'c', name: 'Sample', details: '2 mg · daily', week: 6, hasPhase: true }], selected: 'c', onSelect() {} }, null))
+  const rows = renderToStaticMarkup(React.createElement(List, { items: [{ id: 'c', name: 'Sample', details: '2 mg · daily', week: 6, hasPhase: true }], selected: 'c', onViewDetails() {}, detailsOpen: true }, null))
   assert.match(rows, /Active/)
   assert.match(rows, /Week 6/)
   assert.match(rows, /aria-expanded="true" aria-controls="today-protocol-detail"/)
+})
+
+test('rings select a single summary without scrolling or opening details; all compounds remain selectable', () => {
+  const List = component('../components/today/ActiveProtocolList.tsx').default
+  const items = [{ id: 'a', name: 'First compound', details: 'Dose not fully calculated', week: 1, hasPhase: true }, { id: 'b', name: 'Second compound', details: '2 mg · daily', week: 2, hasPhase: true }]
+  const render = selected => renderToStaticMarkup(React.createElement(List, { items, selected, onViewDetails() {}, detailsOpen: false }, null))
+  assert.match(render('b'), /Second compound/)
+  assert.doesNotMatch(render('b'), /First compound/)
+  assert.match(render(null), /First compound/)
+  assert.match(render('b'), /View details/)
+  assert.match(render('b'), /aria-expanded="false"/)
+  const source = readFileSync(new URL('../app/protocol/page.tsx', import.meta.url), 'utf8')
+  const select = source.slice(source.indexOf('function selectCompound'), source.indexOf('if (loading)'))
+  assert.match(select, /setActiveCompoundTab\(id\)/)
+  assert.doesNotMatch(select, /scrollIntoView|setHeroOpen/)
+  const Rings = component('../components/dashboard/CompoundRings.tsx').default
+  const html = renderToStaticMarkup(React.createElement(Rings, { activeProtocols: [{ ...protocol, compounds: Array.from({ length: 10 }, (_, index) => ({ id: String(index), name: 'Compound ' + index })) }], activeCompoundTab: '9', setActiveCompoundTab() {} }))
+  assert.equal((html.match(/aria-pressed=/g) || []).length, 10)
+  assert.match(html, /Select protocol/)
 })

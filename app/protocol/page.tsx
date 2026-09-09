@@ -448,8 +448,6 @@ export default function DashboardPage() {
 
   function selectCompound(id: string) {
     setActiveCompoundTab(id)
-    setHeroOpen(true)
-    requestAnimationFrame(() => heroRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' }))
   }
 
   if (loading) return <main className="today-main"><div className="today-container"><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
@@ -463,8 +461,8 @@ export default function DashboardPage() {
         <TodayOverview
           date={today} protocols={activeProtocols} events={protocolEvents} entries={entries}
           due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
-          error={doseSaveError} selected={heroOpen ? (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id) : null}
-          onSelect={selectCompound} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
+          error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
+          onViewDetails={() => setHeroOpen(true)} detailsOpen={heroOpen} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
           rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
           detail={activeProtocols.length > 0 && <details id="today-protocol-detail" ref={heroRef} className="today-hero-detail" open={heroOpen} onToggle={event => setHeroOpen(event.currentTarget.open)}>
             <summary>Protocol details <span>Schedule, inventory & sharing</span></summary>

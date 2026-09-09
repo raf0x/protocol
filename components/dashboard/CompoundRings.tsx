@@ -11,7 +11,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
     const di = Math.max(0, Math.floor((Date.now()-new Date(p.start_date+'T00:00:00').getTime())/86400000))
     const wk = Math.max(1, Math.floor(di/7)+1)
     return { id: c.id, name: c.name, wk }
-  })).slice(0, 9)
+  }))
 
   const colors = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635','#8b5cf6','#ec4899','#14b8a6']
   const tabId = activeCompoundTab || items[0]?.id
@@ -65,7 +65,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
           const isLastRow = row === Math.floor((items.length - 1) / 3)
           
           return (
-            <button type="button" key={item.id} aria-label={`${item.name}, week ${item.wk}. Open protocol details`} aria-pressed={isActive} onClick={() => setActiveCompoundTab(item.id)} style={{
+            <button type="button" key={item.id} aria-label={`${item.name}, week ${item.wk}. Select protocol`} aria-pressed={isActive} onClick={() => setActiveCompoundTab(item.id)} style={{
               width:ringSize,
               height:ringSize,
               borderRadius:'50%',
