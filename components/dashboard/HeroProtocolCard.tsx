@@ -1,4 +1,6 @@
 'use client'
+import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
+import type { PhaseRow } from '../../lib/health/timeline'
 import React from 'react'
 import { createClient } from '../../lib/supabase'
 import CompoundNotes from './CompoundNotes'
@@ -159,7 +161,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     ? Math.min(100, Math.round((dosesOverride / totalDosesEstimate) * 100))
     : Math.min(100, Math.round((daysIn / totalDaysForProgress) * 100))
 
-  const currentPhase = (activeCompound.phases || []).find((ph: any) => compoundWeek >= ph.start_week && compoundWeek <= ph.end_week) || activeCompound.phases?.[0]
+  const currentPhase = selectCurrentPhase(activeCompound.phases as PhaseRow[] || [], activeProtocol.start_date, new Date().toLocaleDateString('en-CA'))
   let nextDoseText: string | null = null
   if (currentPhase && activeProtocol) {
     try {
@@ -183,7 +185,6 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   const reconDate = activeCompound.reconstitution_date
   const bacWater = activeCompound.bac_water_ml || 0
-  const vialStrength = activeCompound.vial_strength || 0
   let vialDaysLeft: number | null = null
   let mlRemaining: number | null = null
   let fillPct = 1
@@ -195,53 +196,13 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     const totalDosesTaken = dosesOverride !== null
       ? dosesOverride
       : allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-    const mlPerDoseStored = activeCompound.ml_per_dose || null
-    const vialUnit = activeCompound.vial_unit || 'mg'
-    const mlPerDose = mlPerDoseStored !== null
-      ? mlPerDoseStored
-      : vialUnit === 'IU' && vialStrength > 0 && bacWater > 0
-        ? currentPhase.dose / (vialStrength / bacWater)
-        : currentPhase.dose_unit === 'IU'
-          ? currentPhase.dose / 100
-          : (vialStrength > 0 && bacWater > 0 ? (currentPhase.dose * 1000) / ((vialStrength * 1000) / bacWater) : 0)
+    const mlPerDose = currentPhase.dose_semantics_version === 1 ? currentPhase.injection_volume_ml ?? 0 : 0
     const mlUsed = totalDosesTaken * mlPerDose
     mlRemaining = Math.max(0, bacWater - mlUsed)
     fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
 
-  // Dose badge and "Dose Measurements" (VialInventory) must always agree.
-  // Both now derive from the same source of truth: activeCompound.ml_per_dose
-  // (the actual mL/injection tracked for vial depletion), converted the same way.
-  // If ml_per_dose hasn't been set yet, fall back to the raw phase dose as entered.
-  let badgeDoseText = ''
-  let mgEquivalent: number | null = null
-  if (currentPhase) {
-    const storedMl = activeCompound.ml_per_dose ?? null
-    const vialUnitLower = (activeCompound.vial_unit || 'mg').toLowerCase()
-    const concentration = vialStrength > 0 && bacWater > 0 ? vialStrength / bacWater : null // amount per mL, in vialUnit
-
-    if (storedMl !== null && concentration !== null) {
-      // Source of truth: ml_per_dose. Compute syringe units + mg the same way VialInventory does.
-      const units = storedMl * 100
-      const unitsRounded = Math.round(units * 10) / 10
-      badgeDoseText = (unitsRounded % 1 === 0 ? unitsRounded.toFixed(0) : unitsRounded.toFixed(1)) + ' units'
-      const amountInVialUnit = storedMl * concentration
-      if (vialUnitLower === 'mg') {
-        mgEquivalent = amountInVialUnit
-      } else if (vialUnitLower === 'mcg') {
-        mgEquivalent = amountInVialUnit / 1000
-      }
-    } else {
-      // No ml_per_dose set yet — show what was entered at protocol creation, best-effort mg conversion.
-      badgeDoseText = `${currentPhase.dose}${currentPhase.dose_unit}`
-      const du = (currentPhase.dose_unit || '').toLowerCase()
-      if (du === 'mcg') {
-        mgEquivalent = currentPhase.dose / 1000
-      } else if ((du === 'iu' || du === 'units') && vialUnitLower === 'mg' && concentration !== null) {
-        mgEquivalent = (currentPhase.dose / 100) * concentration
-      }
-    }
-  }
+  const badgeDoseText = currentPhase?.dose_semantics_version === 1 ? `${currentPhase.dose} ${currentPhase.dose_unit}` : 'Review medication dose'
 
   async function archiveProtocol() {
     const supabase = createClient()
@@ -278,11 +239,11 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             })()}
           </div>
 
+          {(!currentPhase || currentPhase.dose_semantics_version !== 1) && <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>No confirmed current medication dose. Review or add a phase.</a>}
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
             {currentPhase && (
               <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40',whiteSpace:'nowrap'}}>
                 {badgeDoseText}
-                {mgEquivalent !== null && ` · ${parseFloat(mgEquivalent.toFixed(mgEquivalent < 0.01 ? 3 : 2))}mg`}
                 {'/dose'}
               </span>
             )}
@@ -333,7 +294,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
       <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
         <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
         {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
-          <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />
+          <VialInventory activePhase={currentPhase} compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />
         )}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
           <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>

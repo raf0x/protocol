@@ -12,6 +12,8 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { currentPhase as selectCurrentPhase, dosingFields } from '../../lib/health/dosing'
+import type { PhaseRow } from '../../lib/health/timeline'
 import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
@@ -58,6 +60,8 @@ export default function DashboardPage() {
   const [missedDoses, setMissedDoses] = useState<string[]>([])
   const [showNewProtocol, setShowNewProtocol] = useState(false)
   const [newName, setNewName] = useState('')
+  const [quickDoseUnit, setQuickDoseUnit] = useState('mg')
+  const [quickVialUnit, setQuickVialUnit] = useState('mg')
   const [prefillDose, setPrefillDose] = useState('')
   const [prefillVial, setPrefillVial] = useState('')
   const [prefillWater, setPrefillWater] = useState('')
@@ -78,6 +82,7 @@ export default function DashboardPage() {
         const p = JSON.parse(pending)
         setNewName(p.name || '')
         setPrefillDose(p.dose?.toString() || '')
+        setQuickDoseUnit(p.dose_unit || 'mg'); setQuickVialUnit(p.vial_unit || 'mg')
         setPrefillVial(p.vial?.toString() || '')
         setPrefillWater(p.water?.toString() || '')
         setShowNewProtocol(true)
@@ -108,6 +113,7 @@ export default function DashboardPage() {
     ]
 
     for (const demo of demos) {
+      const fields = dosingFields({dose:demo.dose,dose_unit:demo.doseUnit,vial_strength:demo.strength,vial_unit:demo.unit,bac_water_ml:demo.bac})
       const { data: protocol } = await supabase.from('protocols')
         .insert({ user_id: user.id, name: demo.name, start_date: todayStr })
         .select()
@@ -120,6 +126,7 @@ export default function DashboardPage() {
           protocol_id: protocol.id,
           user_id: user.id,
           name: demo.name,
+          ...fields.compound,
           vial_strength: demo.strength,
           vial_unit: demo.unit,
           bac_water_ml: demo.bac,
@@ -133,11 +140,12 @@ export default function DashboardPage() {
       if (!compound) continue
 
       await supabase.from('phases').insert({
+        ...fields.phase,
         compound_id: compound.id,
         user_id: user.id,
         name: 'Phase 1',
         dose: demo.dose,
-        dose_unit: demo.doseUnit,
+        dose_unit: demo.doseUnit, dose_semantics_version: 1,
         start_week: 1,
         end_week: 4,
         frequency: '1x/week',
@@ -180,16 +188,14 @@ export default function DashboardPage() {
   async function createProtocolFromCalc() {
     if (!newName.trim()) return
     setCreatingProtocol(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setCreatingProtocol(false); return }
-    const todayStr = new Date().toISOString().split('T')[0]
-    const { data: protocol } = await supabase.from('protocols').insert({ user_id: user.id, name: newName.trim(), start_date: todayStr }).select().single()
-    if (!protocol) { setCreatingProtocol(false); return }
-    const { data: compound } = await supabase.from('compounds').insert({ protocol_id: protocol.id, user_id: user.id, name: newName.trim(), vial_strength: prefillVial ? parseFloat(prefillVial) : 5, vial_unit: 'mg', bac_water_ml: prefillWater ? parseFloat(prefillWater) : 2, reconstitution_date: todayStr }).select().single()
-    if (!compound) { setCreatingProtocol(false); return }
-    await supabase.from('phases').insert({ compound_id: compound.id, user_id: user.id, name: 'Phase 1', dose: parseFloat(prefillDose || '2.5'), dose_unit: 'mg', start_week: 1, end_week: 4, frequency: '1x/week' })
-    await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocol.id, compound_id: compound.id, date: todayStr, event_type: 'started', description: 'Started ' + newName.trim() + ' at ' + (prefillDose || '2.5') + 'mg' })
+    try {
+      const response = await fetch('/api/create-protocol', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+        name:newName.trim(), dose:Number(prefillDose), dose_unit:quickDoseUnit,
+        vial:Number(prefillVial), vial_unit:quickVialUnit, water:prefillWater ? Number(prefillWater) : null,
+      }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Unable to create protocol')
+    } catch (error) { alert(error instanceof Error ? error.message : 'Unable to create protocol'); setCreatingProtocol(false); return }
     setCreatingProtocol(false)
     setCreateSuccess(true)
     setShowNewProtocol(false)
@@ -238,7 +244,7 @@ export default function DashboardPage() {
     // Fetch all protocols with compounds, phases, and injection logs
     const { data: allProtocols } = await supabase
       .from('protocols')
-      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, notes, phases(id, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, notes, phases(id, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
       .eq('user_id', user.id)
 
     if (!allProtocols || allProtocols.length === 0) {
@@ -355,7 +361,7 @@ export default function DashboardPage() {
 
       const { data: protocols } = await supabase
         .from('protocols')
-        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
+        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
         .eq('status', 'active')
 
       setActiveProtocols(protocols || [])
@@ -396,7 +402,7 @@ export default function DashboardPage() {
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
     
-    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
     
     // Check if first login (no active protocols) and create demos only if user has no history
     if (!protocols || protocols.length === 0) {
@@ -409,22 +415,21 @@ export default function DashboardPage() {
       }
       
       // Reload to show demos (if created)
-      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
+      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
       protocols = reloaded
     }
     
     setActiveProtocols(protocols || [])
     if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
-    ;(protocols || []).forEach((p: any) => { const daysIn = Math.floor((Date.now() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000); const wk = Math.max(1, Math.floor(daysIn/7)+1); (p.compounds||[]).forEach((c: any) => { const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]; if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, undefined, phase.days_of_week)) {
-          const concentration = c.vial_strength && c.bac_water_ml ? (c.vial_strength * 1000) / c.bac_water_ml : 0
-          const volumeMl = concentration > 0 ? (phase.dose * 1000) / concentration : 0
-          const syringeUnits = volumeMl * 100
+    ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase?.dose_semantics_version === 1 && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
+          const volumeMl = phase.injection_volume_ml ?? 0
+          const syringeUnits = phase.syringe_units ?? 0
           due.push({
             id: c.id,
             name: c.name,
-            dose: phase.dose,
-            dose_unit: phase.dose_unit || 'mg',
+            dose: String(phase.dose),
+            dose_unit: phase.dose_unit || '',
             volume_ml: volumeMl,
             syringe_units: syringeUnits,
             time_of_day: phase.time_of_day || 'morning',
@@ -437,12 +442,10 @@ export default function DashboardPage() {
     const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1)
     const tomorrowStr = tomorrowDate.toISOString().split('T')[0]
     ;(protocols || []).forEach((p: any) => {
-      const daysIn = Math.max(0, Math.floor((tomorrowDate.getTime() - new Date(p.start_date+'T00:00:00').getTime()) / 86400000))
-      const wk = Math.max(1, Math.floor(daysIn/7)+1)
       ;(p.compounds||[]).forEach((c: any) => {
-        const phase = (c.phases||[]).find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || c.phases?.[0]
-        if (phase && isDueToday(phase.frequency, p.start_date, phase.day_of_week, tomorrowStr, phase.days_of_week)) {
-          tmr.push({ id: c.id, name: c.name, dose: phase.dose, dose_unit: phase.dose_unit || 'mg', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency, day_of_week: phase.day_of_week })
+        const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, tomorrowStr)
+        if (phase?.dose_semantics_version === 1 && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, tomorrowStr, phase.days_of_week ?? undefined)) {
+          tmr.push({ id: c.id, name: c.name, dose: String(phase.dose), dose_unit: phase.dose_unit || '', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency || undefined, day_of_week: phase.day_of_week })
         }
       })
     })
@@ -607,18 +610,19 @@ export default function DashboardPage() {
                 />
               </div>
               
+              <div style={{display:'flex',gap:12,marginBottom:12}}><label>Dose unit <select value={quickDoseUnit} onChange={e => setQuickDoseUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label><label>Vial unit <select value={quickVialUnit} onChange={e => setQuickVialUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px'}}>
                 <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Starting Dose (mg)</label>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Medication dose</label>
                   <input 
-                    placeholder='2.5' 
+                    placeholder='Medication amount' 
                     value={prefillDose} 
                     onChange={e=>setPrefillDose(e.target.value)} 
                     style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
                   />
                 </div>
                 <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial Strength (mg)</label>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial amount</label>
                   <input 
                     placeholder='5' 
                     value={prefillVial} 

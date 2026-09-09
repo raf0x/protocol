@@ -73,6 +73,7 @@ function getWarnings(dose: number | null, strength: number | null, water: number
 }
 
 export default function ReconstitutionCalculator() {
+  const [syringeConfirmed, setSyringeConfirmed] = useState(false)
   const [dose, setDose] = useState<number|null>(null)
   const [strength, setStrength] = useState<number|null>(null)
   const [water, setWater] = useState<number|null>(null)
@@ -114,7 +115,7 @@ export default function ReconstitutionCalculator() {
   if (hasAll) {
     concentration = (activeStrength! * 1000) / activeWater!
     volumeMl = (activeDose! * 1000) / concentration
-    syringeUnits = volumeMl * 100
+    syringeUnits = syringeConfirmed ? volumeMl * 100 : 0
     dosesPerVial = Math.floor(activeStrength! / activeDose!)
     isHighDose = activeDose! > 10
   }
@@ -148,6 +149,7 @@ export default function ReconstitutionCalculator() {
         <h1 style={{fontSize:'26px',fontWeight:'900',marginBottom:'4px',color:g,letterSpacing:'-0.5px'}}>Pep Calculator</h1>
         <p style={{color:dg,fontSize:'13px',marginBottom:'20px'}}>Select your parameters below. Not medical advice.</p>
 
+        <label style={{display:'block',fontSize:13,marginBottom:16}}><input type='checkbox' checked={syringeConfirmed} onChange={e => setSyringeConfirmed(e.target.checked)} /> I am using a U-100 syringe (100 markings per mL).</label>
         {/* Smart / Advanced toggle */}
         <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
           <button onClick={() => setSmartMode(true)} style={{flex:1,padding:'10px',borderRadius:'8px',border:'1px solid '+(smartMode?g:bd),background:smartMode?'var(--color-green-10)':cb,color:smartMode?g:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}>
@@ -210,7 +212,7 @@ export default function ReconstitutionCalculator() {
         </div>
 
         {/* Smart recommendation card */}
-        {smartMode && activeDose && activeStrength && (
+        {syringeConfirmed && smartMode && activeDose && activeStrength && (
           <div style={{borderRadius:'12px',padding:'16px',marginBottom:'16px',border:'1px solid var(--color-green-40)',background:'rgba(57,255,20,0.06)'}}>
             <div style={{fontSize:'11px',fontWeight:'700',color:g,letterSpacing:'1px',marginBottom:'10px'}}>SUGGESTED RECONSTITUTION</div>
             {smartRec ? (<>
@@ -283,7 +285,7 @@ export default function ReconstitutionCalculator() {
               </div>
               <div style={{display:'flex',gap:'8px'}}>
                 <button onClick={copyShareUrl} style={{flex:1,background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:dg,fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>Share</button>
-                <a href='/auth/login' style={{flex:1,background:g,color:'var(--color-green-text)',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol</a>
+                <a href={`/protocol/manage?dose=${activeDose || ''}&dose_unit=mg&vial=${activeStrength || ''}&vial_unit=mg&water=${activeWater || ''}&name=${encodeURIComponent(compoundLabel)}${syringeConfirmed ? '&syringe_scale=100' : ''}`} style={{flex:1,background:g,color:'var(--color-green-text)',textDecoration:'none',borderRadius:'6px',padding:'10px',fontSize:'12px',fontWeight:'700',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center'}}>Save to protocol</a>
               </div>
             </div>
           )}

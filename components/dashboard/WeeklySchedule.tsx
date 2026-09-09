@@ -1,4 +1,5 @@
 'use client'
+import type { PhaseRow } from '../../lib/health/timeline'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import { isDueToday } from '../../lib/utils'
@@ -160,7 +161,7 @@ function changeWeekOffset(newOffset: number) {
     const dateStr = date.toISOString().split('T')[0]
     const daysIn = Math.max(0, Math.floor((date.getTime() - new Date(compound.protocol_start + 'T00:00:00').getTime()) / 86400000))
     const wk = Math.max(1, Math.floor(daysIn/7)+1)
-    const phase = compound.phases.find((ph: any) => wk >= ph.start_week && wk <= ph.end_week) || compound.phases[0]
+    const phase = compound.phases.find((ph: PhaseRow) => wk >= (ph.start_week ?? Infinity) && (ph.end_week == null || wk <= ph.end_week))
     if (!phase) return false
     return isDueToday(phase.frequency, compound.protocol_start, phase.day_of_week, dateStr, phase.days_of_week)
   }

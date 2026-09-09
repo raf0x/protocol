@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { calculateDosing, dosingFields, currentPhase } from '../../../lib/health/dosing'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
@@ -9,6 +10,15 @@ const TIMES = ['Morning','Afternoon','Evening','Night']
 const UNITS = ['mg','mcg','IU']
 
 type Compound = {
+  id?: string
+  phase_id?: string
+  phase_start_week: string
+  concentration_value: string
+  concentration_unit: string
+  syringe_scale: string
+  route: string
+  reviewed: boolean
+  phase_options?: { id: string; name: string; start_week: number; end_week: number | null }[]
   name: string
   isPreMixed: boolean
   vial_strength: string
@@ -28,14 +38,14 @@ type Compound = {
 
 function newCompound(): Compound {
   return {
-    name: '',
+    name: '', phase_start_week: '1', concentration_value: '', concentration_unit: '', syringe_scale: '', route: '', reviewed: true,
     isPreMixed: false,
     vial_strength: '',
     vial_unit: 'mg',
     bac_water_ml: '',
     reconstitution_date: new Date().toISOString().split('T')[0],
     dose: '',
-    dose_unit: 'IU',
+    dose_unit: 'mg',
     duration_weeks: '12',
     frequency_mode: 'weekly',
     days_of_week: [],
@@ -64,6 +74,7 @@ export default function ManagePage() {
   const [selectMode, setSelectMode] = useState(false)
   const [selectedProtocols, setSelectedProtocols] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [removedCompoundIds, setRemovedCompoundIds] = useState<string[]>([])
   const [continuedFromId, setContinuedFromId] = useState('')
 
   function protocolDurationLabel(p: any): string {
@@ -86,6 +97,12 @@ export default function ManagePage() {
     if (!user) { router.push('/auth/login'); return }
     const { data } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
     setProtocols(data || [])
+    const target = new URLSearchParams(window.location.search).get('protocol')
+    const compoundTarget = new URLSearchParams(window.location.search).get('compound')
+    const selected = data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
+    if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
+    const params = new URLSearchParams(window.location.search)
+    if (!selected && params.has('dose') && !showForm) { setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || '',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || '',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}]);setShowForm(true);window.history.replaceState(null,'','/protocol/manage') }
     setLoading(false)
   }
 
@@ -242,6 +259,7 @@ export default function ManagePage() {
   }
 
   function startNew() {
+    setRemovedCompoundIds([])
     setEditingId(null)
     setStartDate(new Date().toISOString().split('T')[0])
     setCompounds([newCompound()])
@@ -251,25 +269,32 @@ export default function ManagePage() {
   }
 
   function startEdit(p: any) {
+    setRemovedCompoundIds([])
+    const parameters = new URLSearchParams(window.location.search)
     setEditingId(p.id)
     setStartDate(p.start_date)
     const cs = (p.compounds || []).map((c: any) => {
-      const ph = (c.phases || [])[0]
+      const ph = currentPhase(c.phases || [], p.start_date, new Date().toLocaleDateString('en-CA')) || [...(c.phases || [])].sort((a, b) => b.start_week - a.start_week)[0]
       const freq = ph?.frequency || ''
       const isRolling = freq.startsWith('every') && freq.endsWith('days')
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
-      const isPreMixed = !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
+      const incomingMix = parameters.get('compound') === c.id && parameters.has('reconstitution_vial')
+      const isPreMixed = !incomingMix && !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
       
       return {
-        name: c.name,
+        name: c.name, id: c.id, phase_id: ph?.id,
+        phase_start_week: String(ph?.start_week || 1),
+        concentration_value: c.concentration_value?.toString() || '', concentration_unit: c.concentration_unit || '',
+        syringe_scale: ph?.syringe_scale?.toString() || '', route: ph?.route || '', reviewed: ph?.dose_semantics_version === 1,
+        phase_options: c.phases || [],
         isPreMixed,
-        vial_strength: c.vial_strength?.toString() || '',
-        vial_unit: c.vial_unit || 'mg',
-        bac_water_ml: c.bac_water_ml?.toString() || '',
-        reconstitution_date: c.reconstitution_date || new Date().toISOString().split('T')[0],
+        vial_strength: incomingMix ? parameters.get('reconstitution_vial') || '' : c.vial_strength?.toString() || '',
+        vial_unit: c.vial_unit || '',
+        bac_water_ml: incomingMix ? parameters.get('reconstitution_water') || '' : c.bac_water_ml?.toString() || '',
+        reconstitution_date: incomingMix ? parameters.get('reconstitution_date') || '' : c.reconstitution_date || new Date().toISOString().split('T')[0],
         dose: ph?.dose?.toString() || '',
-        dose_unit: ph?.dose_unit || 'IU',
-        duration_weeks: ph?.duration_weeks?.toString() || ph?.end_week?.toString() || '12',
+        dose_unit: ph?.dose_unit || '',
+        duration_weeks: ph?.end_week == null ? '' : String(ph.end_week - (ph.start_week || 1) + 1),
         frequency_mode: isRolling ? 'rolling' : 'weekly',
         days_of_week: ph?.days_of_week || [],
         cycle_days: cycleDays,
@@ -287,6 +312,7 @@ export default function ManagePage() {
   function updateCompound(i: number, field: string, value: any) {
     const u = [...compounds]
     ;(u[i] as any)[field] = value
+    if (['dose','dose_unit'].includes(field)) u[i].reviewed = false
     setCompounds(u)
   }
 
@@ -324,116 +350,37 @@ export default function ManagePage() {
       }
     }
     
+    if (compounds.some(c => !c.reviewed)) { setError('Confirm that each dose is medication amount, not syringe markings.'); return }
     setSaving(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('Not signed in.'); setSaving(false); return }
-    const pName = compounds[0].name.trim()
-    let protocolId = editingId
-
-    // FIX: previously this deleted all compound rows on every edit and reinserted
-    // fresh ones with new IDs. injection_logs references compound_id, so that
-    // cascade-deleted the entire logged history for every compound whenever you
-    // edited anything about a protocol. Now we UPDATE existing compound rows in
-    // place — same id, same linked logs — and only insert/delete rows for
-    // compounds that were actually added or removed from the form.
-    let existingCompounds: { id: string; name: string }[] = []
-
-    if (editingId) {
-      const { data: existing } = await supabase.from('compounds').select('id, name').eq('protocol_id', editingId)
-      existingCompounds = existing || []
-      await supabase.from('protocols').update({ name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).eq('id', editingId)
-    } else {
-      const { data: p, error: e } = await supabase.from('protocols').insert({ user_id: user.id, name: pName, start_date: startDate, continued_from_protocol_id: continuedFromId || null }).select().single()
-      if (e) { setError(e.message); setSaving(false); return }
-      protocolId = p.id
-    }
-
-    const keptCompoundIds = new Set<string>()
-
-    for (let ci = 0; ci < compounds.length; ci++) {
-      const c = compounds[ci]
-      const match = existingCompounds.find(ec => ec.name === c.name.trim())
-      let compoundId: string
-
-      const compoundFields = {
-        name: c.name.trim(),
-        vial_strength: c.isPreMixed ? null : (c.vial_strength ? parseFloat(c.vial_strength) : null),
-        vial_unit: c.isPreMixed ? null : c.vial_unit,
-        bac_water_ml: c.isPreMixed ? null : (c.bac_water_ml ? parseFloat(c.bac_water_ml) : null),
-        reconstitution_date: c.isPreMixed ? null : c.reconstitution_date,
-        notes: c.notes.trim(),
-        vials_in_stock: c.vials_in_stock ? parseInt(c.vials_in_stock) : null,
-        position: ci
-      }
-
-      if (match) {
-        // Existing compound: update in place. ml_per_dose and doses_taken_override
-        // are intentionally NOT touched here — they're owned by the vial-inventory
-        // wizard, not this form, and the whole point is to leave them (and the
-        // logs tied to this id) untouched.
-        await supabase.from('compounds').update(compoundFields).eq('id', match.id)
-        compoundId = match.id
-        keptCompoundIds.add(match.id)
-        await supabase.from('phases').delete().eq('compound_id', compoundId)
-      } else {
-        // Brand new compound added to this protocol/blend.
-        const { data: ins } = await supabase.from('compounds').insert({
-          ...compoundFields,
-          protocol_id: protocolId,
-          user_id: user.id,
-          ml_per_dose: null,
-          doses_taken_override: null
-        }).select().single()
-        if (!ins) continue
-        compoundId = ins.id
-      }
-
-      let frequency: string
-      let daysOfWeek: number[]
-
-      if (c.frequency_mode === 'rolling') {
-        const cycle = parseInt(c.cycle_days)
-        frequency = `every${cycle}days`
-        daysOfWeek = []
-      } else {
-        const daysCount = c.days_of_week.length
-        const freqMap: Record<number,string> = {1:'1x/week',2:'2x/week',3:'3x/week',4:'4x/week',5:'5x/week',6:'6x/week',7:'daily'}
-        frequency = freqMap[daysCount] || '1x/week'
-        daysOfWeek = c.days_of_week
-      }
-
-      await supabase.from('phases').insert({
-        compound_id: compoundId,
-        user_id: user.id,
-        name: 'Phase 1',
-        dose: parseFloat(c.dose),
-        dose_unit: c.dose_unit,
-        start_week: 1,
-        end_week: parseInt(c.duration_weeks) || 12,
-        frequency,
-        day_of_week: daysOfWeek[0] ?? null,
-        days_of_week: daysOfWeek,
-        time_of_day: c.time_of_day.toLowerCase(),
-        duration_weeks: parseInt(c.duration_weeks) || 12,
-        position: 0
+    try {
+      const payload = compounds.map(c => {
+        const fields = dosingFields({ dose: Number(c.dose), dose_unit: c.dose_unit,
+          concentration_value: c.isPreMixed && c.concentration_value ? Number(c.concentration_value) : null,
+          concentration_unit: c.isPreMixed ? c.concentration_unit || null : null,
+          vial_strength: !c.isPreMixed && c.vial_strength ? Number(c.vial_strength) : null,
+          vial_unit: c.vial_unit, bac_water_ml: !c.isPreMixed && c.bac_water_ml ? Number(c.bac_water_ml) : null,
+          syringe_scale: c.syringe_scale ? Number(c.syringe_scale) : null,
+        })
+        const start = Number(c.phase_start_week)
+        const duration = c.duration_weeks ? Number(c.duration_weeks) : null
+        if (!Number.isInteger(start) || start < 1 || (duration != null && (!Number.isInteger(duration) || duration < 1))) throw new Error('Enter valid phase weeks.')
+        return { id: c.id || null, name: c.name.trim(), ...fields.compound,
+          vial_strength: c.isPreMixed ? null : Number(c.vial_strength), vial_unit: c.isPreMixed ? null : c.vial_unit,
+          bac_water_ml: c.isPreMixed ? null : Number(c.bac_water_ml), reconstitution_date: c.isPreMixed ? null : c.reconstitution_date,
+          notes: c.notes.trim(), vials_in_stock: c.vials_in_stock ? Number(c.vials_in_stock) : null,
+          phase: { id: c.phase_id || null, ...fields.phase, start_week: start, end_week: duration == null ? null : start + duration - 1,
+            frequency: c.frequency_mode === 'rolling' ? `every${c.cycle_days}days` : c.days_of_week.length === 7 ? 'daily' : `${c.days_of_week.length}x/week`,
+            days_of_week: c.frequency_mode === 'weekly' ? c.days_of_week : [], day_of_week: c.frequency_mode === 'weekly' ? c.days_of_week[0] : null,
+            time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
+        }
       })
-    }
-
-    // Only compounds actually removed from the form get deleted (and thus lose
-    // their logs) — editing/saving a protocol no longer touches unrelated compounds.
-    const removedIds = existingCompounds.filter(ec => !keptCompoundIds.has(ec.id)).map(ec => ec.id)
-    if (removedIds.length > 0) {
-      await supabase.from('compounds').delete().in('id', removedIds)
-    }
-
-    if (!editingId) {
-      await supabase.from('protocol_events').insert({ user_id: user.id, protocol_id: protocolId, date: startDate, event_type: 'started', description: 'Started ' + pName })
-    }
-    setSaving(false)
-    setShowForm(false)
-    setEditingId(null)
-    load()
+      const { error: saveError } = await createClient().rpc('save_protocol_dosing_v1', {
+        p_protocol_id: editingId, p_name: compounds[0].name.trim(), p_start_date: startDate, p_compounds: payload, p_continued_from_id: continuedFromId || null, p_removed_compound_ids: removedCompoundIds,
+      })
+      if (saveError) throw saveError
+      setShowForm(false); setEditingId(null); await load()
+    } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
+    finally { setSaving(false) }
   }
 
   async function deleteProtocol(id: string) {
@@ -500,7 +447,7 @@ export default function ManagePage() {
                 {compounds.length > 1 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}>
                     <span style={{fontSize:'11px',color:mg,fontWeight:'700',letterSpacing:'1px'}}>COMPOUND {ci+1}</span>
-                    <button onClick={() => setCompounds(compounds.filter((_,i) => i!==ci))} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Remove</button>
+                    <button onClick={() => { if (c.id && !confirm('Remove this compound and its linked history when you save?')) return; if(c.id) setRemovedCompoundIds(ids => [...ids,c.id!]); setCompounds(compounds.filter((_,i) => i!==ci)) }} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Remove</button>
                   </div>
                 )}
 
@@ -534,7 +481,7 @@ export default function ManagePage() {
                         <div style={{display:'flex',gap:'6px'}}>
                           <input type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
                           <select value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
                         </div>
                       </div>
@@ -554,20 +501,56 @@ export default function ManagePage() {
                   </>
                 )}
 
+                {c.isPreMixed && <div style={{marginBottom:12}}>
+                  <label>Labelled concentration (optional)</label>
+                  <div style={{display:'flex',gap:8}}>
+                    <input aria-label="Concentration value" type="number" step="any" value={c.concentration_value} onChange={e => updateCompound(ci,'concentration_value',e.target.value)} style={is} />
+                    <select aria-label="Concentration unit" value={c.concentration_unit} onChange={e => updateCompound(ci,'concentration_unit',e.target.value)} style={is}>
+                      <option value="">Select unit</option>{['mg/mL','mcg/mL','IU/mL'].map(u => <option key={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>}
                 <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>DOSE PER INJECTION</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>MEDICATION DOSE PER ADMINISTRATION</label>
                   <div style={{display:'flex',gap:'6px'}}>
-                    <input type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 60' style={{...is,flex:1}} />
-                    <select value={c.dose_unit} onChange={e => updateCompound(ci,'dose_unit',e.target.value)} style={{...is,width:'75px',flex:'none'}}>
-                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    <input aria-label='Medication dose' type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 60' style={{...is,flex:1}} />
+                    <select aria-label='Medication dose unit' value={c.dose_unit} onChange={e => updateCompound(ci,'dose_unit',e.target.value)} style={{...is,width:'75px',flex:'none'}}>
+                      <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                   </div>
                 </div>
 
+                <p style={{fontSize:12,color:dg}}>IU means medication International Units, never syringe markings.</p>
+                <label style={{display:'block',marginBottom:12,fontSize:13}}>
+                  <input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm the medication dose and unit above.
+                </label>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                  <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
+                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option></select></label>
+                </div>
+                {(() => { try {
+                  const result = calculateDosing({ dose:Number(c.dose), dose_unit:c.dose_unit,
+                    concentration_value:c.isPreMixed && c.concentration_value ? Number(c.concentration_value):null,
+                    concentration_unit:c.isPreMixed ? c.concentration_unit || null:null,
+                    vial_strength:!c.isPreMixed && c.vial_strength ? Number(c.vial_strength):null, vial_unit:c.vial_unit,
+                    bac_water_ml:!c.isPreMixed && c.bac_water_ml ? Number(c.bac_water_ml):null, syringe_scale:c.syringe_scale ? Number(c.syringe_scale):null })
+                  return <p style={{fontSize:13,color:g}}>{result.injectionVolume ? `Injection volume: ${Number(result.injectionVolume.value.toPrecision(6))} mL` : 'Volume not calculated without concentration.'}{result.syringeUnits && ` · ${Number(result.syringeUnits.value.toPrecision(6))} syringe units (U-${result.syringeUnits.scale})`}</p>
+                } catch { return null } })()}
+                {c.id && <div style={{marginBottom:12}}>
+                  <p style={{fontSize:12,color:dg}}>Editing only the selected phase. Other phases and recorded injections are preserved.</p>
+                  <select aria-label="Select phase" value={c.phase_id || ''} style={is} onChange={e => {
+                    const raw = protocols.flatMap(p => p.compounds || []).find(x => x.id === c.id)?.phases?.find((p: { id: string }) => p.id === e.target.value)
+                    if (!raw) return
+                    const updated = [...compounds]; updated[ci] = {...c, phase_id:raw.id, dose:String(raw.dose),dose_unit:raw.dose_unit,phase_start_week:String(raw.start_week),duration_weeks:raw.end_week == null ? '' : String(raw.end_week-raw.start_week+1), reviewed:raw.dose_semantics_version===1,
+                      syringe_scale:raw.syringe_scale?.toString() || '',route:raw.route || '',days_of_week:raw.days_of_week || [], frequency_mode:raw.frequency?.startsWith('every') ? 'rolling':'weekly',cycle_days:raw.frequency?.replace('every','').replace('days','') || '3'};setCompounds(updated)
+                  }}><option value="">New phase</option>{c.phase_options?.map(p => <option key={p.id} value={p.id}>{p.name}: weeks {p.start_week}–{p.end_week || 'ongoing'}</option>)}</select>
+                  <button type="button" onClick={() => { const updated=[...compounds]; updated[ci]={...c,phase_id:undefined,phase_start_week:String(Math.max(1,...(c.phase_options || []).map(p => (p.end_week || p.start_week)+1))),duration_weeks:'12',reviewed:false};setCompounds(updated) }}>Add phase</button>
+                </div>}
+                <label>Phase start week<input aria-label="Phase start week" type="number" min="1" style={is} value={c.phase_start_week} onChange={e => updateCompound(ci,'phase_start_week',e.target.value)} /></label>
                 <div style={{marginBottom:'16px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL DURATION</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PHASE DURATION (blank means ongoing)</label>
                   <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-                    <input type='number' min='1' max='52' value={c.duration_weeks} onChange={e => updateCompound(ci,'duration_weeks',e.target.value)} style={{...is,width:'80px',flex:'none'}} />
+                    <input aria-label='Phase duration weeks' type='number' min='1' max='52' value={c.duration_weeks} onChange={e => updateCompound(ci,'duration_weeks',e.target.value)} style={{...is,width:'80px',flex:'none'}} />
                     <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>weeks</span>
                   </div>
                 </div>
