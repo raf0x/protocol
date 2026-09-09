@@ -17,7 +17,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const tabId = activeCompoundTab || items[0]?.id
   if (items.length === 0) return null
 
-  const ringSize = 76
+  const ringSize = 'var(--app-ring-size, 76px)'
   const overlapH = 14
   const overlapV = 14
 
@@ -50,7 +50,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
       
       <div style={{
         display:'grid',
-        gridTemplateColumns:`repeat(${Math.min(3, items.length)}, ${ringSize}px)`,
+        gridTemplateColumns:`repeat(${Math.min(3, items.length)}, ${ringSize})`,
         gap:'0px',
         position:'relative',
         zIndex:1
@@ -65,28 +65,28 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
           const isLastRow = row === Math.floor((items.length - 1) / 3)
           
           return (
-            <div key={item.id} onClick={() => setActiveCompoundTab(item.id)} style={{
-              width:`${ringSize}px`,
-              height:`${ringSize}px`,
+            <button type="button" key={item.id} aria-label={`${item.name}, week ${item.wk}. Open protocol details`} aria-pressed={isActive} onClick={() => setActiveCompoundTab(item.id)} style={{
+              width:ringSize,
+              height:ringSize,
               borderRadius:'50%',
               border:(isActive?'4px':'3px')+' solid '+rc,
               display:'flex',
               flexDirection:'column',
               alignItems:'center',
               justifyContent:'center',
-              background:isActive?rc+'33':'rgba(10,10,15,0.85)',
+              background:isActive?rc+'22':'var(--color-card)',
               cursor:'pointer',
-              boxShadow:isActive?`0 0 24px ${rc}, 0 0 12px ${rc}`:'0 2px 10px rgba(0,0,0,0.3)',
-              transform:isActive?'scale(1.12)':'scale(1)',
+              boxShadow:isActive?`0 0 12px ${rc}44`:'none',
+              transform:isActive?'scale(1.06)':'scale(1)',
               transition:'all 0.25s ease',
               marginRight:isLastCol?'0':`-${overlapH}px`,
               marginBottom:isLastRow?'0':`-${overlapV}px`,
               zIndex:isActive?100:row*10+col,
               position:'relative'
             }}>
-              <span style={{fontSize:'11px',fontWeight:'800',color:'#ffffff',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
-              <span style={{fontSize:'10px',fontWeight:'600',color:rc,textAlign:'center',lineHeight:'1.2',marginTop:'2px'}}>Wk {item.wk}</span>
-            </div>
+              <span style={{fontSize:'12px',fontWeight:'800',color:'var(--color-text)',textAlign:'center',lineHeight:'1.2'}}>{short}</span>
+              <span style={{fontSize:'12px',fontWeight:'600',color:'var(--color-dim)',textAlign:'center',lineHeight:'1.2',marginTop:'2px'}}>Wk {item.wk}</span>
+            </button>
           )
         })}
       </div>

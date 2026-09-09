@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
+import ts from 'typescript'
+const dosingSource=readFileSync(new URL('../lib/health/dosing.ts',import.meta.url),'utf8')
+const dosingCode=ts.transpileModule(dosingSource,{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText
+const {phaseDosingReview,chooseDoseMeaning,editorDosingInput,dosingFields}=await import(`data:text/javascript;base64,${Buffer.from(dosingCode).toString('base64')}`)
 
 for (const scenario of ['fresh', 'partial', 'all-existing', 'incompatible-type', 'incompatible-default', 'incompatible-constraint']) test(`migration compatibility: ${scenario}`, {skip: !process.env.DOSING_PGLITE_PATH}, async () => {
   const { PGlite } = await import(pathToFileURL(process.env.DOSING_PGLITE_PATH).href)
@@ -75,5 +79,17 @@ for (const scenario of ['fresh', 'partial', 'all-existing', 'incompatible-type',
     await assert.rejects(save([{...compound('mg',5,10), id:'20000000-0000-0000-0000-000000000001', phase:{...compound('mg',5,10).phase,start_week:3,end_week:8}}], '10000000-0000-0000-0000-000000000001'))
     const after=(await db.query("select dose,dose_unit,dose_semantics_version from phases where compound_id='20000000-0000-0000-0000-000000000001' and dose_semantics_version is null")).rows[0]
     assert.deepEqual(after,{dose:before.dose,dose_unit:before.dose_unit,dose_semantics_version:null})
+    // User explicitly reviews an existing legacy phase, retaining its ID/history.
+    const legacy=(await db.query("select * from phases where compound_id='20000000-0000-0000-0000-000000000001' and dose_semantics_version is null")).rows[0]
+    const form={...phaseDosingReview(legacy),isPreMixed:false,vial_strength:'50',vial_unit:'mg',bac_water_ml:'3',concentration_value:'',concentration_unit:''}
+    const chosen=chooseDoseMeaning(form,'syringe')
+    const fields=dosingFields(editorDosingInput({...chosen,syringe_markings:'18',syringe_scale:'100'}))
+    await save([{id:legacy.compound_id,name:'Reviewed',...fields.compound,vial_strength:50,vial_unit:'mg',bac_water_ml:3,
+      phase:{id:legacy.id,...fields.phase,start_week:1,end_week:4,frequency:'daily'}}], '10000000-0000-0000-0000-000000000001')
+    const corrected=(await db.query('select dose,dose_unit,syringe_units,syringe_scale,injection_volume_ml,dose_semantics_version from phases where id=$1',[legacy.id])).rows[0]
+    assert.equal(Number(corrected.dose),3);assert.equal(corrected.dose_unit,'mg')
+    assert.equal(Number(corrected.syringe_units),18);assert.equal(Number(corrected.syringe_scale),100)
+    assert.equal(Number(corrected.injection_volume_ml),0.18);assert.equal(corrected.dose_semantics_version,1)
+
   } finally { await db.close() }
 })

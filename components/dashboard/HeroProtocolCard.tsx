@@ -1,7 +1,9 @@
 'use client'
+import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
 import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
-import React from 'react'
+import React, { useState } from 'react'
+import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { createClient } from '../../lib/supabase'
 import CompoundNotes from './CompoundNotes'
 import VialInventory from './VialInventory'
@@ -90,6 +92,8 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
 const RING_COLORS = ['#39ff14','#6c63ff','#f59e0b','#06b6d4','#f43f5e','#a3e635']
 
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, onShare }: Props) {
+  const [continuing,setContinuing]=useState(false)
+  const [phaseError,setPhaseError]=useState('')
   const [dosesRefresh, setDosesRefresh] = React.useState(0)
   const [confirmArchive, setConfirmArchive] = React.useState(false)
   const [continuity, setContinuity] = React.useState<{ name: string; start_date: string; completed_date: string } | null>(null)
@@ -184,25 +188,37 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
 
   const reconDate = activeCompound.reconstitution_date
-  const bacWater = activeCompound.bac_water_ml || 0
+  const entry=currentPhase?.dosing_entry
+  const bacWater = entry ? Number(entry.bac_water_ml) || 0 : activeCompound.bac_water_ml || 0
   let vialDaysLeft: number | null = null
   let mlRemaining: number | null = null
   let fillPct = 1
 
-  if (reconDate && bacWater > 0 && currentPhase) {
+  if (reconDate && bacWater > 0 && currentPhase && administrationForPhase(currentPhase).volume != null) {
     const daysSinceRecon = Math.floor((Date.now() - new Date(reconDate + 'T00:00:00').getTime()) / 86400000)
     vialDaysLeft = 28 - daysSinceRecon
 
     const totalDosesTaken = dosesOverride !== null
       ? dosesOverride
       : allLogs.filter((l: any) => l.compound_id === activeCompound.id && l.taken).length
-    const mlPerDose = currentPhase.dose_semantics_version === 1 ? currentPhase.injection_volume_ml ?? 0 : 0
+    const mlPerDose = administrationForPhase(currentPhase).volume ?? 0
     const mlUsed = totalDosesTaken * mlPerDose
     mlRemaining = Math.max(0, bacWater - mlUsed)
     fillPct = bacWater > 0 ? mlRemaining / bacWater : 1
   }
 
-  const badgeDoseText = currentPhase?.dose_semantics_version === 1 ? `${currentPhase.dose} ${currentPhase.dose_unit}` : 'Review medication dose'
+  const expired=expiredLatestPhase(activeCompound.phases || [],activeProtocol.status || 'active',activeProtocol.start_date,new Date().toLocaleDateString('en-CA'))
+  async function continueLatest() {
+    if(!expired) return
+    setContinuing(true);setPhaseError('')
+    try {
+      const {error}=await createClient().rpc('continue_latest_phase',{p_protocol_id:activeProtocol.id,p_compound_id:activeCompound.id,p_phase_id:expired.id})
+      if(error) throw error
+      window.location.reload()
+    } catch(error) {setPhaseError((error as {message?:string}).message || 'Unable to continue the phase. Please retry.');setContinuing(false)}
+
+  }
+  const badgeDoseText = dosingDisplay(currentPhase).primary
 
   async function archiveProtocol() {
     const supabase = createClient()
@@ -239,7 +255,8 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             })()}
           </div>
 
-          {(!currentPhase || currentPhase.dose_semantics_version !== 1) && <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>No confirmed current medication dose. Review or add a phase.</a>}
+          {expired && <div style={{fontSize:13,color:'var(--color-dim)'}}><p>Your latest dose phase ended. Continue it as ongoing or add a new phase.</p><button disabled={continuing} onClick={continueLatest} style={{color:'var(--color-green)',background:'none',border:'1px solid var(--color-border)',borderRadius:6,padding:'6px 10px'}}>{continuing ? 'Continuing…':'Continue latest phase'}</button>{' '}<a href={`/protocol/manage?compound=${activeCompound.id}&action=add-phase`} style={{color:'var(--color-green)'}}>Add new phase</a>{phaseError && <p role="alert">{phaseError}</p>}</div>}
+          {!expired && (!currentPhase || dosingDisplay(currentPhase).secondary) && <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>{dosingDisplay(currentPhase).secondary || 'Add or extend a phase.'}</a>}
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
             {currentPhase && (
               <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40',whiteSpace:'nowrap'}}>
@@ -294,7 +311,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
       <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
         <CompoundNotes compoundId={activeCompound.id} initialNotes={activeCompound.notes || ''} />
         {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
-          <VialInventory activePhase={currentPhase} compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />
+          <VialInventory activePhase={currentPhase} compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} />
         )}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
           <a href='/protocol/manage' style={{color:'var(--color-muted)',textDecoration:'none',fontSize:'12px',fontWeight:'600'}}>+ Add / Edit Protocols →</a>

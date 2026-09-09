@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ inline = false }: { inline?: boolean }) {
   const [theme, setTheme] = useState('dark')
   const [mounted, setMounted] = useState(false)
 
@@ -24,13 +24,14 @@ export default function ThemeToggle() {
     <button
       onClick={toggleTheme}
       title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       style={{
-        position: 'fixed',
+        position: inline ? 'static' : 'fixed',
         top: '16px',
         right: '16px',
         zIndex: 100,
-        width: '36px',
-        height: '36px',
+        width: '44px',
+        height: '44px',
         borderRadius: '50%',
         border: '1px solid var(--color-border)',
         background: 'var(--color-card)',

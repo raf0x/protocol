@@ -1,4 +1,5 @@
 'use client'
+import { dosingDisplay, type DosingEntry } from '../../lib/health/dosingEntry'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 
@@ -8,7 +9,7 @@ type Props = {
   reconstitutionDate?: string
   bacWaterMl?: number
   vialStrength?: number
-  activePhase?: { dose_semantics_version?: number | null; dose: number | null; dose_unit: string | null; injection_volume_ml?: number | null; syringe_units?: number | null; syringe_scale?: number | null } | null
+  activePhase?: { dosing_entry?: DosingEntry | null; dose_semantics_version?: number | null; dose: number | null; dose_unit: string | null; injection_volume_ml?: number | null; syringe_units?: number | null; syringe_scale?: number | null } | null
   vialUnit?: string
 }
 
@@ -172,7 +173,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
       )}
 
       <div style={{margin:'12px 0',fontSize:13,color:'var(--color-text)'}}>
-        {activePhase?.dose_semantics_version === 1 ? <>
+        {activePhase?.dosing_entry ? <><p>{dosingDisplay(activePhase).primary}</p><p style={{color:'var(--color-dim)'}}>{dosingDisplay(activePhase).secondary}</p></> : activePhase?.dose_semantics_version === 1 ? <>
           <p><span style={{color:'var(--color-dim)'}}>Medication:</span> {activePhase.dose} {activePhase.dose_unit}</p>
           {activePhase.injection_volume_ml != null && <p><span style={{color:'var(--color-dim)'}}>Injection volume:</span> {Number(activePhase.injection_volume_ml.toPrecision(6))} mL</p>}
           {activePhase.syringe_units != null && activePhase.syringe_scale != null && <p><span style={{color:'var(--color-dim)'}}>Syringe markings:</span> {Number(activePhase.syringe_units.toPrecision(6))} units on U-{activePhase.syringe_scale}</p>}

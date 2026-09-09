@@ -1,4 +1,8 @@
 'use client'
+import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
+
+import TodayOverview from '../../components/today/TodayOverview'
+import TodayHeader from '../../components/today/TodayHeader'
 
 import StatsBoxes from '../../components/dashboard/StatsBoxes'
 import CompoundRings from '../../components/dashboard/CompoundRings'
@@ -12,7 +16,7 @@ import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import { currentPhase as selectCurrentPhase, dosingFields } from '../../lib/health/dosing'
+import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
 import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
@@ -20,6 +24,10 @@ type DueCompound = { id: string; name: string; dose: string; dose_unit: string; 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 export default function DashboardPage() {
+  const [heroOpen, setHeroOpen] = useState(false)
+  const heroRef = useRef<HTMLDetailsElement>(null)
+  const [doseSaveError, setDoseSaveError] = useState<string | null>(null)
+  const doseSavePending = useRef(false)
   const [loading, setLoading] = useState(true)
   const [streakDays, setStreakDays] = useState(0)
   const [loadError, setLoadError] = useState(false)
@@ -96,102 +104,13 @@ export default function DashboardPage() {
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
 
-  async function createDemoCompounds() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const todayStr = new Date().toISOString().split('T')[0]
-    
-    const demos = [
-      { name: 'Demo: Retatrutide', strength: 50, unit: 'mg', bac: 3, dose: 2.5, doseUnit: 'mg' },
-      { name: 'Demo: Test Cypionate', strength: 100, unit: 'mg', bac: 10, dose: 100, doseUnit: 'mg' },
-      { name: 'Demo: BPC-157', strength: 5, unit: 'mg', bac: 2, dose: 250, doseUnit: 'mcg' },
-      { name: 'Demo: CJC-1295', strength: 2, unit: 'mg', bac: 2, dose: 1, doseUnit: 'mg' },
-      { name: 'Demo: Ipamorelin', strength: 5, unit: 'mg', bac: 2, dose: 100, doseUnit: 'mcg' },
-      { name: 'Demo: Semaglutide', strength: 5, unit: 'mg', bac: 1.5, dose: 0.25, doseUnit: 'mg' }
-    ]
-
-    for (const demo of demos) {
-      const fields = dosingFields({dose:demo.dose,dose_unit:demo.doseUnit,vial_strength:demo.strength,vial_unit:demo.unit,bac_water_ml:demo.bac})
-      const { data: protocol } = await supabase.from('protocols')
-        .insert({ user_id: user.id, name: demo.name, start_date: todayStr })
-        .select()
-        .single()
-      
-      if (!protocol) continue
-
-      const { data: compound } = await supabase.from('compounds')
-        .insert({
-          protocol_id: protocol.id,
-          user_id: user.id,
-          name: demo.name,
-          ...fields.compound,
-          vial_strength: demo.strength,
-          vial_unit: demo.unit,
-          bac_water_ml: demo.bac,
-          reconstitution_date: todayStr,
-          vials_in_stock: 1,
-          position: 0
-        })
-        .select()
-        .single()
-
-      if (!compound) continue
-
-      await supabase.from('phases').insert({
-        ...fields.phase,
-        compound_id: compound.id,
-        user_id: user.id,
-        name: 'Phase 1',
-        dose: demo.dose,
-        dose_unit: demo.doseUnit, dose_semantics_version: 1,
-        start_week: 1,
-        end_week: 4,
-        frequency: '1x/week',
-        days_of_week: [1],
-        time_of_day: 'morning',
-        duration_weeks: 4,
-        position: 0
-      })
-    }
-
-    // Create 7 days of fake journal entries
-    const entries = [
-      { days_ago: 7, mood: 6, energy: 6, sleep: 6.5, weight: 185 },
-      { days_ago: 6, mood: 6, energy: 7, sleep: 7, weight: 185 },
-      { days_ago: 5, mood: 7, energy: 7, sleep: 7.5, weight: 184.5 },
-      { days_ago: 4, mood: 7, energy: 8, sleep: 7.5, weight: 184.5 },
-      { days_ago: 3, mood: 7, energy: 8, sleep: 8, weight: 184 },
-      { days_ago: 2, mood: 8, energy: 8, sleep: 8, weight: 183.5 },
-      { days_ago: 1, mood: 8, energy: 9, sleep: 8.5, weight: 183 },
-    ]
-
-    for (const entry of entries) {
-      const d = new Date()
-      d.setDate(d.getDate() - entry.days_ago)
-      const dateStr = d.toISOString().split('T')[0]
-
-      await supabase.from('journal_entries').insert({
-        user_id: user.id,
-        date: dateStr,
-        mood: entry.mood,
-        energy: entry.energy,
-        sleep: entry.sleep,
-        weight: entry.weight,
-        hunger: null,
-        notes: ''
-      })
-    }
-  }
-
   async function createProtocolFromCalc() {
     if (!newName.trim()) return
     setCreatingProtocol(true)
     try {
       const response = await fetch('/api/create-protocol', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
-        name:newName.trim(), dose:Number(prefillDose), dose_unit:quickDoseUnit,
-        vial:Number(prefillVial), vial_unit:quickVialUnit, water:prefillWater ? Number(prefillWater) : null,
+        name:newName.trim(), dose:prefillDose, dose_unit:quickDoseUnit,
+        vial:prefillVial, vial_unit:quickVialUnit, water:prefillWater,
       }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to create protocol')
@@ -244,7 +163,7 @@ export default function DashboardPage() {
     // Fetch all protocols with compounds, phases, and injection logs
     const { data: allProtocols } = await supabase
       .from('protocols')
-      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, notes, phases(id, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
       .eq('user_id', user.id)
 
     if (!allProtocols || allProtocols.length === 0) {
@@ -299,8 +218,8 @@ export default function DashboardPage() {
             const row = [
               `"${protocol.name}"`,
               `"${compound.name}"`,
-              phase.dose,
-              phase.dose_unit || '-',
+              phase.dosing_entry ? dosingDisplay(phase).medication?.value ?? '' : phase.dose,
+              phase.dosing_entry ? dosingDisplay(phase).medication?.unit ?? 'Uncalculated' : phase.dose_unit || '-',
               phase.frequency || '-',
               phaseStart.toLocaleDateString('en-US'),
               phaseEnd.toLocaleDateString('en-US'),
@@ -350,36 +269,13 @@ export default function DashboardPage() {
     }
   }
 
-  // NEW: Silent refresh — updates protocol/vial data (for HeroProtocolCard, CompoundRings, WeeklySchedule)
-  // WITHOUT setting `loading` to true, so the page doesn't flash to a blank loading screen
-  // every time an injection is logged from WeeklySchedule.
+  // Refresh the same presentation data after existing hero-card actions.
   async function refreshProtocolsSilently() {
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: protocols } = await supabase
-        .from('protocols')
-        .select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))')
-        .eq('status', 'active')
-
-      setActiveProtocols(protocols || [])
-
-      const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
-      setAllLogs(allLogsData || [])
-
-      const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
-      const map: Record<string, LogEntry> = {}
-      ;(ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } })
-      setLogs(map)
-    } catch (err) {
-      console.error('refreshProtocolsSilently failed:', err)
-    }
+    await loadAll(true)
   }
 
-  async function loadAll() {
-    setLoading(true)
+  async function loadAll(silent = false) {
+    if (!silent) setLoading(true)
     setLoadError(false)
     try {
     const supabase = createClient()
@@ -389,7 +285,7 @@ export default function DashboardPage() {
     const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
     if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
     
-    const { data: js } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
+    const { data: js, error: journalError } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
     setEntries(js || [])
     let streak = 0
     const today2 = new Date(); today2.setHours(0,0,0,0)
@@ -402,37 +298,22 @@ export default function DashboardPage() {
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
     
-    let { data: protocols } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
-    
-    // Check if first login (no active protocols) and create demos only if user has no history
-    if (!protocols || protocols.length === 0) {
-      const { data: completedProtocols } = await supabase.from('protocols').select('id').eq('status', 'completed').limit(1)
-      const { data: journalEntries } = await supabase.from('journal_entries').select('id').limit(1)
-      
-      // Only create demos if user has no completed protocols or journal entries (truly first login)
-      if (!completedProtocols?.length && !journalEntries?.length) {
-        await createDemoCompounds()
-      }
-      
-      // Reload to show demos (if created)
-      const { data: reloaded } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
-      protocols = reloaded
-    }
+    const { data: protocols, error: protocolsError } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
     
     setActiveProtocols(protocols || [])
     if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
-    ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase?.dose_semantics_version === 1 && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
-          const volumeMl = phase.injection_volume_ml ?? 0
-          const syringeUnits = phase.syringe_units ?? 0
+    ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
+          const volumeMl = administrationForPhase(phase).volume ?? 0
+          const syringeUnits = administrationForPhase(phase).markings ?? 0
           due.push({
             id: c.id,
             name: c.name,
-            dose: String(phase.dose),
-            dose_unit: phase.dose_unit || '',
+            dose: dosingDisplay(phase).primary,
+            dose_unit: '',
             volume_ml: volumeMl,
             syringe_units: syringeUnits,
-            time_of_day: phase.time_of_day || 'morning',
+            time_of_day: phase.time_of_day || '',
             protocol_name: p.name
           })
         } }) })
@@ -444,18 +325,19 @@ export default function DashboardPage() {
     ;(protocols || []).forEach((p: any) => {
       ;(p.compounds||[]).forEach((c: any) => {
         const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, tomorrowStr)
-        if (phase?.dose_semantics_version === 1 && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, tomorrowStr, phase.days_of_week ?? undefined)) {
-          tmr.push({ id: c.id, name: c.name, dose: String(phase.dose), dose_unit: phase.dose_unit || '', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || 'morning', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency || undefined, day_of_week: phase.day_of_week })
+        if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, tomorrowStr, phase.days_of_week ?? undefined)) {
+          tmr.push({ id: c.id, name: c.name, dose: dosingDisplay(phase).primary, dose_unit: '', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || '', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency || undefined, day_of_week: phase.day_of_week })
         }
       })
     })
     setTomorrowCompounds(tmr)
-    const { data: ls } = await supabase.from('injection_logs').select('*').eq('date', today)
+    const { data: ls, error: logsError } = await supabase.from('injection_logs').select('*').eq('date', today)
     const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
     setAllLogs(allLogsData || [])
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
-    const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
+    const { data: events, error: eventsError } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
     setProtocolEvents(events || [])
+    if (journalError || protocolsError || logsError || eventsError) setLoadError(true)
     const hour = new Date().getHours()
     if (hour >= 20) {
       const logMap: Record<string, boolean> = {}
@@ -471,7 +353,30 @@ export default function DashboardPage() {
     }
   }
 
-  async function toggleInjection(cid: string) { if (togglingId === cid) return; try { navigator.vibrate(10) } catch(e) {} setTogglingId(cid); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setTogglingId(null); return; } const cur = logs[cid]; const t = !cur?.taken; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: t, discomfort: cur?.discomfort||0 }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: t, discomfort: cur?.discomfort||0 } }); setTogglingId(null) }
+  async function toggleInjection(cid: string) {
+    if (doseSavePending.current) return
+    doseSavePending.current = true
+    setTogglingId(cid)
+    setDoseSaveError(null)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sign in again to save this dose.')
+      const cur = logs[cid]
+      const taken = !cur?.taken
+      const { error } = await supabase.from('injection_logs').upsert({
+        user_id: user.id, compound_id: cid, date: today, taken, discomfort: cur?.discomfort || 0
+      }, { onConflict: 'user_id,compound_id,date' })
+      if (error) throw error
+      setLogs(previous => ({ ...previous, [cid]: { compound_id: cid, taken, discomfort: cur?.discomfort || 0 } }))
+      setAllLogs(previous => [...previous.filter(log => !(log.compound_id === cid && log.date === today)), ...(taken ? [{ compound_id: cid, date: today, taken }] : [])])
+    } catch {
+      setDoseSaveError('This dose wasn’t saved. Please check your connection and try again.')
+    } finally {
+      doseSavePending.current = false
+      setTogglingId(null)
+    }
+  }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
   async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (mood !== null) row.mood = mood; if (energy !== null) row.energy = energy; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = parseFloat(weight); if (hunger !== null) row.hunger = hunger; await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
   
@@ -541,132 +446,38 @@ export default function DashboardPage() {
   
   const vi = ins.slice(0, 3)
 
-  if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
-
-  if (!loading && activeProtocols.length === 0) {
-    const hasActivityHistory = entries.length > 0
-    
-    return (
-      <div style={{padding:'20px',textAlign:'center',paddingTop:'80px',minHeight:'100vh'}}>
-        <h2 style={{color:g,marginBottom:'12px',fontSize:'24px',fontWeight:'700'}}>
-          {hasActivityHistory ? 'Ready to build your own?' : 'Create Your First Protocol'}
-        </h2>
-        <p style={{color:dg,marginBottom:'32px'}}>
-          {hasActivityHistory 
-            ? 'Delete those samples and create your first real protocol to start tracking.' 
-            : 'Track your wellness journey with Protocol.'}
-        </p>
-        <div style={{display:'flex',justifyContent:'center',marginTop:'48px'}}>
-          <button 
-            onClick={() => setShowNewProtocol(true)}
-            style={{
-              width:'160px',
-              height:'160px',
-              borderRadius:'50%',
-              border:'3px solid '+g,
-              background:'rgba(76,235,55,0.08)',
-              color:g,
-              fontSize:'13px',
-              fontWeight:'700',
-              cursor:'pointer',
-              display:'flex',
-              flexDirection:'column',
-              alignItems:'center',
-              justifyContent:'center',
-              gap:'8px',
-              boxShadow:'0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)',
-              transition:'all 0.3s ease',
-              position:'relative',
-              overflow:'hidden'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 50px rgba(76,235,55,0.4), inset 0 0 40px rgba(76,235,55,0.15)'
-              e.currentTarget.style.transform = 'scale(1.05)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 40px rgba(76,235,55,0.25), inset 0 0 30px rgba(76,235,55,0.08)'
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-          >
-            <span style={{fontSize:'32px',fontWeight:'700'}}>+</span>
-            <span>Create</span>
-            <span>Protocol</span>
-          </button>
-        </div>
-        
-        {showNewProtocol && (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
-            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'420px'}}>
-              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:g}}>Create Your Protocol</h3>
-              <p style={{fontSize:'13px',color:dg,marginBottom:'20px'}}>Enter your compound details to get started</p>
-              
-              <div style={{marginBottom:'12px'}}>
-                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Compound Name</label>
-                <input 
-                  placeholder='e.g., Semaglutide' 
-                  value={newName} 
-                  onChange={e=>setNewName(e.target.value)} 
-                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                />
-              </div>
-              
-              <div style={{display:'flex',gap:12,marginBottom:12}}><label>Dose unit <select value={quickDoseUnit} onChange={e => setQuickDoseUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label><label>Vial unit <select value={quickVialUnit} onChange={e => setQuickVialUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label></div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px'}}>
-                <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Medication dose</label>
-                  <input 
-                    placeholder='Medication amount' 
-                    value={prefillDose} 
-                    onChange={e=>setPrefillDose(e.target.value)} 
-                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                  />
-                </div>
-                <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial amount</label>
-                  <input 
-                    placeholder='5' 
-                    value={prefillVial} 
-                    onChange={e=>setPrefillVial(e.target.value)} 
-                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                  />
-                </div>
-              </div>
-              
-              <div style={{marginBottom:'20px'}}>
-                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>BAC Water (ml)</label>
-                <input 
-                  placeholder='2' 
-                  value={prefillWater} 
-                  onChange={e=>setPrefillWater(e.target.value)} 
-                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                />
-              </div>
-              
-              <div style={{display:'flex',gap:'10px'}}>
-                <button 
-                  onClick={() => setShowNewProtocol(false)} 
-                  style={{flex:1,background:'transparent',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}
-                >
-                  Cancel
-                </button>
-                <button 
-                  disabled={creatingProtocol||!newName.trim()} 
-                  onClick={createProtocolFromCalc} 
-                  style={{flex:2,background:createSuccess?'#10b981':creatingProtocol?mg:g,color:createSuccess?'#fff':creatingProtocol?dg:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'not-allowed':'pointer',opacity:creatingProtocol||!newName.trim()?0.5:1}}
-                >
-                  {createSuccess?'✓ Created!':creatingProtocol?'Creating...':'Create Protocol'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    )
+  function selectCompound(id: string) {
+    setActiveCompoundTab(id)
+    setHeroOpen(true)
+    requestAnimationFrame(() => heroRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' }))
   }
 
+  if (loading) return <main className="today-main"><div className="today-container"><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
+
+  if (loadError) return <main className="today-main"><div className="today-container"><TodayHeader date={today} /><div className="today-card today-error" role="alert">Your day couldn’t be loaded. Your saved data hasn’t changed.<br /><button className="today-text-link" onClick={() => loadAll()}>Try again</button></div></div></main>
+
+
   return (
-    <main style={{minHeight:'100vh',paddingBottom:'100px'}}>
-      <div style={{maxWidth:'600px',margin:'0 auto',padding:'16px'}}>
+    <main className="today-main">
+      <div className="today-container">
+        <TodayOverview
+          date={today} protocols={activeProtocols} events={protocolEvents} entries={entries}
+          due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
+          error={doseSaveError} selected={heroOpen ? (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id) : null}
+          onSelect={selectCompound} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
+          rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
+          detail={activeProtocols.length > 0 && <details id="today-protocol-detail" ref={heroRef} className="today-hero-detail" open={heroOpen} onToggle={event => setHeroOpen(event.currentTarget.open)}>
+            <summary>Protocol details <span>Schedule, inventory & sharing</span></summary>
+            <HeroProtocolCard
+              activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl}
+              compoundIndex={activeProtocols.flatMap((p: any) => p.compounds || []).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
+              onShare={shareProtocol}
+            />
+          </details>}
+        />
+        <details className="today-dashboard-tools">
+          <summary>Dashboard tools <span>Daily log, weekly schedule, charts & export</span></summary>
+          <TodaysInjections dueCompounds={dueCompounds} tomorrowCompounds={tomorrowCompounds} logs={logs} onToggle={toggleInjection} />
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
@@ -705,24 +516,7 @@ export default function DashboardPage() {
             onToggleUnit={toggleWeightUnit}
           />
           
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <CompoundRings
-              activeProtocols={activeProtocols}
-              activeCompoundTab={activeCompoundTab}
-              setActiveCompoundTab={setActiveCompoundTab}
-            />
-          </div>
         </div>
-        
-        <HeroProtocolCard
-          activeProtocols={activeProtocols}
-          activeCompoundTab={activeCompoundTab}
-          logs={logs}
-          allLogs={allLogs}
-          totalLost={tl}
-          compoundIndex={activeProtocols.flatMap((p: any) => (p.compounds||[])).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
-          onShare={shareProtocol}
-        />
 
         {(() => {
           const activeCompound = activeProtocols
@@ -902,6 +696,73 @@ export default function DashboardPage() {
             → My Protocols
           </a>
         </div>
+        </details>
+        {showNewProtocol && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
+            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'420px'}}>
+              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:g}}>Create Your Protocol</h3>
+              <p style={{fontSize:'13px',color:dg,marginBottom:'20px'}}>Enter your compound details to get started</p>
+              
+              <div style={{marginBottom:'12px'}}>
+                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Compound Name</label>
+                <input 
+                  placeholder='e.g., Semaglutide' 
+                  value={newName} 
+                  onChange={e=>setNewName(e.target.value)} 
+                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div style={{display:'flex',gap:12,marginBottom:12}}><label>Dose unit <select value={quickDoseUnit} onChange={e => setQuickDoseUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label><label>Vial unit <select value={quickVialUnit} onChange={e => setQuickVialUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label></div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px'}}>
+                <div>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Medication dose</label>
+                  <input 
+                    placeholder='Medication amount' 
+                    value={prefillDose} 
+                    onChange={e=>setPrefillDose(e.target.value)} 
+                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+                <div>
+                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial amount</label>
+                  <input 
+                    placeholder='5' 
+                    value={prefillVial} 
+                    onChange={e=>setPrefillVial(e.target.value)} 
+                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                  />
+                </div>
+              </div>
+              
+              <div style={{marginBottom:'20px'}}>
+                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>BAC Water (ml)</label>
+                <input 
+                  placeholder='2' 
+                  value={prefillWater} 
+                  onChange={e=>setPrefillWater(e.target.value)} 
+                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
+                />
+              </div>
+              
+              <div style={{display:'flex',gap:'10px'}}>
+                <button 
+                  onClick={() => setShowNewProtocol(false)} 
+                  style={{flex:1,background:'transparent',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={creatingProtocol||!newName.trim()} 
+                  onClick={createProtocolFromCalc} 
+                  style={{flex:2,background:createSuccess?'#10b981':creatingProtocol?mg:g,color:createSuccess?'#fff':creatingProtocol?dg:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'not-allowed':'pointer',opacity:creatingProtocol||!newName.trim()?0.5:1}}
+                >
+                  {createSuccess?'✓ Created!':creatingProtocol?'Creating...':'Create Protocol'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

@@ -1,3 +1,4 @@
+import { dosingDisplay, type DosingEntry } from './dosingEntry'
 import { currentPhase, isMedicationUnit } from './dosing'
 export type TimelineCategory = 'Protocol' | 'Weight' | 'Journal'
 export type TimelineEvent = {
@@ -12,6 +13,7 @@ export type TimelineEvent = {
 }
 
 export type PhaseRow = {
+  dosing_entry?: DosingEntry | null
   dose_semantics_version?: number | null
   injection_volume_ml?: number | null; syringe_units?: number | null; syringe_scale?: number | null
   id: string; dose: number | null; dose_unit: string | null; frequency: string | null
@@ -75,7 +77,7 @@ function protocolWeek(start: string | null, date: string): number | null {
 
 function planMetadata(compound: CompoundRow | null, start: string | null, date: string) {
   const candidate = phaseForDate(compound, start, date)
-  const phase = candidate?.dose_semantics_version === 1 ? candidate : null
+  const phase = candidate?.dose_semantics_version === 1 && !candidate.dosing_entry ? candidate : null
   return {
     phaseId: phase?.id ?? null, dose: phase?.dose ?? null, doseUnit: phase?.dose_unit ?? null,
     frequency: phase?.frequency ?? null, route: phase?.route ?? compound?.route ?? null,
@@ -106,12 +108,14 @@ function structuredRoute(...values: (string | null | undefined)[]): string | nul
 export function baselineDosingIssue(compound: CompoundRow | null, protocol: ProtocolRow, today: string): string | null {
   const phase = phaseForDate(compound, protocol.start_date, today)
   if (!phase) return 'No single phase covers today. Add or extend a phase.'
+  if (phase.dosing_entry) return dosingDisplay(phase).secondary || null
   if (phase.dose_semantics_version !== 1 || !isMedicationUnit(phase.dose_unit)) return 'Legacy dose needs review. Confirm medication amount and unit.'
   return null
 }
 
 export function resolveBaselineDetails(compound: CompoundRow | null, protocol: ProtocolRow, today: string): string[] {
   const phase = phaseForDate(compound, protocol.start_date, today)
+  if (phase?.dosing_entry) return [dosingDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week),structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
   if (!phase || baselineDosingIssue(compound, protocol, today)) return []
   return formatPlanDetails({dose:phase.dose, doseUnit:phase.dose_unit,
     frequency:structuredFrequency(phase.frequency,phase.days_of_week), route:structuredRoute(phase.route)})

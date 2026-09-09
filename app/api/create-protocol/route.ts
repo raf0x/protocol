@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
-import { quickCreatePayload } from '../../../lib/health/dosing'
+import { quickEntryPayload } from '../../../lib/health/dosingEntry'
 import { rateLimit } from '../../../lib/rateLimit'
 
 export async function POST(request: NextRequest) {
@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 
-  let payload: ReturnType<typeof quickCreatePayload>
-  try { payload = quickCreatePayload(await request.json()) }
+  let payload: ReturnType<typeof quickEntryPayload>
+  try { payload = quickEntryPayload(await request.json()) }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid input' }, { status: 400 }) }
 
   const cookieStore = await cookies()
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
-  const { data: protocolId, error } = await supabase.rpc('save_protocol_dosing_v1', {
+  const { data: protocolId, error } = await supabase.rpc('save_protocol_dosing_v2', {
     p_protocol_id: null, p_name: payload.name, p_start_date: todayStr, p_compounds: payload.compounds,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

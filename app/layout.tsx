@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import BottomNav from '../components/BottomNav'
-import ThemeToggle from '../components/ThemeToggle'
+import './mobile-app.css'
+import AppShell from '../components/app/AppShell'
 
 const inter = Inter({ subsets: ['latin'] })
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' }
 
 export const metadata: Metadata = {
   title: 'Protocol — Peptide & GLP-1 Protocol Tracker',
@@ -23,15 +25,12 @@ export default function RootLayout({
         <meta name='apple-mobile-web-app-capable' content='yes' />
         <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
         <meta name='apple-mobile-web-app-title' content='Protocol' />
-        <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover' />
         <link rel='apple-touch-icon' href='/icon-192.png' />
         <link rel='icon' type='image/png' href='/icon-192.png' />
         <script dangerouslySetInnerHTML={{__html:"(function(){try{var t=localStorage.getItem('protocol-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();"}} />
       </head>
-      <body className={inter.className} style={{paddingBottom:'80px'}}>
-        {children}
-        <BottomNav />
-        <ThemeToggle />
+      <body className={inter.className}>
+        <AppShell>{children}</AppShell>
         <script dangerouslySetInnerHTML={{
           __html: `
             if ('serviceWorker' in navigator) {

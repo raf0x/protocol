@@ -7,8 +7,11 @@ import ts from 'typescript'
 const dosingSource = readFileSync(new URL('../lib/health/dosing.ts', import.meta.url),'utf8')
 const dosingCode = ts.transpileModule(dosingSource, {compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2021}}).outputText
 const dosingUrl = `data:text/javascript;base64,${Buffer.from(dosingCode).toString('base64')}`
+const entryCode=ts.transpileModule(readFileSync(new URL('../lib/health/dosingEntry.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText
+const entryUrl=`data:text/javascript;base64,${Buffer.from(entryCode).toString('base64')}`
+const awaitEntryModule=await import(entryUrl)
 const source = readFileSync(new URL('../lib/health/timeline.ts', import.meta.url), 'utf8')
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2021 } }).outputText.replace("'./dosing'", JSON.stringify(dosingUrl))
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2021 } }).outputText.replace("'./dosing'", JSON.stringify(dosingUrl)).replace("'./dosingEntry'", JSON.stringify(entryUrl))
 const { normalizeTimeline, formatTimelineDate, deriveBaseline, groupTimeline, protocolMetadataChips } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 const journal = { id: 'j1', date: '2026-09-08', weight: 176.5, notes: 'Feeling good', mood: 4, energy: 3, sleep: 0, hunger: 2 }
 const protocol = { id: 'p1', date: '2026-09-07', event_type: 'started', description: 'Original dose', protocol_id: 'p', compound_id: 'c', protocols: { name: 'My protocol' }, compounds: { name: 'Compound' } }
@@ -137,4 +140,14 @@ test('legacy dose remains unreviewed even if numeric value and unit look valid',
   assert.deepEqual(result.activeProtocols[0].compounds[0].details, [])
   assert.match(result.activeProtocols[0].compounds[0].issue, /Legacy/)
   assert.match(deriveBaseline([p], [], [], '2027-09-09').activeProtocols[0].compounds[0].issue, /phase covers today/)
+})
+
+
+test('baseline prefers current raw entry over stale V1 columns and labels volume-only dose',()=>{
+  const {entryFromForm}=awaitEntryModule
+  const raw=entryFromForm({input_mode:'volume',injection_volume:'0.5'})
+  const active={...enriched.protocols,compounds:[{...enriched.compounds,phases:[{...phase,dose:999,dose_unit:'IU',dose_semantics_version:1,dosing_entry:raw}]}]}
+  const baseline=deriveBaseline([active],[],[],'2026-09-09')
+  assert.equal(baseline.activeProtocols[0].compounds[0].details[0],'0.5 mL')
+  assert.match(baseline.activeProtocols[0].compounds[0].issue,/Medication dose not calculated/)
 })
