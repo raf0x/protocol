@@ -1,0 +1,162 @@
+--- a/lib/health/dosing.ts
++++ b/lib/health/dosing.ts
+@@ -2,6 +2,7 @@
+ export type MedicationUnit = typeof MEDICATION_UNITS[number]
+ export type ConcentrationUnit = `${MedicationUnit}/mL`
+ export type DosingInput = {
++  input_mode?: "medication" | "syringe"; syringe_units?: number | null
+   dose: number; dose_unit: string
+   concentration_value?: number | null; concentration_unit?: string | null
+   vial_strength?: number | null; vial_unit?: string | null; bac_water_ml?: number | null
+@@ -11,7 +12,6 @@
+ const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0
+ 
+ export function calculateDosing(input: DosingInput) {
+-  if (!positive(input.dose) || !isMedicationUnit(input.dose_unit)) throw new Error('Enter a positive medication dose in mg, mcg, or IU.')
+   let concentration: { value: number; unit: ConcentrationUnit } | null = null
+   if (input.concentration_value != null || input.concentration_unit) {
+     if (!positive(input.concentration_value) || !['mg/mL', 'mcg/mL', 'IU/mL'].includes(input.concentration_unit ?? '')) throw new Error('Enter both concentration value and unit.')
+@@ -20,6 +20,13 @@
+     if (!positive(input.vial_strength) || !positive(input.bac_water_ml) || !isMedicationUnit(input.vial_unit)) throw new Error('Enter a positive vial amount, medication unit, and reconstitution volume.')
+     concentration = { value: input.vial_strength / input.bac_water_ml, unit: `${input.vial_unit}/mL` }
+   }
++  if (input.input_mode === 'syringe') {
++    if (!positive(input.syringe_units) || ![40, 100].includes(input.syringe_scale ?? 0)) throw new Error('Enter positive syringe markings and explicitly select the syringe scale.')
++    if (!concentration) throw new Error('Vial amount and reconstitution volume, or labelled concentration, are required to calculate medication dose from syringe markings.')
++    input = { ...input, dose: input.syringe_units / input.syringe_scale! * concentration.value,
++      dose_unit: concentration.unit.split('/')[0] }
++  }
++  if (!positive(input.dose) || !isMedicationUnit(input.dose_unit)) throw new Error('Enter a positive medication dose in mg, mcg, or IU.')
+   let volume: number | null = null
+   if (concentration) {
+     const unit = concentration.unit.split('/')[0]
+--- a/app/protocol/manage/page.tsx
++++ b/app/protocol/manage/page.tsx
+@@ -15,6 +15,8 @@
+   phase_start_week: string
+   concentration_value: string
+   concentration_unit: string
++  input_mode: "medication" | "syringe"
++  syringe_markings: string
+   syringe_scale: string
+   route: string
+   reviewed: boolean
+@@ -38,7 +40,7 @@
+ 
+ function newCompound(): Compound {
+   return {
+-    name: '', phase_start_week: '1', concentration_value: '', concentration_unit: '', syringe_scale: '', route: '', reviewed: true,
++    input_mode: 'medication', syringe_markings: '', name: '', phase_start_week: '1', concentration_value: '', concentration_unit: '', syringe_scale: '', route: '', reviewed: true,
+     isPreMixed: false,
+     vial_strength: '',
+     vial_unit: 'mg',
+@@ -282,7 +284,7 @@
+       const isPreMixed = !incomingMix && !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
+       
+       return {
+-        name: c.name, id: c.id, phase_id: ph?.id,
++        input_mode: 'medication', syringe_markings: '', name: c.name, id: c.id, phase_id: ph?.id,
+         phase_start_week: String(ph?.start_week || 1),
+         concentration_value: c.concentration_value?.toString() || '', concentration_unit: c.concentration_unit || '',
+         syringe_scale: ph?.syringe_scale?.toString() || '', route: ph?.route || '', reviewed: ph?.dose_semantics_version === 1,
+@@ -312,7 +314,7 @@
+   function updateCompound(i: number, field: string, value: any) {
+     const u = [...compounds]
+     ;(u[i] as any)[field] = value
+-    if (['dose','dose_unit'].includes(field)) u[i].reviewed = false
++    if (['dose','dose_unit','input_mode','syringe_markings','syringe_scale','vial_strength','vial_unit','bac_water_ml','concentration_value','concentration_unit'].includes(field)) u[i].reviewed = false
+     setCompounds(u)
+   }
+ 
+@@ -326,7 +328,7 @@
+   async function save() {
+     setError('')
+     if (compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
+-    if (compounds.some(c => !c.dose.trim())) { setError('Every compound needs a dose.'); return }
++    if (compounds.some(c => c.input_mode === 'syringe' ? !c.syringe_markings.trim() : !c.dose.trim())) { setError('Every compound needs a dose.'); return }
+     if (compounds.some(c => !c.isPreMixed && !c.reconstitution_date)) { 
+       setError('Reconstitution date is required for compounds that need mixing.'); 
+       return 
+@@ -354,7 +356,7 @@
+     setSaving(true)
+     try {
+       const payload = compounds.map(c => {
+-        const fields = dosingFields({ dose: Number(c.dose), dose_unit: c.dose_unit,
++        const fields = dosingFields({ input_mode:c.input_mode, syringe_units:Number(c.syringe_markings), dose: Number(c.dose), dose_unit: c.dose_unit,
+           concentration_value: c.isPreMixed && c.concentration_value ? Number(c.concentration_value) : null,
+           concentration_unit: c.isPreMixed ? c.concentration_unit || null : null,
+           vial_strength: !c.isPreMixed && c.vial_strength ? Number(c.vial_strength) : null,
+@@ -511,6 +513,8 @@
+                   </div>
+                 </div>}
+                 <div style={{marginBottom:'12px'}}>
++                  <label>Enter by<select aria-label="Dose input mode" style={is} value={c.input_mode} onChange={e => updateCompound(ci,'input_mode',e.target.value)}><option value="medication">Medication dose</option><option value="syringe">Syringe markings</option></select></label>
++                  {c.input_mode === 'syringe' ? <label>Syringe markings (not medication IU)<input aria-label="Syringe markings" type="number" min="0" step="any" value={c.syringe_markings} onChange={e => updateCompound(ci,'syringe_markings',e.target.value)} style={is} /></label> : <>
+                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>MEDICATION DOSE PER ADMINISTRATION</label>
+                   <div style={{display:'flex',gap:'6px'}}>
+                     <input aria-label='Medication dose' type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 60' style={{...is,flex:1}} />
+@@ -518,30 +522,31 @@
+                       <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                     </select>
+                   </div>
++                  </>}
+                 </div>
+ 
+                 <p style={{fontSize:12,color:dg}}>IU means medication International Units, never syringe markings.</p>
+                 <label style={{display:'block',marginBottom:12,fontSize:13}}>
+-                  <input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm the medication dose and unit above.
++                  <input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm the medication dose and unit shown in the calculation below.
+                 </label>
+                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+                   <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
+                   <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option></select></label>
+                 </div>
+                 {(() => { try {
+-                  const result = calculateDosing({ dose:Number(c.dose), dose_unit:c.dose_unit,
++                  const result = calculateDosing({ input_mode:c.input_mode, syringe_units:Number(c.syringe_markings), dose:Number(c.dose), dose_unit:c.dose_unit,
+                     concentration_value:c.isPreMixed && c.concentration_value ? Number(c.concentration_value):null,
+                     concentration_unit:c.isPreMixed ? c.concentration_unit || null:null,
+                     vial_strength:!c.isPreMixed && c.vial_strength ? Number(c.vial_strength):null, vial_unit:c.vial_unit,
+                     bac_water_ml:!c.isPreMixed && c.bac_water_ml ? Number(c.bac_water_ml):null, syringe_scale:c.syringe_scale ? Number(c.syringe_scale):null })
+-                  return <p style={{fontSize:13,color:g}}>{result.injectionVolume ? `Injection volume: ${Number(result.injectionVolume.value.toPrecision(6))} mL` : 'Volume not calculated without concentration.'}{result.syringeUnits && ` · ${Number(result.syringeUnits.value.toPrecision(6))} syringe units (U-${result.syringeUnits.scale})`}</p>
+-                } catch { return null } })()}
++                  return <p style={{fontSize:13,color:g}}>Medication dose: {Number(result.administeredDose.value.toPrecision(6))} {result.administeredDose.unit}{' · '}{result.injectionVolume ? `Injection volume: ${Number(result.injectionVolume.value.toPrecision(6))} mL` : 'Volume not calculated without concentration.'}{result.syringeUnits && ` · ${Number(result.syringeUnits.value.toPrecision(6))} syringe units (U-${result.syringeUnits.scale})`}</p>
++                } catch (error) { return c.input_mode === 'syringe' ? <p role="alert" style={{fontSize:12,color:dg}}>{error instanceof Error ? error.message : 'Check dosing inputs.'}</p> : null } })()}
+                 {c.id && <div style={{marginBottom:12}}>
+                   <p style={{fontSize:12,color:dg}}>Editing only the selected phase. Other phases and recorded injections are preserved.</p>
+                   <select aria-label="Select phase" value={c.phase_id || ''} style={is} onChange={e => {
+                     const raw = protocols.flatMap(p => p.compounds || []).find(x => x.id === c.id)?.phases?.find((p: { id: string }) => p.id === e.target.value)
+                     if (!raw) return
+-                    const updated = [...compounds]; updated[ci] = {...c, phase_id:raw.id, dose:String(raw.dose),dose_unit:raw.dose_unit,phase_start_week:String(raw.start_week),duration_weeks:raw.end_week == null ? '' : String(raw.end_week-raw.start_week+1), reviewed:raw.dose_semantics_version===1,
++                    const updated = [...compounds]; updated[ci] = {...c, input_mode:'medication',syringe_markings:'', phase_id:raw.id, dose:String(raw.dose),dose_unit:raw.dose_unit,phase_start_week:String(raw.start_week),duration_weeks:raw.end_week == null ? '' : String(raw.end_week-raw.start_week+1), reviewed:raw.dose_semantics_version===1,
+                       syringe_scale:raw.syringe_scale?.toString() || '',route:raw.route || '',days_of_week:raw.days_of_week || [], frequency_mode:raw.frequency?.startsWith('every') ? 'rolling':'weekly',cycle_days:raw.frequency?.replace('every','').replace('days','') || '3'};setCompounds(updated)
+                   }}><option value="">New phase</option>{c.phase_options?.map(p => <option key={p.id} value={p.id}>{p.name}: weeks {p.start_week}–{p.end_week || 'ongoing'}</option>)}</select>
+                   <button type="button" onClick={() => { const updated=[...compounds]; updated[ci]={...c,phase_id:undefined,phase_start_week:String(Math.max(1,...(c.phase_options || []).map(p => (p.end_week || p.start_week)+1))),duration_weeks:'12',reviewed:false};setCompounds(updated) }}>Add phase</button>
+--- a/tests/dosing.test.ts
++++ b/tests/dosing.test.ts
+@@ -52,3 +52,25 @@
+   assert.equal(currentPhase([phases[0],phases[0]],'2026-01-01','2026-01-02'),null)
+   assert.equal(currentPhase(phases,'2026-01-01','2026-01-29'),phases[1])
+ })
++
++test('explicit mass syringe entry derives medication dose without treating stale IU as medication', () => {
++  const result = dosingFields({input_mode:'syringe',syringe_units:18,syringe_scale:100,dose:18,dose_unit:'IU',vial_strength:50,vial_unit:'mg',bac_water_ml:3})
++  assert.equal(result.phase.dose,3)
++  assert.equal(result.phase.dose_unit,'mg')
++  assert.equal(result.phase.injection_volume_ml,0.18)
++  assert.equal(result.phase.syringe_units,18)
++})
++test('explicit syringe entry preserves true medication IU', () => {
++  const result = dosingFields({input_mode:'syringe',syringe_units:10,syringe_scale:100,dose:0,dose_unit:'',vial_strength:5000,vial_unit:'IU',bac_water_ml:2})
++  assert.equal(result.phase.dose,250)
++  assert.equal(result.phase.dose_unit,'IU')
++  assert.equal(result.phase.injection_volume_ml,0.1)
++  assert.equal(result.phase.syringe_units,10)
++})
++test('syringe entry requires explicit scale and concentration; medication mode still rejects mass/IU conversion', () => {
++  const input={input_mode:'syringe',syringe_units:18,dose:18,dose_unit:'IU'}
++  assert.throws(()=>calculateDosing(input),/scale/)
++  assert.throws(()=>calculateDosing({...input,syringe_scale:100}),/required/)
++  assert.throws(()=>calculateDosing({...input,input_mode:'medication',syringe_scale:100,vial_strength:50,vial_unit:'mg',bac_water_ml:3}),/IU cannot/)
++  assert.equal(dosingFields({...input,syringe_scale:100,vial_strength:1000,vial_unit:'mcg',bac_water_ml:2}).phase.dose_unit,'mcg')
++})
