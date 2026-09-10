@@ -1,13 +1,13 @@
 import { dosingDisplay, type DosingEntry } from './dosingEntry'
 import { currentPhase, isMedicationUnit } from './dosing'
-export type TimelineCategory = 'Protocol' | 'Weight' | 'Journal'
+export type TimelineCategory = 'Protocol' | 'Weight' | 'Journal' | 'Labs'
 export type TimelineEvent = {
   id: string
   date: string
   category: TimelineCategory
   title: string
   description?: string
-  sourceType: 'protocol_events' | 'journal_entries'
+  sourceType: 'protocol_events' | 'journal_entries' | 'lab_panels'
   sourceId: string
   metadata?: Record<string, string | number | null>
 }

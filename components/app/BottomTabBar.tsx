@@ -13,7 +13,7 @@ const tabs: { href: string; label: string; icon: IconName }[] = [
   { href: '/protocol', label: 'Today', icon: 'today' },
   { href: '/protocol/manage', label: 'Protocols', icon: 'protocols' },
   { href: '/timeline', label: 'Timeline', icon: 'timeline' },
-  { href: '/journal', label: 'Health', icon: 'health' },
+  { href: '/health', label: 'Health', icon: 'health' },
 ]
 
 export default function BottomTabBar() {

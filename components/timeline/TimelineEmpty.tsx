@@ -8,7 +8,7 @@ const content = {
   Protocols: ['No protocol changes yet', 'Your recorded protocol changes will appear here over time.', '/protocol/manage', 'View protocols'],
   Weight: ['Your first weight is a starting point', 'Log a weight in Health to begin tracking changes over time.', '/journal', 'Open Health'],
   Journal: ['Make room for a check-in', 'Record how you feel, your sleep, or a note in Health.', '/journal', 'Open Health'],
-  Labs: ['Lab trends are coming next.', 'Your future lab history will have a place here. No results are stored yet.', '', ''],
+  Labs: ['No lab results yet', 'Add a lab panel in Health to see it alongside your recorded history.', '/health?action=add', 'Add lab results'],
 } as const
 
 export default function TimelineEmpty({ filter }: { filter: TimelineFilter }) {

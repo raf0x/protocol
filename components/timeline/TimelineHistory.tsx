@@ -3,12 +3,14 @@ import AppIcon from '../app/AppIcon'
 import { formatTimelineDate, protocolMetadataChips, type groupTimeline, type TimelineEvent } from '../../lib/health/timeline'
 import { eventTime, journalPresentation } from '../../lib/health/timelinePresentation'
 import styles from '../../app/timeline/timeline.module.css'
+import LabTimelineEvent from './LabTimelineEvent'
 
 function Notes({ text }: { text: string }) {
   return text.length > 180 ? <details className={styles.notes}><summary><span>{text.slice(0, 160).trimEnd()}…</span><strong>Read full note</strong></summary><p>{text}</p></details> : <p className={styles.description}>{text}</p>
 }
 
 export function TimelineEventCard({ event, comparison }: { event: TimelineEvent; comparison?: { delta: number; date: string } }) {
+  if (event.category === 'Labs') return <LabTimelineEvent event={event} />
   const chips = protocolMetadataChips(event)
   const time = eventTime(event.date)
   const journal = event.category === 'Journal' ? journalPresentation(event) : null

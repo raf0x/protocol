@@ -74,11 +74,11 @@ test('long journal notes expand inline and metrics are not repeated in note text
   assert.ok(html.includes('Read full note'))
   assert.equal((html.match(/Sleep 0h/g) || []).length, 1)
 })
-test('empty states are specific, Labs creates no fake data or action', () => {
+test('empty states are specific, Labs links to manual entry without fake data', () => {
   for (const filter of ['All', 'Protocols', 'Weight', 'Journal', 'Labs']) assert.ok(render(Empty, { filter }).includes('<h2>'))
   const labs = render(Empty, { filter: 'Labs' })
-  assert.ok(labs.includes('Lab trends are coming next.'))
-  assert.ok(!labs.includes('href='))
+  assert.ok(labs.includes('No lab results yet'))
+  assert.ok(labs.includes('/health?action=add'))
 })
 test('baseline keeps current facts and protocol details available without inventing metrics', () => {
   const html = render(Baseline, { baseline: { weight: null, activeProtocolCount: 1, lastProtocolChangeDate: '2026-09-08', lastProtocolChangeTitle: 'Plan started', activeProtocols: [{ id: 'p', name: 'Plan', week: 2, compounds: [{ id: 'c', details: ['20 U-100 units'], issue: 'Incomplete' }] }] } })

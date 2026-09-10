@@ -19,10 +19,11 @@ export default function TimelinePage() {
   const [filter, setFilter] = useState<TimelineFilter>('All')
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
+  const [labsError, setLabsError] = useState<string | null>(null)
   useEffect(() => {
     let cancelled = false
     loadTimeline().then(data => {
-      if (!cancelled) { setEvents(data.events); setBaseline(data.baseline); setStatus('ready') }
+      if (!cancelled) { setEvents(data.events); setBaseline(data.baseline); setLabsError(data.labsError); setStatus('ready') }
     }).catch(error => {
       if (cancelled) return
       if (error instanceof TimelineAuthError) { router.replace('/auth/login'); return }
@@ -40,9 +41,9 @@ export default function TimelinePage() {
     {status === 'ready' && baseline && <TimelineBaseline baseline={baseline} />}
     <div className={styles.historyHeading}><h2>How you got here</h2><span>Newest first</span></div>
     <TimelineFilters value={filter} onChange={setFilter} />
+    {status === 'ready' && labsError && (filter === 'All' || filter === 'Labs') && <div className={styles.empty} role="status"><p>{labsError}</p><button type="button" onClick={() => { setStatus('loading'); setAttempt(value => value + 1) }}>Retry lab history</button></div>}
     {status === 'loading' && <p role="status" className={styles.empty}>Loading your history…</p>}
     {status === 'error' && <div className={styles.empty} role="alert"><h2>Your history is temporarily unavailable</h2><p>Please try loading it again.</p><button type="button" onClick={() => { setStatus('loading'); setAttempt(value => value + 1) }}>Try again</button></div>}
-    {status === 'ready' && <><p className={styles.count} role="status">{visible.length} {visible.length === 1 ? 'event' : 'events'}{filter !== 'All' && ` · ${filter}`}</p>{visible.length ? <TimelineHistory months={months} comparisons={comparisons} /> : <TimelineEmpty filter={filter} />}</>}
+    {status === 'ready' && <><p className={styles.count} role="status">{visible.length} {visible.length === 1 ? 'event' : 'events'}{filter !== 'All' && ` · ${filter}`}</p>{visible.length ? <TimelineHistory months={months} comparisons={comparisons} /> : !(labsError && filter === 'Labs') && <TimelineEmpty filter={filter} />}</>}
   </main>
 }
-
