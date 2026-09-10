@@ -2,17 +2,20 @@ export const labStatuses = ['low', 'normal', 'high', 'abnormal', 'unknown'] as c
 export type LabStatus = typeof labStatuses[number]
 export type LabStatusSource = 'reported' | 'derived' | 'unknown'
 export type LabResult = {
+  source_row_index?: number | null; source_raw?: Record<string, unknown> | null; import_confidence?: 'high' | 'medium' | 'low' | null
+  created_at?: string; updated_at?: string
   id: string; lab_panel_id: string; user_id: string; biomarker_name: string; canonical_name: string | null
   value: number | null; value_text: string | null; unit: string
   reference_low: number | null; reference_high: number | null; reference_text: string | null
   status: LabStatus; status_source: LabStatusSource; category: string | null
 }
 export type LabPanel = {
+  source_filename?: string | null; source_metadata?: Record<string, unknown> | null
   id: string; user_id: string; test_date: string; panel_name: string | null; provider: string | null
   notes: string | null; source_type: string; created_at: string; updated_at: string; results: LabResult[]
 }
-export type LabDraftRow = { biomarker_name: string; entry: string; unit: string; reference_low: string; reference_high: string; reference_text: string; status: LabStatus | '' }
-export type LabDraft = { test_date: string; panel_name: string; provider: string; notes: string; results: LabDraftRow[] }
+export type LabDraftRow = { biomarker_name: string; entry: string; unit: string; reference_low: string; reference_high: string; reference_text: string; status: LabStatus | ''; id?: string; included?: boolean; source_row_index?: number; source_raw?: Record<string, unknown>; import_confidence?: 'high' | 'medium' | 'low'; warnings?: string[] }
+export type LabDraft = { test_date: string; panel_name: string; provider: string; notes: string; results: LabDraftRow[]; source_type?: 'manual' | 'csv' | 'pdf'; source_filename?: string; source_metadata?: Record<string, unknown> }
 export type LabResultInput = Pick<LabResult, 'biomarker_name' | 'value' | 'value_text' | 'unit' | 'reference_low' | 'reference_high' | 'reference_text' | 'status' | 'status_source'>
 
 export function resolveLabStatus(value: number | null, low: number | null, high: number | null, reported: LabStatus | '' = ''): { status: LabStatus; status_source: LabStatusSource } {

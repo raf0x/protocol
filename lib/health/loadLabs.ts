@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
 import { prepareLabDraft, type LabDraft, type LabPanel, type LabResult } from './labs'
+import { prepareLabSubmission } from './labEditor'
 
 export class LabsAuthError extends Error {}
 
@@ -45,4 +46,26 @@ export async function saveLabPanel(draft: LabDraft, client: SupabaseClient = cre
   const { data, error } = await client.rpc('save_lab_panel_v1', { p_panel: payload.panel, p_results: payload.results })
   if (error || typeof data !== 'string') throw new Error('We could not confirm the save. Your entries are still here. Check Recent Panels before retrying if your connection was interrupted.')
   return data
+}
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export async function saveLabPanelV2(draft: LabDraft, original: LabPanel | null, reviewConfirmed: boolean, client: SupabaseClient = createClient()) {
+  const payload = prepareLabSubmission(draft, reviewConfirmed)
+  if (original && (!uuidPattern.test(original.id) || !original.updated_at)) throw new Error('Reload the panel before editing.')
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (!user || authError) throw new LabsAuthError('Please sign in again before saving.')
+  const { data, error } = await client.rpc('save_lab_panel_v2', { p_panel_id: original?.id ?? null, p_expected_updated_at: original?.updated_at ?? null, p_panel: payload.panel, p_results: payload.results })
+  if (error) {
+    if (error.message?.includes('changed since')) throw new Error('This panel changed in another session. Reload it before editing again.')
+    throw new Error('We could not confirm the save. Your entries are still here. Check your panels before retrying after a connection interruption.')
+  }
+  if (typeof data !== 'string') throw new Error('Unable to confirm the saved panel.')
+  return data
+}
+export async function deleteLabPanel(panel: LabPanel, client: SupabaseClient = createClient()) {
+  if (!uuidPattern.test(panel.id) || !panel.updated_at) throw new Error('Reload the panel before deleting.')
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (!user || authError) throw new LabsAuthError('Sign in before deleting a panel.')
+  const { error } = await client.rpc('delete_lab_panel_v2', { p_panel_id: panel.id, p_expected_updated_at: panel.updated_at })
+  if (error) throw new Error('Deletion could not be confirmed. Reload your panels before trying again; the panel may have changed.')
 }

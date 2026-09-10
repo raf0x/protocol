@@ -43,6 +43,18 @@
 .actions button { min-height: 48px; }
 .actions .primary { flex: 1; }
 .notes { white-space: pre-wrap; font-size: var(--app-font-body); line-height: 1.6; }
+.form .checkLabel { display: flex; align-items: center; gap: var(--app-space-sm); min-height: 44px; line-height: 1.5; }
+.form .checkLabel input { width: 22px; height: 22px; min-height: 22px; flex: 0 0 22px; accent-color: var(--app-accent); }
+.notice[data-confidence='low'] { border-color: var(--app-warning); }
+.raw { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: var(--app-font-small); max-height: 260px; overflow-y: auto; color: var(--app-secondary); }
+.importMenu { border-radius: var(--app-radius-button); }
+.importMenu summary { position: relative; isolation: isolate; display: flex; align-items: center; min-height: 44px; padding-inline: 10px; cursor: pointer; color: var(--app-accent); font-size: 12px; font-weight: 600; }
+.importMenu summary::after { content: ''; position: absolute; z-index: -1; inset: 6px 0; border: 1px solid var(--app-border); border-radius: 999px; background: var(--app-surface); }
+.importMenu a { display: flex; min-height: 44px; }
+.dialog { color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius-card); width: min(92vw, 480px); padding: var(--app-space-lg); margin: auto; }
+.dialog::backdrop { background: #0009; }
+.dialog h2 { font-size: var(--app-font-title); }
+.dialog p { color: var(--app-secondary); line-height: 1.6; }
 .trend summary { min-height: 44px; padding-block: var(--app-space-xs); cursor: pointer; }
 .trend summary strong { font-weight: 600; }
 .trend summary > span { display: block; color: var(--app-muted); font-size: var(--app-font-small); margin-top: var(--app-space-xs); }
