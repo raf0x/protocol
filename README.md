@@ -259,6 +259,17 @@ Open
 http://localhost:3000
 ```
 
+## AI Health Analyst configuration
+
+The Health Analyst calls the model from a server route. Add these values to your local `.env.local` and to your production host. Never prefix the API key with `NEXT_PUBLIC_`.
+
+```bash
+OPENAI_API_KEY=your-server-side-api-key
+OPENAI_HEALTH_ANALYST_MODEL=gpt-5-mini
+```
+
+`OPENAI_HEALTH_ANALYST_MODEL` is optional. The analyst sends a compact, query-specific evidence bundle and does not persist model responses in the application database.
+
 ---
 
 # Roadmap
