@@ -270,6 +270,12 @@ OPENAI_HEALTH_ANALYST_MODEL=gpt-5-mini
 
 `OPENAI_HEALTH_ANALYST_MODEL` is optional. The analyst sends a compact, query-specific evidence bundle and does not persist model responses in the application database.
 
+## Doctor-ready reports
+
+Authenticated users can create a report from Health using existing protocol, lab, weight, and structured journal records. Reports are generated on demand and are not stored. Use the report preview's **Download PDF** action to open the browser or iOS print sheet, then choose Save as PDF or Share.
+
+The factual report does not require AI. When the optional executive summary is enabled, it reuses the Health Analyst configuration and evidence safeguards above.
+
 ---
 
 # Roadmap

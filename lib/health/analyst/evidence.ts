@@ -105,15 +105,16 @@ function journalEvidence(entries: JournalEntryRow[]) {
 
 function unique<T extends { id: string }>(items: T[]) { return [...new Map(items.map(item => [item.id, item])).values()] }
 
-export function buildAnalystContext(data: AnalystSourceData, question: string, today: string): HealthAnalystContext {
+export function buildAnalystContext(data: AnalystSourceData, question: string, today: string, options: { minimumDate?: string | null } = {}): HealthAnalystContext {
   const intent = classifyAnalystIntent(question)
   const panels = [...data.panels].sort((a, b) => b.test_date.localeCompare(a.test_date) || a.id.localeCompare(b.id))
   const latest = panels[0] ?? null, previous = panels[1] ?? null
   const labRows = (intent === 'current_snapshot' ? latest ? [latest] : [] : panels.slice(0, 2)).flatMap(panel => panel.results.map(result => labEvidence(panel, result)))
   const comparisons = comparableEvidence(panels)
   const eventAnchor = ['since_last_labs', 'protocol_context', 'largest_changes'].includes(intent) ? latest?.test_date ?? null : null
-  const events = eventEvidence(data.protocolEvents, eventAnchor,
-    intent === 'since_last_labs' && previous ? previous.test_date : intent === 'largest_changes' ? panels.at(-1)?.test_date ?? null : null)
+  const intentStart = intent === 'since_last_labs' && previous ? previous.test_date : intent === 'largest_changes' ? panels.at(-1)?.test_date ?? null : null
+  const eventStart = [intentStart, options.minimumDate].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null
+  const events = eventEvidence(data.protocolEvents, eventAnchor, eventStart)
   const states = protocolStateEvidence(data.protocols, data.protocolEvents, intent === 'since_last_labs' && latest ? latest.test_date : today)
   const weights = weightEvidence(data.journal), journals = journalEvidence(data.journal)
   const gaps: ContextFact[] = []
