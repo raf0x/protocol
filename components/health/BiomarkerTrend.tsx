@@ -7,7 +7,7 @@ import LabStatusBadge from './LabStatusBadge'
 import styles from '../../app/health/health.module.css'
 
 export default function BiomarkerTrend({ history }: { history: BiomarkerHistory }) {
-  return <section className={styles.trend}><div className={styles.trendHeader}><span className={styles.eyebrow}>{history.category}</span><h2>{history.name}</h2><p>{history.panelCount} panels</p></div>
+  return <section className={styles.trend}><div className={styles.trendHeader}><span className={styles.eyebrow}>{history.category}</span><h2>{history.name}</h2><p>{history.panelCount} panels</p><Link className={styles.overlayLink} href={`/health?biomarker=${encodeURIComponent(history.key)}&overlay=protocols`}>View with protocol history</Link></div>
     {history.units.length > 1 && <p className={styles.notice}>Units differ across these results. Each unit is shown separately; no conversion or combined comparison is made.</p>}
     {history.units.map(group => {
       const chart = trendChart(group.observations), points = chart.points
