@@ -8,8 +8,9 @@ import { biomarkerHistories, panelSummary, type LabPanel } from '../../lib/healt
 import { formatTimelineDate } from '../../lib/health/timeline'
 import AddLabForm from './AddLabForm'
 import LabPanelCard from './LabPanelCard'
-import LabResultRow from './LabResultRow'
 import BiomarkerTrend from './BiomarkerTrend'
+import LabInsights from './LabInsights'
+import PanelResultGroups from './PanelResultGroups'
 import ImportLabForm from './ImportLabForm'
 import DeleteLabPanel from './DeleteLabPanel'
 import styles from '../../app/health/health.module.css'
@@ -28,7 +29,9 @@ export default function HealthDashboard() {
   const importing = query.get('action') === 'csv' ? 'csv' : query.get('action') === 'pdf' ? 'pdf' : null
   const panelId = query.get('panel')
   const panel = panels.find(item => item.id === panelId)
-  const histories = useMemo(() => biomarkerHistories(panels).filter(item => item.panelCount > 1), [panels])
+  const biomarkerId = query.get('biomarker')
+  const histories = useMemo(() => biomarkerHistories(panels), [panels])
+  const biomarker = histories.find(item => item.key === biomarkerId)
   useEffect(() => {
     let cancelled = false
     loadLabs().then(data => { if (!cancelled) { setPanels(data); setStatus('ready') } }).catch(error => {
@@ -40,7 +43,7 @@ export default function HealthDashboard() {
   }, [router, attempt])
   function retry() { setStatus('loading'); setAttempt(value => value + 1) }
   return <main className={styles.page}>
-    <header className={styles.header}><span className={styles.eyebrow}>Your health, over time</span><h1>{importing ? 'Import lab results' : editing ? 'Edit lab panel' : adding ? 'Add lab results' : panelId ? 'Lab panel' : 'Health'}</h1><p>Lab results and check-ins, in one place.</p>
+    <header className={styles.header}><span className={styles.eyebrow}>Your health, over time</span><h1>{importing ? 'Import lab results' : editing ? 'Edit lab panel' : adding ? 'Add lab results' : panelId ? 'Lab panel' : biomarkerId ? 'Biomarker trend' : 'Health'}</h1><p>Lab results and check-ins, in one place.</p>
       <div className={styles.headerLinks}><Link href="/health">Labs</Link><Link href="/journal">Journal history</Link>{!adding && !importing && !editing && <details className={styles.importMenu}><summary>Add / Import</summary><Link href="/health?action=add">Add manually</Link><Link href="/health?action=csv">Import CSV</Link><Link href="/health?action=pdf">Import PDF</Link></details>}</div>
     </header>
     {saved && <p role="status" className={styles.notice}>Lab results saved.</p>}
@@ -52,11 +55,11 @@ export default function HealthDashboard() {
         {panel.notes && <details className={styles.formDetails}><summary>Panel notes</summary><p className={styles.notes}>{panel.notes}</p></details>}
         {panel.source_filename && <details className={styles.formDetails}><summary>Import provenance</summary><p>{panel.source_filename}</p><pre className={styles.raw}>{JSON.stringify(panel.source_metadata,null,2)}</pre></details>}
       </section>
-      <section className={styles.card} aria-label="Biomarker results"><h2>Results</h2><p className={styles.caption}>Status reflects the supplied lab interpretation or numeric reference bounds. It is not a diagnosis.</p>{panel.results.length ? panel.results.map(result => <div key={result.id}><LabResultRow result={result} />{result.source_raw&&<details className={styles.formDetails}><summary>Original source · {result.import_confidence} parser confidence</summary><pre className={styles.raw}>{JSON.stringify(result.source_raw,null,2)}</pre></details>}</div>) : <p>No results recorded in this panel.</p>}</section>
+      <section className={styles.card} aria-label="Biomarker results"><h2>Results</h2><p className={styles.caption}>Status reflects the supplied lab interpretation or numeric reference bounds. It is not a diagnosis.</p><PanelResultGroups results={panel.results} /></section>
       <Link className={styles.textLink} href="/health">Back to all panels & trends</Link>
-    </> : <section className={styles.card}><h2>Panel unavailable</h2><p>This panel is not available in your account.</p><Link href="/health">View your panels</Link></section> : <>
+    </> : <section className={styles.card}><h2>Panel unavailable</h2><p>This panel is not available in your account.</p><Link href="/health">View your panels</Link></section> : biomarkerId ? biomarker ? <><BiomarkerTrend history={biomarker} /><Link className={styles.textLink} href="/health">Back to lab insights</Link></> : <section className={styles.card}><h2>Biomarker unavailable</h2><p>This biomarker is not available in your lab history.</p><Link href="/health">View lab insights</Link></section> : <>
+      <LabInsights panels={panels} histories={histories} />
       <section aria-labelledby="panels-heading"><div className={styles.sectionHeading}><h2 id="panels-heading">Recent panels</h2><span>{panels.length}</span></div>{panels.length ? <div className={styles.panelList}>{panels.map(item => <LabPanelCard key={item.id} panel={item} />)}</div> : <div className={styles.card}><h3>Your lab history starts here</h3><p>Add the values from a lab report. Reference ranges are optional.</p><Link className={styles.textLink} href="/health?action=add">Add your first panel</Link></div>}</section>
-      <section aria-labelledby="trends-heading"><div className={styles.sectionHeading}><h2 id="trends-heading">Biomarker trends</h2></div>{histories.length ? <><p className={styles.caption}>Matching names are grouped exactly. Units are never converted.</p>{histories.map(history => <BiomarkerTrend key={history.name} history={history} />)}</> : <div className={styles.card}><h3>A clearer view with repeat results</h3><p>Record the same biomarker in another panel to see its history. Use the same name and unit as your report.</p></div>}</section>
     </>)}
     {deleting&&<DeleteLabPanel panel={deleting} onClose={()=>setDeleting(null)} onDeleted={()=>{setDeleting(null);setSaved(false);retry();router.push('/health')}} />}
   </main>

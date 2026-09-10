@@ -1,3 +1,5 @@
+import { classifyBiomarker, trendChart, type BiomarkerCategory } from './biomarkerIntelligence'
+
 export const labStatuses = ['low', 'normal', 'high', 'abnormal', 'unknown'] as const
 export type LabStatus = typeof labStatuses[number]
 export type LabStatusSource = 'reported' | 'derived' | 'unknown'
@@ -69,17 +71,20 @@ export function panelSummary(results: Pick<LabResult, 'status'>[]) {
 }
 
 export type LabObservation = { date: string; panelId: string; result: LabResult }
-export type BiomarkerHistory = { name: string; units: { unit: string; observations: LabObservation[] }[]; panelCount: number }
-/** Names and units are compared exactly after trim. No synonym or unit conversions. */
+export type BiomarkerHistory = { key: string; name: string; category: BiomarkerCategory; units: { unit: string; observations: LabObservation[] }[]; panelCount: number }
+/** Known aliases use a conservative registry. Original names remain on every result.
+ * Units are always exact and are never converted or merged. */
 export function biomarkerHistories(panels: LabPanel[]): BiomarkerHistory[] {
-  const names = new Map<string, LabObservation[]>()
+  const names = new Map<string, { category: BiomarkerCategory; observations: LabObservation[] }>()
   for (const panel of panels) for (const result of panel.results) {
-    const name = result.biomarker_name.trim()
-    const observations = names.get(name) ?? []
+    const marker = classifyBiomarker(result.biomarker_name)
+    const entry = names.get(marker.key) ?? { category: marker.category, observations: [] }
+    const observations = entry.observations
     observations.push({ date: panel.test_date, panelId: panel.id, result })
-    names.set(name, observations)
+    names.set(marker.key, entry)
   }
-  return [...names].sort(([a], [b]) => a.localeCompare(b)).map(([name, observations]) => {
+  return [...names].sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => {
+    const { category, observations } = entry
     const units = new Map<string, LabObservation[]>()
     observations.sort((a, b) => b.date.localeCompare(a.date) || a.result.id.localeCompare(b.result.id))
     for (const item of observations) {
@@ -87,19 +92,12 @@ export function biomarkerHistories(panels: LabPanel[]): BiomarkerHistory[] {
       const group = units.get(unit) ?? []
       group.push(item); units.set(unit, group)
     }
-    return { name, panelCount: new Set(observations.map(item => item.panelId)).size, units: [...units].sort(([a], [b]) => a.localeCompare(b)).map(([unit, items]) => ({ unit, observations: items })) }
+    return { key, name: observations[0].result.biomarker_name.trim(), category, panelCount: new Set(observations.map(item => item.panelId)).size, units: [...units].sort(([a], [b]) => a.localeCompare(b)).map(([unit, items]) => ({ unit, observations: items })) }
   })
 }
 
 /** A chart is only appropriate for known equal units, numeric values, and
  * unique dates. All observations remain visible even when the chart is omitted. */
 export function trendPoints(observations: LabObservation[]) {
-  if (observations.length < 2 || !observations[0].result.unit.trim() || observations.some(item => item.result.unit.trim() !== observations[0].result.unit.trim() || item.result.value == null || !Number.isFinite(item.result.value))) return []
-  if (new Set(observations.map(item => item.date)).size !== observations.length) return []
-  const ordered = [...observations].sort((a, b) => a.date.localeCompare(b.date))
-  const dates = ordered.map(item => Date.parse(`${item.date}T12:00:00Z`))
-  if (dates.some(date => !Number.isFinite(date))) return []
-  const values = ordered.map(item => item.result.value!)
-  const min = Math.min(...values), max = Math.max(...values)
-  return ordered.map((item, index) => ({ x: 12 + (dates[index] - dates[0]) / (dates.at(-1)! - dates[0]) * 276, y: max === min ? 60 : 108 - (item.result.value! - min) / (max - min) * 96 }))
+  return trendChart(observations).points
 }
