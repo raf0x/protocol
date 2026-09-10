@@ -24,7 +24,7 @@ export async function loadTimeline() {
   if (error) throw error
   const [protocolEvents, journalEntries, protocols, labs] = await Promise.all([
     readAll<ProtocolEventRow>((from, to) => supabase.from('protocol_events')
-      .select('id, date, event_type, description, protocol_id, compound_id, protocols(id, name, start_date, status, compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))), compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))')
+      .select('id, date, event_type, description, protocol_id, compound_id, metadata, protocols(id, name, start_date, status, compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))), compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))')
       .eq('user_id', user.id).order('date', { ascending: false }).order('id').range(from, to)
       .returns<ProtocolEventRow[]>()),
     readAll<JournalEntryRow>((from, to) => supabase.from('journal_entries')

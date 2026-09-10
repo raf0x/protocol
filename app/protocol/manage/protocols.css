@@ -53,6 +53,17 @@
 .protocol-dose-overview > span { color: var(--app-secondary); font-size: var(--app-font-small); }
 .protocol-dose-overview > strong { font-size: 24px; font-weight: 650; overflow-wrap: anywhere; }
 .protocol-dose-overview p { margin: 0; color: var(--app-secondary); font-size: var(--app-font-small); }
+.protocol-dose-change { margin-top: 8px; border-bottom: 1px solid var(--app-border); }
+.protocol-dose-change > summary { color: var(--app-accent); font-size: var(--app-font-small); }
+.protocol-dose-change-body { display: grid; gap: 10px; padding-bottom: 14px; color: var(--app-secondary); font-size: var(--app-font-small); }
+.protocol-dose-change-body p { margin: 0; }
+.protocol-dose-change-body label, .protocol-effective-date label { display: grid; gap: 6px; color: var(--app-secondary); font-size: var(--app-font-small); }
+.protocol-dose-change-body input:not([type=checkbox]), .protocol-effective-date input:not([type=checkbox]) { width: 100%; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-bg); color: var(--app-text); padding: 10px 12px; font-size: 16px; }
+.protocol-dose-input { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+.protocol-dose-input span { color: var(--app-text); font-weight: 650; }
+.protocol-check { display: flex !important; align-items: center; gap: 8px !important; min-height: 44px; }
+.protocol-guidance, .protocol-effective-date p { color: var(--app-muted) !important; }
+.protocol-error { color: var(--app-error) !important; }
 .protocol-phase { padding-block: var(--app-space-md); border-bottom: 1px solid var(--app-border); }
 .protocol-phase h3, .protocol-advanced h3 { font-size: var(--app-font-body); font-weight: 650; margin: 0 0 8px; }
 .protocol-phase p, .protocol-advanced p { color: var(--app-secondary); font-size: var(--app-font-small); margin-block: 6px; }
@@ -82,6 +93,8 @@
 .protocol-day-picker { grid-template-columns: repeat(4, minmax(44px, 1fr)) !important; }
 .protocol-save-bar { display: flex; gap: 8px; position: sticky; bottom: calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 8px); z-index: 10; padding: 12px; background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius-card); box-shadow: var(--app-shadow); }
 .protocol-save-bar button { min-height: 48px; }
+.protocol-effective-date { display: grid; gap: 8px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface-secondary); padding: 10px 12px; margin-bottom: 10px; }
+.protocol-effective-date p { margin: 0; font-size: var(--app-font-small); }
 .protocol-confirm-dialog { margin: auto; padding: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); color: var(--app-text); width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; }
 .protocol-confirm-dialog::backdrop { background: #030711b8; }
 .protocol-confirm-dialog > div { border: 0 !important; max-width: none !important; }

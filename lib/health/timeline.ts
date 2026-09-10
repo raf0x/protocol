@@ -9,7 +9,7 @@ export type TimelineEvent = {
   description?: string
   sourceType: 'protocol_events' | 'journal_entries' | 'lab_panels'
   sourceId: string
-  metadata?: Record<string, string | number | null>
+  metadata?: Record<string, unknown>
 }
 
 export type PhaseRow = {
@@ -43,6 +43,7 @@ export type ProtocolEventRow = {
   compound_id: string | null
   protocols: ProtocolRow | null
   compounds: CompoundRow | null
+  metadata?: Record<string, unknown> | null
 }
 export type JournalEntryRow = {
   id: string
@@ -58,6 +59,7 @@ export type JournalEntryRow = {
 const protocolActions: Record<string, string> = {
   started: 'started', stopped: 'stopped', completed: 'completed', paused: 'paused',
   resumed: 'resumed', dose_change: 'dose changed', compound_added: 'added', compound_removed: 'removed',
+  phase_started: 'phase started', phase_continued: 'phase continued', frequency_change: 'frequency changed', route_change: 'route changed',
 }
 const textKey = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase().replace(/[.!]+$/, '')
 
@@ -135,6 +137,17 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
   const title = action ? `${name || 'Protocol'} ${action}` : (row.event_type?.replaceAll('_', ' ') || 'Protocol update')
   const original = row.description?.trim() || ''
   let description = original
+  const metadata = row.metadata ?? {}
+  const value = (key: string) => typeof metadata[key] === 'string' || typeof metadata[key] === 'number' ? String(metadata[key]) : ''
+  if (row.event_type === 'dose_change' && value('newDose') && value('newUnit')) {
+    description = value('previousDose') && value('previousUnit')
+      ? `${value('previousDose')} ${value('previousUnit')} → ${value('newDose')} ${value('newUnit')}`
+      : `${value('newDose')} ${value('newUnit')}`
+  } else if (row.event_type === 'frequency_change' && value('newFrequency')) {
+    description = value('previousFrequency') ? `${formatFrequency(value('previousFrequency'))} → ${formatFrequency(value('newFrequency'))}` : formatFrequency(value('newFrequency'))
+  } else if (row.event_type === 'route_change' && value('newRoute')) {
+    description = value('previousRoute') ? `${value('previousRoute')} → ${value('newRoute')}` : value('newRoute')
+  }
   if (name && action) {
     // Remove only an exact mechanical title or prefix; retain dose changes and free text.
     const verbs: Record<string, string> = { started: 'Started', stopped: 'Stopped', completed: 'Completed', paused: 'Paused', resumed: 'Resumed', compound_added: 'Added', compound_removed: 'Removed' }
@@ -149,8 +162,8 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
       eventType: row.event_type, protocolId: row.protocol_id, compoundId: row.compound_id,
       compoundName: compound?.name ?? null, protocolStartDate: row.protocols?.start_date ?? null,
       protocolStatus: row.protocols?.status ?? null,
-      ...planMetadata(compound, row.protocols?.start_date ?? null, row.date),
-      metadataSource: 'saved_plan',
+      ...planMetadata(compound, row.protocols?.start_date ?? null, row.date), ...metadata,
+      metadataSource: row.metadata ? 'structured_event' : 'saved_plan',
     },
   }
 }
@@ -238,7 +251,11 @@ export function deriveBaseline(protocols: ProtocolRow[], journal: JournalEntryRo
 
 export function protocolMetadataChips(event: TimelineEvent): string[] {
   if (event.category !== 'Protocol' || !event.metadata) return []
-  return formatPlanDetails(event.metadata)
+  const dose = typeof event.metadata.newDose === 'number' ? event.metadata.newDose : event.metadata.dose
+  const doseUnit = typeof event.metadata.newUnit === 'string' ? event.metadata.newUnit : event.metadata.doseUnit
+  const frequency = typeof event.metadata.newFrequency === 'string' ? event.metadata.newFrequency : event.metadata.frequency
+  const route = typeof event.metadata.newRoute === 'string' ? event.metadata.newRoute : event.metadata.route
+  return formatPlanDetails({ dose, doseUnit, frequency, route })
 }
 
 function formatPlanDetails(metadata: NonNullable<TimelineEvent['metadata']>): string[] {

@@ -12,7 +12,7 @@ export async function readProtocolOverlay(client: SupabaseClient, userId: string
   if (!ids.length) return { protocols: [], events: [] }
   // Earlier lifecycle events can determine whether a protocol was active at the
   // first lab date, so scope by relevant protocol IDs rather than truncating by it.
-  const events = await client.from('protocol_events').select('id,date,event_type,description,protocol_id,compound_id')
+  const events = await client.from('protocol_events').select('id,date,event_type,description,protocol_id,compound_id,metadata')
     .eq('user_id', userId).in('protocol_id', ids).lte('date', latest).order('date')
   if (events.error) throw new Error('Protocol history could not be loaded. Your lab history is unchanged.')
   return { protocols: rows, events: (events.data ?? []) as OverlayProtocolEvent[] }

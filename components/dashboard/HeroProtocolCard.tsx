@@ -5,6 +5,7 @@ import type { PhaseRow } from '../../lib/health/timeline'
 import React, { useState } from 'react'
 import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { createClient } from '../../lib/supabase'
+import { continueLatestPhase, transitionProtocol } from '../../lib/health/protocolMutations'
 import CompoundNotes from './CompoundNotes'
 import VialInventory from './VialInventory'
 
@@ -212,8 +213,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     if(!expired) return
     setContinuing(true);setPhaseError('')
     try {
-      const {error}=await createClient().rpc('continue_latest_phase',{p_protocol_id:activeProtocol.id,p_compound_id:activeCompound.id,p_phase_id:expired.id})
-      if(error) throw error
+      await continueLatestPhase({protocolId:activeProtocol.id,compoundId:activeCompound.id,phaseId:expired.id})
       window.location.reload()
     } catch(error) {setPhaseError((error as {message?:string}).message || 'Unable to continue the phase. Please retry.');setContinuing(false)}
 
@@ -221,11 +221,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const badgeDoseText = dosingDisplay(currentPhase).primary
 
   async function archiveProtocol() {
-    const supabase = createClient()
-    await supabase.from('protocols').update({ 
-      status: 'completed', 
-      completed_date: new Date().toISOString() 
-    }).eq('id', activeProtocol.id)
+    await transitionProtocol({protocolId:activeProtocol.id,action:'complete',effectiveDate:new Date().toLocaleDateString('en-CA')})
     window.location.reload()
   }
 

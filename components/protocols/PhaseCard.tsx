@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '../../lib/supabase'
 import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { compoundOverview, doseLabel, phaseLabel, type LibraryCompound, type LibraryProtocol } from '../../lib/health/protocolPresentation'
+import { continueLatestPhase } from '../../lib/health/protocolMutations'
 
 export default function PhaseCard({ protocol, compound, today, onEdit, onReload }: { protocol: LibraryProtocol; compound: LibraryCompound; today: string; onEdit: (compoundId?: string, addPhase?: boolean) => void; onReload: () => void }) {
   const [busy, setBusy] = useState(false)
@@ -14,9 +14,7 @@ export default function PhaseCard({ protocol, compound, today, onEdit, onReload 
     if (!expired || busy) return
     setBusy(true); setError('')
     try {
-      // Same RPC and identifiers as the existing Today hero action.
-      const { error } = await createClient().rpc('continue_latest_phase', { p_protocol_id: protocol.id, p_compound_id: compound.id, p_phase_id: expired.id })
-      if (error) throw error
+      await continueLatestPhase({ protocolId: protocol.id, compoundId: compound.id, phaseId: expired.id })
       onReload()
     } catch { setError('This phase could not be continued. Please try again.') }
     finally { setBusy(false) }

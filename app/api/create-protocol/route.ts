@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
-  const { data: protocolId, error } = await supabase.rpc('save_protocol_dosing_v2', {
+  const { data: protocolId, error } = await supabase.rpc('save_protocol_with_events_v1', {
     p_protocol_id: null, p_name: payload.name, p_start_date: todayStr, p_compounds: payload.compounds,
+    p_effective_date: todayStr,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ success: true, protocolId })

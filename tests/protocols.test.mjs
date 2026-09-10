@@ -100,6 +100,6 @@ test('editor sections support native collapsed optional fields without unmountin
 })
 test('editor still calls the save-first RPC, uses ongoing helper, and retains every entry mode', () => {
   const source = readFileSync(new URL('../app/protocol/manage/page.tsx', import.meta.url), 'utf8')
-  for (const token of ["rpc('save_protocol_dosing_v2'", 'phaseEndWeek(start,c.duration_weeks)', 'entryFromForm(c)', 'value="medication"', 'value="syringe"', 'value="volume"', 'value="unknown"']) assert.ok(source.includes(token), token)
+  for (const token of ['saveProtocolWithEvents(', 'phaseEndWeek(start,c.duration_weeks)', 'entryFromForm(c)', 'value="medication"', 'value="syringe"', 'value="volume"', 'value="unknown"']) assert.ok(source.includes(token), token)
   assert.doesNotMatch(source, /calculateDosing\(/)
 })

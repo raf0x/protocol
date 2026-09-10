@@ -6,9 +6,10 @@ import { administrationForPhase } from '../../lib/health/dosingEntry'
 import { normalizeTimeline, type ProtocolEventRow } from '../../lib/health/timeline'
 import { compoundOverview, dateLabel, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import PhaseCard from './PhaseCard'
+import DoseChangeAction from './DoseChangeAction'
 
 type Log = { id: string; compound_id: string; date: string; taken: boolean }
-type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean) => void; onComplete: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
+type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean) => void; onComplete: () => void; onPause: () => void; onResume: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
 export default function ProtocolDetail(props: Props) {
   const { protocol, today } = props
   const [history, setHistory] = useState<ProtocolEventRow[]>([])
@@ -46,6 +47,7 @@ export default function ProtocolDetail(props: Props) {
       return <section className="protocol-detail-compound" key={compound.id}>
         <h2>{compound.name}</h2>
         <div className="protocol-dose-overview"><span>{protocol.status === 'completed' ? 'Dose at completion' : 'Current dose'}</span><strong>{info.dose}</strong><p>{info.frequency}{info.phase?.route && ` · ${info.phase.route}`}{info.week && ` · Week ${info.week}`}</p></div>
+        <DoseChangeAction protocol={protocol} compound={compound} today={today} onSaved={props.onReload} />
         <section className="protocol-phase"><h3>Schedule</h3><p>{info.frequency}{info.phase?.time_of_day && ` · ${info.phase.time_of_day}`}</p>
           {!!info.phase?.days_of_week?.length && <p>{info.phase.days_of_week.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(' · ')}</p>}
           {info.next && <p>Scheduled {info.next.date === today ? 'today' : dateLabel(info.next.date)}{info.next.time && ` · ${info.next.time}`}</p>}
@@ -75,6 +77,8 @@ export default function ProtocolDetail(props: Props) {
       </>}
     </details>
     <details className="protocol-advanced"><summary>Protocol actions</summary><div className="protocol-action-row">
+      {protocol.status === 'active' && <button onClick={props.onPause}>Pause protocol</button>}
+      {protocol.status === 'paused' && <button onClick={props.onResume}>Resume protocol</button>}
       <button onClick={protocol.status === 'completed' ? props.onReactivate : props.onComplete}>{protocol.status === 'completed' ? 'Reactivate protocol' : 'Complete protocol'}</button>
       <button className="protocol-danger" onClick={props.onDelete}>Delete protocol</button>
     </div></details>

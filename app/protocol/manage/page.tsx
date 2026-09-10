@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { phaseEndWeek } from '../../../lib/health/phaseLifecycle'
 import { currentPhase } from '../../../lib/health/dosing'
 import { dosingDisplay, entryFromForm, entryFormState, interpretEntry, validDate, type EntryMode } from '../../../lib/health/dosingEntry'
+import { saveProtocolWithEvents, transitionProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
@@ -90,6 +91,11 @@ export default function ManagePage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [removedCompoundIds, setRemovedCompoundIds] = useState<string[]>([])
   const [continuedFromId, setContinuedFromId] = useState('')
+  const today = new Date().toLocaleDateString('en-CA')
+  const [changeHappenedEarlier, setChangeHappenedEarlier] = useState(false)
+  const [effectiveDate, setEffectiveDate] = useState(today)
+  const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
+  const [completionDate, setCompletionDate] = useState(today)
 
   function protocolDurationLabel(p: any): string {
     if (!p?.start_date || !p?.completed_date) return ''
@@ -122,16 +128,21 @@ export default function ManagePage() {
 
   async function completeProtocol() {
     if (!confirmComplete) return
-    const supabase = createClient()
-    await supabase.from('protocols').update({ 
-      status: 'completed', 
-      completed_date: new Date().toISOString() 
-    }).eq('id', confirmComplete.id)
-    
-    setShowConfetti(true)
-    setTimeout(() => setShowConfetti(false), 3000)
-    setConfirmComplete(null)
-    load()
+    try {
+      await transitionProtocol({ protocolId: confirmComplete.id, action: 'complete', effectiveDate: completionHappenedEarlier ? completionDate : today })
+      setShowConfetti(true)
+      setTimeout(() => setShowConfetti(false), 3000)
+      setConfirmComplete(null)
+      await load()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to complete the protocol.') }
+  }
+
+  async function changeStatus(protocol: any, action: 'pause' | 'resume') {
+    try {
+      await transitionProtocol({ protocolId: protocol.id, action, effectiveDate: today })
+      setSavedNotice(action === 'pause' ? 'Protocol paused.' : 'Protocol resumed.')
+      await load()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update the protocol.') }
   }
 
   async function deleteCompletedProtocol() {
@@ -280,6 +291,8 @@ export default function ManagePage() {
     setStartDate(new Date().toISOString().split('T')[0])
     setCompounds([newCompound()])
     setContinuedFromId('')
+    setChangeHappenedEarlier(false)
+    setEffectiveDate(today)
     setShowForm(true)
     setError('')
   }
@@ -290,6 +303,8 @@ export default function ManagePage() {
     setRemovedCompoundIds([])
     const parameters = new URLSearchParams(window.location.search)
     setEditingId(p.id)
+    setChangeHappenedEarlier(false)
+    setEffectiveDate(today)
     setStartDate(p.start_date)
     const cs = (p.compounds || []).map((c: any) => {
       const ph = currentPhase(c.phases || [], p.start_date, new Date().toLocaleDateString('en-CA')) || [...(c.phases || [])].sort((a, b) => b.start_week - a.start_week)[0]
@@ -367,10 +382,9 @@ export default function ManagePage() {
             time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
         }
       })
-      const { error: saveError } = await createClient().rpc('save_protocol_dosing_v2', {
-        p_protocol_id: editingId, p_name: compounds[0].name.trim(), p_start_date: startDate, p_compounds: payload, p_continued_from_id: continuedFromId || null, p_removed_compound_ids: removedCompoundIds,
-      })
-      if (saveError) throw saveError
+      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), startDate,
+        compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
+        effectiveDate: changeHappenedEarlier ? effectiveDate : today })
       const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
       setSavedNotice(guidance.length ? `Saved. ${guidance.join(' ')}` : 'Protocol saved.'); setShowForm(false); setEditingId(null); await load()
     } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
@@ -417,6 +431,7 @@ export default function ManagePage() {
         )}
 
         {savedNotice && <p role="status" style={{color:dg,fontSize:13}}>{savedNotice}</p>}
+        {error && !showForm && !confirmComplete && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
 
@@ -686,6 +701,12 @@ export default function ManagePage() {
 
             {error && <div style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
+            {editingId && <div className="protocol-effective-date">
+              <label className="protocol-check"><input type="checkbox" checked={changeHappenedEarlier} onChange={event => setChangeHappenedEarlier(event.target.checked)} /> These changes happened earlier</label>
+              {changeHappenedEarlier && <label>Effective date<input type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
+              <p>Otherwise, changes are recorded as effective today.</p>
+            </div>}
+
             <div className="protocol-save-bar">
               <button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
               <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Create Protocol'}</button>
@@ -703,7 +724,8 @@ export default function ManagePage() {
               startEdit(selected)
               if (addPhase) window.history.replaceState(null, '', '/protocol/manage')
             }}
-            onComplete={() => setConfirmComplete(selected)} onReactivate={() => setConfirmReactivate(selected)}
+            onComplete={() => { setError(''); setCompletionHappenedEarlier(false); setCompletionDate(today); setConfirmComplete(selected) }} onReactivate={() => setConfirmReactivate(selected)}
+            onPause={() => void changeStatus(selected, 'pause')} onResume={() => void changeStatus(selected, 'resume')}
             onDelete={() => selected.status === 'completed' ? setConfirmDelete(selected) : deleteProtocol(selected.id)}
             onReload={load} />
         })()}
@@ -722,6 +744,9 @@ export default function ManagePage() {
               <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
                 This will archive <strong>{confirmComplete.name}</strong> from your active stack. All data will be preserved.
               </p>
+              <label className="protocol-check"><input type="checkbox" checked={completionHappenedEarlier} onChange={event => setCompletionHappenedEarlier(event.target.checked)} /> This protocol ended earlier</label>
+              {completionHappenedEarlier && <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'16px'}}>Completion date<input aria-label="Completion date" type="date" min={confirmComplete.start_date} max={today} value={completionDate} onChange={event => setCompletionDate(event.target.value)} style={{...is,marginTop:'6px'}} /></label>}
+              {error && <p role="alert" className="protocol-error">{error}</p>}
               <div style={{display:'flex',gap:'10px'}}>
                 <button 
                   onClick={() => setConfirmComplete(null)}
