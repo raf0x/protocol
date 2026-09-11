@@ -1,7 +1,11 @@
 import { isNativeAppRuntime } from './clientRuntime'
 
 /** Where a link should be handled. See docs/capacitor-architecture-decision.md. */
-export type LinkTarget = 'in-app' | 'system-browser' | 'system-handler' | 'blocked'
+export type LinkTarget =
+  | 'in-app'
+  | 'system-browser'
+  | 'system-handler'
+  | 'blocked'
 
 const APP_HOSTS = ['www.mypepprotocol.app', 'mypepprotocol.app']
 const SYSTEM_HANDLER_PROTOCOLS = ['mailto:', 'tel:']
@@ -14,27 +18,50 @@ const SYSTEM_HANDLER_PROTOCOLS = ['mailto:', 'tel:']
  * app, external HTTPS goes to the system browser, mailto/tel go to their
  * native handler, and anything else is refused rather than guessed at.
  */
-export function classifyLink(href: string, currentOrigin?: string): LinkTarget {
+export function classifyLink(
+  href: string,
+  currentOrigin?: string
+): LinkTarget {
   const value = href.trim()
+
   if (!value) return 'blocked'
 
   // Fragment, query, relative, and root-relative links are always internal.
-  if (value.startsWith('#') || value.startsWith('?') || value.startsWith('/')) {
+  if (
+    value.startsWith('#') ||
+    value.startsWith('?') ||
+    value.startsWith('/')
+  ) {
     // Protocol-relative (//host) is not root-relative; treat as absolute.
     if (!value.startsWith('//')) return 'in-app'
   }
 
   let url: URL
+
   try {
-    const base = currentOrigin || (typeof window !== 'undefined' ? window.location.origin : 'https://www.mypepprotocol.app')
+    const base =
+      currentOrigin ||
+      (typeof window !== 'undefined'
+        ? window.location.origin
+        : 'https://www.mypepprotocol.app')
+
     url = new URL(value, base)
   } catch {
     return 'blocked'
   }
 
-  if (SYSTEM_HANDLER_PROTOCOLS.includes(url.protocol)) return 'system-handler'
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'blocked'
-  if (APP_HOSTS.includes(url.hostname)) return 'in-app'
+  if (SYSTEM_HANDLER_PROTOCOLS.includes(url.protocol)) {
+    return 'system-handler'
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return 'blocked'
+  }
+
+  if (APP_HOSTS.includes(url.hostname)) {
+    return 'in-app'
+  }
+
   return 'system-browser'
 }
 
@@ -45,8 +72,13 @@ export function classifyLink(href: string, currentOrigin?: string): LinkTarget {
  * browser or PWA behavior. The native branch is inert until the Capacitor
  * bridge is present.
  */
-export function requiresNativeHandoff(href: string, currentOrigin?: string): boolean {
+export function requiresNativeHandoff(
+  href: string,
+  currentOrigin?: string
+): boolean {
   if (!isNativeAppRuntime()) return false
+
   const target = classifyLink(href, currentOrigin)
+
   return target === 'system-browser' || target === 'system-handler'
 }
