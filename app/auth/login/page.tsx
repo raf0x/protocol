@@ -61,7 +61,7 @@ export default function LoginPage() {
   const btnStyle = {width:'100%',background:'#39ff14',color:'#000000',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'pointer',letterSpacing:'1px'}
   const btnDisabled = {width:'100%',background:'#1a3d1a',color:'#3d3d5c',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'not-allowed' as const,letterSpacing:'1px'}
 
-  if (sessionChecking) return <main role="status" aria-live="polite" style={{minHeight:'100dvh',background:'#0a0a0f',color:'#8b8ba7',display:'grid',placeItems:'center',padding:'24px'}}>Checking your session…</main>
+  if (sessionChecking) return <main role="status" aria-live="polite" style={{minHeight:'100dvh',background:'#0a0a0f',color:'#8b8ba7',display:'grid',placeItems:'center',padding:'max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px))'}}>Checking your session…</main>
 
   if (step === 'code') {
     return (
@@ -75,7 +75,7 @@ export default function LoginPage() {
           </div>
           {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
           <button onClick={verifyCode} disabled={loading} style={loading?btnDisabled:btnStyle}>{loading?'Verifying...':'Sign in'}</button>
-          <button onClick={() => { setStep('email'); setCode(''); setError(''); setCooldown(0) }} style={{width:'100%',background:'none',border:'none',color:'#3d3d5c',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
+          <button onClick={() => { setStep('email'); setCode(''); setError(''); setCooldown(0) }} style={{width:'100%',minHeight:'44px',background:'none',border:'none',color:'#8b8ba7',fontSize:'14px',cursor:'pointer',marginTop:'8px'}}>Use a different email</button>
           <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'16px',textAlign:'center'}}>No email? Check your spam. Code expires in 10 minutes.</p>
         </div>
       </main>

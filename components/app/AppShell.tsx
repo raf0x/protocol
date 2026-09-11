@@ -9,7 +9,7 @@ import PwaLifecycle from './PwaLifecycle'
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname()
-  const publicPage = path === '/' || path.startsWith('/auth/') || path.startsWith('/share/') || path === '/privacy' || path === '/offline'
+  const publicPage = path === '/' || path.startsWith('/auth/') || path.startsWith('/share/') || path.startsWith('/demo') || path === '/privacy' || path === '/offline'
   if (publicPage) return <><PwaLifecycle />{children}<ThemeToggle /></>
   return <div className={`mobile-app-shell${path === '/protocol' ? ' today-surface' : ''}`}>
     <PwaLifecycle />

@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import InstallHint from '../../components/app/InstallHint'
 import AiProcessingSettings from '../../components/profile/AiProcessingSettings'
 import DeleteAccount from '../../components/profile/DeleteAccount'
+import BuildIdentifier from '../../components/profile/BuildIdentifier'
+import { APP_STORE_V1_PUSH_ENABLED } from '../../lib/appRelease'
 
 export default function ProfilePage() {
   const [email, setEmail] = useState('')
@@ -169,7 +171,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <InstallHint />
-        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+        {APP_STORE_V1_PUSH_ENABLED ? <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Journal reminders</h2>
           <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Get a daily reminder to log your journal entry.</p>
           <div style={{marginBottom:'16px'}}>
@@ -184,10 +186,18 @@ export default function ProfilePage() {
           ) : (
             <button onClick={enableNotifications} disabled={notifLoading} style={{width:'100%',background:notifLoading?'#1a3d1a':g,color:notifLoading?mg:'var(--color-green-text)',fontWeight:'700',padding:'12px',borderRadius:'6px',border:'none',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Enabling...':'Enable reminders'}</button>
           )}
-        </div>
+        </div> : <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Journal reminders</h2>
+          <p style={{fontSize:'12px',color:mg,margin:0,lineHeight:'1.6'}}>Coming after launch while reliable local-time delivery is completed.</p>
+        </div>}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'12px'}}>About MyPepProtocol</h2>
           <p style={{fontSize:'13px',color:mg,lineHeight:'1.6',margin:0}}>MyPepProtocol is a personal harm reduction tracking tool. It does not provide medical advice, recommend dosing, or facilitate sourcing of any substances. Your records are scoped to your account.</p>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'8px 16px',marginTop:'12px'}}>
+            <a href="/privacy" style={{color:g,fontSize:'13px',minHeight:'44px',display:'inline-flex',alignItems:'center'}}>Privacy policy</a>
+            <a href="mailto:privacy@mypepprotocol.app" style={{color:g,fontSize:'13px',minHeight:'44px',display:'inline-flex',alignItems:'center'}}>Privacy & support</a>
+          </div>
+          <BuildIdentifier />
         </div>
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Weight unit</h2>

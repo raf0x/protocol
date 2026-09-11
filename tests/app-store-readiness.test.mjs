@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import ts from 'typescript'
 
@@ -22,6 +22,21 @@ const cronRoute = read('../app/api/cron/route.ts')
 const pushConfig = read('../lib/pushConfig.ts')
 const privacy = read('../app/privacy/page.tsx')
 const errorPage = read('../app/error.tsx')
+const profile = read('../app/profile/page.tsx')
+const navigation = read('../components/app/BottomTabBar.tsx')
+const appShell = read('../components/app/AppShell.tsx')
+const demo = read('../app/demo/page.tsx')
+const releaseSource = read('../lib/appRelease.ts')
+const deleteAccount = read('../components/profile/DeleteAccount.tsx')
+const aiSettings = read('../components/profile/AiProcessingSettings.tsx')
+const installHint = read('../components/app/InstallHint.tsx')
+
+function repositoryPath(path) { return new URL(path, import.meta.url) }
+function pngInfo(path) {
+  const bytes = readFileSync(repositoryPath(path))
+  assert.equal(bytes.subarray(1, 4).toString('ascii'), 'PNG')
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), colorType: bytes[25] }
+}
 
 function loadTs(path) {
   const code = ts.transpileModule(read(path), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
@@ -34,13 +49,26 @@ test('manifest uses current app identity and authenticated start route', () => {
   assert.equal(manifest.name, 'MyPepProtocol'); assert.equal(manifest.start_url, '/protocol'); assert.equal(manifest.id, '/protocol')
 })
 test('manifest is standalone, scoped and has required install icon sizes', () => {
-  assert.equal(manifest.display, 'standalone'); assert.equal(manifest.scope, '/'); assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512'])
+  assert.equal(manifest.display, 'standalone'); assert.equal(manifest.scope, '/'); assert.deepEqual(manifest.icons.map(icon => icon.sizes), ['192x192', '512x512', '192x192', '512x512'])
 })
-test('manifest declares maskable icon purpose without forcing orientation', () => {
-  assert.ok(manifest.icons.every(icon => icon.purpose.includes('maskable'))); assert.equal('orientation' in manifest, false)
+test('manifest separates regular and maskable icon purposes without forcing orientation', () => {
+  assert.deepEqual(manifest.icons.map(icon => icon.purpose), ['any', 'any', 'maskable', 'maskable']); assert.equal('orientation' in manifest, false)
 })
 test('install metadata uses MyPepProtocol and viewport fit cover', () => {
   assert.match(layout, /applicationName: 'MyPepProtocol'/); assert.match(layout, /viewportFit: 'cover'/); assert.match(layout, /appleWebApp/)
+})
+test('manifest icon references exist and match their declared PNG dimensions', () => {
+  for (const icon of manifest.icons) {
+    const relative = `../public${icon.src}`
+    assert.ok(existsSync(repositoryPath(relative)), `${icon.src} should exist`)
+    const [width, height] = icon.sizes.split('x').map(Number)
+    assert.deepEqual(pngInfo(relative), { width, height, colorType: 2 })
+  }
+})
+test('Apple touch and App Store source icons are exact opaque RGB exports', () => {
+  assert.deepEqual(pngInfo('../public/apple-touch-icon.png'), { width: 180, height: 180, colorType: 2 })
+  assert.deepEqual(pngInfo('../public/app-store-icon-1024.png'), { width: 1024, height: 1024, colorType: 2 })
+  assert.match(layout, /apple-touch-icon\.png/); assert.match(layout, /180x180/)
 })
 test('service worker never caches fetched authenticated responses', () => {
   assert.doesNotMatch(sw, /cache\.put\(request/); assert.doesNotMatch(sw, /STATIC_ASSETS.*['"]\/['"]/s)
@@ -122,6 +150,48 @@ test('error state is recoverable, accessible sized and avoids raw logging', () =
 })
 test('primary motion has a reduced-motion fallback', () => {
   assert.match(shell, /prefers-reduced-motion: reduce/)
+})
+test('public release identifier is short, sanitized and rendered only as a QA fingerprint', () => {
+  const { publicReleaseIdentifier } = loadTs('../lib/appRelease.ts')
+  assert.equal(publicReleaseIdentifier({ VERCEL_GIT_COMMIT_SHA: 'abc123<script-secret>' }), 'abc123script')
+  assert.equal(publicReleaseIdentifier({}), 'local')
+  assert.match(layout, /data-app-release=\{publicReleaseIdentifier\(\)\}/)
+  assert.doesNotMatch(releaseSource, /SUPABASE|OPENAI|PRIVATE_KEY|CRON_SECRET/)
+})
+test('public demo is explicitly fictional, uses no account data client and bypasses the authenticated shell', () => {
+  assert.match(demo, /data-demo-fixture="fictional"/); assert.match(demo, /Fictional demo data/)
+  assert.doesNotMatch(demo, /createClient|supabase|\.from\(|fetch\(/i)
+  assert.match(appShell, /path\.startsWith\('\/demo'\)/)
+})
+test('account deletion and AI consent settings have labelled accessible regions and status feedback', () => {
+  assert.match(deleteAccount, /aria-labelledby="delete-account-heading"/); assert.match(deleteAccount, /htmlFor="delete-account-confirmation"/); assert.match(deleteAccount, /confirmation !== 'DELETE'/)
+  assert.match(aiSettings, /aria-labelledby="ai-settings-heading"/); assert.match(aiSettings, /role="status"/); assert.match(aiSettings, /Revoke/)
+})
+test('privacy and support links are present in public and authenticated surfaces', () => {
+  assert.match(privacy, /privacy@mypepprotocol\.app/); assert.match(navigation, /\/privacy/); assert.match(navigation, /mailto:privacy@mypepprotocol\.app/)
+  assert.match(profile, /Privacy policy/); assert.match(profile, /Privacy & support/)
+})
+test('installed-mode detection supports display-mode and the iOS standalone flag', () => {
+  assert.match(installHint, /display-mode: standalone/); assert.match(installHint, /navigator as Navigator.*standalone/)
+})
+test('App Store V1 push decision is explicitly deferred while implementation remains available', () => {
+  assert.match(releaseSource, /APP_STORE_V1_PUSH_ENABLED = false/); assert.match(profile, /APP_STORE_V1_PUSH_ENABLED/); assert.match(profile, /Coming after launch/)
+  assert.match(pushRoute, /export async function POST/); assert.match(cronRoute, /export async function GET/)
+})
+test('iOS QA, screenshot, metadata, privacy and push decision documents are present', () => {
+  for (const path of ['../docs/ios-device-qa-v1.md', '../docs/ios-assets-and-screenshots.md', '../docs/app-store-metadata-draft.md', '../docs/app-privacy-draft.md', '../docs/push-v1-decision.md']) assert.ok(existsSync(repositoryPath(path)), `${path} should exist`)
+  const qa = read('../docs/ios-device-qa-v1.md'); for (const width of ['390px', '393px', '430px']) assert.match(qa, new RegExp(width))
+  assert.match(read('../docs/ios-assets-and-screenshots.md'), /fictional reviewer persona/); assert.match(read('../docs/app-privacy-draft.md'), /Used for tracking/)
+})
+test('screenshot and demo fixtures are fictional and contain no known production identity', () => {
+  const fixtures = demo + read('../docs/ios-assets-and-screenshots.md')
+  assert.match(fixtures, /fictional/i); assert.doesNotMatch(demo, /Rafael|41266062-c8a7-4a52-aa9b-c1fb96d1c483/i)
+})
+test('native packaging is not introduced before the dedicated phase', () => {
+  const packageJson = read('../package.json')
+  assert.doesNotMatch(packageJson, /capacitor|cordova/i)
+  assert.equal(existsSync(repositoryPath('../ios')), false)
+  assert.equal(existsSync(repositoryPath('../capacitor.config.ts')), false)
 })
 test('readiness document contains the required iPhone widths and packaging decision', () => {
   const audit = read('../docs/app-store-readiness.md')

@@ -2,6 +2,14 @@
 
 Audit date: September 10, 2026
 
+September 11 V1 preparation artifacts:
+
+- [Executable iOS device QA](./ios-device-qa-v1.md)
+- [iOS assets and screenshot specification](./ios-assets-and-screenshots.md)
+- [App Store metadata draft](./app-store-metadata-draft.md)
+- [App Privacy mapping draft](./app-privacy-draft.md)
+- [Push V1 decision](./push-v1-decision.md)
+
 ## Decision
 
 Use the enhanced PWA as the production web foundation and test surface now. Plan a Capacitor iOS wrapper after the blockers in this document are closed. Capacitor is the recommended distribution direction because App Store presence is an explicit goal and the product will benefit from a controlled native lifecycle, universal links, and future native notification integration. Do not begin wrapper work while core privacy, account deletion, monitoring, and device QA remain open.
@@ -23,12 +31,16 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 - Added an iPhone installed-mode hint and truthful notification capability guidance.
 - Updated the privacy page to cover current Labs, AI, report, import, push, and provider data flows without claiming a nonexistent deletion control.
 - Added authenticated in-app deletion, explicit versioned AI processing consent, durable Supabase-backed route throttling, and privacy-scrubbed first-party operational monitoring in Launch Blockers V1.
+- Added opaque 180px Apple touch, 192/512px PWA, dedicated maskable, and 1024px App Store candidate assets based on the existing MyPepProtocol mark.
+- Added a short non-sensitive Vercel release identifier in Profile for QA issue correlation.
+- Clearly labeled the local public demo as fictional and excluded it from the authenticated mobile shell.
+- Deferred push for App Store V1 behind a visible release policy until timezone, cleanup, and delivery ownership are reliable.
 
 ## Current readiness by area
 
 | Area | Status | Finding |
 | --- | --- | --- |
-| Manifest/installability | Stabilized | Valid standalone manifest with 192px and 512px placeholders. HTTPS is still required in production. |
+| Manifest/installability | Stabilized | Valid standalone manifest with separate regular/maskable 192px and 512px icons plus a dedicated Apple touch icon. HTTPS is still required in production. |
 | Service worker | Stabilized | Shell-only fallback; private records are network-only. |
 | Update lifecycle | Stabilized | Update checks on visibility, pageshow, and reconnect; one controlled chunk-recovery reload. |
 | Offline | Limited by design | Honest offline warning and static fallback. No stale health data is presented as current. Writes are not queued. |
@@ -36,7 +48,7 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 | Mobile shell | Code-ready, device QA needed | Safe-area and dynamic viewport handling are present. Keyboard and rotation require real-device verification. |
 | PDF/report | Browser-dependent | Uses Safari Print and Save as PDF. Print controls are hidden and report content is light-themed. Physical-device pagination/chart QA is required. |
 | AI routes | Stabilized | Authenticated, owner-scoped, consent-gated, request-capped, timed out, server-keyed, durably throttled, and monitored with scrubbed metadata. |
-| Push | Not production-ready | User permission exists and installed iOS supports Web Push on iOS/iPadOS 16.4+. Scheduling is server-hour based and lacks user timezone; expired subscriptions are not removed. |
+| Push | Deferred for V1 | Underlying code remains, but Profile enrollment is release-gated off until timezone-aware delivery, expired-subscription cleanup, single-path ownership, and physical-device QA are complete. |
 | Privacy/legal | In progress | Factual public policy, explicit AI permission, revocation, and in-app account deletion are implemented. Terms and legal review remain open. |
 | Monitoring | Implemented, operations needed | Client/server/API events use a scrubbed Supabase table. Establish production retention, dashboard review, and alerts. |
 | Rate limiting | Stabilized | Authenticated protected routes use atomic Supabase counters across production instances and fail closed if unavailable. |
@@ -103,8 +115,8 @@ The code shows no advertising SDK, cross-app tracking, or sale of personal data.
 1. Configure monitoring retention, operational review, and alerts for `app_error_events`.
 2. Add user timezone to notification scheduling or use a native/local-notification strategy. Remove expired 404/410 push subscriptions.
 3. Complete reviewed legal surfaces and counsel review.
-4. Produce a final 1024px App Store icon, dedicated 180px Apple touch icon, native launch screen assets, App Store screenshots, support URL, and metadata using fictional data.
-5. Complete the device matrix and TestFlight review on currently supported iPhone and iPad sizes.
+4. Obtain final owner approval for the prepared 1024px icon, create the native launch screen after packaging, capture App Store screenshots from the fictional review account, and publish a support URL.
+5. Execute `docs/ios-device-qa-v1.md`, then complete TestFlight review on supported iPhone and iPad sizes.
 
 ## Environment checklist
 
@@ -135,11 +147,11 @@ Missing optional feature configuration must result in a controlled unavailable s
 
 | Asset | Current | Required action |
 | --- | --- | --- |
-| PWA 192px PNG | Present | Replace placeholder with final approved identity before public launch. |
-| PWA 512px PNG | Present | Replace placeholder with final approved identity before public launch. |
-| Maskable safe area | Existing artwork appears centered | Verify on Android/iOS install previews. |
-| Apple touch 180px | Missing | Export a dedicated 180×180 PNG. |
-| App Store icon | Missing | Export an opaque 1024×1024 final icon without transparency. |
+| PWA 192px PNG | Opaque production candidate present | Verify install preview and obtain final owner approval. |
+| PWA 512px PNG | Opaque production candidate present | Verify install preview and obtain final owner approval. |
+| Maskable safe area | Dedicated opaque 192/512 files present | Verify circle/squircle/rounded-square previews before release. |
+| Apple touch 180px | Dedicated opaque RGB PNG present | Verify physical Home Screen rendering. |
+| App Store icon | Opaque RGB 1024px candidate present | Obtain final brand-owner approval before submission. |
 | Native launch screen | Missing | Design after the Capacitor shell exists; avoid static device-specific splash hacks in the PWA. |
 | App Store screenshots | Missing | Capture required device sizes with fictional account data only. |
 
@@ -162,8 +174,7 @@ No.
 
 Blockers:
 
-1. Privacy/Terms still need legal review.
-2. Monitoring retention and alert operations need configuration.
-3. Push scheduling/cleanup is not production-ready if push is included.
-4. Final iOS icons, launch assets, and metadata are missing.
-5. The physical-device QA matrix and TestFlight validation are incomplete.
+1. The web foundation has not completed the executable physical-device QA matrix.
+2. The 1024px icon candidate still needs final brand-owner approval.
+3. Production monitoring retention/alerts must be operating before native QA issues are triaged.
+4. A dedicated isolated reviewer account with fictional data must be created and verified.

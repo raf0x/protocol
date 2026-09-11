@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mypepprotocol-shell-v1'
-const SAFE_SHELL_ASSETS = ['/offline', '/manifest.json', '/icon-192.png', '/icon-512.png']
+const CACHE_NAME = 'mypepprotocol-shell-v2'
+const SAFE_SHELL_ASSETS = ['/offline', '/manifest.json', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

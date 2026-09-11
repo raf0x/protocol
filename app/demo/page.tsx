@@ -28,10 +28,10 @@ const DEMO_ENTRIES = [
 
 const RING_COLORS = ['#39ff14','#06b6d4','#f59e0b','#8b5cf6']
 const START_DATE = '2026-03-15'
+const DEMO_NOW = new Date('2026-05-03T12:00:00Z').getTime()
 
-function SignupModal({ onClose, router }: { onClose: () => void; router: any }) {
+function SignupModal({ onClose, router }: { onClose: () => void; router: ReturnType<typeof useRouter> }) {
   const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
   return (
     <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.85)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
       <div style={{background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'16px',padding:'28px',width:'100%',maxWidth:'360px'}}>
@@ -63,7 +63,7 @@ export default function DemoPage() {
   const startWeight = DEMO_ENTRIES[DEMO_ENTRIES.length-1].weight
   const currentWeight = DEMO_ENTRIES[0].weight
   const totalLost = (startWeight - currentWeight).toFixed(1)
-  const daysIn = Math.floor((Date.now() - new Date(START_DATE+'T00:00:00').getTime()) / 86400000)
+  const daysIn = Math.floor((DEMO_NOW - new Date(START_DATE+'T00:00:00Z').getTime()) / 86400000)
   const currentWeek = Math.max(1, Math.floor(daysIn/7)+1)
 
   const activeCompound = DEMO_COMPOUNDS.find(c => c.id === activeTab) || DEMO_COMPOUNDS[0]
@@ -72,7 +72,7 @@ export default function DemoPage() {
   const phase = activeCompound.phases[0]
   const mlUsed = activeCompound.doses_taken_override * activeCompound.ml_per_dose
   const fillPct = Math.max(0, (activeCompound.bac_water_ml - mlUsed) / activeCompound.bac_water_ml)
-  const vialDaysLeft = 28 - Math.floor((Date.now() - new Date(activeCompound.reconstitution_date+'T00:00:00').getTime()) / 86400000)
+  const vialDaysLeft = 28 - Math.floor((DEMO_NOW - new Date(activeCompound.reconstitution_date+'T00:00:00Z').getTime()) / 86400000)
   const progress = Math.min(100, Math.round((daysIn / (phase.end_week * 7)) * 100))
 
   const cd = DEMO_ENTRIES.slice().reverse().map(e => ({ date: new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}), mood: e.mood, energy: e.energy, sleep: e.sleep, weight: e.weight }))
@@ -81,12 +81,12 @@ export default function DemoPage() {
   function logInjection(id: string) { setLoggedToday(p => ({...p,[id]:!p[id]})); if (!loggedToday[id]) setTimeout(() => setShowSignup(true), 1000) }
 
   return (
-    <main style={{minHeight:'100vh',background:'#0c0c14',color:'white',padding:'0',fontFamily:'Inter,sans-serif'}}>
+    <main data-demo-fixture="fictional" style={{minHeight:'100dvh',background:'#0c0c14',color:'white',padding:'0',fontFamily:'Inter,sans-serif'}}>
       {showSignup && <SignupModal onClose={() => setShowSignup(false)} router={router} />}
 
       {/* Demo banner */}
       <div style={{background:'rgba(57,255,20,0.08)',borderBottom:'1px solid rgba(57,255,20,0.2)',padding:'10px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,zIndex:50,backdropFilter:'blur(8px)'}}>
-        <span style={{fontSize:'12px',color:'#39ff14',fontWeight:'600'}}>?? You're viewing a live demo</span>
+        <span style={{fontSize:'12px',color:'#39ff14',fontWeight:'600'}}>Fictional demo data</span>
         <button onClick={save} style={{background:'#39ff14',color:'#000',border:'none',borderRadius:'6px',padding:'6px 14px',fontSize:'12px',fontWeight:'800',cursor:'pointer'}}>Sign up free</button>
       </div>
 
@@ -110,7 +110,7 @@ export default function DemoPage() {
                 const rc = RING_COLORS[i]
                 const isActive = activeTab === c.id
                 const short = c.name.split('/')[0].split(' ')[0].slice(0,6)
-                const di = Math.floor((Date.now()-new Date(START_DATE+'T00:00:00').getTime())/86400000)
+                const di = Math.floor((DEMO_NOW-new Date(START_DATE+'T00:00:00Z').getTime())/86400000)
                 const wk = Math.max(1, Math.floor(di/7)+1)
                 const col = i % 2; const row = Math.floor(i/2)
                 return (
@@ -207,7 +207,7 @@ export default function DemoPage() {
         {/* Today's injections */}
         <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',marginBottom:'16px',overflow:'hidden'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px'}}>
-            <span style={{fontSize:'13px',fontWeight:'800',color:'white'}}>TODAY'S INJECTIONS</span>
+            <span style={{fontSize:'13px',fontWeight:'800',color:'white'}}>TODAY&apos;S INJECTIONS</span>
             <span style={{fontSize:'13px',fontWeight:'700',color:Object.values(loggedToday).filter(Boolean).length===4?g:dg}}>{Object.values(loggedToday).filter(Boolean).length}/{DEMO_COMPOUNDS.length}</span>
           </div>
           <div style={{padding:'0 16px 16px'}}>
@@ -310,7 +310,7 @@ export default function DemoPage() {
               <input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} onFocus={save} placeholder='optional' style={{width:'100%',background:'#0a0a0f',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'white',fontSize:'14px',boxSizing:'border-box'}} />
             </div>
           </div>
-          <button onClick={save} style={{width:'100%',background:g,color:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>Save today's log</button>
+          <button onClick={save} style={{width:'100%',background:g,color:'#000',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>Save today&apos;s log</button>
         </div>
 
         {/* CTA */}
