@@ -100,12 +100,138 @@
   .report footer { display: grid; padding-inline: 20px; }
 }
 @page { size: letter; margin: 12mm; }
+
 @media print {
-  :global(html), :global(body), :global(.mobile-app-shell) { color: #17202a !important; background: #fff !important; }
-  :global(.app-tab-bar), .appHeader, .controls, .exportBar, .error, .loading { display: none !important; }
-  .page { width: auto; max-width: none; padding: 0; }
-  .report { overflow: visible; border-radius: 0; box-shadow: none; }
-  .reportHeader { padding: 0 0 18px; }
-  .reportSection { padding: 16px 0; }
-  .report footer { padding: 14px 0 0; background: #fff; }
+  :global(html),
+  :global(body),
+  :global(.mobile-app-shell) {
+    background: #ffffff !important;
+    color: #111827 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  :global(.app-tab-bar),
+  .appHeader,
+  .controls,
+  .exportBar,
+  .error,
+  .loading {
+    display: none !important;
+  }
+
+  .page {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #111827 !important;
+  }
+
+  .report {
+    overflow: visible !important;
+    border-radius: 0 !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .reportHeader {
+    padding: 0 0 18px !important;
+    background: #ffffff !important;
+    border-bottom: 2px solid #4b5563 !important;
+  }
+
+  .reportHeader span {
+    color: #166534 !important;
+  }
+
+  .reportHeader h1,
+  .reportSection h2,
+  .reportSection h3,
+  .protocolRow strong,
+  .history strong,
+  .metricGrid strong,
+  .weightSummary strong,
+  .resultTable strong,
+  .trendTable strong,
+  .panelList strong,
+  .contextList strong {
+    color: #111827 !important;
+  }
+
+  .reportHeader dt,
+  .reportHeader dd,
+  .reportSection p,
+  .reportSection li,
+  .protocolRow span,
+  .protocolRow small,
+  .history time,
+  .history small,
+  .panelList span,
+  .panelList small,
+  .resultTable span,
+  .resultTable small,
+  .trendTable span,
+  .trendTable small,
+  .contextList span,
+  .contextList small,
+  .weightSummary span,
+  .weightSummary small,
+  .weightChart figcaption,
+  .metricGrid span,
+  .report footer {
+    color: #374151 !important;
+  }
+
+  .lead {
+    color: #1f2937 !important;
+  }
+
+  .reportSection {
+    padding: 16px 0 !important;
+  }
+
+  .reportSection + .reportSection {
+    border-top: 1px solid #9ca3af !important;
+  }
+
+  .protocolTable,
+  .resultTable,
+  .trendTable,
+  .panelList,
+  .contextList,
+  .weightSummary {
+    border: 1px solid #9ca3af !important;
+    background: #ffffff !important;
+  }
+
+  .protocolRow + .protocolRow,
+  .panelList > div + div,
+  .resultTable > div + div,
+  .trendTable > div + div,
+  .contextList li + li,
+  .history li + li {
+    border-top: 1px solid #cbd5e1 !important;
+  }
+
+  .weightSummary > div,
+  .metricGrid > div,
+  .disclaimer {
+    background: #ffffff !important;
+  }
+
+  .disclaimer {
+    border-left: 3px solid #6b7280 !important;
+  }
+
+  .trendTable b,
+  .weightChart {
+    color: #166534 !important;
+  }
+
+  .report footer {
+    padding: 14px 0 0 !important;
+    background: #ffffff !important;
+  }
 }
