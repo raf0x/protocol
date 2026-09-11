@@ -51,7 +51,7 @@
 .importMenu summary { position: relative; isolation: isolate; display: flex; align-items: center; min-height: 44px; padding-inline: 10px; cursor: pointer; color: var(--app-accent); font-size: 12px; font-weight: 600; }
 .importMenu summary::after { content: ''; position: absolute; z-index: -1; inset: 6px 0; border: 1px solid var(--app-border); border-radius: 999px; background: var(--app-surface); }
 .importMenu a { display: flex; min-height: 44px; }
-.dialog { color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius-card); width: min(92vw, 480px); padding: var(--app-space-lg); margin: auto; }
+.dialog { box-sizing: border-box; color: var(--app-text); background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius-card); width: min(92vw, 480px); max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px); overflow-y: auto; overscroll-behavior: contain; padding: var(--app-space-lg); margin: auto; }
 .dialog::backdrop { background: #0009; }
 .dialog h2 { font-size: var(--app-font-title); }
 .dialog p { color: var(--app-secondary); line-height: 1.6; }

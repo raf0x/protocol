@@ -7,7 +7,7 @@
   --color-muted: var(--app-muted); --color-border: var(--app-border);
   --color-green: var(--app-success); --color-green-text: var(--app-bg);
   min-height: 100dvh; background: var(--app-bg); color: var(--app-text);
-  padding: var(--app-space-lg) max(var(--app-space-md), env(safe-area-inset-left, 0px)) var(--app-space-lg);
+  padding: var(--app-space-lg) var(--app-space-md);
   font-size: var(--app-font-body); line-height: 1.5;
 }
 .protocols-container { max-width: 760px; margin-inline: auto; }

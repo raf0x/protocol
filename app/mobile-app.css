@@ -61,6 +61,7 @@
   overflow-x: clip;
   scroll-padding-bottom: calc(var(--app-nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
   padding-top: max(env(safe-area-inset-top, 0px), var(--app-shell-safe-top-min));
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
   padding-bottom: calc(var(--app-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 .today-surface {
@@ -201,6 +202,7 @@
 }
 @media (max-width: 639px) {
   .mobile-app-shell { --app-shell-safe-top-min: 24px; }
+  .mobile-app-shell :is(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: 16px !important; }
 }
 @media (max-width: 380px) {
   .today-protocol-row { gap: 8px; }

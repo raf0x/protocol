@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { isNativeAppRuntime } from '../../lib/clientRuntime'
 
 export default function InstallHint() {
   const [state, setState] = useState<'checking' | 'installed' | 'ios' | 'other'>('checking')
   useEffect(() => {
+    if (isNativeAppRuntime()) { queueMicrotask(() => setState('other')); return }
     const standalone = window.matchMedia('(display-mode: standalone)').matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
     const next = standalone ? 'installed' : /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'ios' : 'other'
     queueMicrotask(() => setState(next))

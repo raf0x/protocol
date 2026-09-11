@@ -1,11 +1,18 @@
 'use client'
 
 import { useEffect } from 'react'
+import { isNativeAppRuntime } from '../../lib/clientRuntime'
 
 const CHUNK_RECOVERY_KEY = 'mpp-chunk-recovery-attempted'
 
 export default function PwaLifecycle() {
   useEffect(() => {
+    if (isNativeAppRuntime()) {
+      if ('serviceWorker' in navigator) {
+        void navigator.serviceWorker.getRegistrations().then(registrations => Promise.all(registrations.map(item => item.unregister()))).catch(() => {})
+      }
+      return
+    }
     if (!('serviceWorker' in navigator)) return
     let active = true
     let hadController = Boolean(navigator.serviceWorker.controller)
