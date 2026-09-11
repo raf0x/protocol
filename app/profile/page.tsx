@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import InstallHint from '../../components/app/InstallHint'
+import AiProcessingSettings from '../../components/profile/AiProcessingSettings'
+import DeleteAccount from '../../components/profile/DeleteAccount'
 
 export default function ProfilePage() {
   const [email, setEmail] = useState('')
@@ -18,6 +20,7 @@ export default function ProfilePage() {
   const [theme, setTheme] = useState('dark')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
   const [weightSaving, setWeightSaving] = useState(false)
+  const [aiConsent, setAiConsent] = useState(false)
   const router = useRouter()
   const g = 'var(--color-green)'
   const dg = 'var(--color-dim)'
@@ -36,9 +39,12 @@ export default function ProfilePage() {
       setEmail(user.email || '')
       const date = new Date(user.created_at)
       setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
-      const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+      const profileFields = 'weight_unit,ai_processing_consent,ai_processing_consent_version'
+      const { data: ownerProfile } = await supabase.from('user_profiles').select(profileFields).eq('user_id', user.id).limit(1).maybeSingle()
+      const profile = ownerProfile || (await supabase.from('user_profiles').select(profileFields).eq('id', user.id).limit(1).maybeSingle()).data
       if (!live) return
       if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
+      setAiConsent(profile?.ai_processing_consent === true && profile?.ai_processing_consent_version === 1)
       const { data: sub } = await supabase.from('push_subscriptions').select('reminder_hour').eq('user_id', user.id).single()
       if (!live) return
       if (sub) { setNotifEnabled(true); setReminderHour(sub.reminder_hour) }
@@ -210,6 +216,8 @@ export default function ProfilePage() {
         {userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483' && (
           <a href="/admin" style={{display:'block',width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'16px',textAlign:'center',textDecoration:'none',color:dg,fontSize:'13px',fontWeight:'600'}}>Admin Dashboard</a>
         )}
+        <AiProcessingSettings initialConsent={aiConsent} />
+        <DeleteAccount />
         <button onClick={handleSignOut} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'14px',borderRadius:'6px',fontSize:'16px',cursor:'pointer'}}>Sign out</button>
       </div>
     </main>

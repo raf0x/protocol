@@ -22,6 +22,7 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 - Avoided an unnecessary Labs history request when opening AI Analyst directly.
 - Added an iPhone installed-mode hint and truthful notification capability guidance.
 - Updated the privacy page to cover current Labs, AI, report, import, push, and provider data flows without claiming a nonexistent deletion control.
+- Added authenticated in-app deletion, explicit versioned AI processing consent, durable Supabase-backed route throttling, and privacy-scrubbed first-party operational monitoring in Launch Blockers V1.
 
 ## Current readiness by area
 
@@ -34,11 +35,11 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 | Auth/session | Code-ready, device QA needed | Cookie session and proxy refresh are sound. Deep-link return is preserved. Close/reopen and expiry still require live iPhone tests. |
 | Mobile shell | Code-ready, device QA needed | Safe-area and dynamic viewport handling are present. Keyboard and rotation require real-device verification. |
 | PDF/report | Browser-dependent | Uses Safari Print and Save as PDF. Print controls are hidden and report content is light-themed. Physical-device pagination/chart QA is required. |
-| AI routes | Stabilized | Authenticated, owner-scoped, request-capped, timed out, and server-keyed. Durable throttling and monitoring remain open. |
+| AI routes | Stabilized | Authenticated, owner-scoped, consent-gated, request-capped, timed out, server-keyed, durably throttled, and monitored with scrubbed metadata. |
 | Push | Not production-ready | User permission exists and installed iOS supports Web Push on iOS/iPadOS 16.4+. Scheduling is server-hour based and lacks user timezone; expired subscriptions are not removed. |
-| Privacy/legal | In progress | Factual public policy updated. Terms, explicit third-party AI permission, legal review, and in-app account deletion remain open. |
-| Monitoring | Not ready | No centralized production crash/API monitoring or alerts. |
-| Rate limiting | Not ready | In-memory limiter is per process and resets. It is not a distributed production control. |
+| Privacy/legal | In progress | Factual public policy, explicit AI permission, revocation, and in-app account deletion are implemented. Terms and legal review remain open. |
+| Monitoring | Implemented, operations needed | Client/server/API events use a scrubbed Supabase table. Establish production retention, dashboard review, and alerts. |
+| Rate limiting | Stabilized | Authenticated protected routes use atomic Supabase counters across production instances and fail closed if unavailable. |
 | Accessibility | Baseline present | Semantic navigation, focus states, 44px targets, text status, labels, and reduced motion exist in primary modern screens. Full VoiceOver audit remains open. |
 
 ## iPhone QA matrix
@@ -83,16 +84,15 @@ This is a code-derived draft, not a submission or legal determination. Confirm p
 | Contact Info | Email address | Yes | Authentication, account management | Confirm authentication email processor. |
 | Identifiers | Supabase user ID, push subscription endpoint/token | Yes | App functionality, notifications, security | Confirm how Apple classifies browser push tokens in wrapper. |
 | User Content | Freeform notes, imported report content/filename | Yes | App functionality; user-requested AI/report processing | Confirm whether import source files ever reach a server in production. Current parsing is client-side. |
-| Usage Data | Feature requests and server request metadata | Uncertain | Security/operations | No analytics SDK was found. Confirm Vercel/Supabase logs and any future monitoring SDK. |
-| Diagnostics | Crash/error and performance data | Not currently collected by an app SDK | Reliability | Revisit when monitoring is installed and disclose its SDK collection. |
+| Usage Data | Feature requests and server request metadata | Uncertain | Security/operations | No analytics SDK was found. Confirm Vercel and Supabase platform logs. |
+| Diagnostics | Scrubbed route, error type, status, release, timestamp, random request ID | No app account identifier stored | Reliability | First-party events are stored in Supabase; confirm platform logs and retention. |
 
 The code shows no advertising SDK, cross-app tracking, or sale of personal data. Verify actual production configuration before making those representations publicly.
 
 ## Privacy and legal launch checklist
 
 - Obtain counsel review of Privacy Policy and create Terms of Use.
-- Add an explicit, understandable permission step before first third-party AI transmission. Apple’s guidelines require clear disclosure and explicit permission for personal data shared with third-party AI.
-- Implement in-app account deletion, including reauthentication, dependent-record deletion, cancellation/error recovery, and an audit-safe operational process. Apple requires deletion in apps that support account creation.
+- Verify the implemented third-party AI permission and in-app account deletion flows during physical-device QA.
 - Confirm controller/business identity, support URL, privacy URL, contact details, age rating, jurisdictions, retention, backup deletion, and incident-response process.
 - Confirm Supabase region/encryption/RLS, Resend role, OpenAI API data controls, Vercel logs, push provider behavior, and all subprocessors.
 - Prepare a reviewer demo account or complete demo mode with fictional health data.
@@ -100,12 +100,11 @@ The code shows no advertising SDK, cross-app tracking, or sale of personal data.
 
 ## Production controls still required
 
-1. Replace the in-memory rate limiter with a distributed limiter keyed by authenticated user and route, with IP-based protection for unauthenticated endpoints. Vercel WAF or a small durable KV/Redis service are appropriate candidates.
-2. Add centralized client/server/API monitoring with PII and health-data scrubbing, release/build tagging, alerting, and source maps. A minimal Sentry setup or equivalent is sufficient.
-3. Add user timezone to notification scheduling or use a native/local-notification strategy. Remove expired 404/410 push subscriptions and add delivery observability.
-4. Implement in-app account deletion and reviewed legal surfaces.
-5. Produce a final 1024px App Store icon, dedicated 180px Apple touch icon, native launch screen assets, App Store screenshots, support URL, and metadata using fictional data.
-6. Complete the device matrix and TestFlight review on currently supported iPhone and iPad sizes.
+1. Configure monitoring retention, operational review, and alerts for `app_error_events`.
+2. Add user timezone to notification scheduling or use a native/local-notification strategy. Remove expired 404/410 push subscriptions.
+3. Complete reviewed legal surfaces and counsel review.
+4. Produce a final 1024px App Store icon, dedicated 180px Apple touch icon, native launch screen assets, App Store screenshots, support URL, and metadata using fictional data.
+5. Complete the device matrix and TestFlight review on currently supported iPhone and iPad sizes.
 
 ## Environment checklist
 
@@ -163,10 +162,8 @@ No.
 
 Blockers:
 
-1. In-app account deletion is absent.
-2. Privacy/Terms and explicit third-party AI permission need legal/product completion.
-3. Rate limiting is not durable across production instances.
-4. Centralized privacy-scrubbed production monitoring is absent.
-5. Push scheduling/cleanup is not production-ready if push is included.
-6. Final iOS icons, launch assets, and metadata are missing.
-7. The physical-device QA matrix and TestFlight validation are incomplete.
+1. Privacy/Terms still need legal review.
+2. Monitoring retention and alert operations need configuration.
+3. Push scheduling/cleanup is not production-ready if push is included.
+4. Final iOS icons, launch assets, and metadata are missing.
+5. The physical-device QA matrix and TestFlight validation are incomplete.

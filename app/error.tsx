@@ -1,6 +1,10 @@
 'use client'
 
-export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+import { useEffect } from 'react'
+import { reportClientError } from '../lib/clientMonitoring'
+
+export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { reportClientError(error) }, [error])
   return (
     <main style={{minHeight:'100dvh',background:'var(--app-bg)',color:'var(--app-text)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px))',fontFamily:'Inter,sans-serif'}}>
       <div style={{textAlign:'center',maxWidth:'400px'}}>

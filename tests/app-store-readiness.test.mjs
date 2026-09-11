@@ -106,7 +106,7 @@ test('push VAPID setup is lazy, validated and never runs at module import', () =
   assert.doesNotMatch(pushRoute, /^webpush\.setVapidDetails/m); assert.doesNotMatch(cronRoute, /^webpush\.setVapidDetails/m)
 })
 test('push subscription API authenticates before user-scoped throttling', () => {
-  assert.ok(pushRoute.indexOf('await getAuthenticatedUser') < pushRoute.indexOf("rateLimit('push-subscribe:' + user.id"))
+  assert.ok(pushRoute.indexOf('await getAuthenticatedUser') < pushRoute.indexOf("checkDurableRateLimit(supabase, user.id, 'push-subscribe')"))
 })
 test('push subscription payload requires endpoint and encryption keys', () => {
   for (const field of ['push.endpoint', 'push.keys?.p256dh', 'push.keys?.auth']) assert.ok(pushRoute.includes(field))
@@ -114,8 +114,8 @@ test('push subscription payload requires endpoint and encryption keys', () => {
 test('missing feature configuration becomes controlled unavailable responses', () => {
   assert.match(pushRoute, /status: 503/); assert.match(cronRoute, /status: 503/); assert.match(analystRoute, /AnalystConfigurationError/)
 })
-test('privacy surface discloses labs, AI, reports, push and lack of in-app deletion', () => {
-  for (const text of ['Lab panels', 'OpenAI', 'generated PDF', 'Push subscription', 'in-app account deletion control is not currently available']) assert.ok(privacy.includes(text))
+test('privacy surface discloses labs, AI, reports, push and in-app deletion', () => {
+  for (const text of ['Lab panels', 'OpenAI', 'generated PDF', 'Push subscription', 'permanently delete your account']) assert.ok(privacy.includes(text))
 })
 test('error state is recoverable, accessible sized and avoids raw logging', () => {
   assert.match(errorPage, /Try again/); assert.match(errorPage, /minHeight:'44px'/); assert.doesNotMatch(errorPage, /console\.error/)

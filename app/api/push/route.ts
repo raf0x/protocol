@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import webpush from 'web-push'
-import { rateLimit } from '../../../lib/rateLimit'
+import { checkDurableRateLimit, rateLimitHeaders } from '../../../lib/durableRateLimit'
+import { captureOperationalError } from '../../../lib/monitoring'
 import { configureWebPush } from '../../../lib/pushConfig'
 
 async function getAuthenticatedUser() {
@@ -31,7 +32,15 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  if (!rateLimit('push-subscribe:' + user.id, 5, 60000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  const limit = await checkDurableRateLimit(supabase, user.id, 'push-subscribe')
+  if (!limit.allowed) {
+    const unavailable = !limit.available && process.env.NODE_ENV === 'production'
+    return NextResponse.json({
+      code: unavailable ? 'RATE_LIMIT_UNAVAILABLE' : 'RATE_LIMITED',
+      error: unavailable ? 'Reminders are temporarily unavailable.' : 'Please wait before updating reminders again.',
+      retryAfter: limit.retryAfter,
+    }, { status: unavailable ? 503 : 429, headers: rateLimitHeaders(limit) })
+  }
 
   let body: { subscription?: unknown; reminder_hour?: unknown }
   try { body = await request.json() as typeof body } catch { return NextResponse.json({ error: 'Invalid subscription request.' }, { status: 400 }) }
@@ -53,7 +62,10 @@ export async function POST(request: NextRequest) {
     reminder_hour: hour,
   })
 
-  if (error) return NextResponse.json({ error: 'The reminder could not be saved.' }, { status: 500 })
+  if (error) {
+    await captureOperationalError({ route: '/api/push', error, source: 'push', status: 500 })
+    return NextResponse.json({ error: 'The reminder could not be saved.' }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }
 
@@ -102,8 +114,8 @@ export async function GET(request: NextRequest) {
         })
       )
       sent++
-    } catch {
-      console.error('Push delivery failed.')
+    } catch (error) {
+      await captureOperationalError({ route: '/api/push', error, source: 'push', status: 502 })
     }
   }
 

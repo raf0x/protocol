@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import webpush from 'web-push'
 import { configureWebPush } from '../../../lib/pushConfig'
+import { captureOperationalError } from '../../../lib/monitoring'
 
 type StoredPushSubscription = { subscription: webpush.PushSubscription }
 
@@ -11,8 +12,8 @@ async function sendPush(sub: StoredPushSubscription, title: string, body: string
   try {
     await webpush.sendNotification(sub.subscription, JSON.stringify({ title, body, url }))
     return true
-  } catch {
-    console.error('Push delivery failed.')
+  } catch (error) {
+    await captureOperationalError({ route: '/api/cron', error, source: 'push', status: 502 })
     return false
   }
 }

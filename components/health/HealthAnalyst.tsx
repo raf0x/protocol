@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import type { AnalystResult } from '../../lib/health/analyst/types'
 import styles from '../../app/health/health.module.css'
+import AiConsentDialog from './AiConsentDialog'
 
 const suggestions = ['What changed since my last labs?', 'Summarize my current health picture',
   'Show protocol changes around my latest labs', 'Which biomarkers changed the most?', 'What information is missing?']
@@ -12,13 +13,18 @@ export default function HealthAnalyst() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<AnalystResult | null>(null)
   const [message, setMessage] = useState('')
+  const [consentOpen, setConsentOpen] = useState(false)
+  const [pendingQuestion, setPendingQuestion] = useState('')
   async function ask(value: string) {
     const prompt = value.trim()
     if (prompt.length < 3 || status === 'loading') return
     setQuestion(prompt); setStatus('loading'); setMessage(''); setResult(null)
     try {
       const response = await fetch('/api/health-analyst', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) })
-      const body = await response.json() as AnalystResult & { error?: string }
+      const body = await response.json() as AnalystResult & { error?: string; code?: string }
+      if (response.status === 403 && body.code === 'AI_CONSENT_REQUIRED') {
+        setPendingQuestion(prompt); setStatus('idle'); setConsentOpen(true); return
+      }
       if (!response.ok) throw new Error(body.error || 'The analyst is temporarily unavailable.')
       setResult(body); setStatus('ready')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The analyst is temporarily unavailable.'); setStatus('error') }
@@ -26,6 +32,7 @@ export default function HealthAnalyst() {
   function submit(event: FormEvent) { event.preventDefault(); void ask(question) }
   const evidence = new Map(result?.evidence.map(item => [item.id, item]))
   return <section className={styles.analyst} aria-labelledby="analyst-heading">
+    <AiConsentDialog open={consentOpen} onCancel={() => { setConsentOpen(false); setPendingQuestion('') }} onGranted={() => { const pending = pendingQuestion; setConsentOpen(false); setPendingQuestion(''); void ask(pending) }} />
     <div className={styles.analystIntro}><span className={styles.analystIcon} aria-hidden="true">✦</span><div><span className={styles.eyebrow}>Evidence first</span><h2 id="analyst-heading">Ask your health history</h2><p>Compare your recorded labs, protocols, weight, and check-ins. When you ask, selected recorded health data is processed by the configured AI provider. Answers show supporting evidence and never replace clinical care.</p></div></div>
     <div className={styles.promptGrid} aria-label="Suggested questions">{suggestions.map(prompt => <button key={prompt} type="button" onClick={() => void ask(prompt)} disabled={status === 'loading'}>{prompt}<span aria-hidden="true">›</span></button>)}</div>
     <form className={styles.analystForm} onSubmit={submit}><label htmlFor="analyst-question">Ask another question</label><div><input id="analyst-question" value={question} onChange={event => setQuestion(event.target.value)} maxLength={500} placeholder="Ask about changes in your recorded health data" /><button className={styles.primary} type="submit" disabled={status === 'loading' || question.trim().length < 3}>Ask</button></div></form>

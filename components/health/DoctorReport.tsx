@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import type { DoctorReportResponse, ReportRange, ReportSections } from '../../lib/health/report/types'
 import styles from '../../app/health/report/report.module.css'
+import AiConsentDialog from './AiConsentDialog'
 
 const ranges: { value: ReportRange; label: string }[] = [{ value: '3m', label: '3 months' }, { value: '6m', label: '6 months' }, { value: '12m', label: '12 months' }, { value: 'all', label: 'All history' }]
 const sectionLabels: [keyof ReportSections, string][] = [['protocols', 'Current protocols'], ['history', 'Protocol changes'], ['labs', 'Labs and trends'], ['weight', 'Weight'], ['journal', 'Journal summary']]
@@ -17,11 +18,15 @@ export default function DoctorReport() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [response, setResponse] = useState<DoctorReportResponse | null>(null)
   const [message, setMessage] = useState('')
+  const [consentOpen, setConsentOpen] = useState(false)
   async function generate(ai = includeAi) {
     setStatus('loading'); setMessage('')
     try {
       const request = await fetch('/api/health-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ range, includeAi: ai }) })
-      const body = await request.json() as DoctorReportResponse & { error?: string }
+      const body = await request.json() as DoctorReportResponse & { error?: string; code?: string }
+      if (request.status === 403 && body.code === 'AI_CONSENT_REQUIRED') {
+        setStatus('idle'); setConsentOpen(true); return
+      }
       if (!request.ok) throw new Error(body.error || 'The report is temporarily unavailable.')
       setResponse(body); setStatus('ready')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'The report is temporarily unavailable.'); setStatus('error') }
@@ -33,6 +38,7 @@ export default function DoctorReport() {
   }
   const report = response?.report
   return <main className={styles.page}>
+    <AiConsentDialog open={consentOpen} onCancel={() => setConsentOpen(false)} onGranted={() => { setConsentOpen(false); void generate(true) }} />
     <header className={styles.appHeader}><span>Clinician-ready summary</span><h1>Create health report</h1><p>Build a concise report from the health data you have already recorded.</p><Link href="/health">Back to Health</Link></header>
     <section className={styles.controls} aria-labelledby="report-settings"><h2 id="report-settings">Report settings</h2>
       <fieldset><legend>Time period</legend><div className={styles.segmented}>{ranges.map(item => <button type="button" key={item.value} aria-pressed={range === item.value} onClick={() => setRange(item.value)}>{item.label}</button>)}</div></fieldset>

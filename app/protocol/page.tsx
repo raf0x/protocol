@@ -346,8 +346,7 @@ export default function DashboardPage() {
       setMissedDoses(missed)
     }
     setLoading(false)
-    } catch (err) {
-      console.error('loadAll failed:', err)
+    } catch {
       setLoadError(true)
       setLoading(false)
     }
