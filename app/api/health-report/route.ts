@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { consentRequiredResponse, hasCurrentAiConsent } from '../../../lib/aiConsent'
 import { checkDurableRateLimit, rateLimitHeaders } from '../../../lib/durableRateLimit'
+import { captureAnalystOperationalError } from '../../../lib/health/analyst/monitoring'
 import { createDoctorReport } from '../../../lib/health/report/service'
 import type { ReportRange } from '../../../lib/health/report/types'
 import { captureOperationalError } from '../../../lib/monitoring'
@@ -31,7 +32,8 @@ export async function POST(request: NextRequest) {
     }, { status: unavailable ? 503 : 429, headers: rateLimitHeaders(limit) })
   }
   try {
-    return NextResponse.json(await createDoctorReport(supabase, user.id, range, includeAi, new Date().toISOString().slice(0, 10)), { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json(await createDoctorReport(supabase, user.id, range, includeAi, new Date().toISOString().slice(0, 10), undefined,
+      async error => { await captureAnalystOperationalError('/api/health-report', error) }), { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     await captureOperationalError({ route: '/api/health-report', error, source: includeAi ? 'ai' : 'report', status: 500 })
     return NextResponse.json({ error: 'The report could not be generated. Your health data was not changed.' }, { status: 500 })

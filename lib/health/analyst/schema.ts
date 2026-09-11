@@ -3,21 +3,23 @@ import type { AnalystFinding, DataConfidence, HealthAnalysis } from './types'
 export const healthAnalysisSchema = {
   type: 'object', additionalProperties: false,
   properties: {
-    summary: { type: 'string', minLength: 1, maxLength: 900 },
+    summary: { type: 'string' },
     findings: { type: 'array', maxItems: 6, items: { type: 'object', additionalProperties: false,
       properties: {
-        title: { type: 'string', minLength: 1, maxLength: 140 },
-        detail: { type: 'string', minLength: 1, maxLength: 700 },
-        evidenceIds: { type: 'array', minItems: 1, maxItems: 8, uniqueItems: true, items: { type: 'string', pattern: '^E[1-9][0-9]*$' } },
+        title: { type: 'string' },
+        detail: { type: 'string' },
+        evidenceIds: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string', pattern: '^E[1-9][0-9]*$' } },
         confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
       }, required: ['title', 'detail', 'evidenceIds', 'confidence'],
     } },
-    uncertainties: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 1, maxLength: 300 } },
-    nextObservations: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 1, maxLength: 300 } },
+    uncertainties: { type: 'array', maxItems: 5, items: { type: 'string' } },
+    nextObservations: { type: 'array', maxItems: 5, items: { type: 'string' } },
   }, required: ['summary', 'findings', 'uncertainties', 'nextObservations'],
 } as const
 
-export class AnalystOutputError extends Error {}
+export class AnalystOutputError extends Error {
+  constructor(message: string) { super(message); this.name = 'AnalystOutputError' }
+}
 const confidence = new Set<DataConfidence>(['high', 'medium', 'low'])
 const plainObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown, max: number) => typeof value === 'string' && value.trim().length > 0 && value.length <= max

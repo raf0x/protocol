@@ -265,10 +265,18 @@ The Health Analyst calls the model from a server route. Add these values to your
 
 ```bash
 OPENAI_API_KEY=your-server-side-api-key
-OPENAI_HEALTH_ANALYST_MODEL=gpt-5-mini
+OPENAI_HEALTH_ANALYST_MODEL=gpt-5.6-terra
 ```
 
-`OPENAI_HEALTH_ANALYST_MODEL` is optional. The analyst sends a compact, query-specific evidence bundle and does not persist model responses in the application database.
+`OPENAI_HEALTH_ANALYST_MODEL` is optional and defaults to `gpt-5.6-terra`. The analyst sends a compact, query-specific evidence bundle and does not persist model responses in the application database.
+
+To verify the deployed provider without sending health data, sign in and run this in the browser console on the MyPepProtocol domain:
+
+```js
+fetch('/api/health-analyst/health', { method: 'POST' }).then(response => response.json())
+```
+
+The protected check uses a tiny synthetic structured-output request and returns only `configured`, `reachable`, `modelAccepted`, and `structuredOutputAccepted` booleans. It uses the existing durable Health Analyst rate limit.
 
 ## Doctor-ready reports
 

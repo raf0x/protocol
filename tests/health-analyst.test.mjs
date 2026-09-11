@@ -79,13 +79,13 @@ test('service returns only evidence referenced by findings', async () => {
 test('service handles no evidence without calling provider', async () => {
   let called = false; const answer = await service.analyzeHealthContext(context('snapshot', source()), { generate: async () => { called = true } }); assert.equal(called, false); assert.equal(answer.analysis.findings.length, 0)
 })
-test('provider uses strict JSON schema and output cap', async () => {
-  let request; const ctx = context(); const p = new providerModule.OpenAIHealthAnalystProvider('secret', 'test-model', async (_url, init) => { request = JSON.parse(init.body); return new Response(JSON.stringify({ output_text: JSON.stringify(valid(ctx)) })) }); await p.generate(ctx); assert.equal(request.text.format.strict, true); assert.equal(request.max_output_tokens, 1100); assert.equal(request.store, false)
+test('provider uses strict JSON schema and bounded output cap', async () => {
+  let request; const ctx = context(); const p = new providerModule.OpenAIHealthAnalystProvider('secret', 'test-model', async (_url, init) => { request = JSON.parse(init.body); return new Response(JSON.stringify({ output_text: JSON.stringify(valid(ctx)) })) }); await p.generate(ctx); assert.equal(request.text.format.strict, true); assert.equal(request.max_output_tokens, 4000); assert.equal(request.store, false)
 })
 test('provider failures use a controlled error', async () => {
   const p = new providerModule.OpenAIHealthAnalystProvider('secret', 'test-model', async () => new Response('', { status: 500 })); await assert.rejects(() => p.generate(context()), providerModule.AnalystProviderError)
 })
-test('API key is server-only and never NEXT_PUBLIC', () => { const src = readFileSync(new URL('../lib/health/analyst/provider.ts', import.meta.url), 'utf8'); assert.match(src, /process\.env\.OPENAI_API_KEY/); assert.ok(!src.includes('NEXT_PUBLIC_OPENAI')) })
+test('API key is server-only and never NEXT_PUBLIC', () => { const src = readFileSync(new URL('../lib/health/analyst/provider.ts', import.meta.url), 'utf8'); assert.match(src, /import 'server-only'/); assert.match(src, /OPENAI_API_KEY/); assert.ok(!src.includes('NEXT_PUBLIC_OPENAI')) })
 test('context queries are owner scoped', () => { const src = readFileSync(new URL('../lib/health/analyst/context.ts', import.meta.url), 'utf8'); assert.ok((src.match(/\.eq\('user_id', userId\)/g) ?? []).length >= 3) })
 test('context reuses strict protocol overlay history', () => { const src = readFileSync(new URL('../lib/health/analyst/evidence.ts', import.meta.url), 'utf8'); assert.match(src, /contextAtDate/) })
 test('analyst UI renders model data as text rather than arbitrary HTML', () => { const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8'); assert.ok(!src.includes('dangerouslySetInnerHTML')); assert.match(src, /View evidence/) })

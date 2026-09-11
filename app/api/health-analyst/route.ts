@@ -6,8 +6,8 @@ import { checkDurableRateLimit, rateLimitHeaders } from '../../../lib/durableRat
 import { loadHealthAnalystContext } from '../../../lib/health/analyst/context'
 import { analyzeHealthContext } from '../../../lib/health/analyst/service'
 import { AnalystConfigurationError, AnalystProviderError } from '../../../lib/health/analyst/provider'
+import { captureAnalystOperationalError } from '../../../lib/health/analyst/monitoring'
 import { AnalystOutputError } from '../../../lib/health/analyst/schema'
-import { captureOperationalError } from '../../../lib/monitoring'
 import { createAuthenticatedServerClient } from '../../../lib/serverSupabase'
 
 export async function POST(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     const status = error instanceof AnalystConfigurationError ? 503 : error instanceof AnalystProviderError || error instanceof AnalystOutputError ? 502 : 500
-    await captureOperationalError({ route: '/api/health-analyst', error, source: 'ai', status })
+    await captureAnalystOperationalError('/api/health-analyst', error)
     if (error instanceof AnalystConfigurationError) return NextResponse.json({ error: 'The analyst is temporarily unavailable.' }, { status })
     if (error instanceof AnalystProviderError || error instanceof AnalystOutputError) return NextResponse.json({ error: 'The analyst could not produce a reliable answer. Please try again.' }, { status })
     return NextResponse.json({ error: 'The analyst is temporarily unavailable.' }, { status })
