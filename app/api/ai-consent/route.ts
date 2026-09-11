@@ -5,6 +5,7 @@ import { AI_CONSENT_VERSION } from '../../../lib/aiConsent'
 import { captureOperationalError } from '../../../lib/monitoring'
 import { isSameOriginRequest } from '../../../lib/requestSecurity'
 import { createAuthenticatedServerClient } from '../../../lib/serverSupabase'
+import { resolveUserProfileOwnership } from '../../../lib/userProfileOwnership'
 
 export async function POST(request: NextRequest) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Invalid consent request.' }, { status: 403 })
@@ -25,10 +26,10 @@ export async function POST(request: NextRequest) {
     ai_processing_consented_at: consent ? new Date().toISOString() : null,
     ai_processing_consent_version: AI_CONSENT_VERSION,
   }
-  let result = await supabase.from('user_profiles').update(values).eq('user_id', user.id).select('ai_processing_consent')
-  if (!result.error && result.data?.length === 0) {
-    result = await supabase.from('user_profiles').update(values).eq('id', user.id).select('ai_processing_consent')
-  }
+  const result = await resolveUserProfileOwnership(
+    async ownerKey => await supabase.from('user_profiles').update(values).eq(ownerKey, user.id).select('ai_processing_consent'),
+    data => Array.isArray(data) && data.length > 0,
+  )
   if (result.error || !result.data?.length) {
     await captureOperationalError({ route: '/api/ai-consent', error: result.error, errorType: result.error ? undefined : 'ProfileNotFound', source: 'api', status: 500 })
     return NextResponse.json({ error: 'AI settings could not be updated. No health data was sent.' }, { status: 500 })

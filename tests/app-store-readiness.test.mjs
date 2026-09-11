@@ -105,7 +105,7 @@ test('session checks have a bounded loading fallback and accessible status', () 
   assert.match(login, /setTimeout/); assert.match(login, /role="status"/); assert.match(login, /Checking your session/)
 })
 test('safe areas and mobile bottom navigation reserve content space', () => {
-  assert.match(shell, /padding-top: env\(safe-area-inset-top, 0px\)/); assert.match(shell, /padding-bottom: calc\(var\(--app-nav-height\).*safe-area-inset-bottom/s)
+  assert.match(shell, /padding-top: max\(env\(safe-area-inset-top, 0px\), var\(--app-shell-safe-top-min\)\)/); assert.match(shell, /padding-bottom: calc\(var\(--app-nav-height\).*safe-area-inset-bottom/s)
 })
 test('bottom sheet is dynamic-viewport and keyboard-scroll friendly', () => {
   assert.match(shell, /max-height: min\(85dvh/); assert.match(shell, /overscroll-behavior: contain/); assert.match(shell, /scroll-padding-bottom/)

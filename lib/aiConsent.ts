@@ -1,6 +1,7 @@
 import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveUserProfileOwnership } from './userProfileOwnership'
 
 export const AI_CONSENT_VERSION = 1
 export const AI_CONSENT_REQUIRED = 'AI_CONSENT_REQUIRED'
@@ -12,14 +13,9 @@ type ConsentRow = {
 }
 
 export async function hasCurrentAiConsent(client: SupabaseClient, userId: string): Promise<boolean> {
-  let result = await client.from('user_profiles')
-    .select('ai_processing_consent,ai_processing_consented_at,ai_processing_consent_version')
-    .eq('user_id', userId).limit(1).maybeSingle<ConsentRow>()
-  if (!result.error && !result.data) {
-    result = await client.from('user_profiles')
+  const result = await resolveUserProfileOwnership(async ownerKey => await client.from('user_profiles')
       .select('ai_processing_consent,ai_processing_consented_at,ai_processing_consent_version')
-      .eq('id', userId).limit(1).maybeSingle<ConsentRow>()
-  }
+      .eq(ownerKey, userId).limit(1).maybeSingle<ConsentRow>())
   const { data, error } = result
   if (error || !data) return false
   return data.ai_processing_consent === true
