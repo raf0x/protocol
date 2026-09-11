@@ -42,7 +42,7 @@ export default function BottomTabBar() {
       {[
         ['/profile', 'Profile & settings'], ['/calculator', 'Dose calculator'],
         ['/tracker', 'Tracker'], ['/learn', 'Learn'],
-        ['/privacy', 'Privacy policy'], ['mailto:privacy@mypepprotocol.app', 'Privacy & support'],
+        ['/privacy', 'Privacy policy'], ['/support', 'Support'],
         ...(isAdmin ? [['/admin', 'Admin']] : []),
       ].map(([href, label]) => <Link key={href} className="app-menu-link" href={href} onClick={close}>{label}<AppIcon name="chevron" size={16} /></Link>)}
       <div className="app-menu-link"><span>Appearance</span><ThemeToggle inline /></div>

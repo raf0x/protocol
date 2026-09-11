@@ -1,0 +1,304 @@
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 860px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 20px 16px 32px;
+}
+
+.card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px;
+
+  overflow: hidden;
+
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-card);
+
+  background:
+    linear-gradient(
+      145deg,
+      var(--app-surface-raised),
+      var(--app-surface) 68%
+    );
+
+  box-shadow: var(--app-shadow);
+}
+
+.card,
+.card *,
+.card *::before,
+.card *::after {
+  box-sizing: border-box;
+}
+
+.header {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 20px;
+}
+
+.eyebrow {
+  display: block;
+  margin: 0 0 7px;
+
+  color: var(--app-accent);
+
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+}
+
+.header h1 {
+  margin: 0 0 6px;
+
+  color: var(--app-text);
+
+  font-size: var(--app-font-display);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+}
+
+.header p {
+  margin: 0;
+
+  color: var(--app-secondary);
+
+  font-size: var(--app-font-body);
+  line-height: 1.5;
+}
+
+.form {
+  display: grid;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin: 0;
+  padding: 0;
+
+  gap: 16px;
+}
+
+.form label {
+  display: grid;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin: 0;
+  padding: 0;
+
+  gap: 7px;
+}
+
+.form label > span {
+  display: block;
+
+  margin: 0;
+  padding: 0;
+
+  color: var(--app-secondary);
+
+  font-size: var(--app-font-small);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.form input,
+.form textarea {
+  display: block;
+
+  box-sizing: border-box;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+
+  margin: 0 !important;
+
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-button);
+
+  background: var(--app-surface-secondary);
+  color: var(--app-text);
+
+  font-family: inherit;
+  font-size: 16px;
+
+  outline: none;
+
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.form input {
+  height: 48px;
+
+  padding: 0 13px;
+}
+
+.form textarea {
+  height: 124px;
+  min-height: 124px;
+
+  padding: 12px 13px;
+
+  line-height: 1.5;
+
+  resize: vertical;
+}
+
+.form input:focus,
+.form textarea:focus {
+  border-color: var(--app-accent);
+
+  outline: 2px solid var(--app-accent-soft);
+  outline-offset: 0;
+}
+
+.form button {
+  display: block;
+
+  box-sizing: border-box;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+
+  margin: 0;
+  padding: 11px 16px;
+
+  border: 1px solid var(--app-accent);
+  border-radius: var(--app-radius-button);
+
+  background: var(--app-accent);
+  color: var(--app-bg);
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.form button:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.form button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.success,
+.error {
+  box-sizing: border-box;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin: 0;
+  padding: 11px 13px;
+
+  border-radius: var(--app-radius-button);
+
+  font-size: var(--app-font-small);
+  line-height: 1.45;
+}
+
+.success {
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--app-success) 35%,
+      var(--app-border)
+    );
+
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.error {
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--app-error) 35%,
+      var(--app-border)
+    );
+
+  background:
+    color-mix(
+      in srgb,
+      var(--app-error) 10%,
+      transparent
+    );
+
+  color: var(--app-error);
+}
+
+.direct {
+  width: 100%;
+  min-width: 0;
+
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+
+  border-top: 1px solid var(--app-border);
+
+  color: var(--app-muted);
+
+  font-size: 12px;
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
+}
+
+.direct a {
+  color: var(--app-accent);
+  text-decoration: none;
+}
+
+.direct a:hover {
+  text-decoration: underline;
+}
+
+.honeypot {
+  position: absolute !important;
+
+  width: 1px !important;
+  height: 1px !important;
+
+  margin: -1px !important;
+  padding: 0 !important;
+
+  overflow: hidden !important;
+
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+
+  white-space: nowrap !important;
+
+  border: 0 !important;
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 12px 12px 28px;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+}
