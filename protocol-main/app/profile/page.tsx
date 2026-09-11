@@ -1,0 +1,217 @@
+'use client'
+
+import type { WeightUnit } from '../../lib/weightUtils'
+import { useState, useEffect } from 'react'
+import { createClient } from '../../lib/supabase'
+import { useRouter } from 'next/navigation'
+import InstallHint from '../../components/app/InstallHint'
+
+export default function ProfilePage() {
+  const [email, setEmail] = useState('')
+  const [createdAt, setCreatedAt] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState('')
+  const [notifEnabled, setNotifEnabled] = useState(false)
+  const [reminderHour, setReminderHour] = useState(20)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifStatus, setNotifStatus] = useState('')
+  const [theme, setTheme] = useState('dark')
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
+  const [weightSaving, setWeightSaving] = useState(false)
+  const router = useRouter()
+  const g = 'var(--color-green)'
+  const dg = 'var(--color-dim)'
+  const mg = 'var(--color-muted)'
+  const cb = 'var(--color-card)'
+  const bd = 'var(--color-border)'
+
+  useEffect(() => {
+    let live = true
+    async function loadUser() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!live) return
+      if (!user) { router.replace('/auth/login?next=/profile'); return }
+      setUserId(user.id)
+      setEmail(user.email || '')
+      const date = new Date(user.created_at)
+      setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
+      const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+      if (!live) return
+      if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
+      const { data: sub } = await supabase.from('push_subscriptions').select('reminder_hour').eq('user_id', user.id).single()
+      if (!live) return
+      if (sub) { setNotifEnabled(true); setReminderHour(sub.reminder_hour) }
+      setLoading(false)
+    }
+    void loadUser().catch(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [router])
+
+  useEffect(() => {
+    try { const t = localStorage.getItem('protocol-theme') || 'dark'; queueMicrotask(() => setTheme(t)) } catch {}
+  }, [])
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    try { localStorage.setItem('protocol-theme', next) } catch {}
+    document.documentElement.setAttribute('data-theme', next)
+  }
+
+  async function updateWeightUnit(unit: WeightUnit) {
+    setWeightUnit(unit)
+    setWeightSaving(true)
+    const supabase = createClient()
+    await supabase.from('user_profiles').update({ weight_unit: unit }).eq('user_id', userId)
+    setWeightSaving(false)
+  }
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/auth/login')
+  }
+
+  function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i) }
+    return outputArray
+  }
+
+  async function enableNotifications() {
+    setNotifLoading(true)
+    setNotifStatus('')
+    try {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setNotifStatus('Push reminders are not supported in this browser. On iPhone, install the app from Safari first.')
+        setNotifLoading(false)
+        return
+      }
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!publicKey) { setNotifStatus('Push reminders are not configured yet.'); setNotifLoading(false); return }
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') { setNotifStatus('Permission denied. Enable notifications in your browser settings.'); setNotifLoading(false); return }
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      })
+      const res = await fetch('/api/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON(), reminder_hour: reminderHour }),
+      })
+      if (res.ok) { setNotifEnabled(true); setNotifStatus('Reminders enabled.') }
+      else { setNotifStatus('Something went wrong. Try again.') }
+    } catch {
+      setNotifStatus('Reminders could not be enabled. Check browser notification settings and try again.')
+    }
+    setNotifLoading(false)
+  }
+
+  async function disableNotifications() {
+    setNotifLoading(true)
+    await fetch('/api/push', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    setNotifEnabled(false)
+    setNotifStatus('Reminders disabled.')
+    setNotifLoading(false)
+  }
+
+  async function updateHour(hour: number) {
+    setReminderHour(hour)
+    if (notifEnabled) {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await fetch('/api/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON(), reminder_hour: hour }),
+        })
+      }
+    }
+  }
+
+  const hours = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22]
+  function formatHour(h: number) {
+    if (h === 12) return '12:00 PM'
+    if (h < 12) return h + ':00 AM'
+    return (h - 12) + ':00 PM'
+  }
+
+  if (loading) return <main role="status" style={{minHeight:'100dvh',background:'var(--color-bg)',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading profile…</main>
+
+  return (
+    <main style={{minHeight:'100dvh',background:'var(--color-bg)',color:'var(--color-text)',padding:'24px'}}>
+      <div style={{maxWidth:'480px',margin:'0 auto'}}>
+        <h1 style={{fontSize:'24px',fontWeight:'bold',marginBottom:'24px',color:g}}>Profile</h1>
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <div style={{marginBottom:'16px',paddingBottom:'16px',borderBottom:'1px solid '+bd}}>
+            <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',fontWeight:'600'}}>EMAIL</span>
+            <span style={{fontSize:'15px'}}>{email}</span>
+          </div>
+          <div>
+            <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px',fontWeight:'600'}}>MEMBER SINCE</span>
+            <span style={{fontSize:'15px'}}>{createdAt}</span>
+          </div>
+        </div>
+        <InstallHint />
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Journal reminders</h2>
+          <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Get a daily reminder to log your journal entry.</p>
+          <div style={{marginBottom:'16px'}}>
+            <label style={{fontSize:'12px',color:mg,display:'block',marginBottom:'6px'}}>Reminder time</label>
+            <select value={reminderHour} onChange={e => updateHour(parseInt(e.target.value))} style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}>
+              {hours.map(h => <option key={h} value={h}>{formatHour(h)}</option>)}
+            </select>
+          </div>
+          {notifStatus && <p role="status" aria-live="polite" style={{fontSize:'12px',color:dg,marginBottom:'12px'}}>{notifStatus}</p>}
+          {notifEnabled ? (
+            <button onClick={disableNotifications} disabled={notifLoading} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'12px',borderRadius:'6px',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Updating...':'Disable reminders'}</button>
+          ) : (
+            <button onClick={enableNotifications} disabled={notifLoading} style={{width:'100%',background:notifLoading?'#1a3d1a':g,color:notifLoading?mg:'var(--color-green-text)',fontWeight:'700',padding:'12px',borderRadius:'6px',border:'none',fontSize:'14px',cursor:'pointer'}}>{notifLoading?'Enabling...':'Enable reminders'}</button>
+          )}
+        </div>
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'12px'}}>About MyPepProtocol</h2>
+          <p style={{fontSize:'13px',color:mg,lineHeight:'1.6',margin:0}}>MyPepProtocol is a personal harm reduction tracking tool. It does not provide medical advice, recommend dosing, or facilitate sourcing of any substances. Your records are scoped to your account.</p>
+        </div>
+        <div style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <h2 style={{fontSize:'14px',fontWeight:'600',color:dg,marginBottom:'4px'}}>Weight unit</h2>
+          <p style={{fontSize:'12px',color:mg,marginBottom:'16px'}}>Choose how weight is displayed throughout the app.</p>
+          <select 
+            value={weightUnit} 
+            onChange={e => updateWeightUnit(e.target.value as WeightUnit)}
+            disabled={weightSaving}
+            style={{background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'10px',color:'var(--color-text)',fontSize:'14px',width:'100%'}}
+          >
+            <option value="lbs">Pounds (lbs)</option>
+            <option value="kg">Kilograms (kg)</option>
+          </select>
+        </div>
+        <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <h2 style={{fontSize:'14px',fontWeight:'600',color:'var(--color-dim)',marginBottom:'4px'}}>Appearance</h2>
+              <p style={{fontSize:'12px',color:'var(--color-muted)',margin:0}}>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</p>
+            </div>
+            <button onClick={toggleTheme} style={{position:'relative',width:'52px',height:'28px',borderRadius:'14px',border:'1px solid var(--color-border)',background:theme==='light'?'var(--color-green-20)':'var(--color-surface)',cursor:'pointer',padding:0,flexShrink:0}}>
+              <span style={{position:'absolute',top:'3px',left:theme==='dark'?'3px':'25px',width:'20px',height:'20px',borderRadius:'50%',background:theme==='dark'?'var(--color-dim)':'var(--color-green)',transition:'left 0.2s ease',display:'block'}} />
+            </button>
+          </div>
+        </div>
+        {userId === '41266062-c8a7-4a52-aa9b-c1fb96d1c483' && (
+          <a href="/admin" style={{display:'block',width:'100%',background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',marginBottom:'16px',textAlign:'center',textDecoration:'none',color:dg,fontSize:'13px',fontWeight:'600'}}>Admin Dashboard</a>
+        )}
+        <button onClick={handleSignOut} style={{width:'100%',background:'#1a0000',border:'1px solid #4a0000',color:'#ff6b6b',fontWeight:'700',padding:'14px',borderRadius:'6px',fontSize:'16px',cursor:'pointer'}}>Sign out</button>
+      </div>
+    </main>
+  )
+}

@@ -1,0 +1,102 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '../../../lib/supabase'
+import { useRouter } from 'next/navigation'
+import { safeAuthReturnPath } from '../../../lib/authRedirect'
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [step, setStep] = useState<'email'|'code'>('email')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  const [sessionChecking, setSessionChecking] = useState(true)
+  const [returnPath] = useState(() => typeof window === 'undefined' ? '/protocol' : safeAuthReturnPath(new URLSearchParams(window.location.search).get('next')))
+  const router = useRouter()
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
+
+  useEffect(() => {
+    let live = true
+    const nextPath = safeAuthReturnPath(new URLSearchParams(window.location.search).get('next'))
+    const fallback = window.setTimeout(() => { if (live) setSessionChecking(false) }, 4000)
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      if (!live) return
+      if (user) { router.replace(nextPath); router.refresh(); return }
+      setSessionChecking(false)
+    }).catch(() => { if (live) setSessionChecking(false) }).finally(() => window.clearTimeout(fallback))
+    return () => { live = false; window.clearTimeout(fallback) }
+  }, [router])
+
+  async function sendCode() {
+    setError('')
+    if (!email || !email.includes('@')) { setError('Please enter a valid email address.'); return }
+    setLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
+    if (error) { setError(error.message); setLoading(false); return }
+    setCooldown(60)
+    setStep('code')
+    setLoading(false)
+  }
+
+  async function verifyCode() {
+    setError('')
+    if (!code || code.length < 6) { setError('Please enter the 6-digit code from your email.'); return }
+    setLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    if (error) { setError('Invalid or expired code. Try again.'); setLoading(false); return }
+    router.replace(returnPath)
+    router.refresh()
+  }
+
+  const inputStyle = {width:'100%',background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'6px',padding:'12px',color:'white',fontSize:'16px',outline:'none',boxSizing:'border-box' as const}
+  const btnStyle = {width:'100%',background:'#39ff14',color:'#000000',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'pointer',letterSpacing:'1px'}
+  const btnDisabled = {width:'100%',background:'#1a3d1a',color:'#3d3d5c',fontWeight:'700' as const,padding:'14px',borderRadius:'6px',border:'none',fontSize:'16px',cursor:'not-allowed' as const,letterSpacing:'1px'}
+
+  if (sessionChecking) return <main role="status" aria-live="polite" style={{minHeight:'100dvh',background:'#0a0a0f',color:'#8b8ba7',display:'grid',placeItems:'center',padding:'24px'}}>Checking your session…</main>
+
+  if (step === 'code') {
+    return (
+      <main style={{minHeight:'100dvh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px))'}}>
+        <div style={{maxWidth:'400px',width:'100%'}}>
+          <h1 style={{fontSize:'28px',fontWeight:'bold',marginBottom:'8px',color:'#39ff14'}}>Check your email</h1>
+          <p style={{color:'#8b8ba7',marginBottom:'32px'}}>We sent a 6-digit code to <strong style={{color:'white'}}>{email}</strong>.</p>
+          <div style={{marginBottom:'16px'}}>
+            <label htmlFor="login-code" style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#8b8ba7'}}>6-digit code</label>
+            <input id="login-code" type='text' inputMode="numeric" autoComplete="one-time-code" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={e => e.key==='Enter'&&verifyCode()} placeholder='123456' style={{...inputStyle,fontSize:'28px',letterSpacing:'12px',textAlign:'center'}} />
+          </div>
+          {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
+          <button onClick={verifyCode} disabled={loading} style={loading?btnDisabled:btnStyle}>{loading?'Verifying...':'Sign in'}</button>
+          <button onClick={() => { setStep('email'); setCode(''); setError(''); setCooldown(0) }} style={{width:'100%',background:'none',border:'none',color:'#3d3d5c',fontSize:'14px',cursor:'pointer',marginTop:'12px'}}>Use a different email</button>
+          <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'16px',textAlign:'center'}}>No email? Check your spam. Code expires in 10 minutes.</p>
+        </div>
+      </main>
+    )
+  }
+
+  return (
+    <main style={{minHeight:'100dvh',background:'#0a0a0f',color:'white',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px))'}}>
+      <div style={{maxWidth:'400px',width:'100%'}}>
+        <h1 style={{fontSize:'36px',fontWeight:'bold',marginBottom:'8px',color:'#39ff14',letterSpacing:'1px'}}>MyPepProtocol</h1>
+        <p style={{color:'#8b8ba7',marginBottom:'32px'}}>Enter your email to sign in or create an account.</p>
+        <div style={{marginBottom:'16px'}}>
+          <label htmlFor="login-email" style={{display:'block',fontSize:'14px',fontWeight:'600',marginBottom:'6px',color:'#8b8ba7'}}>Email address</label>
+          <input id="login-email" type='email' autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&sendCode()} placeholder='you@example.com' style={inputStyle} />
+        </div>
+        {error && <div style={{background:'#1a0000',border:'1px solid #4a0000',borderRadius:'6px',padding:'10px',fontSize:'14px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
+        <button onClick={sendCode} disabled={loading || cooldown > 0} style={loading || cooldown > 0 ? btnDisabled : btnStyle}>
+          {loading ? 'Sending...' : cooldown > 0 ? `Try again in ${cooldown}s` : 'Send code'}
+        </button>
+        <p style={{color:'#1a3d1a',fontSize:'12px',marginTop:'24px',lineHeight:'1.6',textAlign:'center'}}>By signing in you agree to use this tool for personal harm reduction tracking only. Not medical advice.</p>
+      </div>
+    </main>
+  )
+}
