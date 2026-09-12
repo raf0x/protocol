@@ -3,6 +3,7 @@ import { biomarkerHistories, labReference, labValue } from '../labs'
 import { contextAtDate, overlayMarkers } from '../protocolOverlay'
 import type { AnalystSourceData } from '../analyst/evidence'
 import type { DoctorReport, ReportRange } from './types'
+import { labComparisonSummary, labLimitations } from '../labEvidence'
 
 const dayDistance = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000)
 export function reportStartDate(range: ReportRange, today: string) {
@@ -44,7 +45,7 @@ export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, 
     const comparison = compareLatest(group.observations)
     return comparison ? { name: history.name, unit: group.unit, latestDate: comparison.latest.date, previousDate: comparison.previous.date,
       latest: comparison.latest.result.value!, previous: comparison.previous.result.value!, delta: comparison.delta, percent: comparison.percent,
-      direction: comparison.direction, flagged: statusIsFlagged(comparison.latest.result.status) } : null
+      direction: comparison.direction, flagged: statusIsFlagged(comparison.latest.result.status), comparison: labComparisonSummary(comparison.evidence) } : null
   }).filter((item): item is NonNullable<typeof item> => Boolean(item))).sort((a, b) => Number(b.flagged) - Number(a.flagged)
     || Math.abs(b.percent ?? 0) - Math.abs(a.percent ?? 0) || b.latestDate.localeCompare(a.latestDate) || a.name.localeCompare(b.name)).slice(0, 12)
 
@@ -67,6 +68,7 @@ export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, 
   })).sort((a, b) => b.labDate.localeCompare(a.labDate) || Math.abs(dayDistance(a.eventDate, a.labDate)) - Math.abs(dayDistance(b.eventDate, b.labDate))).slice(0, 16)
 
   const limitations: string[] = []
+  limitations.push(...labLimitations(trends.flatMap(trend => trend.comparison.limitations)))
   const legacy = data.protocolEvents.filter(event => event.metadata?.version !== 1).length
   if (legacy) limitations.push(`${legacy} protocol ${legacy === 1 ? 'event is' : 'events are'} legacy or unstructured; exact historical dosing may not be verifiable.`)
   const missingRanges = panels.flatMap(panel => panel.results).filter(result => result.reference_low == null && result.reference_high == null && !result.reference_text).length

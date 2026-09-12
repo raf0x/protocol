@@ -4,6 +4,7 @@ import { addDays, numberLabel } from './dates'
 import { healthStateAtDate } from './history'
 import type { LongitudinalSource } from './types'
 import { comparableLabObservations } from './presentation'
+import { labComparisonSummary } from '../labEvidence'
 
 /** A deliberately small projection, with no database IDs, raw entries, notes,
  * filenames or source metadata. Only protocol-context requests call this. */
@@ -23,6 +24,7 @@ export function longitudinalAnalystEvidence(source: LongitudinalSource, today: s
         followups: item.changes.slice(-3).map(change => { const row = item.followups.find(row => row.id === change.measurementId)!; return {
           date: row.date, value: row.value, unit: row.unit, source: row.source.table, reference: row.reference,
           delta: change.delta, percent: change.percent, direction: change.direction, daysAfter: change.daysAfter, daysBetween: change.daysBetween,
+          comparison: change.labComparison ? labComparisonSummary(change.labComparison) : undefined,
         } }),
         window: item.window, followupDates: item.followups.length, strength: item.strength,
         confounders: item.confounders.slice(0, 10).map(change => ({ date: change.date, title: change.title })), confounderCount: item.confounders.length,

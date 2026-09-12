@@ -1,4 +1,5 @@
 import type { LongitudinalAnalystEvidence } from '../longitudinal/types'
+import type { LabComparisonSummary } from '../labEvidence'
 
 export type AnalystIntent = 'since_last_labs' | 'current_snapshot' | 'protocol_context' | 'largest_changes' | 'missing_data' | 'general'
 export type DataConfidence = 'high' | 'medium' | 'low'
@@ -13,6 +14,7 @@ export type AnalystEvidence = {
   confidence: DataConfidence
   sourceLabel: string
   longitudinal?: LongitudinalAnalystEvidence
+  comparison?: LabComparisonSummary
 }
 
 export type ContextFact = { text: string; evidenceIds: string[] }

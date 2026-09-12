@@ -5,6 +5,7 @@ import type { LibraryProtocol } from '../protocolPresentation'
 import type { JournalEntryRow } from '../timeline'
 import type { AnalystEvidence, AnalystIntent, ContextFact, HealthAnalystContext } from './types'
 import { longitudinalAnalystEvidence, longitudinalRegimenEvidence } from '../longitudinal/analyst'
+import { labComparisonSummary, labPanelMembership, rangeTransitionText } from '../labEvidence'
 
 export type AnalystSourceData = {
   panels: LabPanel[]
@@ -32,7 +33,7 @@ function labEvidence(panel: LabPanel, result: LabPanel['results'][number]): Anal
     ? ` Supplied reference: ${result.reference_low ?? ''}${result.reference_low != null && result.reference_high != null ? ' to ' : ''}${result.reference_high ?? ''}${result.reference_text ? ` ${result.reference_text}` : ''}.`
     : ' No reference range was supplied.'
   return { id: evidenceId('lab', result.id), type: 'lab_result', date: panel.test_date, title: result.biomarker_name,
-    detail: `${labValue(result)}. Stored status: ${result.status}.${range}`, confidence: 'high', sourceLabel: panel.panel_name || panel.provider || 'Lab panel' }
+    detail: `${labValue(result)}. Stored status: ${result.status}.${range}`, confidence: result.import_confidence ?? 'high', sourceLabel: panel.panel_name || panel.provider || 'Lab panel' }
 }
 
 function comparableEvidence(panels: LabPanel[]) {
@@ -41,11 +42,12 @@ function comparableEvidence(panels: LabPanel[]) {
     const comparison = compareLatest(group.observations)
     if (!comparison) continue
     const id = evidenceId('comparison', `${comparison.previous.result.id}:${comparison.latest.result.id}`)
-    const days = dayDistance(comparison.previous.date, comparison.latest.date)
+    const days = comparison.evidence.elapsedDays
     const percent = comparison.percent == null ? '' : `, ${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(1)}%`
     const detail = `${comparison.previous.result.value} ${group.unit} on ${comparison.previous.date} to ${comparison.latest.result.value} ${group.unit} on ${comparison.latest.date}: ${comparison.delta > 0 ? '+' : ''}${Number(comparison.delta.toPrecision(6))} ${group.unit}${percent}, ${days} days apart.`
     evidence.push({ id, type: 'lab_comparison', date: comparison.latest.date, title: `${history.name}: ${comparison.direction}`,
-      detail, confidence: 'high', sourceLabel: 'Comparable lab results' })
+      detail, comparison: labComparisonSummary(comparison.evidence),
+      confidence: [comparison.evidence.previous, comparison.evidence.current].some(row => row.provenance.confidence === 'low') ? 'low' : 'medium', sourceLabel: 'Same-unit lab arithmetic; assay compatibility unverified' })
     facts.push(fact(`${history.name} ${comparison.direction}: ${detail}`, id, evidenceId('lab', comparison.previous.result.id), evidenceId('lab', comparison.latest.result.id)))
   }
   return { evidence, facts }
@@ -124,6 +126,7 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   gaps.push(...longitudinal.gaps)
   if (!latest) gaps.push(fact('No lab panels are recorded yet.'))
   else if (!previous) gaps.push(fact('Only one lab panel is recorded, so a panel-to-panel comparison is not available.'))
+  else if (latest.test_date === previous.test_date) gaps.push(fact('Multiple panels share the latest test date. Their within-day order is unknown; no chronological panel-to-panel change was inferred.'))
   const histories = biomarkerHistories(panels)
   const mixed = histories.filter(history => history.units.length > 1)
   if (mixed.length) gaps.push(fact(`${mixed.length} biomarker histories contain different units and are kept as separate series.`))
@@ -136,9 +139,10 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
 
   const latestIds = new Set(latest?.results.map(result => evidenceId('lab', result.id)) ?? [])
   const previousIds = new Set(previous?.results.map(result => evidenceId('lab', result.id)) ?? [])
-  const flagged = labRows.filter(item => item.type === 'lab_result' && /Stored status: (high|low|abnormal)/.test(item.detail))
+  const flaggedIds = new Set(panels.flatMap(panel => panel.results.filter(result => statusIsFlagged(result.status)).map(result => evidenceId('lab', result.id))))
+  const flagged = labRows.filter(item => flaggedIds.has(item.id))
   const rankedComparisons = [...comparisons.evidence].sort((a, b) => {
-    const number = (value: AnalystEvidence) => Math.abs(Number(value.detail.match(/([-+]?\d+(?:\.\d+)?)%/)?.[1] ?? 0))
+    const number = (value: AnalystEvidence) => Math.abs(value.comparison?.percent ?? 0)
     return number(b) - number(a) || (b.date ?? '').localeCompare(a.date ?? '')
   })
   let selected: AnalystEvidence[]
@@ -151,18 +155,18 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   const selectedIds = new Set(selected.map(item => item.id))
   const facts = [...longitudinal.facts, ...comparisons.facts, ...events.facts, ...states.facts, ...weights.facts, ...journals.facts]
     .map(item => ({ ...item, evidenceIds: item.evidenceIds.filter(id => selectedIds.has(id)) })).filter(item => item.evidenceIds.length).slice(0, 30)
-  if (latest && previous) {
-    const latestHistory = biomarkerHistories([latest]), priorHistory = biomarkerHistories([previous])
-    const latestKeys = new Set(latestHistory.map(item => item.key)), priorKeys = new Set(priorHistory.map(item => item.key))
-    const newly = latestHistory.filter(item => !priorKeys.has(item.key)), missing = priorHistory.filter(item => !latestKeys.has(item.key))
+  if (latest && previous && previous.test_date < latest.test_date) {
+    const membership = labPanelMembership(histories, latest.id, previous.id)
+    const newly = membership.filter(item => item.change === 'newly_measured'), missing = membership.filter(item => item.change === 'absent_from_latest')
     const selectedPanelIds = selected.filter(item => latestIds.has(item.id) || previousIds.has(item.id)).map(item => item.id)
     facts.unshift(fact(`Latest panel ${latest.test_date} versus prior panel ${previous.test_date}: ${newly.length} newly measured biomarker groups${newly.length ? ` (${newly.slice(0, 8).map(item => item.name).join(', ')})` : ''} and ${missing.length} previously measured groups absent from the latest panel${missing.length ? ` (${missing.slice(0, 8).map(item => item.name).join(', ')})` : ''}.`, ...selectedPanelIds))
     for (const history of histories) for (const group of history.units) {
-      const observations = [...group.observations].sort((a, b) => b.date.localeCompare(a.date))
-      const current = observations.find(item => item.date === latest.test_date), prior = observations.find(item => item.date === previous.test_date)
-      if (!current || !prior) continue
-      if (statusIsFlagged(current.result.status) && !statusIsFlagged(prior.result.status)) facts.unshift(fact(`${history.name} is newly outside its supplied range or stored lab flag on the latest panel.`, evidenceId('lab', current.result.id), evidenceId('lab', prior.result.id)))
-      if (current.result.status === 'normal' && statusIsFlagged(prior.result.status)) facts.unshift(fact(`${history.name} returned to the supplied in-range status on the latest panel.`, evidenceId('lab', current.result.id), evidenceId('lab', prior.result.id)))
+      const comparison = compareLatest(group.observations)
+      if (!comparison || comparison.latest.panelId !== latest.id || comparison.previous.panelId !== previous.id) continue
+      const transition = comparison.evidence.range.transition
+      if (transition === 'remained_inside') continue
+      const ids = [evidenceId('comparison', `${comparison.previous.result.id}:${comparison.latest.result.id}`), evidenceId('lab', comparison.latest.result.id), evidenceId('lab', comparison.previous.result.id)].filter(id => selectedIds.has(id))
+      if (ids.length) facts.unshift(fact(`${history.name}: ${rangeTransitionText[transition]}`, ...ids))
     }
   }
   // The model needs stable citation handles, not database identifiers. Keep the

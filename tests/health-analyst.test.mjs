@@ -38,6 +38,20 @@ test('classifies largest change intent', () => assert.equal(evidenceModule.class
 test('classifies missing-data intent', () => assert.equal(evidenceModule.classifyAnalystIntent('What information is missing?'), 'missing_data'))
 test('same-unit readings produce deterministic comparison evidence', () => assert.ok(context().evidence.some(item => item.type === 'lab_comparison' && item.detail.includes('+20.0%'))))
 test('comparison records elapsed days', () => assert.ok(context().evidence.some(item => item.detail.includes('31 days apart'))))
+test('Analyst receives shared numeric and range facts without source identifiers', () => {
+  const c = context().evidence.find(item => item.type === 'lab_comparison').comparison
+  assert.equal(c.delta, 2); assert.equal(c.percent, 20); assert.equal(c.elapsedDays, 31)
+  assert.equal(c.direction, 'increased'); assert.equal(c.range.transition, 'remained_inside')
+  assert.ok(c.limitations.includes('assay_method_unknown')); assert.doesNotMatch(JSON.stringify(c), /resultId|panelId|ownerId|source_raw/)
+})
+test('unknown previous status does not produce a newly-outside Analyst fact', () => {
+  const ctx = context('since my last labs', source([
+    panel('new', '2026-09-01', [result('n', 'Glucose', 30, 'mg/dL', 'high')]),
+    panel('old', '2026-08-01', [result('o', 'Glucose', 10, 'mg/dL', 'unknown')]),
+  ]))
+  assert.ok(ctx.facts.some(fact => /Prior range status is unknown/.test(fact.text)))
+  assert.ok(!ctx.facts.some(fact => /newly outside/i.test(fact.text)))
+})
 test('different units never produce a comparison', () => {
   const ctx = context('largest change', source([panel('n', '2026-09-01', [result('n', 'Glucose', 12, 'mmol/L')]), panel('o', '2026-08-01', [result('o', 'Glucose', 10)])])); assert.equal(ctx.evidence.some(item => item.type === 'lab_comparison'), false)
 })

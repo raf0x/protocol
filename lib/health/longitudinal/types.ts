@@ -1,4 +1,5 @@
 import type { LabPanel } from '../labs'
+import type { LabComparison, LabDateEvidence, LabComparisonSummary } from '../labEvidence'
 import type { LibraryProtocol } from '../protocolPresentation'
 import type { OverlayProtocolEvent } from '../protocolOverlay'
 import type { JournalEntryRow } from '../timeline'
@@ -27,13 +28,14 @@ export type Measurement = {
   value: number; unit: string; percentageAllowed: boolean; source: SourceRef
   original: { name: string; value: number; unit: string; sourceType: string }
   reference?: { low: number | null; high: number | null; text: string | null }
+  labDate?: LabDateEvidence
 }
 export type ObservationWindow = { baselineDays: number; followupStartDays: number; followupEndDays: number }
 export type EvidenceStrength = { level: 'repeated' | 'limited' | 'insufficient'; reasons: string[] }
 export type LongitudinalObservation = {
   id: string; intervention: Intervention; metric: { key: string; name: string; unit: string }
   window: ObservationWindow; baseline: Measurement | null; followups: Measurement[]
-  changes: { measurementId: string; delta: number; percent: number | null; direction: 'increased' | 'decreased' | 'unchanged'; daysAfter: number; daysBetween: number }[]
+  changes: { measurementId: string; delta: number; percent: number | null; direction: 'increased' | 'decreased' | 'unchanged'; daysAfter: number; daysBetween: number; labComparison?: LabComparison }[]
   confounders: Intervention[]; strength: EvidenceStrength; limitations: string[]
 }
 export type HealthVersion = {
@@ -48,7 +50,7 @@ type AnalystMeasurement = Pick<Measurement, 'date' | 'value' | 'unit' | 'referen
 export type LongitudinalAnalystEvidence = {
   intervention: Pick<Intervention, 'date' | 'title' | 'before' | 'after' | 'provenance'> & { type: InterventionKind }
   baseline: AnalystMeasurement
-  followups: (AnalystMeasurement & Omit<LongitudinalObservation['changes'][number], 'measurementId'>)[]
+  followups: (AnalystMeasurement & Omit<LongitudinalObservation['changes'][number], 'measurementId' | 'labComparison'> & { comparison?: LabComparisonSummary })[]
   window: ObservationWindow; followupDates: number; strength: EvidenceStrength
   confounders: Pick<Intervention, 'date' | 'title'>[]; confounderCount: number
   stateBefore: Pick<ProtocolState, 'name' | 'medication' | 'frequency' | 'route' | 'provenance' | 'limitations'>[]

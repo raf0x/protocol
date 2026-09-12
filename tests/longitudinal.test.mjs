@@ -161,7 +161,18 @@ test('conflicting same-day follow-ups are not averaged', () => {
   assert.equal(observation(source({ panels: [panel('pre', '2026-01-05', 160), panel('one', '2026-01-31', 160), panel('two', '2026-01-31', 170)] })).followups.length, 0)
 })
 test('same-day duplicates do not inflate repeated measurement evidence', () => {
-  assert.equal(observation(source({ panels: [panel('pre', '2026-01-05', 160), ...['a', 'b', 'c'].map(id => panel(id, '2026-01-31', 158))] })).strength.level, 'limited')
+  // Equal values no longer authorize selecting one of several distinct tests.
+  assert.equal(observation(source({ panels: [panel('pre', '2026-01-05', 160), ...['a', 'b', 'c'].map(id => panel(id, '2026-01-31', 158))] })).strength.level, 'insufficient')
+})
+test('window-selected pair delegates values, range facts and provenance to shared lab evidence', () => {
+  const item = observation(), change = item.changes[0], c = change.labComparison
+  assert.equal(c.delta, change.delta); assert.equal(c.percent, change.percent); assert.equal(c.elapsedDays, change.daysBetween)
+  assert.equal(c.previous.resultId, item.baseline.source.id); assert.equal(c.current.resultId, item.followups[0].source.id)
+  assert.ok(item.limitations.some(text => /Assay\/method compatibility is unverified/.test(text)))
+})
+test('nearest ambiguous baseline is not replaced by an older date outside the comparator policy', () => {
+  const item = observation(source({ panels: [panel('early', '2025-12-01', 150), panel('one', '2026-01-05', 160), panel('equal', '2026-01-05', 160), panel('after', '2026-01-31', 156)] }))
+  assert.equal(item.baseline, null); assert.equal(item.changes.length, 0)
 })
 test('mass units can be compared centrally, without IU-to-mass conversion', () => {
   assert.equal(compareMedication({ value: 1, unit: 'mg' }, { value: 1000, unit: 'mcg' }), 0)

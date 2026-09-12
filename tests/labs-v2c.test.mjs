@@ -51,7 +51,17 @@ test('latest versus previous compares numeric same-unit readings', () => {
   const value = intelligence.compareLatest(observations()); assert.equal(value.delta, 2); assert.equal(value.direction, 'up')
 })
 test('different units are never compared', () => assert.equal(intelligence.compareLatest(observations({}, { unit: 'nmol/L' })), null))
-test('percentage delta is calculated against prior magnitude', () => assert.equal(intelligence.compareLatest(observations()).percent, 20))
+test('percentage delta is calculated against a positive prior value', () => assert.equal(intelligence.compareLatest(observations()).percent, 20))
+test('Labs adapter exposes shared typed facts and exact contributing observations', () => {
+  const c = intelligence.compareLatest(observations())
+  assert.equal(c.evidence.delta, c.delta); assert.equal(c.evidence.percent, c.percent)
+  assert.equal(c.evidence.current.resultId, 'new'); assert.equal(c.evidence.previous.resultId, 'old')
+  assert.ok(c.evidence.limitations.includes('assay_method_unknown'))
+})
+test('Labs never invents an earlier in-range status', () => {
+  const c = intelligence.compareLatest(observations({ status: 'high' }, { status: 'unknown' }))
+  assert.equal(c.evidence.range.transition, 'prior_status_unknown')
+})
 test('zero prior value omits percentage safely', () => assert.equal(intelligence.compareLatest(observations({}, { value: 0 })).percent, null))
 test('qualitative values are excluded from numeric comparison', () => assert.equal(intelligence.compareLatest(observations({ value: null, value_text: 'Detected' })), null))
 test('duplicate readings on a date do not produce an ambiguous comparison', () => assert.equal(intelligence.compareLatest([...observations(), observations()[0]]), null))

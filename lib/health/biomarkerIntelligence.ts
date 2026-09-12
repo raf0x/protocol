@@ -1,4 +1,5 @@
 import type { BiomarkerHistory, LabObservation, LabPanel, LabResult, LabStatus } from './labs'
+import { buildLabTrajectory, toLabEvidenceObservation, type LabComparison } from './labEvidence'
 
 export const biomarkerCategories = ['Hormones', 'Metabolic', 'Lipids', 'CBC / Blood', 'Liver', 'Kidney', 'Thyroid', 'Inflammation', 'Nutrients', 'Growth Factors', 'Other'] as const
 export type BiomarkerCategory = typeof biomarkerCategories[number]
@@ -74,31 +75,27 @@ export function statusIsFlagged(status: LabStatus) { return status === 'high' ||
 
 export type BiomarkerComparison = {
   latest: LabObservation; previous: LabObservation; delta: number; percent: number | null; direction: 'up' | 'down' | 'unchanged'
+  evidence: LabComparison
+}
+
+export function labTrajectory(observations: LabObservation[]) {
+  return buildLabTrajectory(observations.map(row => toLabEvidenceObservation(row, classifyBiomarker(row.result.biomarker_name).key)))
 }
 
 /** Compare only one exact-unit series with one numeric result on each date. */
 export function compareLatest(observations: LabObservation[]): BiomarkerComparison | null {
-  if (observations.length < 2) return null
-  const unit = observations[0]?.result.unit.trim()
-  if (!unit || observations.some(item => item.result.unit.trim() !== unit)) return null
-  const byDate = new Map<string, LabObservation[]>()
-  for (const item of observations) {
-    const values = byDate.get(item.date) ?? []; values.push(item); byDate.set(item.date, values)
-  }
-  const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a))
-  if (dates.length < 2) return null
-  const latestRows = byDate.get(dates[0])!, previousRows = byDate.get(dates[1])!
-  if (latestRows.length !== 1 || previousRows.length !== 1) return null
-  const latest = latestRows[0], previous = previousRows[0]
-  if (latest.result.value == null || previous.result.value == null || !Number.isFinite(latest.result.value) || !Number.isFinite(previous.result.value)) return null
-  const delta = latest.result.value - previous.result.value
-  return { latest, previous, delta, percent: previous.result.value === 0 ? null : delta / Math.abs(previous.result.value) * 100, direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'unchanged' }
+  const evidence = labTrajectory(observations).latestRecordedPair.comparison
+  if (!evidence) return null
+  const latest = observations.find(row => (row.panelId || row.result.lab_panel_id) === evidence.current.panelId && row.result.id === evidence.current.resultId)!
+  const previous = observations.find(row => (row.panelId || row.result.lab_panel_id) === evidence.previous.panelId && row.result.id === evidence.previous.resultId)!
+  return { latest, previous, delta: evidence.delta, percent: evidence.percent,
+    direction: evidence.direction === 'increased' ? 'up' : evidence.direction === 'decreased' ? 'down' : 'unchanged', evidence }
 }
 
 export type TrendChart = { points: { x: number; y: number }[]; range: { top: number; bottom: number } | null }
 export function trendChart(observations: LabObservation[]): TrendChart {
-  if (observations.length < 2 || !observations[0].result.unit.trim() || observations.some(item => item.result.unit.trim() !== observations[0].result.unit.trim() || item.result.value == null || !Number.isFinite(item.result.value))) return { points: [], range: null }
-  if (new Set(observations.map(item => item.date)).size !== observations.length) return { points: [], range: null }
+  const trajectory = labTrajectory(observations)
+  if (trajectory.ordered.length < 2 || trajectory.ordered.length !== observations.length) return { points: [], range: null }
   const ordered = [...observations].sort((a, b) => a.date.localeCompare(b.date))
   const dates = ordered.map(item => Date.parse(`${item.date}T12:00:00Z`))
   if (dates.some(date => !Number.isFinite(date))) return { points: [], range: null }
@@ -107,6 +104,7 @@ export function trendChart(observations: LabObservation[]): TrendChart {
   const values = ordered.map(item => item.result.value!)
   const scaleValues = low == null || high == null ? values : [...values, low, high]
   const min = Math.min(...scaleValues), max = Math.max(...scaleValues)
+  if (!Number.isFinite(max - min)) return { points: [], range: null }
   const y = (value: number) => max === min ? 60 : 108 - (value - min) / (max - min) * 96
   const span = dates.at(-1)! - dates[0]
   const points = ordered.map((item, index) => ({ x: 12 + (span ? (dates[index] - dates[0]) / span : index / (ordered.length - 1)) * 276, y: y(item.result.value!) }))

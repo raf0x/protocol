@@ -2,6 +2,7 @@ import { addDays, day, daysBetween } from './dates'
 import { healthStateAtDate } from './history'
 import { detectInterventions } from './interventions'
 import { normalizeMeasurements } from './measurements'
+import { compareLabDates, labLimitations } from '../labEvidence'
 import type { EvidenceStrength, Intervention, LongitudinalObservation, LongitudinalResult, LongitudinalSource, Measurement, ObservationWindow } from './types'
 
 // Generic observation horizons, not drug-specific response-time assumptions.
@@ -14,7 +15,6 @@ function checkedWindow(input: Partial<ObservationWindow>): ObservationWindow {
   if (Object.values(window).some(value => !Number.isInteger(value) || value < 1 || value > 730) || window.followupStartDays > window.followupEndDays) throw new Error('Choose valid observation windows between 1 and 730 days.')
   return window
 }
-const precise = (value: number) => Number(value.toPrecision(12))
 
 function observation(intervention: Intervention, series: Measurement[], all: Measurement[], interventions: Intervention[], asOf: string, window: ObservationWindow): LongitudinalObservation {
   const low = addDays(intervention.date, -window.baselineDays), from = addDays(intervention.date, window.followupStartDays)
@@ -23,27 +23,27 @@ function observation(intervention: Intervention, series: Measurement[], all: Mea
   const before = series.filter(row => row.date >= low && row.date < intervention.date)
   const baselineDate = before.at(-1)?.date
   const nearest = before.filter(row => row.date === baselineDate)
-  // Multiple same-day results cannot be ordered. Equal values are harmless;
-  // disagreeing values are not arbitrarily averaged or selected by database ID.
-  const baseline = new Set(nearest.map(row => row.value)).size === 1 ? nearest[0] : null
-  if (nearest.length > 1) limitations.push('Multiple baseline readings share a date; differing values are not resolved automatically.')
+  const baselineGroup = nearest[0]?.labDate
+  const baseline = baselineGroup?.reading ? nearest.find(row => row.source.id === baselineGroup.reading!.resultId) ?? null : null
+  if (baselineGroup) limitations.push(...labLimitations(baselineGroup.reasons))
   const candidates = series.filter(row => row.date >= from && row.date <= to)
   const byDate = new Map<string, Measurement[]>()
   for (const row of candidates) byDate.set(row.date, [...(byDate.get(row.date) ?? []), row])
   const followups = [...byDate.values()].filter(rows => {
-    if (new Set(rows.map(row => row.value)).size > 1) { limitations.push('Conflicting same-day follow-up values were excluded.'); return false }
-    return true
+    const group = rows[0].labDate
+    if (group) limitations.push(...labLimitations(group.reasons))
+    return Boolean(group?.reading)
   }).map(rows => rows[0])
   if (series.some(row => row.date === intervention.date)) limitations.push('Readings on the change date are excluded because within-day order is unknown.')
   if (all.some(row => row.key === series[0].key && row.unit !== series[0].unit && row.date >= low && row.date <= to)) limitations.push('Other units exist in this period and were not converted or compared.')
   const knownUnit = Boolean(series[0].unit.trim())
   if (!knownUnit) limitations.push('Measurement unit is missing; no numeric comparison was made.')
   const changes = baseline && knownUnit ? followups.flatMap(row => {
-    const delta = precise(row.value - baseline.value)
-    const percent = row.percentageAllowed && baseline.value > 0 ? precise(delta / baseline.value * 100) : null
-    if (!Number.isFinite(delta) || (percent != null && !Number.isFinite(percent))) { limitations.push('Non-finite arithmetic was excluded.'); return [] }
-    return [{ measurementId: row.id, delta, percent, direction: delta > 0 ? 'increased' as const : delta < 0 ? 'decreased' as const : 'unchanged' as const,
-      daysAfter: daysBetween(intervention.date, row.date), daysBetween: daysBetween(baseline.date, row.date) }]
+    const result = compareLabDates(baselineGroup ?? null, row.labDate ?? null)
+    if (!result.comparison) { limitations.push(...labLimitations(result.reasons)); return [] }
+    const comparison = result.comparison
+    return [{ measurementId: row.id, delta: comparison.delta, percent: comparison.percent, direction: comparison.direction,
+      daysAfter: daysBetween(intervention.date, row.date), daysBetween: comparison.elapsedDays, labComparison: comparison }]
   }) : []
   const end = followups.at(-1)?.date ?? to
   const confounders = interventions.filter(item => item.id !== intervention.id && item.date >= (baseline?.date ?? low) && item.date <= end)
@@ -61,6 +61,8 @@ function observation(intervention: Intervention, series: Measurement[], all: Mea
   // causality, or clinical/practical significance. Confounding caps strength.
   const level = !changes.length ? 'insufficient' : changes.length >= 3 && close && directions.size === 1 && !confounders.length && !limitations.length ? 'repeated' : 'limited'
   reasons.push('Coverage describes recorded data only. Clinical and statistical significance are not assessed.')
+  // Assay/range limitations do not redefine the existing measurement-coverage score.
+  limitations.push(...changes.flatMap(change => labLimitations(change.labComparison.limitations)))
   return { id: `${intervention.id}:${series[0].key}:${series[0].unit}`, intervention, metric: { key: series[0].key, name: series[0].name, unit: series[0].unit },
     window, baseline, followups, changes, confounders, strength: { level, reasons }, limitations: [...new Set(limitations)] }
 }

@@ -39,6 +39,17 @@ test('protocol history is ordered newest first', () => { const rows = report({ p
 test('structured history is identified separately from legacy history', () => { const rows = report({ protocolEvents: [event('a', '2026-06-01'), event('b', '2026-07-01', { metadata: null })] }).protocolHistory; assert.ok(rows.some(row => row.source === 'Structured protocol event')); assert.ok(rows.some(row => row.source === 'Legacy protocol event')) })
 test('later current dose is not substituted into historical phase change', () => assert.ok(report().protocolHistory.some(row => row.detail === '5 mg → 3 mg')))
 test('same-unit repeated labs produce a deterministic trend', () => { const trend = report().trends[0]; assert.equal(trend.delta, 5); assert.equal(trend.percent, 50) })
+test('Doctor Report projects shared facts and retains explicit comparison limitations', () => {
+  const r = report(), trend = r.trends[0]
+  assert.equal(trend.comparison.delta, trend.delta); assert.equal(trend.comparison.percent, trend.percent)
+  assert.equal(trend.comparison.previous.date, trend.previousDate); assert.equal(trend.comparison.current.date, trend.latestDate)
+  assert.ok(r.limitations.some(text => /Assay\/method compatibility is unverified/.test(text)))
+  assert.doesNotMatch(JSON.stringify(trend.comparison), /resultId|panelId|ownerId|source_raw/)
+})
+test('duplicate same-day lab sources cannot create a deterministic Report trend', () => {
+  const data = source(); data.panels.push(panel('same-day', '2026-09-01', [labResult('same-day-result', 'Glucose', 15)]))
+  assert.equal(model.buildDoctorReport(data, 'all', '2026-09-10').trends.length, 0)
+})
 test('different-unit results are never compared', () => { const panels = [panel('new', '2026-09-01', [labResult('n', 'Glucose', 5, 'mmol/L')]), panel('old', '2026-08-01', [labResult('o', 'Glucose', 90, 'mg/dL')])]; assert.equal(report({ panels }).trends.length, 0) })
 test('outside-range rows use only supplied reference text', () => { const rows = [panel('new', '2026-09-01', [labResult('n', 'Marker', 30, 'mg/dL', 'high', { reference_low: 10, reference_high: 20 })])]; assert.equal(report({ panels: rows }).highlightedResults[0].reference, '10–20') })
 test('missing reference range is never invented', () => { const rows = [panel('new', '2026-09-01', [labResult('n', 'Marker', 30, 'mg/dL', 'high', { reference_low: null, reference_high: null })])]; assert.equal(report({ panels: rows }).highlightedResults[0].reference, 'Reference not supplied') })

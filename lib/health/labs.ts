@@ -70,7 +70,7 @@ export function panelSummary(results: Pick<LabResult, 'status'>[]) {
   return [`${results.length} ${results.length === 1 ? 'biomarker' : 'biomarkers'} measured`, ...counts.filter(item => item.count).map(item => `${item.count} ${item.status}`)].join(' · ')
 }
 
-export type LabObservation = { date: string; panelId: string; result: LabResult }
+export type LabObservation = { date: string; panelId: string; result: LabResult; source?: Pick<LabPanel, 'user_id' | 'source_type' | 'source_filename' | 'source_metadata'> }
 export type BiomarkerHistory = { key: string; name: string; category: BiomarkerCategory; units: { unit: string; observations: LabObservation[] }[]; panelCount: number }
 /** Known aliases use a conservative registry. Original names remain on every result.
  * Units are always exact and are never converted or merged. */
@@ -80,7 +80,9 @@ export function biomarkerHistories(panels: LabPanel[]): BiomarkerHistory[] {
     const marker = classifyBiomarker(result.biomarker_name)
     const entry = names.get(marker.key) ?? { category: marker.category, observations: [] }
     const observations = entry.observations
-    observations.push({ date: panel.test_date, panelId: panel.id, result })
+    observations.push({ date: panel.test_date, panelId: panel.id, result, source: {
+      user_id: panel.user_id, source_type: panel.source_type, source_filename: panel.source_filename, source_metadata: panel.source_metadata,
+    } })
     names.set(marker.key, entry)
   }
   return [...names].sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => {
@@ -88,7 +90,7 @@ export function biomarkerHistories(panels: LabPanel[]): BiomarkerHistory[] {
     const units = new Map<string, LabObservation[]>()
     observations.sort((a, b) => b.date.localeCompare(a.date) || a.result.id.localeCompare(b.result.id))
     for (const item of observations) {
-      const unit = item.result.unit.trim()
+      const unit = typeof item.result.unit === 'string' ? item.result.unit.trim() : ''
       const group = units.get(unit) ?? []
       group.push(item); units.set(unit, group)
     }

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { compareLatest, trendChart } from '../../lib/health/biomarkerIntelligence'
+import { labGapText, rangeTransitionText } from '../../lib/health/labEvidence'
 import { labValue, type BiomarkerHistory } from '../../lib/health/labs'
 import { formatTimelineDate } from '../../lib/health/timeline'
 import LabResultRow from './LabResultRow'
@@ -18,8 +19,10 @@ export default function BiomarkerTrend({ history }: { history: BiomarkerHistory 
       return <section className={styles.trendGroup} key={group.unit} aria-label={`${history.name}: ${group.unit || 'unit not recorded'}`}>
         <h3>{group.unit || 'Unit not recorded'}</h3>
         <p className={styles.caption}>Latest test · {formatTimelineDate(latest.date)}</p>
-        <div className={styles.rowHeading}><p className={styles.value}>{sameDate.length === 1 ? labValue(latest.result) : `${sameDate.length} results on this date`}</p><LabStatusBadge status={latest.result.status} /></div>
+        <div className={styles.rowHeading}><p className={styles.value}>{sameDate.length === 1 ? labValue(latest.result) : `${sameDate.length} results on this date`}</p>{sameDate.length === 1 && <LabStatusBadge status={latest.result.status} />}</div>
         {comparison && <p className={styles.comparison}><strong>{comparison.direction === 'up' ? '↑ Up' : comparison.direction === 'down' ? '↓ Down' : '→ Unchanged'} {Math.abs(comparison.delta).toLocaleString(undefined, { maximumFractionDigits: 2 })} {group.unit}</strong>{comparison.percent != null && <span>{comparison.percent > 0 ? '+' : ''}{comparison.percent.toFixed(1)}%</span>}<small>Previous: {labValue(comparison.previous.result)} on {formatTimelineDate(comparison.previous.date)}</small></p>}
+        {comparison ? <p className={styles.caption}>{rangeTransitionText[comparison.evidence.range.transition]} {labGapText.assay_method_unknown}</p>
+          : <p className={styles.caption}>No eligible latest comparison. A comparison needs a numeric result and the same recorded unit on two separate, unambiguous dates.</p>}
         {points.length > 1 ? <figure className={styles.chart}>
           <svg viewBox="0 0 300 120" role="img" aria-label={`${history.name} in ${group.unit} over time. Exact values and dates follow.`}>
             {chart.range && <rect x="12" y={chart.range.top} width="276" height={Math.max(1, chart.range.bottom-chart.range.top)} className={styles.referenceBand} />}
