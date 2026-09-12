@@ -4,6 +4,7 @@ import { contextAtDate, type OverlayProtocolEvent } from '../protocolOverlay'
 import type { LibraryProtocol } from '../protocolPresentation'
 import type { JournalEntryRow } from '../timeline'
 import type { AnalystEvidence, AnalystIntent, ContextFact, HealthAnalystContext } from './types'
+import { longitudinalAnalystEvidence, longitudinalRegimenEvidence } from '../longitudinal/analyst'
 
 export type AnalystSourceData = {
   panels: LabPanel[]
@@ -115,9 +116,12 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   const intentStart = intent === 'since_last_labs' && previous ? previous.test_date : intent === 'largest_changes' ? panels.at(-1)?.test_date ?? null : null
   const eventStart = [intentStart, options.minimumDate].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null
   const events = eventEvidence(data.protocolEvents, eventAnchor, eventStart)
-  const states = protocolStateEvidence(data.protocols, data.protocolEvents, intent === 'since_last_labs' && latest ? latest.test_date : today)
+  const states = intent === 'protocol_context' ? longitudinalRegimenEvidence(data, today)
+    : protocolStateEvidence(data.protocols, data.protocolEvents, intent === 'since_last_labs' && latest ? latest.test_date : today)
   const weights = weightEvidence(data.journal), journals = journalEvidence(data.journal)
   const gaps: ContextFact[] = []
+  const longitudinal = intent === 'protocol_context' ? longitudinalAnalystEvidence(data, today) : { evidence: [], facts: [], gaps: [] }
+  gaps.push(...longitudinal.gaps)
   if (!latest) gaps.push(fact('No lab panels are recorded yet.'))
   else if (!previous) gaps.push(fact('Only one lab panel is recorded, so a panel-to-panel comparison is not available.'))
   const histories = biomarkerHistories(panels)
@@ -140,12 +144,12 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   let selected: AnalystEvidence[]
   if (intent === 'since_last_labs') selected = [...flagged, ...rankedComparisons, ...labRows.filter(row => latestIds.has(row.id) || previousIds.has(row.id)), ...events.evidence, ...weights.evidence]
   else if (intent === 'largest_changes') selected = [...rankedComparisons, ...flagged, ...events.evidence]
-  else if (intent === 'protocol_context') selected = [...events.evidence, ...states.evidence, ...rankedComparisons.slice(0, 8), ...flagged]
+  else if (intent === 'protocol_context') selected = [...longitudinal.evidence, ...events.evidence, ...states.evidence, ...rankedComparisons.slice(0, 8), ...flagged]
   else if (intent === 'missing_data') selected = [...labRows.slice(0, 12), ...states.evidence, ...events.evidence.slice(0, 12)]
   else selected = [...flagged, ...rankedComparisons, ...labRows, ...states.evidence, ...events.evidence, ...weights.evidence, ...journals.evidence]
   selected = unique(selected).slice(0, 40)
   const selectedIds = new Set(selected.map(item => item.id))
-  const facts = [...comparisons.facts, ...events.facts, ...states.facts, ...weights.facts, ...journals.facts]
+  const facts = [...longitudinal.facts, ...comparisons.facts, ...events.facts, ...states.facts, ...weights.facts, ...journals.facts]
     .map(item => ({ ...item, evidenceIds: item.evidenceIds.filter(id => selectedIds.has(id)) })).filter(item => item.evidenceIds.length).slice(0, 30)
   if (latest && previous) {
     const latestHistory = biomarkerHistories([latest]), priorHistory = biomarkerHistories([previous])

@@ -1,6 +1,8 @@
+import type { LongitudinalAnalystEvidence } from '../longitudinal/types'
+
 export type AnalystIntent = 'since_last_labs' | 'current_snapshot' | 'protocol_context' | 'largest_changes' | 'missing_data' | 'general'
 export type DataConfidence = 'high' | 'medium' | 'low'
-export type EvidenceType = 'lab_result' | 'lab_comparison' | 'protocol_event' | 'protocol_state' | 'weight' | 'journal_signal' | 'data_gap'
+export type EvidenceType = 'lab_result' | 'lab_comparison' | 'protocol_event' | 'protocol_state' | 'weight' | 'journal_signal' | 'data_gap' | 'longitudinal_observation'
 
 export type AnalystEvidence = {
   id: string
@@ -10,6 +12,7 @@ export type AnalystEvidence = {
   detail: string
   confidence: DataConfidence
   sourceLabel: string
+  longitudinal?: LongitudinalAnalystEvidence
 }
 
 export type ContextFact = { text: string; evidenceIds: string[] }
