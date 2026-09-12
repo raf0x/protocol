@@ -9,7 +9,7 @@ function load(path, overrides = {}) {
   const url = path.startsWith('file:') ? new URL(path) : new URL(path, import.meta.url)
   if (!Object.keys(overrides).length && cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }
-  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
     if (name in overrides) return overrides[name]
     if (name === 'server-only') return {}
@@ -34,10 +34,10 @@ const journal = (id, date, weight = 160, extra = {}) => ({ id, date, weight, sle
 const panel = (id, date, value, unit = 'mg/dL', extra = {}) => ({ id, user_id: 'fictional-owner', test_date: date, source_type: 'manual', panel_name: 'Fictional panel', provider: null, notes: null,
   results: [{ id: `result-${id}`, lab_panel_id: id, user_id: 'fictional-owner', biomarker_name: 'Glucose', canonical_name: null, value, value_text: null, unit,
     reference_low: 4, reference_high: 20, reference_text: null, status: 'normal', status_source: 'reported', category: null, ...extra }] })
-const source = (extra = {}) => ({ protocols: [protocol()], protocolEvents: [event()], panels: [], journal: [journal('before', '2026-01-05'), journal('after', '2026-01-31', 156)], ...extra })
+const source = (extra = {}) => ({ protocols: [protocol()], protocolEvents: [event()], panels: [panel('before', '2026-01-05', 160), panel('after', '2026-01-31', 156)], journal: [journal('before', '2026-01-05'), journal('after', '2026-01-31', 156)], ...extra })
 const state = (data, date) => healthStateAtDate(data, date)[0]
 const run = (data = source(), options) => buildLongitudinal(data, '2026-05-01', options)
-const observation = (data = source(), options) => run(data, options).observations.find(item => item.metric.key === 'weight' && item.intervention.kind === 'started')
+const observation = (data = source(), options) => run(data, options).observations.find(item => item.metric.key.startsWith('lab:') && item.intervention.kind === 'started')
 const snapshot = (extra = {}) => ({ phaseId: 'phase-a', compoundId: 'compound-a', startWeek: 1, endWeek: null, medicationDose: 4, medicationUnit: 'mg', doseConfirmed: true, frequency: '1x/week', route: 'SubQ', dosingEntry: null, ...extra })
 const change = (extra = {}) => event({ date: '2026-02-10', event_type: 'dose_change', compound_id: 'compound-a', metadata: { version: 1, phaseId: 'phase-a', previousState: snapshot(), newState: snapshot({ medicationDose: 6 }) }, ...extra })
 const entry = (extra = {}) => ({ version: 2, mode: 'syringe', review_status: 'confirmed', dose: '', dose_unit: '', syringe_markings: '24', syringe_scale: '100', injection_volume: '', vial_strength: '20', vial_unit: 'mg', bac_water_ml: '2', concentration_value: '', concentration_unit: '', vial_label: '', ...extra })
@@ -82,20 +82,20 @@ test('a change between baseline and intervention is a confounder too', () => {
   assert.equal(observation(data).confounders.length, 1)
 })
 test('no baseline is insufficient, not a fabricated zero', () => {
-  const item = observation(source({ journal: [journal('after', '2026-01-31')] })); assert.equal(item.baseline, null); assert.equal(item.changes.length, 0); assert.equal(item.strength.level, 'insufficient')
+  const item = observation(source({ panels: [panel('after', '2026-01-31', 156)] })); assert.equal(item.baseline, null); assert.equal(item.changes.length, 0); assert.equal(item.strength.level, 'insufficient')
 })
-test('no follow-up does not invent a measurement', () => assert.equal(observation(source({ journal: [journal('before', '2026-01-05')] })).strength.level, 'insufficient'))
+test('no follow-up does not invent a measurement', () => assert.equal(observation(source({ panels: [panel('before', '2026-01-05', 160)] })).strength.level, 'insufficient'))
 test('incompatible lab units cannot be compared', () => {
   const data = source({ journal: [], panels: [panel('pre', '2026-01-05', 10), panel('post', '2026-01-31', 2, 'mmol/L')] })
   assert.ok(run(data).observations.every(item => !item.changes.length)); assert.ok(run(data).observations.every(item => item.limitations.some(reason => /Other units/.test(reason))))
 })
 test('single follow-up has limited coverage', () => assert.equal(observation().strength.level, 'limited'))
 test('consistent repeated follow-ups with a close baseline have explainable repeated coverage', () => {
-  const item = observation(source({ journal: [journal('pre', '2026-01-05'), journal('a', '2026-01-15', 159), journal('b', '2026-01-25', 158), journal('c', '2026-02-05', 157)] }))
+  const item = observation(source({ panels: [panel('pre', '2026-01-05', 160), panel('a', '2026-01-15', 159), panel('b', '2026-01-25', 158), panel('c', '2026-02-05', 157)] }))
   assert.equal(item.strength.level, 'repeated'); assert.ok(item.strength.reasons.some(reason => /not assessed/.test(reason)))
 })
 test('same-day intervention readings are excluded from baseline and follow-up', () => {
-  const item = observation(source({ journal: [journal('same', '2026-01-10'), journal('post', '2026-01-15')] }))
+  const item = observation(source({ panels: [panel('same', '2026-01-10', 160), panel('post', '2026-01-15', 156)] }))
   assert.equal(item.baseline, null); assert.ok(item.limitations.some(reason => /within-day order/.test(reason)))
 })
 test('distinct same-day protocols remain separate even with identical names', () => {
@@ -111,7 +111,7 @@ test('derived Health Versions are nonoverlapping half-open periods', () => {
   const ids = versions.flatMap(item => item.measurementIds); assert.equal(ids.length, new Set(ids).size)
 })
 test('future protocols, events and measurements are not shown', () => {
-  const data = source({ protocols: [protocol({ start_date: '2027-01-01' })], protocolEvents: [event({ date: '2027-01-01' })], journal: [journal('future', '2027-01-02')] })
+  const data = source({ protocols: [protocol({ start_date: '2027-01-01' })], protocolEvents: [event({ date: '2027-01-01' })], panels: [panel('future', '2027-01-02', 160)] })
   assert.equal(run(data).interventions.length, 0); assert.equal(normalizeMeasurements(data, '2026-05-01').length, 0)
 })
 test('deleted protocol retained events do not fabricate an active regimen', () => {
@@ -123,7 +123,7 @@ test('legacy ambiguous IU remains unverified without mutating the source', () =>
   const original = JSON.stringify(data); assert.equal(state(data, '2026-02-01').medication, null); run(data); assert.equal(JSON.stringify(data), original)
 })
 test('Analyst receives deterministic structured deltas for protocol-related questions', () => {
-  const context = buildAnalystContext(source(), 'How did weight change around my protocol changes?', '2026-05-01')
+  const context = buildAnalystContext(source(), 'How did labs change around my protocol changes?', '2026-05-01')
   const item = context.evidence.find(item => item.type === 'longitudinal_observation'); assert.ok(item); assert.equal(item.longitudinal.followups[0].delta, -4); assert.match(item.id, /^E\d+$/)
 })
 test('ordinary current snapshot does not send the new longitudinal projection', () => assert.equal(buildAnalystContext(source(), 'current health snapshot', '2026-05-01').evidence.some(item => item.longitudinal), false))
@@ -138,15 +138,15 @@ test('same-unit reference ranges and original lab source are retained', () => {
   const data = source({ journal: [], panels: [panel('pre', '2026-01-05', 10), panel('post', '2026-01-31', 12)] })
   const row = run(data).observations[0].baseline; assert.equal(row.reference.low, 4); assert.equal(row.original.sourceType, 'manual'); assert.equal(row.source.id, 'result-pre')
 })
-test('ordinal journal scores are point differences, not percentage improvement', () => {
-  const data = source({ journal: [journal('pre', '2026-01-05', null, { mood: 2 }), journal('post', '2026-01-31', null, { mood: 4 })] })
-  assert.equal(run(data).observations[0].changes[0].delta, 2); assert.equal(run(data).observations[0].changes[0].percent, null)
+test('journal-only history produces no longitudinal observations', () => {
+  const data = source({ panels: [], journal: [journal('pre', '2026-01-05', 160, { mood: 2 }), journal('post', '2026-01-31', 156, { mood: 4 })] })
+  assert.equal(run(data).observations.length, 0)
 })
 test('missing measurement units do not produce numerical changes', () => assert.equal(run(source({ journal: [], panels: [panel('pre', '2026-01-05', 2, ''), panel('post', '2026-01-31', 4, '')] })).observations[0].changes.length, 0))
 test('zero baseline has no fabricated percent change', () => assert.equal(run(source({ journal: [], panels: [panel('pre', '2026-01-05', 0), panel('post', '2026-01-31', 4)] })).observations[0].changes[0].percent, null))
 test('qualitative results are not silently parsed into numbers', () => assert.equal(normalizeMeasurements(source({ journal: [], panels: [panel('pre', '2026-01-05', null, 'mg/dL', { value_text: '<5' })] }), '2026-05-01').length, 0))
 test('malformed dates and nonfinite values are excluded', () => {
-  const data = source({ journal: [journal('invalid', '2026-02-30'), journal('infinite', '2026-02-01', Infinity)] })
+  const data = source({ panels: [panel('invalid', '2026-02-30', 160), panel('infinite', '2026-02-01', Infinity)] })
   assert.equal(normalizeMeasurements(data, '2026-05-01').length, 0); assert.throws(() => buildLongitudinal(data, '2026-02-30'))
 })
 test('observation windows are configurable and validated', () => {
@@ -155,13 +155,13 @@ test('observation windows are configurable and validated', () => {
   assert.throws(() => run(source(), { followupStartDays: 40, followupEndDays: 20 }))
 })
 test('conflicting same-day baselines are not arbitrarily selected', () => {
-  assert.equal(observation(source({ journal: [journal('one', '2026-01-05'), journal('two', '2026-01-05', 170), journal('post', '2026-01-31')] })).baseline, null)
+  assert.equal(observation(source({ panels: [panel('one', '2026-01-05', 160), panel('two', '2026-01-05', 170), panel('post', '2026-01-31', 156)] })).baseline, null)
 })
 test('conflicting same-day follow-ups are not averaged', () => {
-  assert.equal(observation(source({ journal: [journal('pre', '2026-01-05'), journal('one', '2026-01-31'), journal('two', '2026-01-31', 170)] })).followups.length, 0)
+  assert.equal(observation(source({ panels: [panel('pre', '2026-01-05', 160), panel('one', '2026-01-31', 160), panel('two', '2026-01-31', 170)] })).followups.length, 0)
 })
 test('same-day duplicates do not inflate repeated measurement evidence', () => {
-  assert.equal(observation(source({ journal: [journal('pre', '2026-01-05'), ...['a', 'b', 'c'].map(id => journal(id, '2026-01-31', 158))] })).strength.level, 'limited')
+  assert.equal(observation(source({ panels: [panel('pre', '2026-01-05', 160), ...['a', 'b', 'c'].map(id => panel(id, '2026-01-31', 158))] })).strength.level, 'limited')
 })
 test('mass units can be compared centrally, without IU-to-mass conversion', () => {
   assert.equal(compareMedication({ value: 1, unit: 'mg' }, { value: 1000, unit: 'mcg' }), 0)
@@ -272,4 +272,94 @@ test('recorded changes are stable when source order changes', () => {
   const data = source({ protocolEvents: [event(), change()] })
   const shuffled = { ...data, journal: [...data.journal].reverse(), protocolEvents: [...data.protocolEvents].reverse() }
   assert.deepEqual(run(data), run(shuffled))
+})
+
+const { comparableLabObservations, protocolChangeOptions, protocolChangeUrl } = load('../lib/health/longitudinal/presentation.ts')
+test('numeric labs are included with their original result provenance', () => {
+  const rows = normalizeMeasurements(source(), '2026-05-01')
+  assert.equal(rows.length, 2); assert.ok(rows.every(row => row.type === 'lab' && row.source.table === 'lab_results'))
+})
+for (const key of ['weight', 'sleep', 'mood', 'energy', 'hunger']) test(`${key} is excluded from longitudinal measurements and versions`, () => {
+  const data = source({ panels: [], journal: [journal('a', '2026-01-11', null, { [key]: 3 }), journal('b', '2026-01-31', null, { [key]: 4 })] })
+  assert.equal(normalizeMeasurements(data, '2026-05-01').length, 0)
+  assert.equal(run(data).observations.length, 0)
+  assert.ok(run(data).versions.every(version => !version.measurementIds.length))
+})
+test('journal content cannot alter deterministic lab comparisons or Analyst longitudinal evidence', () => {
+  const data = source({ journal: [journal('private', '2026-01-11', 500, { sleep: 8, energy: 4, mood: 3, hunger: 2, notes: 'UNIQUE JOURNAL' })] })
+  const without = { ...data, journal: [] }
+  assert.deepEqual(run(data), run(without))
+  const project = input => buildAnalystContext(input, 'Compare my protocol changes with my labs', '2026-05-01').evidence.filter(item => item.longitudinal)
+  const evidence = project(data)
+  assert.ok(evidence.length); assert.deepEqual(evidence, project(without))
+  assert.ok(evidence.every(item => item.longitudinal.baseline.source === 'lab_results' && item.longitudinal.followups.every(row => row.source === 'lab_results')))
+})
+test('journal-only history cannot create Analyst longitudinal evidence', () => {
+  const context = buildAnalystContext(source({ panels: [] }), 'What changed around my protocol?', '2026-05-01')
+  assert.equal(context.evidence.some(item => item.longitudinal), false)
+})
+const twoChanges = () => run(source({ protocolEvents: [event(), event({ id: 'second-event', protocol_id: 'second-plan', date: '2026-01-12' })] }))
+test('filter returns only observations tied to the selected intervention ID', () => {
+  const data = twoChanges(), selected = comparableLabObservations(data.observations, 'event:second-event')
+  assert.equal(selected.length, 1); assert.ok(selected.every(row => row.intervention.id === 'event:second-event'))
+})
+test('All changes returns all comparable labs while excluding gaps', () => {
+  const data = twoChanges(), empty = { ...data.observations[0], id: 'gap', changes: [] }
+  assert.deepEqual(comparableLabObservations([...data.observations, empty]), data.observations.filter(row => row.changes.length > 0))
+})
+test('change options use unique IDs, preserving similarly named separate interventions', () => {
+  const data = twoChanges(), first = data.interventions[0]
+  const options = protocolChangeOptions([first, first, { ...first, id: 'distinct-id' }])
+  assert.equal(options.length, 2); assert.equal(options[0].title, options[1].title)
+})
+test('URL selection round-trips encoded IDs and preserves other query parameters', () => {
+  const id = 'phase:example:2026-01-31:dose_increased'
+  const url = new URL(protocolChangeUrl('view=changes&other=value', id), 'https://example.test')
+  assert.equal(url.pathname, '/health'); assert.equal(url.searchParams.get('change'), id); assert.equal(url.searchParams.get('other'), 'value')
+  assert.equal(new URL(protocolChangeUrl(url.search, ''), url.origin).searchParams.has('change'), false)
+})
+test('unknown linked selection does not silently display all observations', () => assert.equal(comparableLabObservations(twoChanges().observations, 'missing-id').length, 0))
+test('empty series cannot displace comparable labs under the response cap', () => {
+  const extra = Array.from({ length: 210 }, (_, index) => panel(`gap-${index}`, '2026-01-31', 10, 'mg/dL', { biomarker_name: `Fictional marker ${index}` }))
+  const data = run(source({ panels: [...source().panels, ...extra], protocolEvents: [event(), change()] }))
+  assert.equal(data.observations.length, 200)
+  assert.ok(comparableLabObservations(data.observations).some(item => item.intervention.id === 'event:event-a' && item.metric.name === 'Glucose'))
+})
+
+function renderedChanges(result, query = 'view=changes') {
+  const React = require('react')
+  const { default: View } = load('../components/health/LongitudinalChanges.tsx', {
+    react: { ...React, useState: initial => [initial === null ? result : initial, () => {}] },
+    'next/navigation': { useRouter: () => ({ push: () => {} }), useSearchParams: () => new URLSearchParams(query) },
+    'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+    '../../app/health/health.module.css': { default: {} },
+  })
+  return require('react-dom/server').renderToStaticMarkup(React.createElement(View))
+}
+test('selected change with many insufficient biomarkers renders one empty state and zero cards', () => {
+  const data = run(source({ panels: Array.from({ length: 12 }, (_, index) => panel(`gap-${index}`, '2026-01-31', 10, 'mg/dL', { biomarker_name: `Fictional marker ${index}` })) }))
+  assert.equal(data.observations.length, 12)
+  const html = renderedChanges(data, 'view=changes&change=event%3Aevent-a')
+  assert.equal((html.match(/No comparable lab changes were recorded around this protocol update\./g) ?? []).length, 1)
+  assert.ok(html.includes('Lab measurements need a comparable result before and after the selected change.'))
+  assert.equal((html.match(/<article/g) ?? []).length, 0)
+  assert.ok(!html.includes('No comparable before-and-after pair in this window.'))
+})
+test('rendered native select has a label, formatted dates and no visible IDs', () => {
+  const html = renderedChanges(twoChanges())
+  assert.match(html, /<label[^>]*for="protocol-change"/); assert.match(html, /<select[^>]*id="protocol-change"/)
+  assert.ok(html.includes('All changes')); assert.match(html, /Jan.*2026/)
+  const text = html.replace(/<[^>]*>/g, '')
+  assert.ok(!text.includes('event:second-event')); assert.equal((html.match(/<article/g) ?? []).length, 2)
+})
+test('rendered selected change hides other comparison cards', () => {
+  const html = renderedChanges(twoChanges(), 'view=changes&change=event%3Asecond-event')
+  assert.equal((html.match(/<article/g) ?? []).length, 1)
+})
+test('pagination resets through the URL-keyed list, while the selector and periods stay mounted', () => {
+  const ui = readFileSync(new URL('../components/health/LongitudinalChanges.tsx', import.meta.url), 'utf8')
+  assert.match(ui, /<ObservationList key=\{changeId\}/)
+  assert.match(ui, /router\.push\(protocolChangeUrl\(query\.toString\(\), event\.target\.value\), \{ scroll: false \}\)/)
+  assert.match(ui.slice(ui.indexOf('export function ObservationList')), /useState\(8\)/)
+  assert.ok(!ui.slice(ui.indexOf('export function ObservationList')).includes('Derived health periods'))
 })

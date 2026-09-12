@@ -79,8 +79,9 @@ export function buildLongitudinal(source: LongitudinalSource, asOf: string, opti
     if (!series.some(row => row.date >= addDays(intervention.date, -window.baselineDays) && row.date <= addDays(intervention.date, window.followupEndDays))) continue
     observations.push(observation(intervention, series, measurements, allInterventions, asOf, window))
   }
-  // Recent changes first; for each change, comparable observations precede gaps.
-  observations.sort((a, b) => b.intervention.date.localeCompare(a.intervention.date) || Number(Boolean(b.changes.length)) - Number(Boolean(a.changes.length)) || a.id.localeCompare(b.id))
+  // Comparable labs take precedence before the response cap, so newer empty
+  // series cannot displace useful older comparisons. Dates order each group.
+  observations.sort((a, b) => Number(Boolean(b.changes.length)) - Number(Boolean(a.changes.length)) || b.intervention.date.localeCompare(a.intervention.date) || a.id.localeCompare(b.id))
   const boundaries = [...new Set(allInterventions.map(item => item.date))].sort().slice(-120)
   const versions = boundaries.map((start, index) => {
     const endExclusive = boundaries[index + 1] ?? null
@@ -94,9 +95,9 @@ export function buildLongitudinal(source: LongitudinalSource, asOf: string, opti
     'Periods use effective calendar dates with an exclusive end. Same-day measurements cannot establish before/after order.',
     'Saved plans are mutable. Missing removal/reactivation events, boundary-only edits and deleted records cannot always be reconstructed.',
     'Edits to phases that do not cover the recorded edit date are not treated as interventions on that date.',
-    'Journal weight follows the existing pounds storage convention; no per-entry weight-unit history exists.',
+    'Comparisons use numerical lab biomarkers only. Journal and weight data remain available elsewhere in the app.',
   ]
-  if (source.protocols.length >= 250 || source.protocolEvents.length >= 1000 || source.journal.length >= 1000) limitations.push('A source loading limit was reached; older history and additional changes may be missing.')
+  if (source.protocols.length >= 250 || source.protocolEvents.length >= 1000) limitations.push('A source loading limit was reached; older history and additional changes may be missing.')
   if (allInterventions.length > 60 || observations.length > 200 || new Set(allInterventions.map(item => item.date)).size > 120) limitations.push('This view is limited to the latest 60 changes, 200 observations and 120 derived periods. Confounder checks use all loaded changes.')
   if (source.panels.some(panel => panel.results.some(result => result.value == null || result.value_text))) limitations.push('Qualitative lab results remain in Labs; they are not turned into numerical changes.')
   return { asOf, window, interventions, observations: observations.slice(0, 200), versions, limitations }

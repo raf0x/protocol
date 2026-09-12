@@ -3,12 +3,13 @@ import { buildLongitudinal } from './engine'
 import { addDays, numberLabel } from './dates'
 import { healthStateAtDate } from './history'
 import type { LongitudinalSource } from './types'
+import { comparableLabObservations } from './presentation'
 
 /** A deliberately small projection, with no database IDs, raw entries, notes,
  * filenames or source metadata. Only protocol-context requests call this. */
 export function longitudinalAnalystEvidence(source: LongitudinalSource, today: string) {
   const result = buildLongitudinal(source, today)
-  const chosen = result.observations.filter(item => item.changes.length).slice(0, 3)
+  const chosen = comparableLabObservations(result.observations).slice(0, 3)
   const evidence: AnalystEvidence[] = [], facts: ContextFact[] = []
   for (const [index, item] of chosen.entries()) {
     const id = `longitudinal:${index}`, latest = item.changes.at(-1)!, reading = item.followups.find(row => row.id === latest.measurementId)!
@@ -30,7 +31,7 @@ export function longitudinalAnalystEvidence(source: LongitudinalSource, today: s
       } })
     facts.push({ text: detail, evidenceIds: [id] })
   }
-  return { evidence, facts, gaps: chosen.length ? [] : [{ text: 'No comparable baseline/follow-up pair was found around the loaded protocol changes. Do not reconstruct an association from unrelated dates.', evidenceIds: [] }] }
+  return { evidence, facts, gaps: chosen.length ? [] : [{ text: 'No comparable lab baseline/follow-up pair was found around the loaded protocol changes. Do not reconstruct an association from unrelated dates or journal metrics.', evidenceIds: [] }] }
 }
 
 export function longitudinalRegimenEvidence(source: LongitudinalSource, date: string) {
