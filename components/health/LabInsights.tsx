@@ -7,6 +7,7 @@ import { labReference, labValue, type BiomarkerHistory, type LabPanel } from '..
 import { formatTimelineDate } from '../../lib/health/timeline'
 import LabSparkline from './LabSparkline'
 import LabStatusBadge from './LabStatusBadge'
+import LabFindingsSummary from './LabFindingsSummary'
 import styles from '../../app/health/health.module.css'
 
 function latestGroup(history: BiomarkerHistory) {
@@ -34,6 +35,8 @@ export default function LabInsights({ panels, histories }: { panels: LabPanel[];
   const visibleTrends = mode === 'flagged' ? repeated.filter(history => latestGroup(history) && statusIsFlagged(latestGroup(history).observations[0].result.status)) : repeated
 
   return <>
+    <LabFindingsSummary panels={panels} histories={histories} />
+
     {intelligence.latestPanel && <section className={styles.summaryGrid} aria-label="Lab history summary">
       <div className={styles.summaryLead}><span>Latest panel</span><strong>{formatTimelineDate(intelligence.latestPanel.test_date)}</strong>{intelligence.latestPanel.provider && <small>{intelligence.latestPanel.provider}</small>}</div>
       <div><strong>{intelligence.latestPanel.results.length}</strong><span>Biomarkers</span></div>

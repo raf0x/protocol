@@ -11,6 +11,8 @@
 .panelCard h3, .card h3 { font-size: var(--app-font-name); margin: var(--app-space-xs) 0; }
 .panelCard time { font-size: var(--app-font-small); color: var(--app-secondary); }
 .panelList { display: grid; gap: var(--app-space-sm); }
+.findingsList { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-sm); }
+.findingsNote { margin: var(--app-space-sm) 0 0; color: var(--app-muted); font-size: var(--app-font-small); line-height: 1.5; }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; margin: var(--app-space-xl) 0 var(--app-space-sm); gap: var(--app-space-xs); }
 .sectionHeading h2, .card h2, .form h2 { font-size: var(--app-font-title); font-weight: 650; margin: 0; }
 .sectionHeading > span { color: var(--app-muted); }
@@ -188,4 +190,4 @@
 @keyframes analyst-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .analystStatus span { animation: none; } }
 @media (max-width: 359px) { .fieldGrid { grid-template-columns: minmax(0, 1fr); } }
-@media (min-width: 640px) { .page { padding-inline: var(--app-space-lg); } .panelList { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summaryGrid { grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr)); } .summaryGrid .summaryLead { grid-column: auto; } .categoryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 640px) { .page { padding-inline: var(--app-space-lg); } .panelList, .findingsList { grid-template-columns: repeat(2, minmax(0, 1fr)); } .findingsList[data-count='1'] { grid-template-columns: minmax(0, 1fr); } .summaryGrid { grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr)); } .summaryGrid .summaryLead { grid-column: auto; } .categoryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
