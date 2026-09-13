@@ -9,6 +9,12 @@ import { formatTimelineDate } from '../../lib/health/timeline'
 import LabFindingsSummary from './LabFindingsSummary'
 import styles from '../../app/health/health.module.css'
 
+function compoundAccent(identity: string) {
+  let hash = 0
+  for (let index = 0; index < identity.length; index += 1) hash = (hash * 31 + identity.charCodeAt(index)) >>> 0
+  return String(hash % 5)
+}
+
 export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
   if (model.state === 'empty') return null
   const snapshot = model.currentSnapshot
@@ -16,7 +22,7 @@ export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
   return <section className={styles.briefing} aria-labelledby="health-briefing-heading">
     <div className={styles.sectionHeading}><h2 id="health-briefing-heading">Health briefing</h2><span className={styles.caption}>From your recorded evidence</span></div>
 
-    <section className={styles.card} aria-labelledby="briefing-snapshot-heading">
+    <section className={`${styles.card} ${styles.snapshotCard}`} aria-labelledby="briefing-snapshot-heading">
       <div className={styles.rowHeading}><h3 id="briefing-snapshot-heading">Current snapshot</h3>{snapshot.asOf && <span className={styles.caption}>As of <time dateTime={snapshot.asOf}>{formatTimelineDate(snapshot.asOf)}</time></span>}</div>
       <p className={styles.secondary}>{snapshot.latestDate ? <>
         Latest labs: <time dateTime={snapshot.latestDate}>{formatTimelineDate(snapshot.latestDate)}</time>
@@ -25,15 +31,18 @@ export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
         {snapshot.latestPanel && (snapshot.latestPanel.panel_name || snapshot.latestPanel.provider) && <span className={styles.briefingSource}>{[snapshot.latestPanel.panel_name, snapshot.latestPanel.provider].filter(Boolean).join(' · ')}</span>}
       </> : 'No lab history is recorded yet.'}</p>
       {snapshot.protocolStatus === 'loading' && <p className={styles.caption} role="status">Loading recorded protocols…</p>}
-      {snapshot.compounds.length > 0 && <ul className={styles.briefingRows} aria-label="Recorded active compounds">{snapshot.compounds.map(item => <li key={`${item.protocolId}:${item.compoundId}`}>
-        <strong>{item.name}</strong>
-        <span>{[item.medication ? `${item.medication.value} ${item.medication.unit}` : 'Dose not confirmed', item.frequency, item.route].filter(Boolean).join(' · ')}</span>
-      </li>)}</ul>}
+      {snapshot.compounds.length > 0 && <ul className={styles.briefingCompounds} aria-label="Recorded active compounds">{snapshot.compounds.map(item => {
+        const identity = `${item.protocolId}:${item.compoundId}`
+        return <li key={identity} data-accent={compoundAccent(identity)}>
+          <span className={styles.compoundAccent} aria-hidden="true" />
+          <div><strong>{item.name}</strong><span>{[item.medication ? `${item.medication.value} ${item.medication.unit}` : 'Dose not confirmed', item.frequency, item.route].filter(Boolean).join(' · ')}</span></div>
+        </li>
+      })}</ul>}
       {snapshot.additionalCompounds > 0 && <p className={styles.caption}>+{snapshot.additionalCompounds} more recorded compounds</p>}
       {snapshot.protocolStatus === 'ready' && !snapshot.compounds.length && <p className={styles.caption}>No confirmed active compound state is recorded for this date.</p>}
     </section>
 
-    <LabFindingsSummary model={model.findings} embedded />
+    <LabFindingsSummary model={model.findings} supplemental={model.supplementalLabUpdates} embedded />
 
     {snapshot.latestDate && snapshot.protocolStatus === 'ready' && (context.items.length ? <section className={styles.briefingSection} aria-labelledby="briefing-context-heading">
       <h3 id="briefing-context-heading">Recorded protocol context</h3>
@@ -46,7 +55,7 @@ export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
     </section> : <p className={styles.briefingEmptyContext}>{context.hasComparison ? 'No recorded protocol changes fell strictly between the compared test dates.' : 'Comparable lab dates are needed to place recorded protocol changes in context.'}</p>)}
 
     {model.gaps.length > 0 && <section className={styles.briefingSection} aria-labelledby="briefing-gaps-heading"><h3 id="briefing-gaps-heading">Gaps in the recorded evidence</h3><ul className={styles.briefingGaps}>{model.gaps.map(gap => <li key={gap.key}>{gap.text}</li>)}</ul></section>}
-    {model.reviewActions.length > 0 && <section className={styles.briefingSection} aria-labelledby="briefing-review-heading"><h3 id="briefing-review-heading">Next review</h3><div className={styles.briefingActions}>{model.reviewActions.map((action, index) => <Link className={index === 0 && model.findings.headlines.length === 1 ? styles.primary : styles.textLink} key={action.href} href={action.href}>{action.label}<span aria-hidden="true"> ›</span></Link>)}</div></section>}
+    {model.reviewActions.length > 0 && <section className={styles.briefingSection} aria-labelledby="briefing-review-heading"><h3 id="briefing-review-heading">Next review</h3><div className={styles.briefingActions}>{model.reviewActions.map((action, index) => <Link className={index === 0 && model.findings.headlines.length === 1 ? `${styles.primary} ${styles.briefingPrimaryAction}` : styles.textLink} key={action.href} href={action.href}>{action.label}<span aria-hidden="true"> ›</span></Link>)}</div></section>}
   </section>
 }
 

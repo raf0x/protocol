@@ -193,7 +193,7 @@
 @media (min-width: 640px) { .page { padding-inline: var(--app-space-lg); } .panelList, .findingsList { grid-template-columns: repeat(2, minmax(0, 1fr)); } .findingsList[data-count='1'] { grid-template-columns: minmax(0, 1fr); } .summaryGrid { grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr)); } .summaryGrid .summaryLead { grid-column: auto; } .categoryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
 /* Briefing composes the existing Health cards; detailed Labs stay below it. */
-.briefing { min-width: 0; max-width: 100%; margin-bottom: var(--app-space-xl); padding-bottom: var(--app-space-md); border-bottom: 1px solid var(--app-border); }
+.briefing { min-width: 0; max-width: 100%; margin-bottom: var(--app-space-lg); padding-bottom: var(--app-space-md); border-bottom: 1px solid var(--app-border); }
 .briefing > .sectionHeading { margin-top: 0; flex-wrap: wrap; }
 .briefing .sectionHeading { margin-block: var(--app-space-md) var(--app-space-sm); }
 .briefing .sectionHeading h3, .briefingSection h3 { margin: 0; font-size: var(--app-font-name); font-weight: 650; color: var(--app-text); }
@@ -209,3 +209,46 @@
 .briefingEmptyContext { margin: var(--app-space-sm) 0 0; color: var(--app-muted); font-size: var(--app-font-small); line-height: 1.5; }
 .briefingActions { display: flex; flex-wrap: wrap; gap: var(--app-space-xs) var(--app-space-md); }
 .briefingActions a { min-width: 0; max-width: 100%; font-size: var(--app-font-small); line-height: 1.5; }
+
+/* UI Simplification V1: overview first, detail on demand. */
+.snapshotCard { padding: var(--app-space-sm) var(--app-space-md); box-shadow: none; }
+.snapshotCard > .secondary { margin-bottom: var(--app-space-xs); }
+.briefingCompounds { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 0; margin: var(--app-space-sm) 0 0; list-style: none; }
+.briefingCompounds li { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 10px; align-items: stretch; min-width: 0; padding: 9px 10px; border-radius: var(--app-radius-button); background: var(--app-surface-secondary); }
+.briefingCompounds li > div { display: grid; gap: 2px; min-width: 0; }
+.briefingCompounds strong { overflow: hidden; color: var(--app-text); font-size: var(--app-font-body); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.briefingCompounds li > div > span { color: var(--app-secondary); font-size: var(--app-font-small); line-height: 1.4; }
+.compoundAccent { width: 4px; min-height: 100%; border-radius: 999px; background: var(--app-accent); }
+.briefingCompounds li[data-accent='1'] .compoundAccent { background: color-mix(in srgb, var(--app-accent) 78%, var(--app-secondary)); }
+.briefingCompounds li[data-accent='2'] .compoundAccent { background: color-mix(in srgb, var(--app-accent) 58%, var(--app-text)); }
+.briefingCompounds li[data-accent='3'] .compoundAccent { background: var(--app-secondary); }
+.briefingCompounds li[data-accent='4'] .compoundAccent { background: color-mix(in srgb, var(--app-accent) 42%, var(--app-secondary)); }
+.briefing .findingsList { align-items: start; }
+.briefingFinding { align-self: start; margin-bottom: 0; padding: var(--app-space-sm); box-shadow: none; background: var(--app-surface); }
+.briefingUpdateName { margin: 0; color: var(--app-text); font-size: var(--app-font-body); font-weight: 650; line-height: 1.25; white-space: nowrap; }
+.briefingFinding .value { font-size: var(--app-font-title); }
+.briefingUpdateValue { margin: 4px 0 2px; line-height: 1.2; }
+.briefingFinding .summary { margin-bottom: 0; }
+.briefingFinding .formDetails { margin-top: 6px; }
+.briefingFinding .formDetails summary { display: inline-flex; align-items: center; width: fit-content; min-height: 0; padding-block: 4px; }
+.briefingFinding .formDetails[open] summary { margin-bottom: 2px; }
+.recentPanels { margin-bottom: var(--app-space-lg); }
+.recentPanels > .sectionHeading { margin-top: 0; }
+.page .disclosureButton { margin-top: var(--app-space-sm); padding-inline: 2px; border-color: transparent; background: transparent; color: var(--app-accent); box-shadow: none; }
+.flaggedList { border-top: 1px solid var(--app-border); }
+.flaggedRow { min-height: 68px; padding-inline: 2px; border: 0; border-bottom: 1px solid var(--app-border); border-radius: 0; background: transparent; }
+
+@media (min-width: 640px) {
+  .briefingCompounds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .briefing .findingsList[data-visible-count='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Health Briefing QA polish 2: interactive evidence and compact primary review. */
+.briefingFinding .formDetails summary { color: var(--app-accent); font-weight: 650; }
+.briefingFinding .formDetails summary:hover { text-decoration: underline; text-underline-offset: 2px; }
+.briefingFinding .formDetails summary:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; border-radius: 3px; }
+.page a.briefingPrimaryAction { display: inline-flex; width: fit-content; min-height: 0; padding: 6px 10px; line-height: 1.35; }
+
+/* Health Briefing QA polish 4: concise deterministic before → after preview. */
+.briefingComparison { margin-top: 6px; }
+.briefingComparison .secondary { margin: 2px 0; }

@@ -22,25 +22,31 @@ function changeText(history: BiomarkerHistory) {
   return `${arrow} ${comparison.direction} ${absolute} ${latestGroup(history).unit}${percent}`
 }
 
+export function LabHistorySummary({ panels, histories }: { panels: LabPanel[]; histories: BiomarkerHistory[] }) {
+  const intelligence = useMemo(() => labIntelligence(panels, histories), [panels, histories])
+  if (!intelligence.latestPanel) return null
+  return <section className={styles.summaryGrid} aria-label="Lab history summary">
+    <div className={styles.summaryLead}><span>Latest panel</span><strong>{formatTimelineDate(intelligence.latestPanel.test_date)}</strong>{intelligence.latestPanel.provider && <small>{intelligence.latestPanel.provider}</small>}</div>
+    <div><strong>{intelligence.latestPanel.results.length}</strong><span>Biomarkers</span></div>
+    <div><strong>{intelligence.latestFlaggedCount}</strong><span>Outside range</span></div>
+    <div><strong>{intelligence.repeatCount}</strong><span>With history</span></div>
+  </section>
+}
+
 export default function LabInsights({ panels, histories }: { panels: LabPanel[]; histories: BiomarkerHistory[] }) {
   const intelligence = useMemo(() => labIntelligence(panels, histories), [panels, histories])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<BiomarkerCategory | 'All'>('All')
   const [mode, setMode] = useState<'all' | 'flagged' | 'history'>('all')
+  const [showAllFlagged, setShowAllFlagged] = useState(false)
   const normalizedQuery = query.trim().toLowerCase()
   const matches = (history: BiomarkerHistory) => (category === 'All' || history.category === category) && (!normalizedQuery || history.name.toLowerCase().includes(normalizedQuery))
   const repeated = histories.filter(history => matches(history) && history.units.some(group => new Set(group.observations.map(item => item.date)).size > 1))
   const flagged = intelligence.flagged.filter(item => matches(item.history))
   const visibleTrends = mode === 'flagged' ? repeated.filter(history => latestGroup(history) && statusIsFlagged(latestGroup(history).observations[0].result.status)) : repeated
+  const visibleFlagged = showAllFlagged ? flagged : flagged.slice(0, 5)
 
   return <>
-    {intelligence.latestPanel && <section className={styles.summaryGrid} aria-label="Lab history summary">
-      <div className={styles.summaryLead}><span>Latest panel</span><strong>{formatTimelineDate(intelligence.latestPanel.test_date)}</strong>{intelligence.latestPanel.provider && <small>{intelligence.latestPanel.provider}</small>}</div>
-      <div><strong>{intelligence.latestPanel.results.length}</strong><span>Biomarkers</span></div>
-      <div><strong>{intelligence.latestFlaggedCount}</strong><span>Outside range</span></div>
-      <div><strong>{intelligence.repeatCount}</strong><span>With history</span></div>
-    </section>}
-
     {intelligence.categories.length > 0 && <section aria-labelledby="categories-heading">
       <div className={styles.sectionHeading}><h2 id="categories-heading">By category</h2></div>
       <div className={styles.categoryGrid}>{intelligence.categories.map(item => <button key={item.category} type="button" className={styles.categoryCard} aria-pressed={category === item.category} onClick={() => setCategory(current => current === item.category ? 'All' : item.category)}>
@@ -59,9 +65,12 @@ export default function LabInsights({ panels, histories }: { panels: LabPanel[];
 
     {(mode === 'all' || mode === 'flagged') && <section aria-labelledby="flagged-heading">
       <div className={styles.sectionHeading}><h2 id="flagged-heading">Outside supplied range</h2><span>{flagged.length}</span></div>
-      {flagged.length ? <div className={styles.flaggedList}>{flagged.map(({ history, observation }) => <Link key={`${history.key}:${observation.result.unit}`} className={styles.flaggedRow} href={`/health?biomarker=${encodeURIComponent(history.key)}`}>
-        <div><strong>{history.name}</strong><span>{labValue(observation.result)} · {formatTimelineDate(observation.date)}</span><small>Reference: {labReference(observation.result)}{observation.result.unit && (observation.result.reference_low != null || observation.result.reference_high != null) ? ` ${observation.result.unit}` : ''}</small></div><LabStatusBadge status={observation.result.status} />
-      </Link>)}</div> : <div className={styles.card}><p>{query || category !== 'All' ? 'No matching latest results are outside their supplied range.' : 'No latest results are marked outside their supplied range.'}</p></div>}
+      {flagged.length ? <>
+        <div className={styles.flaggedList}>{visibleFlagged.map(({ history, observation }) => <Link key={`${history.key}:${observation.result.unit}`} className={styles.flaggedRow} href={`/health?biomarker=${encodeURIComponent(history.key)}`}>
+          <div><strong>{history.name}</strong><span>{labValue(observation.result)} · {formatTimelineDate(observation.date)}</span><small>Reference: {labReference(observation.result)}{observation.result.unit && (observation.result.reference_low != null || observation.result.reference_high != null) ? ` ${observation.result.unit}` : ''}</small></div><LabStatusBadge status={observation.result.status} />
+        </Link>)}</div>
+        {flagged.length > 5 && <button className={styles.disclosureButton} type="button" aria-expanded={showAllFlagged} onClick={() => setShowAllFlagged(value => !value)}>{showAllFlagged ? 'Show first 5' : `View all ${flagged.length}`}</button>}
+      </> : <div className={styles.card}><p>{query || category !== 'All' ? 'No matching latest results are outside their supplied range.' : 'No latest results are marked outside their supplied range.'}</p></div>}
     </section>}
 
     {mode !== 'flagged' && <section aria-labelledby="trends-heading">

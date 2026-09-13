@@ -28,11 +28,16 @@ export function TimelineEventCard({ event, comparison }: { event: TimelineEvent;
 }
 
 export default function TimelineHistory({ months, comparisons }: { months: ReturnType<typeof groupTimeline>; comparisons: Map<string, { delta: number; date: string }> }) {
-  return <div className={styles.history}>{months.map(month => <section key={month.key} aria-labelledby={`month-${month.key}`}>
-    <h2 className={styles.month} id={`month-${month.key}`}>{month.label}</h2>
-    {month.days.map(day => <section className={styles.day} key={day.date} aria-label={formatTimelineDate(day.date)}>
-      <h3 className={styles.date}><time dateTime={day.date}>{formatTimelineDate(day.date)}</time></h3>
-      <ol className={styles.list}>{day.events.map(event => <li key={event.id}><TimelineEventCard event={event} comparison={comparisons.get(event.id)} /></li>)}</ol>
-    </section>)}
-  </section>)}</div>
+  return <div className={styles.history}>{months.map((month, index) => {
+    const eventCount = month.days.reduce((count, day) => count + day.events.length, 0)
+    return <details className={styles.monthGroup} key={month.key} open={index === 0}>
+      <summary className={styles.monthSummary} id={`month-${month.key}`}>
+        <strong>{month.label}</strong><span>{eventCount} {eventCount === 1 ? 'event' : 'events'}</span>
+      </summary>
+      <div className={styles.monthBody}>{month.days.map(day => <section className={styles.day} key={day.date} aria-label={formatTimelineDate(day.date)}>
+        <h3 className={styles.date}><time dateTime={day.date}>{formatTimelineDate(day.date)}</time></h3>
+        <ol className={styles.list}>{day.events.map(event => <li key={event.id}><TimelineEventCard event={event} comparison={comparisons.get(event.id)} /></li>)}</ol>
+      </section>)}</div>
+    </details>
+  })}</div>
 }

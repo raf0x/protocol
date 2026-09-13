@@ -12,7 +12,7 @@ export function normalizeBiomarkerName(name: string) {
 }
 
 const definitions: MarkerDefinition[] = [
-  { key: 'testosterone-total', category: 'Hormones', aliases: ['total testosterone', 'testosterone total', 'testosterone, total'] },
+  { key: 'testosterone-total', category: 'Hormones', aliases: ['total testosterone', 'testosterone total', 'testosterone, total', 'testosterone total ms'] },
   { key: 'testosterone-free', category: 'Hormones', aliases: ['free testosterone', 'testosterone free', 'testosterone, free'] },
   { key: 'estradiol', category: 'Hormones', aliases: ['estradiol', 'e2'] },
   { key: 'estradiol-sensitive', category: 'Hormones', aliases: ['sensitive estradiol', 'estradiol sensitive', 'estradiol, sensitive', 'estradiol ultrasensitive'] },

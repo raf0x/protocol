@@ -1,5 +1,7 @@
 import { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from './labFindingsSummary'
 import type { BiomarkerHistory, LabPanel } from './labs'
+import { classifyBiomarker } from './biomarkerIntelligence'
+import { buildLabTrajectory, toLabEvidenceObservation, type LabGap } from './labEvidence'
 import type { ProtocolOverlayData } from './protocolOverlay'
 import { healthStateAtDate, protocolActivityAtDate } from './longitudinal/history'
 import { detectInterventions } from './longitudinal/interventions'
@@ -9,6 +11,21 @@ import type { LabFinding } from './labFindings'
 export type BriefingProtocols =
   | { status: 'loading' | 'unavailable'; asOf: string | null }
   | { status: 'ready'; asOf: string; data: ProtocolOverlayData }
+
+export type BriefingSupplementalLabUpdate = {
+  kind: 'latest_without_comparison'
+  id: string
+  biomarkerKey: string
+  biomarkerName: string
+  value: number
+  unit: string
+  date: string
+  panelName: string | null
+  provider: string | null
+  evidenceReasons: LabGap[]
+  label: 'No eligible prior comparison'
+  href: string
+}
 
 export type HealthBriefingModel = {
   state: 'empty' | 'ready'
@@ -23,6 +40,7 @@ export type HealthBriefingModel = {
     additionalCompounds: number
   }
   findings: LabFindingsSummaryModel
+  supplementalLabUpdates: BriefingSupplementalLabUpdate[]
   protocolContext: { items: Intervention[]; additionalCount: number; hasComparison: boolean }
   gaps: { key: string; text: string }[]
   reviewActions: { label: string; href: string }[]
@@ -40,6 +58,51 @@ export function briefingInterventions(findings: readonly LabFinding[], intervent
   return [...unique.values()].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
 }
 
+/** Fill unused briefing slots with numeric results from the one unambiguous
+ * latest panel only when canonical evidence has no eligible prior comparison.
+ * These are presentation updates, never fabricated LabFinding objects. */
+export function briefingSupplementalLabUpdates(
+  latestPanel: LabPanel | null, histories: readonly BiomarkerHistory[], findings: readonly LabFinding[], limit = 3,
+): BriefingSupplementalLabUpdate[] {
+  if (!latestPanel || limit <= findings.length) return []
+  const selected = new Set(findings.map(finding => finding.biomarkerKey))
+  const supplemental: BriefingSupplementalLabUpdate[] = []
+
+  const orderedResults = latestPanel.results.map((result, index) => ({ result, index })).sort((a, b) => {
+    const aRow = typeof a.result.source_row_index === 'number' ? a.result.source_row_index : Number.POSITIVE_INFINITY
+    const bRow = typeof b.result.source_row_index === 'number' ? b.result.source_row_index : Number.POSITIVE_INFINITY
+    return aRow - bRow || a.index - b.index
+  })
+  for (const { result } of orderedResults) {
+    if (supplemental.length >= limit - findings.length) break
+    if (typeof result.value !== 'number' || !Number.isFinite(result.value) || !result.unit?.trim()) continue
+    const biomarkerKey = classifyBiomarker(result.biomarker_name).key
+    if (selected.has(biomarkerKey)) continue
+    const history = histories.find(item => item.key === biomarkerKey)
+    const unit = result.unit.trim()
+    const unitHistory = history?.units.find(group => group.unit === unit)
+    if (!unitHistory) continue
+
+    const trajectory = buildLabTrajectory(unitHistory.observations.map(row => toLabEvidenceObservation(row, biomarkerKey)))
+    const latestDate = trajectory.dates.find(group => group.date === latestPanel.test_date)
+    // Same-day ambiguity, malformed latest rows, or a different selected reading
+    // are never resolved from insertion order.
+    if (!latestDate?.reading || latestDate.reading.resultId !== result.id) continue
+    // If canonical arithmetic has an eligible prior comparison, this is not a
+    // no-comparison supplemental result and must not be relabelled as one.
+    if (trajectory.latestVsPrevious.comparison) continue
+
+    selected.add(biomarkerKey)
+    supplemental.push({
+      kind: 'latest_without_comparison', id: `latest:${result.id}`, biomarkerKey, biomarkerName: result.biomarker_name.trim(),
+      value: result.value, unit, date: latestPanel.test_date, panelName: latestPanel.panel_name, provider: latestPanel.provider,
+      evidenceReasons: [...trajectory.latestVsPrevious.reasons], label: 'No eligible prior comparison',
+      href: `/health?biomarker=${encodeURIComponent(biomarkerKey)}`,
+    })
+  }
+  return supplemental
+}
+
 /** Presentation composition only. No fetching, clock, persistence, new lab
  * arithmetic, protocol replay, or intervention interpretation lives here. */
 export function buildHealthBriefing({ panels, histories, protocols }: {
@@ -50,6 +113,8 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
   const findings = buildLabFindingsSummaryModel(panels, histories)
   const latestPanels = panels.filter(panel => panel.test_date === findings.latestDate)
   const latestPanel = latestPanels.length === 1 ? latestPanels[0] : null
+  const visibleFindings = findings.headlines.slice(0, 3)
+  const supplementalLabUpdates = briefingSupplementalLabUpdates(latestPanel, histories, visibleFindings, 3)
   const source = protocols.status === 'ready' ? { protocols: protocols.data.protocols, protocolEvents: protocols.data.events } : null
   const current = source && protocols.asOf ? healthStateAtDate(source, protocols.asOf) : []
   const windows = findings.headlines.flatMap(finding => finding.evidence.comparison ? [finding.evidence.comparison] : [])
@@ -79,7 +144,7 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
 
   const reviewActions: HealthBriefingModel['reviewActions'] = []
   const first = findings.headlines[0]
-  if (first) reviewActions.push({ label: `Review the evidence for ${first.biomarkerName}`, href: `/health?biomarker=${encodeURIComponent(first.biomarkerKey)}` })
+  if (first) reviewActions.push({ label: `Review ${first.biomarkerName} evidence`, href: `/health?biomarker=${encodeURIComponent(first.biomarkerKey)}` })
   if (context.length) reviewActions.push({ label: 'Review recorded protocol changes', href: '/health?view=changes' })
   if (panels.length) reviewActions.push({ label: 'Create clinician report', href: '/health/report' })
   else if (current.length) reviewActions.push({ label: 'Add your first lab panel', href: '/health?action=add' })
@@ -92,7 +157,7 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
       biomarkerCount: latestPanel?.results.length ?? null, latestPanelCount: latestPanels.length,
       protocolStatus: protocols.status, compounds: current.slice(0, 5), additionalCompounds: Math.max(0, current.length - 5),
     },
-    findings,
+    findings, supplementalLabUpdates,
     protocolContext: { items: context.slice(0, 3), additionalCount: Math.max(0, context.length - 3), hasComparison: windows.length > 0 },
     gaps: gaps.slice(0, 3), reviewActions: reviewActions.slice(0, 3),
   }
