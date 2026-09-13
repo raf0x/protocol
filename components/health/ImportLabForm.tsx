@@ -28,7 +28,7 @@ export default function ImportLabForm({kind,panels,onSaved,onCancel}:{kind:'csv'
     finally{pending.current=false;setBusy(false)}
   }
   if(draft)return <><button type="button" onClick={()=>setDraft(null)}>Back to import</button>
-    {kind==='pdf' && <details className={styles.formDetails}><summary>Extracted text: check for missing results</summary><pre className={styles.raw}>{JSON.stringify(draft.source_metadata?.extracted_lines,null,2)}</pre></details>}
+    {kind==='pdf' && <p className={styles.secondary}>Found {draft.results.length} candidate results. Source rows are available beside each result; patient details and administrative text are excluded.</p>}
     <AddLabForm key={filename} initialDraft={draft} panels={panels} onSaved={onSaved} onCancel={onCancel} /></>
   return <section className={styles.form}><h2>Import {kind.toUpperCase()}</h2><p className={styles.secondary}>Files are parsed on your device. Review comes before save. {kind==='pdf'?'Embedded text only; scanned PDFs and OCR are not supported yet.':'One panel per import. Names and units are not converted.'}</p>
     {error&&<p role="alert" className={styles.notice}>{error}</p>}

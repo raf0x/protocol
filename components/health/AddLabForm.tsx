@@ -44,7 +44,10 @@ export default function AddLabForm({ onSaved, onCancel, initialDraft, original =
   return <form onSubmit={submit} className={styles.form}>
     <h2 ref={heading} tabIndex={-1}>{step === 1 ? 'About this test' : step === 2 ? 'Add your biomarkers' : 'Review your results'}</h2>
     <p className={styles.caption}>Step {step} of 3 · {original ? 'Edit saved panel' : imported ? `${draft.source_type?.toUpperCase()} import` : 'Manual entry'}</p>
-    {imported && <p className={styles.notice}>Review every included row against {draft.source_filename}. One test date applies to this panel. Exclude rows belonging to other tests or dates. Nothing is saved until you confirm.</p>}
+    {imported && <><p className={styles.secondary}>{draft.results.filter(row => row.included !== false).length} of {draft.results.length} results selected. High-confidence extractions are selected for you. Uncertain results stay unselected until you choose Include. Nothing is saved until you confirm.</p>
+      <p className={styles.caption}>One collection date applies to this panel. Check against {draft.source_filename}; exclude rows from other dates.</p>
+      {Array.isArray(draft.source_metadata?.warnings) && draft.source_metadata.warnings.map((warning, index) => typeof warning === 'string' && <p className={styles.notice} key={index}>{warning}</p>)}
+    </>}
     <p className={styles.secondary}>Copy values and reference ranges from your report. Status labels describe the report, not a diagnosis.</p>
     {error && <p className={styles.notice} role="alert">{error}</p>}
     <fieldset disabled={saving}>
@@ -55,11 +58,18 @@ export default function AddLabForm({ onSaved, onCancel, initialDraft, original =
         <label>Notes <small>Optional</small><textarea maxLength={10000} rows={3} value={draft.notes} onChange={event => setDraft({ ...draft, notes: event.target.value })} /></label>
       </div>}
       {step === 2 && <>
-        {draft.results.map((row, index) => <section className={styles.card} key={rowKeys[index]} aria-label={`Biomarker ${index + 1}`}>
-          <div className={styles.rowHeading}><h3>Biomarker {index + 1}</h3>{draft.results.length > 1 && <button type="button" aria-label={`Remove biomarker ${index + 1}`} onClick={() => { setDraft({ ...draft, results: draft.results.filter((_, i) => i !== index) }); setRowKeys(rowKeys.filter((_, i) => i !== index)) }}>Remove</button>}</div>
+        {draft.results.map((row, index) => {
+          const compact = imported && row.import_confidence === 'high'
+          const Fields = compact ? 'details' : 'div'
+          return <section className={styles.card} key={rowKeys[index]} aria-label={`Biomarker ${index + 1}`}>
+          <div className={styles.rowHeading}><h3>{imported && row.biomarker_name ? row.biomarker_name : `Biomarker ${index + 1}`}</h3>{draft.results.length > 1 && <button type="button" aria-label={`Remove biomarker ${index + 1}`} onClick={() => { setDraft({ ...draft, results: draft.results.filter((_, i) => i !== index) }); setRowKeys(rowKeys.filter((_, i) => i !== index)) }}>Remove</button>}</div>
           {imported && <label className={styles.checkLabel}><input type="checkbox" checked={row.included !== false} onChange={event => setDraft({ ...draft, results: draft.results.map((item,i) => i===index ? {...item,included:event.target.checked} : item) })} />Include this result</label>}
           {row.import_confidence && <p className={styles.notice} data-confidence={row.import_confidence}>{row.import_confidence[0].toUpperCase()+row.import_confidence.slice(1)} parser confidence{row.warnings?.length ? ` · ${row.warnings.join(' ')}` : ''}</p>}
           {duplicates.has(index) && <p className={styles.notice}>Possible duplicate: same date, name, value and unit. Keep it intentionally or exclude/remove this row.</p>}
+          <Fields className={compact ? styles.formDetails : undefined} onInvalidCapture={event => {
+            if (event.currentTarget instanceof HTMLDetailsElement) event.currentTarget.open = true
+          }}>
+          {compact && <summary>{row.entry}{row.unit && ` ${row.unit}`} · Check or edit</summary>}
           {row.source_raw && <details className={styles.formDetails}><summary>Original source row</summary><pre className={styles.raw}>{JSON.stringify(row.source_raw,null,2)}</pre></details>}
           <label>Biomarker name<input required={row.included !== false} maxLength={200} value={row.biomarker_name} onChange={event => update(index, 'biomarker_name', event.target.value)} /></label>
           <div className={styles.fieldGrid}><label>Result<input required={row.included !== false} maxLength={200} value={row.entry} onChange={event => update(index, 'entry', event.target.value)} placeholder="Number or report text" /></label><label>Unit <small>If supplied</small><input maxLength={80} value={row.unit} onChange={event => update(index, 'unit', event.target.value)} /></label></div>
@@ -69,14 +79,15 @@ export default function AddLabForm({ onSaved, onCancel, initialDraft, original =
             <label>Status printed on the report<select value={row.status} onChange={event => update(index, 'status', event.target.value)}><option value="">Not supplied: use numeric bounds if available</option>{labStatuses.map(status => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label>
             <p className={styles.caption}>An explicit lab status is preserved. Without numeric bounds or a reported status, the result stays Unknown.</p>
           </details>
-        </section>)}
+          </Fields>
+        </section>})}
         <button type="button" disabled={draft.results.length >= 500} onClick={() => { setDraft({ ...draft, results: [...draft.results, blankRow()] }); setRowKeys([...rowKeys, nextKey.current++]) }}>+ Add biomarker</button><p className={styles.caption}>{draft.results.length} of 500 biomarkers</p>
       </>}
       {review && <div className={styles.card}><h3>{review.panel.panel_name || 'Lab results'}</h3><p>{formatTimelineDate(review.panel.test_date)}{review.panel.provider && ` · ${review.panel.provider}`}</p>{review.panel.notes && <p className={styles.notes}>{review.panel.notes}</p>}{review.results.map((result, index) => <LabResultRow result={result} key={index} />)}
         {duplicates.size>0 && <p className={styles.notice}>{duplicates.size} possible duplicate rows included. Go Back to exclude them, or keep them by confirming this save.</p>}
         {imported && <label className={styles.checkLabel}><input type="checkbox" required checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} />I reviewed all included rows, dates, units, parser warnings and possible duplicates.</label>}
         <p className={styles.caption}>{review.results.length} results will be saved. Check names, values, units, and ranges before saving.</p></div>}
-      <div className={styles.actions}><button type="button" onClick={() => step === 1 ? onCancel() : go(step - 1)}>{step === 1 ? 'Cancel' : 'Back'}</button><button type="submit" className={styles.primary}>{saving ? 'Saving…' : step === 1 ? 'Add biomarkers' : step === 2 ? 'Review results' : 'Save lab results'}</button></div>
+      <div className={styles.actions}><button type="button" onClick={() => step === 1 ? onCancel() : go(step - 1)}>{step === 1 ? 'Cancel' : 'Back'}</button><button type="submit" className={styles.primary}>{saving ? 'Saving…' : step === 1 ? imported ? 'Check extracted results' : 'Add biomarkers' : step === 2 ? 'Review results' : 'Save lab results'}</button></div>
     </fieldset>
   </form>
 }

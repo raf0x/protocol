@@ -1,4 +1,8 @@
-import type { LabDraft, LabDraftRow, LabStatus } from './labs'
+import type { LabDraft, LabDraftRow } from './labs'
+import { extractLabDocument, type PdfLine } from './labPdfParser'
+import { importParserVersion, parseReference, parseFlag, validateLabCandidate, reviewRepeatedCandidates } from './labImportValidation'
+export { parseReference, parseFlag } from './labImportValidation'
+export type { PdfLine } from './labPdfParser'
 
 export const importFields = ['biomarker','value','unit','reference','low','high','status','date','provider','panel'] as const
 export type ImportField = typeof importFields[number]
@@ -37,19 +41,6 @@ export function parseCsv(text: string): CsvTable {
   if(nonempty.length>501 || nonempty[0].length>100)throw new Error('Use at most 500 result rows and 100 columns per file.')
   return {headers:nonempty[0],rows:nonempty.slice(1)}
 }
-export function parseReference(text: string) {
-  const n='([+-]?(?:\\d+\\.?\\d*|\\.\\d+))'
-  const range=text.trim().match(new RegExp(`^${n}\\s*(?:-|–|to)\\s*${n}$`,'i'))
-  if(range && Number(range[1])<=Number(range[2]))return {reference_low:range[1],reference_high:range[2],reference_text:text}
-  const one=text.trim().match(new RegExp(`^(<=|>=|≤|≥)\\s*${n}$`))
-  if(one)return {reference_low:['>=','≥'].includes(one[1])?one[2]:'',reference_high:['<=','≤'].includes(one[1])?one[2]:'',reference_text:text}
-  return {reference_low:'',reference_high:'',reference_text:text}
-}
-export function parseFlag(raw: string): {status: LabStatus | ''; warning?: string} {
-  const mapping: Record<string,LabStatus>={h:'high',high:'high',l:'low',low:'low',n:'normal',normal:'normal',a:'abnormal',abnormal:'abnormal',unknown:'unknown'}
-  const flag=raw.trim().toLowerCase()
-  return !flag ? {status:''} : mapping[flag] ? {status:mapping[flag]} : {status:'',warning:`Unrecognized lab flag: ${raw}. Confirm its meaning from the report.`}
-}
 function safeDate(raw: string) {
   const normalized=raw.trim().replace(/^(\d{4})\/(\d{2})\/(\d{2})$/,'$1-$2-$3')
   const date=new Date(`${normalized}T12:00:00Z`)
@@ -65,52 +56,53 @@ export function mapCsv(table: CsvTable, map: ColumnMap, filename: string): LabDr
   const panels=new Set(table.rows.map(row=>get(row,'panel')).filter(Boolean))
   const test_date=dates.size===1?safeDate([...dates][0]):''
   return {test_date,panel_name:panels.size===1?[...panels][0]:'',provider:providers.size===1?[...providers][0]:'',notes:'',source_type:'csv',source_filename:filename,
-    source_metadata:{parser:'csv-v2',mapping:map,headers:table.headers,original_dates:[...dates],row_count:table.rows.length},
-    results:table.rows.map((cells,index)=>{
+    source_metadata:{parser:'csv-v2',validator:importParserVersion,mapping:map,headers:table.headers,original_dates:[...dates],row_count:table.rows.length},
+    results:reviewRepeatedCandidates(table.rows.map((cells,index)=>{
       const flag=parseFlag(get(cells,'status')),range=parseReference(get(cells,'reference')),warnings:string[]=[]
       if(flag.warning)warnings.push(flag.warning)
       if(cells.length!==table.headers.length)warnings.push('Column count differs from the header.')
       if(!get(cells,'biomarker')||!get(cells,'value'))warnings.push('Name or result is missing.')
-      if(!get(cells,'unit'))warnings.push('Unit not supplied. Confirm whether this result needs one.')
       if(!test_date)warnings.push('Confirm the test date. Imported dates are missing, ambiguous, or differ across rows.')
       if(providers.size>1||panels.size>1)warnings.push('This file includes multiple panels or providers. Exclude unrelated rows before saving one panel.')
       const low=get(cells,'low'),high=get(cells,'high')
       const validBound=(s:string)=>!s||/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(s)
       if(!validBound(low)||!validBound(high))warnings.push('A reference bound is nonnumeric; it was kept as reference text.')
-      return {biomarker_name:get(cells,'biomarker'),entry:get(cells,'value'),unit:get(cells,'unit'),...range,
+      const row: LabDraftRow = {biomarker_name:get(cells,'biomarker'),entry:get(cells,'value'),unit:get(cells,'unit'),...range,
         reference_low:validBound(low)?low||range.reference_low:'',reference_high:validBound(high)?high||range.reference_high:'',
         reference_text:[range.reference_text,!validBound(low)?`Low: ${low}`:'',!validBound(high)?`High: ${high}`:''].filter(Boolean).join(' · '),status:flag.status,included:true,
         source_row_index:index+2,source_raw:{headers:table.headers,cells},import_confidence:!get(cells,'value')||!get(cells,'biomarker')||cells.length!==table.headers.length?'low':warnings.length?'medium':'high',warnings}
-    })}
+      const validated = validateLabCandidate({ name: row.biomarker_name, entry: row.entry, unit: row.unit, reference: row.reference_text,
+        low: row.reference_low, high: row.reference_high, flag: get(cells, 'status'), explicitUnit: map.unit >= 0,
+        source: { row: index + 2, headers: table.headers, cells }, evidence: ['mapped_columns'], reasons: warnings,
+        collectionDate: safeDate(get(cells, 'date')) || undefined })
+      return validated ?? { ...row, included: false, import_confidence: 'low' as const,
+        warnings: [...warnings, 'This row could not be validated. Correct it before choosing Include.'] }
+    }))}
 }
 
-export type PdfLine = {page:number; text:string}
 export type PdfAdapter = {id:string; matches:(lines:PdfLine[])=>boolean; parse:(lines:PdfLine[])=>LabDraftRow[]}
-export function parsePdfLines(lines: PdfLine[], filename: string, adapters: PdfAdapter[]=[]): LabDraft {
-  if(!lines.some(line=>line.text.trim().length>3))throw new Error('This PDF appears to be scanned. Text extraction is not available for this file yet.')
-  let rows:LabDraftRow[]=[];let parser='generic-pdf-v2'
-  for(const adapter of adapters) {
-    try { if(adapter.matches(lines)) { const parsed=adapter.parse(lines);if(parsed.length){rows=parsed;parser=adapter.id;break} } }catch{ /* An adapter failing to recognize a layout falls back to generic review. */ }
+export function parsePdfLines(lines: PdfLine[], filename: string, adapters: PdfAdapter[] = []): LabDraft {
+  if (!lines.some(line => line.text.trim().length > 3)) throw new Error('This PDF appears to be scanned. Text extraction is not available for this file yet.')
+  if (lines.length > 10_000 || lines.reduce((size, line) => size + line.text.length, 0) > 200_000) throw new Error('This PDF has too much text. Split it into smaller reports.')
+  const extracted = extractLabDocument(lines)
+  let rows = extracted.rows, parser = importParserVersion
+  for (const adapter of adapters) {
+    try {
+      if (!adapter.matches(lines)) continue
+      const validated = adapter.parse(lines).map(row => validateLabCandidate({ name: row.biomarker_name, entry: row.entry, unit: row.unit,
+        reference: row.reference_text, low: row.reference_low, high: row.reference_high, flag: row.status,
+        source: { row: row.source_row_index ?? 1, ...(row.source_raw ?? {}) }, evidence: ['adapter'], explicitUnit: true,
+        reasons: ['Adapter extraction. Verify the original source before including.'] })).filter((row): row is LabDraftRow => row !== null)
+      if (validated.length) { rows = reviewRepeatedCandidates(validated); parser = adapter.id; break }
+    } catch { /* Unsupported adapter layout uses the same validated local fallback. */ }
   }
-  if(!rows.length)lines.forEach((line,index)=>{
-    const text=line.text.trim()
-    if(/^(?:page\s+\d|(?:test|biomarker|analyte)\s+(?:result|value)|(?:date|collected|reported|dob|patient|account|specimen|reference|provider|laboratory)\s*:)/i.test(text))return
-    const match=text.match(/^(.+?)\s+(([<>]=?\s*)?[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?|not detected|non-reactive|negative|positive|detected)\s*(.*)$/i)
-    if(!match||!/[a-z]/i.test(match[1]))return
-    const tail=match[4].trim().split(/\s+/).filter(Boolean)
-    let flag='';if(/^(H|L|A|N|high|low|normal|abnormal)$/i.test(tail[0]??''))flag=tail.shift()!
-    if(/^(H|L|A|N|high|low|normal|abnormal)$/i.test(tail.at(-1)??''))flag=tail.pop()!
-    // Only a clearly unit-like token is assigned as a unit. Remaining text is
-    // preserved verbatim as reference text, not converted or medically inferred.
-    const unit=/^(?:%|[a-zµμ]+(?:[/*^][a-z0-9µμ]+)+(?:[/*^][a-z0-9µμ]+)*|[a-zµμ]+)$/i.test(tail[0]??'')?tail.shift()!:''
-    const reference=tail.join(' ')
-    const ambiguous=/\d/.test(match[1])||!unit
-    rows.push({biomarker_name:match[1].trim(),entry:match[2].trim(),unit,...parseReference(reference),status:parseFlag(flag).status,included:true,
-      source_row_index:index+1,source_raw:{page:line.page,text:line.text},import_confidence:ambiguous?'low':'medium',
-      warnings:[ambiguous?'Ambiguous layout. Check name, value, and unit against the source.':'Parsed from PDF text. Verify column alignment and missing results.']})
-  })
-  if(!rows.length)throw new Error("We couldn't detect lab results in this file. Try CSV or manual entry. Scanned PDFs require OCR, which is not available yet.")
-  if(rows.length>500)throw new Error('More than 500 candidate rows were found. Split this report into smaller files.')
-  return {test_date:'',panel_name:'',provider:'',notes:'',source_type:'pdf',source_filename:filename,
-    source_metadata:{parser,line_count:lines.length,extracted_lines:lines},results:rows}
+  if (!rows.length) throw new Error("We couldn't detect lab results in this file. Try CSV or manual entry. Scanned PDFs require OCR, which is not available yet.")
+  if (rows.length > 500) throw new Error('More than 500 candidate rows were found. Split this report into smaller files.')
+  const metadata = extracted.metadata
+  return { test_date: metadata.collection_dates.length === 1 ? metadata.collection_dates[0] : '', panel_name: '', provider: metadata.provider ?? '', notes: '',
+    source_type: 'pdf', source_filename: filename,
+    // Preserve analyte-only evidence. Never persist the entire extracted document,
+    // which may include patient IDs, addresses and administrative details.
+    source_metadata: { parser, line_count: lines.length, ...metadata, candidate_count: rows.length,
+      included_count: rows.filter(row => row.included).length, review_count: rows.filter(row => !row.included).length }, results: rows }
 }

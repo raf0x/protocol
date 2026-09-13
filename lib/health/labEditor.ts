@@ -6,6 +6,15 @@ export function draftFromPanel(panel: LabPanel): LabDraft {
       reference_low: row.reference_low == null ? '' : String(row.reference_low), reference_high: row.reference_high == null ? '' : String(row.reference_high), reference_text: row.reference_text ?? '', status: row.status_source === 'reported' ? row.status : '' })) }
 }
 
+/** Record explicit import corrections without overwriting the extracted source. */
+function reviewedSource(row: LabDraftRow, confirmed: boolean) {
+  if (!row.source_raw) return null
+  const extraction = row.source_raw.extraction as { fields?: Record<string, unknown> } | undefined
+  if (!extraction?.fields) return row.source_raw
+  const corrected = Object.keys(extraction.fields).filter(field => row[field as keyof LabDraftRow] !== extraction.fields![field])
+  return { ...row.source_raw, review: { confirmed, corrected_fields: corrected } }
+}
+
 export function prepareLabSubmission(draft: LabDraft, reviewConfirmed: boolean) {
   const selected = draft.results.filter(row => row.included !== false)
   const prepared = prepareLabDraft({ ...draft, results: selected })
@@ -13,7 +22,7 @@ export function prepareLabSubmission(draft: LabDraft, reviewConfirmed: boolean) 
   if (imported && !reviewConfirmed) throw new Error('Confirm the included imported rows before saving.')
   return { panel: { ...prepared.panel, source_type: draft.source_type ?? 'manual', source_filename: draft.source_filename ?? null, source_metadata: draft.source_metadata ?? null, review_confirmed: reviewConfirmed },
     results: prepared.results.map((row,index) => ({ ...row, id: selected[index].id ?? null, source_row_index: selected[index].source_row_index ?? null,
-      source_raw: selected[index].source_raw ?? null, import_confidence: selected[index].import_confidence ?? null, review_confirmed: reviewConfirmed })) }
+      source_raw: reviewedSource(selected[index], reviewConfirmed), import_confidence: selected[index].import_confidence ?? null, review_confirmed: reviewConfirmed })) }
 }
 
 function duplicateKey(date: string, name: string, value: string, unit: string) {
