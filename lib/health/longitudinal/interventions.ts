@@ -40,7 +40,7 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
     if (!protocol) limitations.push('Protocol record is absent; this event does not establish the complete former regimen.')
     if (kind === 'dose_changed' && difference == null) limitations.push('No comparable confirmed medication doses; no medication-unit conversion was inferred.')
     items.push({ id: `event:${event.id}`, protocolId, compoundId, phaseId: typeof metadata?.phaseId === 'string' ? metadata.phaseId : next?.id ?? null,
-      kind: action, date, title: `${name} ${labels[action]}`, before, after, provenance: 'event', limitations,
+      treatmentName: name, kind: action, date, title: `${name} ${labels[action]}`, before, after, provenance: 'event', limitations,
       sources: [{ table: 'protocol_events', id: event.id, label: metadata ? 'Structured protocol event' : 'Legacy protocol event' }] })
   }
 
@@ -50,7 +50,7 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
     for (const [kind, date] of [['started', start], ['stopped', day(protocol.completed_date)]] as const) {
       if (!date || date > asOf || items.some(item => item.protocolId === protocol.id && item.kind === kind && item.date === date)) continue
       items.push({ id: `protocol:${protocol.id}:${kind}:${date}`, date, protocolId: protocol.id, compoundId: null, phaseId: null, kind,
-        title: `${protocol.name || 'Protocol'} ${labels[kind]}`, before: null, after: null, provenance: 'saved_plan',
+        treatmentName: protocol.name || 'Protocol', title: `${protocol.name || 'Protocol'} ${labels[kind]}`, before: null, after: null, provenance: 'saved_plan',
         sources: [{ table: 'protocols', id: protocol.id, label: 'Saved lifecycle date' }], limitations: ['Saved lifecycle date; not a confirmed administration log.'] })
     }
     for (const compound of protocol.compounds ?? []) {
@@ -86,7 +86,7 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
           if (before.route !== after.route) kinds.push('route_changed')
         }
         for (const kind of kinds) items.push({ id: `phase:${compound.id}:${date}:${kind}`, protocolId: protocol.id, compoundId: compound.id,
-          phaseId: after?.phaseId ?? before?.phaseId ?? null, date, kind, title: `${compound.name || protocol.name || 'Compound'} ${labels[kind]}`,
+          phaseId: after?.phaseId ?? before?.phaseId ?? null, date, kind, treatmentName: compound.name || protocol.name || 'Compound', title: `${compound.name || protocol.name || 'Compound'} ${labels[kind]}`,
           before: before?.medication ?? null, after: after?.medication ?? null, provenance: 'saved_plan',
           sources: [...(before?.sources ?? []), ...(after?.sources ?? [])], limitations: ['Derived from dated phase boundaries; unrecorded plan edits and actual administration are not verified.'] })
       }

@@ -20,6 +20,8 @@ export type InterventionKind = 'started' | 'stopped' | 'paused' | 'resumed' | 'r
   | 'dose_increased' | 'dose_decreased' | 'dose_changed' | 'frequency_changed' | 'route_changed' | 'phase_started' | 'phase_ended' | 'phase_continued'
 export type Intervention = {
   id: string; date: string; protocolId: string; compoundId: string | null; phaseId: string | null
+  /** Structured label only; optional for older in-memory consumers. Never identity. */
+  treatmentName?: string
   kind: InterventionKind; title: string; before: MedicationDose | null; after: MedicationDose | null
   provenance: 'event' | 'saved_plan'; sources: SourceRef[]; limitations: string[]
 }

@@ -138,6 +138,8 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
   const original = row.description?.trim() || ''
   let description = original
   const metadata = row.metadata ?? {}
+  const protocolId = row.protocol_id ?? (typeof metadata.protocolId === 'string' ? metadata.protocolId : null)
+  const compoundId = row.compound_id ?? (typeof metadata.compoundId === 'string' ? metadata.compoundId : null)
   const value = (key: string) => typeof metadata[key] === 'string' || typeof metadata[key] === 'number' ? String(metadata[key]) : ''
   if (row.event_type === 'dose_change' && value('newDose') && value('newUnit')) {
     description = value('previousDose') && value('previousUnit')
@@ -159,10 +161,11 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
     id: `protocol_events:${row.id}`, date: row.date, category: 'Protocol', title,
     description: description || undefined, sourceType: 'protocol_events', sourceId: row.id,
     metadata: {
-      eventType: row.event_type, protocolId: row.protocol_id, compoundId: row.compound_id,
-      compoundName: compound?.name ?? null, protocolStartDate: row.protocols?.start_date ?? null,
+      eventType: row.event_type,
+      compoundName: compound?.name ?? null, protocolName: row.protocols?.name ?? null, protocolStartDate: row.protocols?.start_date ?? null,
       protocolStatus: row.protocols?.status ?? null,
       ...planMetadata(compound, row.protocols?.start_date ?? null, row.date), ...metadata,
+      protocolId, compoundId,
       metadataSource: row.metadata ? 'structured_event' : 'saved_plan',
     },
   }

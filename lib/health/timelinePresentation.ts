@@ -1,3 +1,4 @@
+import { groupTreatments, matchesTreatmentIdentity, treatmentCompoundIndex, treatmentIdentity, treatmentScope, type TreatmentIdentity } from './protocolIdentity'
 import type { TimelineEvent } from './timeline'
 
 export const timelineFilters = ['All', 'Protocols', 'Weight', 'Journal', 'Labs'] as const
@@ -46,4 +47,35 @@ export function eventTime(date: string): string | null {
   if (!date.includes('T')) return null
   const value = new Date(date)
   return Number.isNaN(value.getTime()) ? null : value.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+/** No title parsing and no identity guessed from display names. */
+export function timelineTreatmentIdentity(event: TimelineEvent): TreatmentIdentity | null {
+  return event.category === 'Protocol'
+    ? treatmentIdentity(event.metadata?.protocolId, event.metadata?.compoundId) : null
+}
+
+export function timelineTreatmentOptions(events: readonly TimelineEvent[]) {
+  return groupTreatments(events, timelineTreatmentIdentity).map(group => {
+    const labels = group.items.flatMap(event => {
+      // A contextual protocol-level label must not displace the compound label.
+      const compound = group.identity.compoundId !== null && event.metadata?.compoundId === group.identity.compoundId
+      const value = compound ? event.metadata?.compoundName : group.identity.compoundId === null ? event.metadata?.protocolName : null
+      return typeof value === 'string' && value.trim() ? [value.trim()] : []
+    }).sort()
+    return { key: group.key, identity: group.identity, scope: treatmentScope(group.identity),
+      label: labels[0] ?? (group.identity.compoundId === null ? 'Recorded protocol' : 'Recorded compound'),
+      eventIds: [...new Set(group.items.map(event => event.id))].sort() }
+  })
+}
+
+/** Build once from the full collection, then use with Array.filter. Null means
+ * All treatments; unknown identities match nothing, not an implicit All. */
+export function timelineTreatmentPredicate(events: readonly TimelineEvent[], selected: TreatmentIdentity | null) {
+  const index = treatmentCompoundIndex(events.flatMap(event => { const identity = timelineTreatmentIdentity(event); return identity ? [identity] : [] }))
+  return (event: TimelineEvent): boolean => {
+    if (selected === null) return true
+    const identity = timelineTreatmentIdentity(event)
+    return identity !== null && matchesTreatmentIdentity(identity, selected, index)
+  }
 }
