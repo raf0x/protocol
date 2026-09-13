@@ -4,11 +4,11 @@ import { compareMedication, healthStateAtDate, medicationForPhase, object, snaps
 import type { Intervention, InterventionKind, LongitudinalSource } from './types'
 
 const actions: Record<string, InterventionKind> = {
-  started: 'started', stopped: 'stopped', completed: 'stopped', paused: 'paused', resumed: 'resumed', continued: 'resumed',
+  started: 'started', stopped: 'stopped', completed: 'stopped', paused: 'paused', resumed: 'resumed', continued: 'resumed', reactivated: 'reactivated',
   compound_added: 'compound_added', compound_removed: 'compound_removed', dose_change: 'dose_changed',
   frequency_change: 'frequency_changed', route_change: 'route_changed', phase_started: 'phase_started', phase_continued: 'phase_continued', phase_ended: 'phase_ended',
 }
-const labels: Record<InterventionKind, string> = { started: 'started', stopped: 'ended', paused: 'paused', resumed: 'resumed',
+const labels: Record<InterventionKind, string> = { started: 'started', stopped: 'ended', paused: 'paused', resumed: 'resumed', reactivated: 'reactivated',
   compound_added: 'added', compound_removed: 'removed', dose_increased: 'dose increased', dose_decreased: 'dose decreased', dose_changed: 'dosing entry changed',
   frequency_changed: 'frequency changed', route_changed: 'route changed', phase_started: 'phase started', phase_ended: 'phase ended', phase_continued: 'phase continued' }
 

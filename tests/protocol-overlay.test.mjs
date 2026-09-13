@@ -11,6 +11,7 @@ function load(path) {
   const out = { exports: {} }
   const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('/supabase') || name === '../supabase') return { createClient() { throw new Error('client must be injected') } }
     if (!name.startsWith('.')) return require(name)
     for (const suffix of ['', '.ts']) { try { return load(new URL(name + suffix, url).href) } catch (error) { if (error.code !== 'ENOENT') throw error } }
     throw new Error(`Missing ${name}`)
@@ -33,8 +34,8 @@ test('an expired latest phase is not treated as current', () => {
   const context = overlay.contextAtDate(p, '2026-03-01')[0]; assert.equal(context.phaseId, null); assert.equal(context.dose, 'Dose not confirmed for this date')
 })
 test('an ongoing phase works for later historical dates', () => assert.equal(overlay.contextAtDate(protocol(), '2026-08-01')[0].phaseId, 'new'))
-test('a completed protocol is active on its completion date but not after it', () => {
-  const p = protocol({ status: 'completed', completed_date: '2026-03-01' }); assert.equal(overlay.protocolActiveOnDate(p, '2026-03-01'), true); assert.equal(overlay.protocolActiveOnDate(p, '2026-03-02'), false)
+test('a completed protocol uses an exclusive completion boundary', () => {
+  const p = protocol({ status: 'completed', completed_date: '2026-03-01' }); assert.equal(overlay.protocolActiveOnDate(p, '2026-02-28'), true); assert.equal(overlay.protocolActiveOnDate(p, '2026-03-01'), false); assert.equal(overlay.protocolActiveOnDate(p, '2026-03-02'), false)
 })
 test('a recorded completion event stops activity after its date', () => assert.equal(overlay.protocolActiveOnDate(protocol(), '2026-03-02', [event({ date: '2026-03-01', event_type: 'completed' })]), false))
 test('paused and resumed events determine historical activity without using current status', () => {

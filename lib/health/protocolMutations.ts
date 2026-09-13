@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
 
-export type ProtocolTransition = 'pause' | 'resume' | 'complete'
+export type ProtocolTransition = 'pause' | 'resume' | 'complete' | 'reactivate'
 
 function message(error: unknown, fallback: string) {
   return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'

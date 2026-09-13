@@ -5,7 +5,7 @@ import type { OverlayProtocolEvent, ProtocolOverlayData } from './protocolOverla
 
 export async function readProtocolOverlay(client: SupabaseClient, userId: string, earliest: string, latest: string): Promise<ProtocolOverlayData> {
   const protocols = await client.from('protocols')
-    .select('id,name,start_date,status,completed_date,compounds(id,name,route,phases(id,dosing_entry,dose,dose_unit,dose_semantics_version,frequency,days_of_week,start_week,end_week,route))')
+    .select('id,name,start_date,status,completed_date,compounds(id,name,phases(id,dosing_entry,dose,dose_unit,dose_semantics_version,frequency,days_of_week,start_week,end_week,route))')
     .eq('user_id', userId).lte('start_date', latest).or(`completed_date.is.null,completed_date.gte.${earliest}`).order('start_date')
   if (protocols.error) throw new Error('Protocol history could not be loaded. Your lab history is unchanged.')
   const rows = (protocols.data ?? []) as LibraryProtocol[], ids = rows.map(protocol => protocol.id)

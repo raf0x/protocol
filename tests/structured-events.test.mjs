@@ -20,6 +20,7 @@ function load(path) {
 }
 
 const migration = readFileSync(new URL('../supabase/migrations/202609140001_structured_protocol_events.sql', import.meta.url), 'utf8')
+const historyMigration = readFileSync(new URL('../supabase/migrations/202609160001_historical_protocol_context_v1.sql', import.meta.url), 'utf8')
 const manage = readFileSync(new URL('../app/protocol/manage/page.tsx', import.meta.url), 'utf8')
 const quick = readFileSync(new URL('../app/api/create-protocol/route.ts', import.meta.url), 'utf8')
 const detail = readFileSync(new URL('../components/protocols/ProtocolDetail.tsx', import.meta.url), 'utf8')
@@ -58,4 +59,4 @@ test('quick dose form asks only for the changed value and date', () => { assert.
 test('all supported writes share the reusable mutation module', () => { for (const fn of ['saveProtocolWithEvents','changeProtocolDose','transitionProtocol','continueLatestPhase']) assert.equal(typeof mutations[fn],'function') })
 test('quick create automatically uses structured event capture', () => assert.match(quick,/save_protocol_with_events_v1/))
 test('migration is additive and does not backfill historical rows', () => { const beforeFunctions=migration.slice(0,migration.indexOf('CREATE OR REPLACE FUNCTION')); assert.doesNotMatch(beforeFunctions,/\bUPDATE\b|\bDELETE\b/); assert.match(beforeFunctions,/ADD COLUMN IF NOT EXISTS metadata/) })
-test('completed protocol reactivation remains the explicit legacy behavior', () => { assert.match(manage,/async function reactivateProtocol/); assert.doesNotMatch(migration,/p_action='reactivate'/) })
+test('completed protocol reactivation uses the structured transition path', async () => { const c=client(); await mutations.transitionProtocol({protocolId:'p',action:'reactivate',effectiveDate:'2026-09-10'},c); assert.equal(c.calls[0][1].p_action,'reactivate'); assert.match(manage,/action: 'reactivate'/); assert.doesNotMatch(manage,/status:\s*'active'[\s\S]{0,120}completed_date:\s*null/); assert.match(historyMigration,/p_action='reactivate'/); assert.match(historyMigration,/'reactivated'/) })

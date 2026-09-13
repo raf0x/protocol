@@ -58,8 +58,8 @@ export type JournalEntryRow = {
 
 const protocolActions: Record<string, string> = {
   started: 'started', stopped: 'stopped', completed: 'completed', paused: 'paused',
-  resumed: 'resumed', dose_change: 'dose changed', compound_added: 'added', compound_removed: 'removed',
-  phase_started: 'phase started', phase_continued: 'phase continued', frequency_change: 'frequency changed', route_change: 'route changed',
+  resumed: 'resumed', reactivated: 'reactivated', dose_change: 'dose changed', compound_added: 'added', compound_removed: 'removed',
+  phase_started: 'phase started', phase_continued: 'phase continued', phase_boundary_change: 'phase boundary changed', preparation_change: 'preparation updated', frequency_change: 'frequency changed', route_change: 'route changed',
 }
 const textKey = (value: string) => value.trim().replace(/\s+/g, ' ').toLowerCase().replace(/[.!]+$/, '')
 
@@ -150,7 +150,7 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
   }
   if (name && action) {
     // Remove only an exact mechanical title or prefix; retain dose changes and free text.
-    const verbs: Record<string, string> = { started: 'Started', stopped: 'Stopped', completed: 'Completed', paused: 'Paused', resumed: 'Resumed', compound_added: 'Added', compound_removed: 'Removed' }
+    const verbs: Record<string, string> = { started: 'Started', stopped: 'Stopped', completed: 'Completed', paused: 'Paused', resumed: 'Resumed', reactivated: 'Reactivated', compound_added: 'Added', compound_removed: 'Removed' }
     const prefix = verbs[row.event_type ?? ''] ? `${verbs[row.event_type!]} ${name}` : ''
     if (textKey(original) === textKey(title) || (prefix && textKey(original) === textKey(prefix))) description = ''
     else if (prefix && original.toLowerCase().startsWith(`${prefix.toLowerCase()} at `)) description = original.slice(prefix.length + 4)

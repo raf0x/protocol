@@ -16,7 +16,7 @@ export type ProtocolState = {
   frequency: string | null; route: string | null
   provenance: 'snapshot' | 'saved_plan' | 'unknown'; sources: SourceRef[]; limitations: string[]
 }
-export type InterventionKind = 'started' | 'stopped' | 'paused' | 'resumed' | 'compound_added' | 'compound_removed'
+export type InterventionKind = 'started' | 'stopped' | 'paused' | 'resumed' | 'reactivated' | 'compound_added' | 'compound_removed'
   | 'dose_increased' | 'dose_decreased' | 'dose_changed' | 'frequency_changed' | 'route_changed' | 'phase_started' | 'phase_ended' | 'phase_continued'
 export type Intervention = {
   id: string; date: string; protocolId: string; compoundId: string | null; phaseId: string | null

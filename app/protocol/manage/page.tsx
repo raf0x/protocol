@@ -84,6 +84,7 @@ export default function ManagePage() {
   const [confirmComplete, setConfirmComplete] = useState<any>(null)
   const [confirmDelete, setConfirmDelete] = useState<any>(null)
   const [confirmReactivate, setConfirmReactivate] = useState<any>(null)
+  const [reactivating, setReactivating] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
   const [error, setError] = useState('')
   const [selectMode, setSelectMode] = useState(false)
@@ -154,14 +155,19 @@ export default function ManagePage() {
   }
 
   async function reactivateProtocol() {
-    if (!confirmReactivate) return
-    const supabase = createClient()
-    await supabase.from('protocols').update({ 
-      status: 'active',
-      completed_date: null
-    }).eq('id', confirmReactivate.id)
-    setConfirmReactivate(null)
-    load()
+    if (!confirmReactivate || reactivating) return
+    setError('')
+    setReactivating(true)
+    try {
+      await transitionProtocol({ protocolId: confirmReactivate.id, action: 'reactivate', effectiveDate: today })
+      setConfirmReactivate(null)
+      setSavedNotice('Protocol reactivated.')
+      await load()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reactivate the protocol.')
+    } finally {
+      setReactivating(false)
+    }
   }
 
   async function bulkDeleteProtocols() {
@@ -434,7 +440,7 @@ export default function ManagePage() {
         )}
 
         {savedNotice && <p role="status" style={{color:dg,fontSize:13}}>{savedNotice}</p>}
-        {error && !showForm && !confirmComplete && <p role="alert" className="protocol-error">{error}</p>}
+        {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
 
@@ -727,7 +733,7 @@ export default function ManagePage() {
               startEdit(selected)
               if (addPhase) window.history.replaceState(null, '', '/protocol/manage')
             }}
-            onComplete={() => { setError(''); setCompletionHappenedEarlier(false); setCompletionDate(today); setConfirmComplete(selected) }} onReactivate={() => setConfirmReactivate(selected)}
+            onComplete={() => { setError(''); setCompletionHappenedEarlier(false); setCompletionDate(today); setConfirmComplete(selected) }} onReactivate={() => { setError(''); setConfirmReactivate(selected) }}
             onPause={() => void changeStatus(selected, 'pause')} onResume={() => void changeStatus(selected, 'resume')}
             onDelete={() => selected.status === 'completed' ? setConfirmDelete(selected) : deleteProtocol(selected.id)}
             onReload={load} />
@@ -852,11 +858,14 @@ export default function ManagePage() {
               <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
                 Restore <strong>{confirmReactivate.name}</strong> to your active protocols. You can resume tracking where you left off.
               </p>
-              <div style={{display:'flex',gap:'10px'}}>
+              {error && <p role="alert" className="protocol-error" style={{margin:'0 0 16px',fontSize:'13px'}}>{error}</p>}
+              <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
                 <button 
+                  type="button"
                   onClick={() => setConfirmReactivate(null)}
+                  disabled={reactivating}
                   style={{
-                    flex:1,
+                    flex:'1 1 140px',
                     background:cb,
                     color:dg,
                     border:'1px solid '+bd,
@@ -869,9 +878,11 @@ export default function ManagePage() {
                   Cancel
                 </button>
                 <button 
+                  type="button"
                   onClick={reactivateProtocol}
+                  disabled={reactivating}
                   style={{
-                    flex:1,
+                    flex:'1 1 140px',
                     background:g,
                     color:'var(--color-green-text)',
                     border:'none',
@@ -882,7 +893,7 @@ export default function ManagePage() {
                     cursor:'pointer'
                   }}
                 >
-                  Reactivate
+                  {reactivating ? 'Reactivating…' : 'Reactivate'}
                 </button>
               </div>
             </div>

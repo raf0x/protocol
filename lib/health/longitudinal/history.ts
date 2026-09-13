@@ -37,38 +37,95 @@ export function compareMedication(before: MedicationDose | null, after: Medicati
   return Math.abs(difference) <= Math.max(value(before), value(after)) * 1e-10 ? 0 : difference
 }
 
+export function eventCompoundId(event: OverlayProtocolEvent): string | null {
+  return event.compound_id || (typeof event.metadata?.compoundId === 'string' ? event.metadata.compoundId : null)
+}
+
+function snapshotList(event: OverlayProtocolEvent, side: 'previous' | 'new'): PhaseRow[] {
+  const direct = snapshotPhase(event.metadata?.[`${side}State`])
+  const raw = event.metadata?.[`${side}States`]
+  const many = Array.isArray(raw) ? raw.map(snapshotPhase).filter((phase): phase is PhaseRow => Boolean(phase)) : []
+  const result = direct ? [direct, ...many] : many
+  return [...new Map(result.map(phase => [phase.id, phase])).values()]
+}
+
+export type ProtocolActivity = 'active' | 'inactive' | 'ambiguous'
+const activeLifecycle = new Set(['started', 'resumed', 'continued', 'reactivated'])
+const inactiveLifecycle = new Set(['stopped', 'completed', 'paused'])
+
+/** Canonical date-only lifecycle policy. Calendar-day records do not provide an
+ * intraday ordering, so conflicting same-day states remain unresolved. A saved
+ * completion date is an exclusive boundary unless a later explicit event records
+ * another active interval. */
+export function protocolActivityAtDate(protocol: LibraryProtocol, date: string, events: OverlayProtocolEvent[] = []): ProtocolActivity {
+  const target = day(date), start = day(protocol.start_date), end = day(protocol.completed_date)
+  if (!target || !start || target < start) return 'inactive'
+  const allLifecycle = events.filter(event => event.protocol_id === protocol.id && day(event.date)
+    && (activeLifecycle.has(event.event_type ?? '') || inactiveLifecycle.has(event.event_type ?? '')))
+  const lifecycle = allLifecycle.filter(event => day(event.date)! <= target)
+  const states: { date: string; active: boolean; source: 'saved' | 'event' }[] = [{ date: start, active: true, source: 'saved' }]
+  if (end && end <= target) states.push({ date: end, active: false, source: 'saved' })
+  // A prospective reactivation records the prior completed_date before clearing it
+  // from the current protocol row. Treat that metadata as an explicit inactive
+  // boundary so a legacy completion is not erased merely because it lacked an old
+  // protocol_events row. Missing metadata remains missing evidence.
+  for (const event of allLifecycle.filter(event => event.event_type === 'reactivated')) {
+    const priorCompleted = day(typeof event.metadata?.previousCompletedDate === 'string' ? event.metadata.previousCompletedDate : null)
+    if (priorCompleted && priorCompleted <= target) states.push({ date: priorCompleted, active: false, source: 'event' })
+  }
+  for (const event of lifecycle) states.push({ date: day(event.date)!, active: activeLifecycle.has(event.event_type ?? ''), source: 'event' })
+  const latestDate = states.map(item => item.date).sort().at(-1)!
+  const latest = states.filter(item => item.date === latestDate)
+  const resolved = new Set(latest.map(item => item.active))
+  if (resolved.size !== 1) return 'ambiguous'
+  const activity: ProtocolActivity = resolved.has(true) ? 'active' : 'inactive'
+  // An undated legacy non-active status cannot be placed on the calendar. Do not
+  // let a start record manufacture activity after an unknown pause/stop/completion.
+  const onlyStartBoundary = latestDate === start && !end && lifecycle.every(event => event.event_type === 'started')
+  if (activity === 'active' && onlyStartBoundary && protocol.status && protocol.status !== 'active') return 'ambiguous'
+  const futureReactivation = allLifecycle.filter(event => event.event_type === 'reactivated' && day(event.date)! > target)
+    .sort((a, b) => a.date.localeCompare(b.date))[0]
+  if (activity === 'active' && !end && futureReactivation) {
+    const boundary = day(futureReactivation.date)!
+    const metadataCompletion = day(typeof futureReactivation.metadata?.previousCompletedDate === 'string' ? futureReactivation.metadata.previousCompletedDate : null)
+    const knownInactiveBeforeReactivation = allLifecycle.some(event => inactiveLifecycle.has(event.event_type ?? '') && day(event.date)! < boundary)
+      || Boolean(metadataCompletion && metadataCompletion < boundary)
+    if (!knownInactiveBeforeReactivation) return 'ambiguous'
+  }
+  return activity
+}
+
 type RestoredPhase = { phase: PhaseRow; provenance: ProtocolState['provenance']; eventIds: string[]; ambiguous: boolean }
 /** Replay snapshots by effective calendar day, not UUID order. Conflicting same-day
  * snapshots cannot establish an intraday order and are deliberately unresolved.
  * A saved plan is never presented as an immutable administration log. */
 export function phasesAtDate(protocol: LibraryProtocol, compoundId: string, date: string, events: OverlayProtocolEvent[]): RestoredPhase[] {
   const compound = protocol.compounds?.find(item => item.id === compoundId)
-  const relevant = events.filter(event => event.protocol_id === protocol.id && event.compound_id === compoundId && event.metadata?.version === 1 && day(event.date))
+  const relevant = events.filter(event => event.protocol_id === protocol.id && eventCompoundId(event) === compoundId && event.metadata?.version === 1 && day(event.date))
   const phases = new Map((compound?.phases ?? []).map(phase => [phase.id, phase]))
-  for (const event of relevant) for (const key of ['previousState', 'newState']) {
-    const phase = snapshotPhase(event.metadata?.[key])
-    if (phase && !phases.has(phase.id)) phases.set(phase.id, phase)
+  for (const event of relevant) for (const side of ['previous', 'new'] as const) {
+    for (const phase of snapshotList(event, side)) if (!phases.has(phase.id)) phases.set(phase.id, phase)
   }
   const restored: RestoredPhase[] = []
   for (const saved of phases.values()) {
     const creations = relevant.filter(event => {
-      const next = snapshotPhase(event.metadata?.newState), prior = snapshotPhase(event.metadata?.previousState)
-      return next?.id === saved.id && (event.event_type === 'phase_started' || (event.metadata?.source === 'quick_dose_change' && prior && prior.id !== next.id))
+      const next = snapshotList(event, 'new').find(phase => phase.id === saved.id)
+      const prior = snapshotList(event, 'previous')[0] ?? null
+      return Boolean(next) && (event.event_type === 'phase_started' || (event.metadata?.source === 'quick_dose_change' && prior && prior.id !== next!.id))
     }).map(event => day(event.date)!).sort()
     if (creations[0] && creations[0] > date) continue
     // A quick change records the exact date, while start_week is rounded. The old
     // phase remains in force until that effective date, not the week's first day.
     const closed = relevant.some(event => day(event.date)! <= date && event.metadata?.source === 'quick_dose_change'
-      && snapshotPhase(event.metadata.previousState)?.id === saved.id && snapshotPhase(event.metadata.newState)?.id !== saved.id)
+      && snapshotList(event, 'previous').some(phase => phase.id === saved.id)
+      && !snapshotList(event, 'new').some(phase => phase.id === saved.id))
     if (closed) continue
-    const future = relevant.flatMap(event => {
-      const phase = snapshotPhase(event.metadata?.previousState)
-      return day(event.date)! > date && phase?.id === saved.id ? [{ event, phase }] : []
-    }).sort((a, b) => a.event.date.localeCompare(b.event.date))
-    const past = relevant.flatMap(event => {
-      const phase = snapshotPhase(event.metadata?.newState)
-      return day(event.date)! <= date && phase?.id === saved.id ? [{ event, phase }] : []
-    }).sort((a, b) => b.event.date.localeCompare(a.event.date))
+    const future = relevant.flatMap(event => snapshotList(event, 'previous')
+      .filter(phase => day(event.date)! > date && phase.id === saved.id).map(phase => ({ event, phase })))
+      .sort((a, b) => a.event.date.localeCompare(b.event.date))
+    const past = relevant.flatMap(event => snapshotList(event, 'new')
+      .filter(phase => day(event.date)! <= date && phase.id === saved.id).map(phase => ({ event, phase })))
+      .sort((a, b) => b.event.date.localeCompare(a.event.date))
     const candidates = future.length ? future : past
     const selected = candidates.filter(item => day(item.event.date) === day(candidates[0]?.event.date))
     let phase = selected[0]?.phase ?? { ...saved }
@@ -83,35 +140,28 @@ export function phasesAtDate(protocol: LibraryProtocol, compoundId: string, date
   return restored
 }
 
-function activeOnDate(protocol: LibraryProtocol, date: string, events: OverlayProtocolEvent[]): boolean {
-  const start = day(protocol.start_date), end = day(protocol.completed_date)
-  if (!start || date < start || (end && date >= end)) return false
-  const lifecycle = events.filter(event => event.protocol_id === protocol.id && day(event.date) && day(event.date)! <= date
-    && ['started', 'stopped', 'completed', 'paused', 'resumed', 'continued'].includes(event.event_type ?? ''))
-    .sort((a, b) => b.date.localeCompare(a.date))
-  const latestDate = day(lifecycle[0]?.date)
-  const latest = lifecycle.filter(event => day(event.date) === latestDate)
-  const active = new Set(latest.map(event => ['started', 'resumed', 'continued'].includes(event.event_type!)))
-  if (active.size > 1) return false
-  if (active.size) return active.has(true)
-  // An undated stopped/deleted protocol cannot support a historical exposure.
-  return protocol.status === 'active' || Boolean(end)
-}
-
 export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' | 'protocolEvents'>, date: string): ProtocolState[] {
   if (!day(date)) return []
   const result: ProtocolState[] = []
   for (const protocol of source.protocols) {
-    if (!activeOnDate(protocol, date, source.protocolEvents)) continue
+    if (protocolActivityAtDate(protocol, date, source.protocolEvents) !== 'active') continue
     const events = source.protocolEvents.filter(event => event.protocol_id === protocol.id)
-    const compoundIds = new Set([...(protocol.compounds ?? []).map(compound => compound.id), ...events.map(event => event.compound_id).filter((id): id is string => Boolean(id))])
+    const compoundIds = new Set([...(protocol.compounds ?? []).map(compound => compound.id), ...events.map(eventCompoundId).filter((id): id is string => Boolean(id))])
     for (const compoundId of compoundIds) {
       const compound = protocol.compounds?.find(item => item.id === compoundId)
-      const actions = events.filter(event => event.compound_id === compoundId && day(event.date) && ['compound_added', 'compound_removed'].includes(event.event_type ?? ''))
+      const compoundEvents = events.filter(event => eventCompoundId(event) === compoundId)
+      const actions = compoundEvents.filter(event => day(event.date) && ['compound_added', 'compound_removed'].includes(event.event_type ?? ''))
       const added = actions.filter(event => event.event_type === 'compound_added').map(event => day(event.date)!).sort()[0]
       if (added && date < added) continue
-      const last = actions.filter(event => day(event.date)! <= date).sort((a, b) => b.date.localeCompare(a.date))[0]
-      if (last?.event_type === 'compound_removed') continue
+      const pastActions = actions.filter(event => day(event.date)! <= date)
+      const latestActionDate = pastActions.map(event => day(event.date)!).sort().at(-1) ?? null
+      const latestActions = latestActionDate ? pastActions.filter(event => day(event.date) === latestActionDate) : []
+      const presence = new Set(latestActions.map(event => event.event_type))
+      // Calendar-day compound add/remove records do not establish intraday order.
+      // When they conflict, omit the compound rather than letting row/UUID order
+      // manufacture a historical presence state.
+      if (presence.has('compound_added') && presence.has('compound_removed')) continue
+      if (presence.has('compound_removed')) continue
       const restored = phasesAtDate(protocol, compoundId, date, events)
       if (!restored.length && compound?.phases?.length) continue // not yet created
       const selected = currentPhase(restored.map(item => item.phase), protocol.start_date!, date)
@@ -125,7 +175,8 @@ export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' |
       if (!medication) limitations.push('Medication dose is not confirmed; syringe markings and volume are not medication IU.')
       const display = selected ? dosingDisplay(selected) : null
       const frequency = selected && !match?.ambiguous ? scheduleLabel(selected) : null
-      result.push({ protocolId: protocol.id, compoundId, name: compound?.name || protocol.name || 'Recorded compound',
+      const eventName = compoundEvents.map(event => typeof event.metadata?.compoundName === 'string' ? event.metadata.compoundName : null).find(Boolean)
+      result.push({ protocolId: protocol.id, compoundId, name: compound?.name || eventName || protocol.name || 'Recorded compound',
         phaseId: selected?.id ?? null, medication, administration: !medication && selected?.dosing_entry ? display?.primary ?? null : null,
         frequency: frequency === 'Schedule not set' ? null : frequency, route: match?.ambiguous ? null : selected?.route ?? null,
         provenance: match?.provenance ?? 'unknown', limitations,

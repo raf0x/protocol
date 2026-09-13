@@ -1,8 +1,8 @@
-import { currentPhase } from './dosing'
 import { dosingDisplay } from './dosingEntry'
-import { scheduleLabel, type LibraryCompound, type LibraryProtocol } from './protocolPresentation'
+import { type LibraryCompound, type LibraryProtocol } from './protocolPresentation'
 import type { BiomarkerHistory, LabObservation } from './labs'
 import type { PhaseRow } from './timeline'
+import { eventCompoundId, healthStateAtDate, protocolActivityAtDate } from './longitudinal/history'
 
 export type OverlayProtocolEvent = {
   id: string; date: string; event_type: string | null; description: string | null
@@ -31,18 +31,9 @@ const phaseDate = (start: string, week: number) => {
 }
 const protocolEnd = (protocol: LibraryProtocol) => day(protocol.completed_date)
 
-/** Historical lifecycle is reconstructed only from explicit dates and status events. */
+/** Compatibility entry point backed by the canonical longitudinal lifecycle policy. */
 export function protocolActiveOnDate(protocol: LibraryProtocol, date: string, events: OverlayProtocolEvent[] = []) {
-  const start = day(protocol.start_date), end = protocolEnd(protocol)
-  if (!validDay(date) || !validDay(start) || date < start || (end && date > end)) return false
-  let active = true
-  const states = events.filter(event => event.protocol_id === protocol.id && event.date <= date)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
-  for (const event of states) {
-    if (['paused', 'stopped'].includes(event.event_type ?? '') || (event.event_type === 'completed' && event.date < date)) active = false
-    if (['started', 'resumed', 'continued'].includes(event.event_type ?? '')) active = true
-  }
-  return active
+  return protocolActivityAtDate(protocol, date, events) === 'active'
 }
 
 function protocolWeek(start: string, date: string) {
@@ -58,34 +49,24 @@ function confirmedDose(phase: PhaseRow) {
   return { label: display.primary, confirmed: phase.dose_semantics_version === 1 && Boolean(display.medication) }
 }
 
-function priorStructuredState(phase: PhaseRow, protocolId: string, compoundId: string, date: string, events: OverlayProtocolEvent[]) {
-  let state: Record<string, unknown> | null = null
-  const changes = events.filter(event => event.protocol_id === protocolId && event.compound_id === compoundId && day(event.date) > date
-    && event.metadata?.phaseId === phase.id && event.metadata?.previousState && typeof event.metadata.previousState === 'object')
-    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
-  for (const event of changes) state = event.metadata!.previousState as Record<string, unknown>
-  return state
+function doseLabel(value: number, unit: string) {
+  return `${Number(value.toPrecision(12)).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${unit}`
 }
 
+/** Presentation adapter only. Historical medication, phase, schedule and route are
+ * owned by healthStateAtDate; this function must not replay them independently. */
 export function contextAtDate(protocol: LibraryProtocol, date: string, events: OverlayProtocolEvent[] = []): HistoricalProtocolContext[] {
-  if (!protocolActiveOnDate(protocol, date, events)) return []
   const week = protocol.start_date ? protocolWeek(protocol.start_date, date) : null
-  return (protocol.compounds ?? []).map(compound => {
-    const phase = protocol.start_date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
-    if (!phase) return { protocolId: protocol.id, protocolName: protocol.name || 'Protocol', compoundId: compound.id,
-      compoundName: compound.name || 'Compound', phaseId: null, week, dose: 'Dose not confirmed for this date', frequency: null,
-      route: null, confirmed: false, issue: 'Protocol history incomplete' }
-    const prior = priorStructuredState(phase, protocol.id, compound.id, date, events)
-    const dose = prior ? {
-      label: typeof prior.medicationDose === 'number' && typeof prior.medicationUnit === 'string' ? `${prior.medicationDose} ${prior.medicationUnit}` : 'Dose not confirmed for this date',
-      confirmed: prior.doseConfirmed === true && typeof prior.medicationDose === 'number' && typeof prior.medicationUnit === 'string',
-    } : confirmedDose(phase)
-    const frequency = prior && typeof prior.frequency === 'string' ? prior.frequency : phase.frequency
-    const route = prior && typeof prior.route === 'string' ? prior.route : phase.route ?? compound.route
-    return { protocolId: protocol.id, protocolName: protocol.name || 'Protocol', compoundId: compound.id,
-      compoundName: compound.name || 'Compound', phaseId: phase.id, week, dose: dose.confirmed ? dose.label : 'Dose not confirmed for this date',
-      frequency: frequency ? (prior ? frequency : scheduleLabel(phase)) : null, route: route ?? null,
-      confirmed: dose.confirmed, issue: dose.confirmed ? null : 'Historical dose semantics are unverified' }
+  const states = healthStateAtDate({ protocols: [protocol], protocolEvents: events }, date)
+  return states.map(state => {
+    const medication = state.medication ? doseLabel(state.medication.value, state.medication.unit) : null
+    const issues = state.limitations.filter(value => /unambiguous phase|Reconstructed from the current saved plan|Compound record is absent/.test(value))
+    if (!state.medication) issues.push('Historical dose semantics are unverified')
+    const issue = [...new Set(issues)].join(' · ') || null
+    return { protocolId: state.protocolId, protocolName: protocol.name || 'Protocol', compoundId: state.compoundId,
+      compoundName: state.name || 'Compound', phaseId: state.phaseId, week,
+      dose: medication ?? 'Dose not confirmed for this date', frequency: state.frequency, route: state.route,
+      confirmed: Boolean(state.medication), issue }
   })
 }
 
@@ -120,7 +101,8 @@ export function overlayMarkers(protocols: LibraryProtocol[], events: OverlayProt
   for (const event of events) {
     if (!event.protocol_id || !validDay(day(event.date))) continue
     const protocol = protocols.find(item => item.id === event.protocol_id)
-    const compound = protocol?.compounds?.find(item => item.id === event.compound_id)
+    const compoundId = eventCompoundId(event)
+    const compound = protocol?.compounds?.find(item => item.id === compoundId)
     const action = (event.event_type ?? 'update').replaceAll('_', ' ')
     const metadata = event.metadata ?? {}
     const field = (key: string) => typeof metadata[key] === 'string' || typeof metadata[key] === 'number' ? String(metadata[key]) : ''
@@ -129,8 +111,9 @@ export function overlayMarkers(protocols: LibraryProtocol[], events: OverlayProt
       ? `${field('previousDose')} ${field('previousUnit')} → ${field('newDose')} ${field('newUnit')}` : `${field('newDose')} ${field('newUnit')}`
     if (event.event_type === 'frequency_change' && field('newFrequency')) description = field('previousFrequency') ? `${field('previousFrequency')} → ${field('newFrequency')}` : field('newFrequency')
     if (event.event_type === 'route_change' && field('newRoute')) description = field('previousRoute') ? `${field('previousRoute')} → ${field('newRoute')}` : field('newRoute')
-    markers.push({ id: `event:${event.id}`, date: day(event.date), protocolId: event.protocol_id, compoundId: event.compound_id,
-      title: `${compound?.name || protocol?.name || 'Protocol'} ${action}`, description,
+    const compoundName = compound?.name || (typeof metadata.compoundName === 'string' ? metadata.compoundName : null)
+    markers.push({ id: `event:${event.id}`, date: day(event.date), protocolId: event.protocol_id, compoundId,
+      title: `${compoundName || protocol?.name || 'Protocol'} ${action}`, description,
       type: event.event_type === 'started' ? 'started' : event.event_type === 'completed' ? 'completed' : event.event_type === 'dose_change' ? 'change' : event.event_type?.startsWith('phase_') ? 'phase' : 'status' })
   }
   const seen = new Set<string>()
