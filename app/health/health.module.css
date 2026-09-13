@@ -224,12 +224,12 @@
 .briefingCompounds li[data-accent='3'] .compoundAccent { background: var(--app-secondary); }
 .briefingCompounds li[data-accent='4'] .compoundAccent { background: color-mix(in srgb, var(--app-accent) 42%, var(--app-secondary)); }
 .briefing .findingsList { align-items: start; }
-.briefingFinding { align-self: start; margin-bottom: 0; padding: var(--app-space-sm); box-shadow: none; background: var(--app-surface); }
+.briefingFinding { display: flex; flex-direction: column; align-self: start; margin-bottom: 0; padding: var(--app-space-sm); box-shadow: none; background: var(--app-surface); }
 .briefingUpdateName { margin: 0; color: var(--app-text); font-size: var(--app-font-body); font-weight: 650; line-height: 1.25; white-space: nowrap; }
 .briefingFinding .value { font-size: var(--app-font-title); }
 .briefingUpdateValue { margin: 4px 0 2px; line-height: 1.2; }
 .briefingFinding .summary { margin-bottom: 0; }
-.briefingFinding .formDetails { margin-top: 6px; }
+.briefingFinding .formDetails { margin-top: auto; padding-top: 6px; }
 .briefingFinding .formDetails summary { display: inline-flex; align-items: center; width: fit-content; min-height: 0; padding-block: 4px; }
 .briefingFinding .formDetails[open] summary { margin-bottom: 2px; }
 .recentPanels { margin-bottom: var(--app-space-lg); }
@@ -240,7 +240,10 @@
 
 @media (min-width: 640px) {
   .briefingCompounds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .briefing .findingsList[data-visible-count='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .briefing .findingsList[data-visible-count='2'],
+  .briefing .findingsList[data-visible-count='3'],
+  .briefing .findingsList[data-visible-count='4'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .briefing .briefingFinding { min-height: 168px; }
 }
 
 /* Health Briefing QA polish 2: interactive evidence and compact primary review. */

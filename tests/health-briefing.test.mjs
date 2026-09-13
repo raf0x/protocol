@@ -256,18 +256,20 @@ test('supplemental ordering prefers recorded source-row order without biomarker 
   assert.deepEqual(m.supplementalLabUpdates.map(item => item.biomarkerName), ['TESTOSTERONE, TOTAL, MS', 'SEX HORMONE BINDING GLOBULIN'])
 })
 
-test('canonical findings remain ahead of supplemental updates and total visible updates cap at three', () => {
+test('canonical findings remain ahead of supplemental updates and total visible updates cap at four', () => {
   const p = [
     panel('old-a', '2026-08-01', [row('Marker A', 10)]),
     panel('old-b', '2026-08-01', [row('Old B', 8)]),
     panel('new', '2026-09-01', [row('Marker A', 12), row('Latest 1', 1), row('Latest 2', 2), row('Latest 3', 3)]),
   ]
   const m = build(p), rendered = view(m)
-  assert.equal(m.findings.headlines.length, 1); assert.equal(m.supplementalLabUpdates.length, 2)
+  assert.equal(m.findings.headlines.length, 1); assert.equal(m.supplementalLabUpdates.length, 3)
   const cards = nodes(rendered, node => node.type === 'article')
-  assert.equal(cards.length, 3)
+  assert.equal(cards.length, 4)
   assert.equal(cards[0].props['data-update-kind'], undefined)
   assert.equal(cards[1].props['data-update-kind'], 'latest_without_comparison')
+  assert.equal(cards[2].props['data-update-kind'], 'latest_without_comparison')
+  assert.equal(cards[3].props['data-update-kind'], 'latest_without_comparison')
 })
 
 test('latest-panel ambiguity produces no supplemental updates', () => {
@@ -300,7 +302,7 @@ test('method-qualified identities are not guessed into prior comparisons', () =>
 
 test('a valid canonical comparison is never relabelled as a supplemental no-comparison result', () => {
   const p = pair(10, 12)
-  const result = p[1].results[0], extra = briefingSupplementalLabUpdates(p[1], biomarkerHistories(p), [], 3)
+  const result = p[1].results[0], extra = briefingSupplementalLabUpdates(p[1], biomarkerHistories(p), [], 4)
   assert.ok(!extra.some(item => item.id === `latest:${result.id}`))
 })
 test('latest-panel ambiguity never chooses a count/name using IDs or insertion order', () => {

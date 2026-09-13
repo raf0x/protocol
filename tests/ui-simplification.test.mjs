@@ -67,7 +67,6 @@ test('compound presentation preserves medication dose, frequency, and route orde
   assert.ok(!briefing.includes('injection_volume'))
 })
 
-
 test('compound decorative accents do not reuse status-semantic success or warning tokens', () => {
   const accentCss = healthCss.slice(healthCss.indexOf('.compoundAccent'), healthCss.indexOf('.briefingFinding'))
   assert.ok(!accentCss.includes('var(--app-success)'))
@@ -79,14 +78,14 @@ test('health briefing does not change the five-compound model contract', () => {
   assert.match(briefing, /snapshot\.additionalCompounds/)
 })
 
-test('embedded Lab updates is capped at three total updates without deriving findings in presentation', () => {
-  assert.match(findings, /embedded \? model\.headlines\.slice\(0, 3\) : model\.headlines/)
-  assert.match(findings, /supplemental\.slice\(0, Math\.max\(0, 3 - visibleHeadlines\.length\)\)/)
+test('embedded Lab updates is capped at four total updates without deriving findings in presentation', () => {
+  assert.match(findings, /embedded \? model\.headlines\.slice\(0, 4\) : model\.headlines/)
+  assert.match(findings, /supplemental\.slice\(0, Math\.max\(0, 4 - visibleHeadlines\.length\)\)/)
   assert.ok(!findings.includes('deriveLabFindings'))
 })
 
 test('embedded finding cards retain evidence disclosure', () => {
-  assert.match(findings, /<Evidence finding=\{finding\} \/>/)
+  assert.match(findings, /<Evidence finding=\{finding\} compact=\{embedded && Boolean\(finding\.evidence\.comparison\)\} \/>/)
   assert.match(findings, /<summary>Evidence<\/summary>/)
 })
 
@@ -94,7 +93,7 @@ test('briefing update cards render name then value then status then Evidence', (
   const canonical = findings.slice(findings.indexOf('visibleHeadlines.map'), findings.indexOf('visibleSupplemental.map'))
   assert.ok(canonical.indexOf('briefingUpdateName') < canonical.indexOf('briefingUpdateValue'))
   assert.ok(canonical.indexOf('briefingUpdateValue') < canonical.indexOf('styles.summary'))
-  assert.ok(canonical.indexOf('styles.summary') < canonical.indexOf('<Evidence finding={finding} />'))
+  assert.ok(canonical.indexOf('styles.summary') < canonical.indexOf('<Evidence finding={finding}'))
   const supplementalBlock = findings.slice(findings.indexOf('visibleSupplemental.map'), findings.indexOf('</div>', findings.indexOf('visibleSupplemental.map')))
   assert.ok(supplementalBlock.indexOf('briefingUpdateName') < supplementalBlock.indexOf('briefingUpdateValue'))
   assert.ok(supplementalBlock.indexOf('briefingUpdateValue') < supplementalBlock.indexOf('styles.summary'))
@@ -132,6 +131,22 @@ test('embedded Evidence disclosure is compact without changing its content path'
   assert.match(findings, /<strong>Previous:<\/strong>/)
   assert.match(findings, /<strong>Change:<\/strong>/)
   assert.match(findings, /<strong>Limitations:<\/strong>/)
+})
+
+test('embedded comparison Evidence omits values already visible above the disclosure', () => {
+  assert.match(findings, /function Evidence\(\{ finding, compact = false \}/)
+  assert.match(findings, /!compact && current/)
+  assert.match(findings, /!compact && previous/)
+  assert.match(findings, /!compact && comparison/)
+  assert.match(findings, /compact=\{embedded && Boolean\(finding\.evidence\.comparison\)\}/)
+})
+
+test('four briefing updates form an even two-by-two grid and closed cards share a minimum height', () => {
+  assert.doesNotMatch(findings, /gridColumn: '1 \/ -1'/)
+  assert.doesNotMatch(findings, /updateStyle/)
+  assert.match(healthCss, /findingsList\[data-visible-count='4'\][^}]*repeat\(2, minmax\(0, 1fr\)\)/s)
+  assert.match(healthCss, /\.briefing \.briefingFinding \{ min-height: 168px; \}/)
+  assert.match(healthCss, /\.briefingFinding \.formDetails \{ margin-top: auto; padding-top: 6px; \}/)
 })
 
 test('Recent panels defaults to four without reranking', () => {
@@ -197,7 +212,6 @@ test('briefing update grid favors readable one-line names over forced three colu
   assert.match(healthCss, /\.briefingFinding \{[^}]*align-self: start;/s)
   assert.doesNotMatch(healthCss, /findingsList\[data-visible-count='3'\][^}]*repeat\(3/)
 })
-
 
 test('briefing supplemental cards use their own deterministic Evidence disclosure', () => {
   assert.match(findings, /data-update-kind=\{item\.kind\}/)

@@ -76,7 +76,7 @@ function ComparisonPreview({ finding }: { finding: LabFinding }) {
   </div>
 }
 
-function Evidence({ finding }: { finding: LabFinding }) {
+function Evidence({ finding, compact = false }: { finding: LabFinding; compact?: boolean }) {
   const current = finding.evidence.current
   const previous = finding.evidence.previous
   const comparison = finding.evidence.comparison
@@ -85,10 +85,10 @@ function Evidence({ finding }: { finding: LabFinding }) {
 
   return <details className={styles.formDetails}>
     <summary>Evidence</summary>
-    <p className={styles.secondary}>{finding.reason}</p>
-    {current && <p className={styles.secondary}><strong>Current:</strong> {valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
-    {previous && <p className={styles.secondary}><strong>Previous:</strong> {valueText(previous.value, previous.unit)} · {formatTimelineDate(previous.date)}</p>}
-    {comparison && <p className={styles.secondary}><strong>Change:</strong> {changeText(finding)} over {comparison.elapsedDays} days</p>}
+    {!compact && <p className={styles.secondary}>{finding.reason}</p>}
+    {!compact && current && <p className={styles.secondary}><strong>Current:</strong> {valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
+    {!compact && previous && <p className={styles.secondary}><strong>Previous:</strong> {valueText(previous.value, previous.unit)} · {formatTimelineDate(previous.date)}</p>}
+    {!compact && comparison && <p className={styles.secondary}><strong>Change:</strong> {changeText(finding)} over {comparison.elapsedDays} days</p>}
     {extent && <p className={styles.secondary}><strong>Prior observed values:</strong> {valueText(extent.min, finding.unit)} to {valueText(extent.max, finding.unit)} across {extent.count} earlier eligible readings</p>}
     {limitations.length > 0 && <p className={styles.caption}><strong>Limitations:</strong> {limitations.map(gap => labGapText[gap]).join(' ')}</p>}
     <Link className={styles.textLink} href={`/health?biomarker=${encodeURIComponent(finding.biomarkerKey)}`}>View biomarker trend</Link>
@@ -117,15 +117,16 @@ export default function LabFindingsSummary({ panels, histories, model: suppliedM
   const Heading = embedded ? 'h3' : 'h2'
   const FindingHeading = embedded ? 'h4' : 'h3'
   if (model.state === 'empty') return null
-  const visibleHeadlines = embedded ? model.headlines.slice(0, 3) : model.headlines
-  const visibleSupplemental = embedded ? supplemental.slice(0, Math.max(0, 3 - visibleHeadlines.length)) : []
-  const hasVisibleUpdates = visibleHeadlines.length > 0 || visibleSupplemental.length > 0
+  const visibleHeadlines = embedded ? model.headlines.slice(0, 4) : model.headlines
+  const visibleSupplemental = embedded ? supplemental.slice(0, Math.max(0, 4 - visibleHeadlines.length)) : []
+  const visibleUpdateCount = visibleHeadlines.length + visibleSupplemental.length
+  const hasVisibleUpdates = visibleUpdateCount > 0
 
   return <section aria-labelledby="lab-findings-heading">
     <div className={styles.sectionHeading}><Heading id="lab-findings-heading">{embedded ? 'Lab updates' : 'What changed'}</Heading></div>
     {model.state === 'ambiguous_latest' ? <div className={styles.card}><p>Multiple lab panels share the latest recorded test date. MyPepProtocol will not guess which panel is newest.</p></div>
       : hasVisibleUpdates ? <>
-        <div className={styles.findingsList} data-count={model.headlines.length} data-visible-count={visibleHeadlines.length + visibleSupplemental.length}>
+        <div className={styles.findingsList} data-count={model.headlines.length} data-visible-count={visibleUpdateCount}>
           {visibleHeadlines.map(finding => {
             const current = finding.evidence.current
             return <article className={`${styles.card} ${embedded ? styles.briefingFinding : ''}`} data-finding-type={finding.type} data-priority={finding.priority} key={finding.id}>
@@ -137,7 +138,7 @@ export default function LabFindingsSummary({ panels, histories, model: suppliedM
                 : <p className={styles.summary}><strong>{findingLabels[finding.type]}</strong></p>}
               {embedded && finding.evidence.comparison && !directionOnlyTypes.has(finding.type)
                 && <p className={styles.summary}><strong>{findingLabels[finding.type]}</strong></p>}
-              <Evidence finding={finding} />
+              <Evidence finding={finding} compact={embedded && Boolean(finding.evidence.comparison)} />
             </article>
           })}
           {visibleSupplemental.map(item => <article className={`${styles.card} ${styles.briefingFinding} ${styles.briefingSupplemental}`} data-update-kind={item.kind} key={item.id}>

@@ -62,7 +62,7 @@ export function briefingInterventions(findings: readonly LabFinding[], intervent
  * latest panel only when canonical evidence has no eligible prior comparison.
  * These are presentation updates, never fabricated LabFinding objects. */
 export function briefingSupplementalLabUpdates(
-  latestPanel: LabPanel | null, histories: readonly BiomarkerHistory[], findings: readonly LabFinding[], limit = 3,
+  latestPanel: LabPanel | null, histories: readonly BiomarkerHistory[], findings: readonly LabFinding[], limit = 4,
 ): BriefingSupplementalLabUpdate[] {
   if (!latestPanel || limit <= findings.length) return []
   const selected = new Set(findings.map(finding => finding.biomarkerKey))
@@ -113,8 +113,8 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
   const findings = buildLabFindingsSummaryModel(panels, histories)
   const latestPanels = panels.filter(panel => panel.test_date === findings.latestDate)
   const latestPanel = latestPanels.length === 1 ? latestPanels[0] : null
-  const visibleFindings = findings.headlines.slice(0, 3)
-  const supplementalLabUpdates = briefingSupplementalLabUpdates(latestPanel, histories, visibleFindings, 3)
+  const visibleFindings = findings.headlines.slice(0, 4)
+  const supplementalLabUpdates = briefingSupplementalLabUpdates(latestPanel, histories, visibleFindings, 4)
   const source = protocols.status === 'ready' ? { protocols: protocols.data.protocols, protocolEvents: protocols.data.events } : null
   const current = source && protocols.asOf ? healthStateAtDate(source, protocols.asOf) : []
   const windows = findings.headlines.flatMap(finding => finding.evidence.comparison ? [finding.evidence.comparison] : [])
