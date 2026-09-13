@@ -1,64 +1,65 @@
 'use client'
 
+import Image from 'next/image'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import PeptideHoneycomb from '../components/PeptideHoneycomb'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../lib/supabase'
-import Image from 'next/image'
+import styles from './landing.module.css'
 
-const scrollAnimStyles = `
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(40px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes shimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
-  @keyframes ringPulse {
-    0% { filter: drop-shadow(0 0 0px var(--color-green)); }
-    50% { filter: drop-shadow(0 0 12px var(--color-green)); }
-    100% { filter: drop-shadow(0 0 4px var(--color-green)); }
-  }
-  @keyframes checkFlash {
-    0% { color: var(--color-green); transform: scale(1); }
-    50% { color: #fff; transform: scale(1.4); }
-    100% { color: var(--color-green); transform: scale(1); }
-  }
-  @keyframes glowBorder {
-    from { box-shadow: 0 0 0px rgba(108,99,255,0); border-color: #1e1e2e; }
-    to { box-shadow: 0 0 20px rgba(108,99,255,0.3); border-color: rgba(108,99,255,0.5); }
-  }
-  @keyframes badgeShimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
-  @keyframes ctaPulse {
-    0%,100% { box-shadow: 0 0 0px var(--color-green-40); }
-    50% { box-shadow: 0 0 30px var(--color-green-60); }
-  }
-  @keyframes syringeFill {
-    0%     { clip-path: inset(0 100% 0 0); }
-    55%    { clip-path: inset(0 0% 0 0); }
-    80%    { clip-path: inset(0 0% 0 0); }
-    100%   { clip-path: inset(0 100% 0 0); }
-  }
+const RECORD_TYPES = ['Protocols', 'Labs', 'Symptoms', 'Weight', 'Journal']
 
-  .scroll-hidden { opacity: 0; transform: translateY(40px); transition: opacity 0.7s ease, transform 0.7s ease, box-shadow 0.7s ease, border-color 0.7s ease; }
-  .scroll-visible { opacity: 1; transform: translateY(0); }
-  .scroll-visible.glow-card { box-shadow: 0 0 24px rgba(108,99,255,0.25); border-color: rgba(108,99,255,0.4) !important; }
-  .stagger-1 { transition-delay: 0.1s; }
-  .stagger-2 { transition-delay: 0.25s; }
-  .stagger-3 { transition-delay: 0.4s; }
-  .stagger-4 { transition-delay: 0.55s; }
-  .ring-animate { animation: ringPulse 2s ease-in-out 0.5s 2; }
-  .badge-shimmer {
-    background: linear-gradient(90deg, rgba(108,99,255,0.2) 0%, rgba(167,139,250,0.5) 50%, rgba(108,99,255,0.2) 100%);
-    background-size: 200% auto;
-    animation: badgeShimmer 3s linear infinite;
-  }
-  .cta-pulse { animation: ctaPulse 2s ease-in-out infinite; }
-`;
+const CAPABILITIES = [
+  {
+    number: '01',
+    title: 'Record once',
+    body: 'Keep protocols, dose phases, labs, symptoms, weight, and journal notes in one private record.',
+  },
+  {
+    number: '02',
+    title: 'Understand what changed',
+    body: 'See dated health changes beside the protocol events and treatment episodes recorded around them.',
+  },
+  {
+    number: '03',
+    title: 'Review the evidence',
+    body: 'Trace summaries back to lab values, timeline events, and stated limitations whenever you need the details.',
+  },
+]
+
+const INTELLIGENCE_POINTS = [
+  {
+    title: 'Health Briefing',
+    body: 'A concise view of current context, notable changes, and items worth reviewing.',
+  },
+  {
+    title: 'Guided Health Analyst',
+    body: 'Ask focused questions about your recorded history, with AI kept separate from deterministic facts.',
+  },
+  {
+    title: 'Doctor Report',
+    body: 'Export a clinician-oriented summary with protocol context, longitudinal findings, and limitations.',
+  },
+]
+
+const FAQS = [
+  {
+    question: 'Is MyPepProtocol medical advice?',
+    answer: 'No. It organizes information you record and describes changes over time. It does not diagnose conditions, prescribe treatment, or establish causation.',
+  },
+  {
+    question: 'What can I track?',
+    answer: 'Protocols and phases, medication doses, administration details, labs, symptoms, sleep, energy, mood, hunger, weight, and journal notes.',
+  },
+  {
+    question: 'How does AI use my data?',
+    answer: 'AI-assisted analysis runs only when you request it and allow AI processing. The factual timeline and non-AI health features remain available without it.',
+  },
+  {
+    question: 'Is my data used for advertising?',
+    answer: 'No. MyPepProtocol does not sell personal data and does not use advertising trackers.',
+  },
+]
 
 export default function Home() {
   const router = useRouter()
@@ -66,11 +67,17 @@ export default function Home() {
 
   useEffect(() => {
     let live = true
-    const fallback = window.setTimeout(() => { if (live) setChecking(false) }, 4000)
+    const fallback = window.setTimeout(() => {
+      if (live) setChecking(false)
+    }, 4000)
+
     async function checkUser() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
         if (!live) return
         if (user) router.replace('/protocol')
         else setChecking(false)
@@ -80,207 +87,224 @@ export default function Home() {
         window.clearTimeout(fallback)
       }
     }
+
     void checkUser()
-    return () => { live = false; window.clearTimeout(fallback) }
+    return () => {
+      live = false
+      window.clearTimeout(fallback)
+    }
   }, [router])
 
   useEffect(() => {
     if (checking) return
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('scroll-visible')
-          if (entry.target.classList.contains('glow-card')) {
-            entry.target.classList.add('glow-card')
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add(styles.visible)
+            observer.unobserve(entry.target)
           }
-        }
-      })
-    }, { threshold: 0.15 })
-    document.querySelectorAll('.scroll-hidden').forEach(el => observer.observe(el))
+        })
+      },
+      { threshold: 0.12 },
+    )
+
+    document.querySelectorAll('[data-reveal]').forEach(element => observer.observe(element))
     return () => observer.disconnect()
   }, [checking])
 
-  if (checking) return <main role="status" aria-live="polite" aria-label="Checking your session" style={{minHeight:'100dvh',background:'var(--color-bg)'}} />
+  if (checking) {
+    return (
+      <main
+        role="status"
+        aria-live="polite"
+        aria-label="Checking your session"
+        className={styles.sessionCheck}
+      />
+    )
+  }
 
   return (
-    <main style={{minHeight:'100vh',background:'var(--color-bg)',color:'var(--color-text)',fontFamily:'Inter,sans-serif',overflowX:'hidden'}}>
-      <style dangerouslySetInnerHTML={{__html: scrollAnimStyles}} />
+    <main className={styles.page}>
+      <nav className={styles.nav} aria-label="Public navigation">
+        <Link href="/" className={styles.brand} aria-label="MyPepProtocol home">
+          <span className={styles.brandMark} aria-hidden="true">M</span>
+          <span>MyPepProtocol</span>
+        </Link>
 
-      {/* Nav */}
-      <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid var(--color-border)',position:'sticky',top:0,background:'var(--color-nav-blur)',backdropFilter:'blur(12px)',zIndex:50}}>
-        <span style={{fontSize:'20px',fontWeight:'800',color:'var(--color-green)',letterSpacing:'2px'}}>PROTOCOL</span>
-        <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
-          <a href='/auth/login' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'700',padding:'8px 20px',borderRadius:'6px',fontSize:'14px',whiteSpace:'nowrap'}}>Sign in</a>
+        <div className={styles.navActions}>
+          <a href="#how-it-works" className={styles.navDemo}>How it works</a>
+          <Link href="/auth/login" className={styles.navSignIn}>Sign in</Link>
         </div>
       </nav>
 
-      {/* Hero */}
-      <section style={{padding:'60px 24px 40px',maxWidth:'640px',margin:'0 auto',textAlign:'center',position:'relative',overflow:'hidden'}}>
+      <section className={styles.hero}>
+        <div className={styles.heroGlow} aria-hidden="true" />
+        <div className={styles.heroContent}>
+          <p className={styles.eyebrow}>LONGITUDINAL HEALTH INTELLIGENCE</p>
+          <h1>Your health data should tell <span>one clear story.</span></h1>
+          <p className={styles.heroCopy}>
+            Record protocols, labs, symptoms, weight, and notes once. MyPepProtocol organizes what changed,
+            when it changed, and the evidence behind it.
+          </p>
 
-        {/* Left ticker */}
-        <div style={{position:'absolute',left:'0px',top:'0',bottom:'0',width:'44px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <style>{'@keyframes tickerDown{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
-          <div style={{animation:'tickerDown 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
-            <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
-            {['BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin','BPC-157','TB-500','CJC-1295','AOD-9604','GHK-Cu','Ipamorelin'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
-            ))}
+          <div className={styles.heroActions}>
+            <Link href="/auth/login" className={styles.primaryAction}>Get early access <span aria-hidden="true">→</span></Link>
+            <a href="#how-it-works" className={styles.secondaryAction}>See how it works</a>
           </div>
-        </div>
 
-        {/* Right ticker */}
-        <div style={{position:'absolute',right:'0px',top:'0',bottom:'0',width:'44px',overflow:'hidden',opacity:0.4,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <style>{'@keyframes tickerDown2{0%{transform:translateY(-50%)}100%{transform:translateY(0%)}}'}</style>
-          <div style={{animation:'tickerDown2 12s linear infinite',display:'flex',flexDirection:'column',gap:'20px',alignItems:'center'}}>
-            <span style={{fontSize:'22px',display:'block',marginBottom:'8px',transform:'rotate(180deg)'}}>💉</span>
-            {['GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG','GLP-1','Tirzepatide','Semaglutide','Retatrutide','TRT','HCG'].map((name,i) => (
-              <span key={i} style={{fontSize:'10px',color:'var(--color-green)',fontWeight:'700',letterSpacing:'1px',writingMode:'vertical-rl',textOrientation:'mixed',whiteSpace:'nowrap'}}>{name}</span>
-            ))}
-          </div>
-        </div>
-
-        {/* Hero content */}
-        <div style={{position:'relative',zIndex:1,padding:'0 52px'}}>
-          <div style={{display:'inline-block',background:'rgba(108,99,255,0.2)',border:'1px solid rgba(108,99,255,0.5)',borderRadius:'24px',padding:'10px 24px',fontSize:'15px',color:'#a78bfa',fontWeight:'800',marginBottom:'28px',letterSpacing:'2px'}}>EARLY ACCESS</div>
-          <div style={{marginBottom:'28px'}}>
-            <div style={{display:'flex',justifyContent:'center'}}>
-              <div style={{position:'relative',display:'inline-block'}}>
-                <h1 style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',WebkitTextStroke:'2px var(--color-green)',color:'transparent',margin:0,display:'block',userSelect:'none',whiteSpace:'nowrap'}}>Protocol</h1>
-                <h1 aria-hidden='true' style={{fontSize:'clamp(52px,14vw,96px)',fontWeight:'900',lineHeight:'1',letterSpacing:'-3px',color:'var(--color-green)',position:'absolute',top:0,left:0,margin:0,display:'block',animation:'syringeFill 4s ease-in-out infinite',clipPath:'inset(0 100% 0 0)',textShadow:'0 0 40px var(--color-green-60)',whiteSpace:'nowrap'}}>Protocol</h1>
-              </div>
-            </div>
-          </div>
-         <p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-text)',marginBottom:'10px',lineHeight:'1.3'}}>Track your protocol.</p>
-<p style={{fontSize:'clamp(16px,4vw,22px)',fontWeight:'700',color:'var(--color-green)',marginBottom:'20px',lineHeight:'1.3'}}>See your data clearly.</p>
-         <p style={{fontSize:'18px',color:'#8b8ba7',lineHeight:'1.7',marginBottom:'36px',maxWidth:'480px',margin:'0 auto 36px'}}>Track → Analyze → Understand. A private wellness tracker for self-experimenters. Personal data, personal insights.</p>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'12px'}}>
-          <a href='/demo' style={{background:'var(--color-green)',color:'var(--color-green-text)',textDecoration:'none',fontWeight:'800',padding:'16px 48px',borderRadius:'8px',fontSize:'18px',letterSpacing:'0.5px',textAlign:'center',width:'100%',maxWidth:'320px',boxSizing:'border-box',display:'block'}}>See it in action →</a>
-          <div style={{display:'flex',gap:'12px',justifyContent:'center',flexWrap:'wrap'}}>
-            <a href='/auth/login' style={{background:'var(--color-text)',color:'var(--color-bg)',textDecoration:'none',fontWeight:'800',padding:'12px 24px',borderRadius:'8px',fontSize:'14px'}}>Get early access</a>
-            <a href='/calculator' style={{background:'transparent',color:'#8b8ba7',textDecoration:'none',fontWeight:'600',padding:'12px 24px',borderRadius:'8px',fontSize:'14px',border:'1px solid #1e1e2e'}}>Try the calculator →</a>
-          </div>
-        </div>
-        </div>
-      </section>
-
-      {/* Product screenshot */}
-      <section style={{padding:'20px 24px 60px',maxWidth:'480px',margin:'0 auto',textAlign:'center'}}>
-        <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'20px'}}>SEE YOUR PROGRESS</p>
-        <div className='scroll-hidden stagger-1' style={{borderRadius:'24px',overflow:'hidden',border:'1px solid var(--color-border)',boxShadow:'0 20px 60px rgba(108,99,255,0.15)',background:'var(--color-card)'}}>
-          <Image src='/protocol.png' width={1151} height={2265} sizes="(max-width: 480px) 100vw, 480px" priority alt='Protocol dashboard showing compound rings, weight stats, and daily journal' style={{width:'100%',height:'auto',display:'block'}} />
-        </div>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginTop:'16px',lineHeight:'1.6'}}>Your data. Your trends. Your insights.</p>
-      </section>
-
-      {/* Problem */}
-      <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto',textAlign:'center'}}>
-        <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'16px'}}>THE PROBLEM</p>
-        <h2 className='scroll-hidden stagger-1' style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px',lineHeight:'1.3'}}>Most health apps weren’t built for this.</h2>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7'}}>Generic fitness trackers don’t understand peptide protocols. Reddit threads disappear. Spreadsheets don’t give you insights. You deserve a tool built specifically for how you actually manage your wellness.</p>
-      </section>
-
-      {/* Features */}
-      <section style={{padding:'40px 24px 80px',maxWidth:'720px',margin:'0 auto'}}>
-        <p id='features' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'40px',textAlign:'center',scrollMarginTop:'80px'}}>WHAT YOU GET</p>
-        <div style={{display:'grid',gap:'16px'}}>
-          <div className='scroll-hidden glow-card' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
-            <div style={{fontSize:'28px',marginBottom:'12px'}}>📓</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Smart Journal</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Mood, energy, sleep, hunger, weight — logged in seconds. Track patterns and trends over time.</p>
-          </div>
-          <div className='scroll-hidden glow-card stagger-1' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
-            <div style={{fontSize:'28px',marginBottom:'12px'}}>⚗️</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Protocol Dashboard</h3>
-            <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginBottom:'28px',textAlign:'center',padding:'0 24px'}}>Track any wellness protocol you choose. Your data stays private.</p>
-          </div>
-          <div className='scroll-hidden glow-card stagger-2' style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'12px',padding:'28px'}}>
-            <div style={{fontSize:'28px',marginBottom:'12px'}}>👥</div>
-            <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:'var(--color-green)'}}>Private Community</h3>
-            <p style={{color:'#8b8ba7',lineHeight:'1.6',fontSize:'15px'}}>Anonymous cohorts for GLP-1, peptides, and TRT users. Real experiences from real people. No vendors, no noise, no exposure.</p>
+          <div className={styles.recordTypes} aria-label="Supported record types">
+            {RECORD_TYPES.map(item => <span key={item}>{item}</span>)}
           </div>
         </div>
       </section>
 
-      {/* Peptide Honeycomb */}
-      <section style={{padding:'40px 0 60px',overflowX:'hidden'}}>
-        <p className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'8px',textAlign:'center'}}>THE PEPTIDE UNIVERSE</p>
-        <h2 className='scroll-hidden stagger-1' style={{fontSize:'22px',fontWeight:'800',marginBottom:'6px',textAlign:'center',color:'white'}}>Track any compound in your stack</h2>
-        <p className='scroll-hidden stagger-2' style={{fontSize:'14px',color:'#8b8ba7',marginBottom:'28px',textAlign:'center',padding:'0 24px'}}>Protocol supports every major peptide and GLP-1. Your data stays private.</p>
-        <div className='scroll-hidden stagger-3'>
-          <PeptideHoneycomb />
+      <section className={styles.productPreview} aria-labelledby="preview-title">
+        <div className={styles.previewIntro} data-reveal>
+          <p className={styles.sectionLabel}>YOUR RECORD, IN CONTEXT</p>
+          <h2 id="preview-title">Start with today. Keep the full history.</h2>
+          <p>Daily tracking stays simple while every entry contributes to a structured timeline you can review later.</p>
         </div>
-      </section>
 
-      {/* Old Way vs Protocol */}
-      <section className='scroll-hidden' style={{padding:'40px 24px 60px',maxWidth:'640px',margin:'0 auto'}}>
-        <p style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center'}}>WHY PROTOCOL</p>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0',borderRadius:'12px',overflow:'hidden',border:'1px solid var(--color-border)'}}>
-          <div style={{background:'var(--color-card)',padding:'20px'}}>
-            <p style={{fontSize:'13px',fontWeight:'700',color:'#ff6b6b',marginBottom:'14px'}}>The Old Way</p>
-            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-              {['Guessing if it works','Forgetting doses','Spreadsheet chaos','No trends or insights','Scattered Reddit threads'].map(item => (
-                <div key={item} style={{display:'flex',gap:'8px',alignItems:'center',fontSize:'12px',color:'#8b8ba7'}}>
-                  <span style={{color:'#ff6b6b'}}>✕</span> {item}
-                </div>
-              ))}
-            </div>
+        <div className={styles.previewFrame} data-reveal>
+          <div className={styles.previewBar} aria-hidden="true">
+            <span /><span /><span /><small>Today</small>
           </div>
-          <div style={{background:'rgba(57,255,20,0.03)',padding:'20px',borderLeft:'1px solid var(--color-border)'}}>
-            <p style={{fontSize:'13px',fontWeight:'700',color:'var(--color-green)',marginBottom:'14px'}}>With Protocol</p>
-            <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-              {['See what actually works','Injection reminders','Phase-based tracking','Real-time insights','Private community'].map(item => (
-                <div key={item} style={{display:'flex',gap:'8px',alignItems:'center',fontSize:'12px',color:'#8b8ba7'}}>
-                  <span style={{color:'var(--color-green)'}}>✓</span> {item}
-                </div>
-              ))}
+          <div className={styles.previewImageWrap}>
+            <Image
+              src="/protocol.png"
+              width={1151}
+              height={2265}
+              sizes="(max-width: 720px) 88vw, 430px"
+              priority
+              alt="MyPepProtocol daily dashboard with active protocol rings and health tracking"
+              className={styles.previewImage}
+            />
+          </div>
+          <div className={styles.previewNote}>
+            <span className={styles.notePulse} aria-hidden="true" />
+            <div>
+              <strong>One continuous timeline</strong>
+              <p>Protocol changes stay connected to the exact treatment episode that produced them.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Privacy */}
-      <section style={{padding:'60px 24px',background:'rgba(108,99,255,0.05)',borderTop:'1px solid var(--color-border)',borderBottom:'1px solid var(--color-border)',textAlign:'center'}}>
-        <h2 className='scroll-hidden' style={{fontSize:'28px',fontWeight:'800',marginBottom:'16px'}}>Privacy isn’t a feature.<br/>It’s the foundation.</h2>
-        <p className='scroll-hidden stagger-1' style={{fontSize:'16px',color:'#8b8ba7',lineHeight:'1.7',maxWidth:'480px',margin:'0 auto 32px'}}>Your protocols, your journal, your data — none of it is ever sold, shared, or used for advertising. Protocol is a tool you own, not a platform that owns you.</p>
-        <div style={{display:'flex',gap:'24px',justifyContent:'center',flexWrap:'wrap'}}>
-          {['No ads ever','No data selling','End-to-end private','You own your data'].map(item => (
-            <div key={item} style={{display:'flex',alignItems:'center',gap:'8px',color:'#8b8ba7',fontSize:'14px'}}>
-              <span style={{color:'var(--color-green)',fontWeight:'700'}}>✓</span> {item}
-            </div>
+      <section id="how-it-works" className={styles.workflow} aria-labelledby="workflow-title">
+        <div className={styles.sectionHeading} data-reveal>
+          <p className={styles.sectionLabel}>LESS WORK. BETTER CONTEXT.</p>
+          <h2 id="workflow-title">From scattered records to useful context.</h2>
+        </div>
+
+        <div className={styles.capabilityGrid}>
+          {CAPABILITIES.map(item => (
+            <article key={item.number} className={styles.capabilityCard} data-reveal>
+              <span className={styles.cardNumber}>{item.number}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      {/* FAQ */}
-      <section style={{padding:'60px 24px',maxWidth:'640px',margin:'0 auto'}}>
-        <p id='faq' className='scroll-hidden' style={{fontSize:'13px',color:'#3d3d5c',letterSpacing:'2px',fontWeight:'600',marginBottom:'24px',textAlign:'center',scrollMarginTop:'80px'}}>QUESTIONS</p>
-        {[
-          { q: 'Is this medical advice?', a: 'No. Protocol is a personal tracking tool. It does not recommend doses, suggest compounds, or provide medical guidance. Always consult a qualified healthcare provider.' },
-          { q: 'Is my data private?', a: 'Yes. Your protocols, journal entries, and health data are visible only to you. We never sell, share, or use your data for advertising. Period.' },
-          { q: 'What can I track?', a: 'Compounds with dose phases, injection schedules, mood, energy, sleep, hunger, weight, and discomfort. The app shows insights and trends over time.' },
-          { q: 'Does it work on iPhone?', a: 'Yes. Protocol is a Progressive Web App — add it to your home screen from Safari and it works like a native app. No App Store needed.' },
-          { q: 'Is it free?', a: 'Free during early access. No credit card required.' },
-        ].map((item, i) => (
-          <div key={i} className={'scroll-hidden stagger-' + Math.min(i + 1, 4)} style={{borderBottom:'1px solid var(--color-border)',padding:'16px 0'}}>
-            <h3 style={{fontSize:'15px',fontWeight:'700',color:'var(--color-text)',marginBottom:'8px'}}>{item.q}</h3>
-            <p style={{fontSize:'14px',color:'#8b8ba7',lineHeight:'1.6',margin:0}}>{item.a}</p>
+      <section className={styles.contextSection} aria-labelledby="context-title">
+        <div className={styles.contextPanel} data-reveal>
+          <div className={styles.contextCopy}>
+            <p className={styles.sectionLabel}>CONTEXT WITHOUT OVERCLAIMING</p>
+            <h2 id="context-title">See what changed around your treatment history.</h2>
+            <p>
+              MyPepProtocol preserves treatment episodes, compounds, phases, and dates so your history stays
+              accurate. It describes timing and association without turning personal observations into causal claims.
+            </p>
           </div>
-        ))}
+
+          <div className={styles.timelineSample} aria-label="Example longitudinal timeline">
+            <div className={styles.timelineLine} aria-hidden="true" />
+            <div className={styles.timelineEvent}>
+              <span className={styles.timelineDot} aria-hidden="true" />
+              <small>WEEK 1</small><strong>Protocol started</strong><p>Exact treatment identity preserved</p>
+            </div>
+            <div className={styles.timelineEvent}>
+              <span className={styles.timelineDot} aria-hidden="true" />
+              <small>WEEK 7</small><strong>Lab panel recorded</strong><p>Source values remain reviewable</p>
+            </div>
+            <div className={styles.timelineEvent}>
+              <span className={styles.timelineDot} aria-hidden="true" />
+              <small>WEEK 18</small><strong>New episode recorded</strong><p>Never merged by display name</p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Final CTA */}
-      <section style={{padding:'80px 24px',textAlign:'center',maxWidth:'480px',margin:'0 auto'}}>
-        <h2 className='scroll-hidden' style={{fontSize:'32px',fontWeight:'900',marginBottom:'16px',lineHeight:'1.2'}}>Start tracking<br/><span style={{color:'var(--color-green)'}}>your wellness journey.</span></h2>
-        <p style={{color:'#8b8ba7',marginBottom:'32px',fontSize:'16px'}}>Free during early access. No credit card required.</p>
-        <a href='/auth/login' className='cta-pulse scroll-hidden' style={{background:'var(--color-green)',color:'#000000',textDecoration:'none',fontWeight:'800',padding:'18px 48px',borderRadius:'8px',fontSize:'18px',display:'inline-block'}}>Get started free</a>
+      <section className={styles.intelligence} aria-labelledby="intelligence-title">
+        <div className={styles.sectionHeading} data-reveal>
+          <p className={styles.sectionLabel}>WHEN YOU NEED THE ANSWER</p>
+          <h2 id="intelligence-title">Conclusion first. Evidence close behind.</h2>
+          <p>Get the useful summary without losing the underlying facts, provenance, or uncertainty.</p>
+        </div>
+
+        <div className={styles.intelligenceList}>
+          {INTELLIGENCE_POINTS.map((item, index) => (
+            <article key={item.title} className={styles.intelligenceItem} data-reveal>
+              <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+              <div><h3>{item.title}</h3><p>{item.body}</p></div>
+            </article>
+          ))}
+        </div>
       </section>
 
-      {/* Footer */}
-<footer style={{borderTop:'1px solid var(--color-border)',padding:'24px',textAlign:'center'}}>
-  <p style={{color:'#3d3d5c',fontSize:'13px'}}>© 2026 Protocol · <a href='/privacy' style={{color:'#3d3d5c',textDecoration:'none'}}>Privacy</a> · <a href='/calculator' style={{color:'#3d3d5c',textDecoration:'none'}}>Calculator</a></p>
-  <p style={{color:'#3d3d5c',fontSize:'11px',marginTop:'8px'}}>Not medical advice. For personal harm reduction tracking only.</p>
-</footer>
+      <section className={styles.trust} aria-labelledby="trust-title">
+        <div className={styles.trustContent} data-reveal>
+          <p className={styles.sectionLabel}>PRIVATE BY DESIGN</p>
+          <h2 id="trust-title">Your record is not an advertising product.</h2>
+          <p>
+            MyPepProtocol does not sell personal data or use advertising trackers. AI-assisted features run only
+            when you request them and allow AI processing.
+          </p>
+          <Link href="/privacy">Read the Privacy Policy →</Link>
+        </div>
 
+        <div className={styles.trustFacts} data-reveal>
+          {['No personal data sales', 'No advertising trackers', 'AI processing is opt-in', 'Non-AI features remain available'].map(fact => (
+            <div key={fact}><span aria-hidden="true">✓</span>{fact}</div>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.faq} aria-labelledby="faq-title">
+        <div className={styles.sectionHeading} data-reveal>
+          <p className={styles.sectionLabel}>QUESTIONS</p>
+          <h2 id="faq-title">Clear by design.</h2>
+        </div>
+
+        <div className={styles.faqList}>
+          {FAQS.map(item => (
+            <article key={item.question} data-reveal><h3>{item.question}</h3><p>{item.answer}</p></article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.finalCta}>
+        <div data-reveal>
+          <p className={styles.sectionLabel}>YOUR HISTORY, MADE USEFUL</p>
+          <h2>Record once. Understand what changed.</h2>
+          <p>Start building a health record that stays connected, explainable, and ready to review.</p>
+          <div className={styles.heroActions}>
+            <Link href="/auth/login" className={styles.primaryAction}>Get started free <span aria-hidden="true">→</span></Link>
+          </div>
+          <small>Free during early access. No credit card required.</small>
+        </div>
+      </section>
+
+      <footer className={styles.footer}>
+        <Link href="/" className={styles.footerBrand}>MyPepProtocol</Link>
+        <div>
+          <Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/support">Support</Link><Link href="/calculator">Calculator</Link>
+        </div>
+        <p>© 2026 MyPepProtocol. Not medical advice.</p>
+      </footer>
     </main>
   )
 }

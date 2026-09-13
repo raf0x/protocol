@@ -465,6 +465,14 @@ export default function DashboardPage() {
           due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
           error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
           onViewDetails={() => setHeroOpen(true)} detailsOpen={heroOpen} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
+          stats={<StatsBoxes
+            currentWeight={lw ?? null}
+            totalLost={tl ? Number(tl) : 0}
+            weightStartDate={we[0]?.date ?? null}
+            dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
+            weightUnit={weightUnit}
+            onToggleUnit={toggleWeightUnit}
+          />}
           rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
           detail={activeProtocols.length > 0 && <details id="today-protocol-detail" ref={heroRef} className="today-hero-detail" open={heroOpen} onToggle={event => setHeroOpen(event.currentTarget.open)}>
             <summary>Protocol details <span>Schedule, inventory & sharing</span></summary>
@@ -505,18 +513,6 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-          <StatsBoxes
-            currentWeight={lw ?? null}
-            totalLost={tl ? Number(tl) : 0}
-            weightStartDate={we[0]?.date ?? null}
-            dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
-            weightUnit={weightUnit}
-            onToggleUnit={toggleWeightUnit}
-          />
-          
-        </div>
 
         {(() => {
           const activeCompound = activeProtocols
