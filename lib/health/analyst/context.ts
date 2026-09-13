@@ -4,7 +4,8 @@ import { readLabPanels } from '../loadLabs'
 import type { JournalEntryRow } from '../timeline'
 import type { LibraryProtocol } from '../protocolPresentation'
 import type { OverlayProtocolEvent } from '../protocolOverlay'
-import { buildAnalystContext } from './evidence'
+import { buildGuidedAnalystContext } from './evidence'
+import type { GuidedAnalystAction } from './actions'
 import type { AnalystSourceData } from './evidence'
 
 const protocolSelect =
@@ -13,7 +14,8 @@ const protocolSelect =
 export async function loadHealthSourceData(
   client: SupabaseClient,
   userId: string,
-  earliest: string | null = null
+  earliest: string | null = null,
+  includeJournal = true
 ): Promise<AnalystSourceData> {
   if (!userId) throw new Error('Sign in to use the health analyst.')
 
@@ -22,14 +24,14 @@ export async function loadHealthSourceData(
     .select('id,date,event_type,description,protocol_id,compound_id,metadata')
     .eq('user_id', userId)
 
-  let journalQuery = client
+  let journalQuery = includeJournal ? client
     .from('journal_entries')
     .select('id,date,notes,weight,mood,energy,sleep,hunger')
-    .eq('user_id', userId)
+    .eq('user_id', userId) : null
 
   if (earliest) {
     eventsQuery = eventsQuery.gte('date', earliest)
-    journalQuery = journalQuery.gte('date', earliest)
+    journalQuery = journalQuery?.gte('date', earliest) ?? null
   }
 
   const panelsPromise = readLabPanels(client, userId).catch(error => {
@@ -49,8 +51,8 @@ export async function loadHealthSourceData(
     .limit(1000)
 
   const journalPromise = journalQuery
-    .order('date', { ascending: false })
-    .limit(1000)
+    ? journalQuery.order('date', { ascending: false }).limit(1000)
+    : Promise.resolve({ data: [], error: null })
 
   const [panels, protocolsResult, eventsResult, journalResult] =
     await Promise.all([
@@ -100,12 +102,13 @@ export async function loadHealthSourceData(
 export async function loadHealthAnalystContext(
   client: SupabaseClient,
   userId: string,
-  question: string,
+  action: GuidedAnalystAction,
   today: string
 ) {
-  return buildAnalystContext(
-    await loadHealthSourceData(client, userId),
-    question,
-    today
-  )
+  if (!userId) throw new Error('Sign in to use the health analyst.')
+  const needsProtocols = action === 'current_snapshot' || action === 'protocol_context'
+  const source = needsProtocols
+    ? await loadHealthSourceData(client, userId, null, false)
+    : { panels: await readLabPanels(client, userId), protocols: [], protocolEvents: [], journal: [] }
+  return buildGuidedAnalystContext(source, action, today)
 }

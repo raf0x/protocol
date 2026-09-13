@@ -1,3 +1,4 @@
+import { guidedAnalystInstruction, guidedAnalystLimits, type GuidedAnalystAction } from './actions'
 import { compareLatest, statusIsFlagged } from '../biomarkerIntelligence'
 import { biomarkerHistories, labValue, type LabPanel } from '../labs'
 import { contextAtDate, type OverlayProtocolEvent } from '../protocolOverlay'
@@ -5,7 +6,9 @@ import type { LibraryProtocol } from '../protocolPresentation'
 import type { JournalEntryRow } from '../timeline'
 import type { AnalystEvidence, AnalystIntent, ContextFact, HealthAnalystContext } from './types'
 import { longitudinalAnalystEvidence, longitudinalRegimenEvidence } from '../longitudinal/analyst'
-import { labComparisonSummary, labPanelMembership, rangeTransitionText } from '../labEvidence'
+import { labComparisonSummary, labLimitations } from '../labEvidence'
+import { deriveCurrentLabFindingSet } from '../labFindingsSummary'
+import { findingCandidates, findingSourceIds, projectAnalystFinding, type FindingCandidate } from './findings'
 
 export type AnalystSourceData = {
   panels: LabPanel[]
@@ -108,12 +111,20 @@ function journalEvidence(entries: JournalEntryRow[]) {
 
 function unique<T extends { id: string }>(items: T[]) { return [...new Map(items.map(item => [item.id, item])).values()] }
 
-export function buildAnalystContext(data: AnalystSourceData, question: string, today: string, options: { minimumDate?: string | null } = {}): HealthAnalystContext {
-  const intent = classifyAnalystIntent(question)
+export function buildAnalystContext(data: AnalystSourceData, question: string, today: string, options: { minimumDate?: string | null; includeDeterministicFindings?: boolean; action?: GuidedAnalystAction } = {}): HealthAnalystContext {
+  const guided = options.action
+  const intent = guided ?? classifyAnalystIntent(question)
+  if (guided) question = guidedAnalystInstruction(guided)
+  const limits = guided ? guidedAnalystLimits[guided] : { evidence: 40, findings: 10 }
   const panels = [...data.panels].sort((a, b) => b.test_date.localeCompare(a.test_date) || a.id.localeCompare(b.id))
   const latest = panels[0] ?? null, previous = panels[1] ?? null
+  const histories = biomarkerHistories(panels)
+  const currentFindings = deriveCurrentLabFindingSet(panels, histories)
+  const integrated = options.includeDeterministicFindings === true
   const labRows = (intent === 'current_snapshot' ? latest ? [latest] : [] : panels.slice(0, 2)).flatMap(panel => panel.results.map(result => labEvidence(panel, result)))
   const comparisons = comparableEvidence(panels)
+  if (guided) comparisons.evidence = comparisons.evidence.filter(row =>
+    currentFindings.state !== 'ambiguous_latest' && row.date === currentFindings.latestDate)
   const eventAnchor = ['since_last_labs', 'protocol_context', 'largest_changes'].includes(intent) ? latest?.test_date ?? null : null
   const intentStart = intent === 'since_last_labs' && previous ? previous.test_date : intent === 'largest_changes' ? panels.at(-1)?.test_date ?? null : null
   const eventStart = [intentStart, options.minimumDate].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null
@@ -127,15 +138,15 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   if (!latest) gaps.push(fact('No lab panels are recorded yet.'))
   else if (!previous) gaps.push(fact('Only one lab panel is recorded, so a panel-to-panel comparison is not available.'))
   else if (latest.test_date === previous.test_date) gaps.push(fact('Multiple panels share the latest test date. Their within-day order is unknown; no chronological panel-to-panel change was inferred.'))
-  const histories = biomarkerHistories(panels)
+  if (currentFindings.previousPanelAmbiguous) gaps.push(fact('Multiple panels share the previous test date; new/missing panel membership is unknown.'))
   const mixed = histories.filter(history => history.units.length > 1)
   if (mixed.length) gaps.push(fact(`${mixed.length} biomarker histories contain different units and are kept as separate series.`))
   const noRange = latest?.results.filter(result => result.reference_low == null && result.reference_high == null && !result.reference_text).length ?? 0
   if (noRange) gaps.push(fact(`${noRange} latest-panel results have no supplied reference range; no range was invented.`))
   const legacy = data.protocolEvents.filter(event => event.metadata?.version !== 1).length
   if (legacy) gaps.push(fact(`${legacy} loaded protocol events are legacy or unstructured, so exact historical dosing cannot always be verified.`))
-  if (!weights.evidence.length) gaps.push(fact('No recorded weight is available for this analysis.'))
-  if (!journals.evidence.length) gaps.push(fact('Recent structured journal signals are sparse or unavailable.'))
+  if (!guided && !weights.evidence.length) gaps.push(fact('No recorded weight is available for this analysis.'))
+  if (!guided && !journals.evidence.length) gaps.push(fact('Recent structured journal signals are sparse or unavailable.'))
 
   const latestIds = new Set(latest?.results.map(result => evidenceId('lab', result.id)) ?? [])
   const previousIds = new Set(previous?.results.map(result => evidenceId('lab', result.id)) ?? [])
@@ -151,23 +162,65 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   else if (intent === 'protocol_context') selected = [...longitudinal.evidence, ...events.evidence, ...states.evidence, ...rankedComparisons.slice(0, 8), ...flagged]
   else if (intent === 'missing_data') selected = [...labRows.slice(0, 12), ...states.evidence, ...events.evidence.slice(0, 12)]
   else selected = [...flagged, ...rankedComparisons, ...labRows, ...states.evidence, ...events.evidence, ...weights.evidence, ...journals.evidence]
-  selected = unique(selected).slice(0, 40)
-  const selectedIds = new Set(selected.map(item => item.id))
-  const facts = [...longitudinal.facts, ...comparisons.facts, ...events.facts, ...states.facts, ...weights.facts, ...journals.facts]
-    .map(item => ({ ...item, evidenceIds: item.evidenceIds.filter(id => selectedIds.has(id)) })).filter(item => item.evidenceIds.length).slice(0, 30)
-  if (latest && previous && previous.test_date < latest.test_date) {
-    const membership = labPanelMembership(histories, latest.id, previous.id)
-    const newly = membership.filter(item => item.change === 'newly_measured'), missing = membership.filter(item => item.change === 'absent_from_latest')
-    const selectedPanelIds = selected.filter(item => latestIds.has(item.id) || previousIds.has(item.id)).map(item => item.id)
-    facts.unshift(fact(`Latest panel ${latest.test_date} versus prior panel ${previous.test_date}: ${newly.length} newly measured biomarker groups${newly.length ? ` (${newly.slice(0, 8).map(item => item.name).join(', ')})` : ''} and ${missing.length} previously measured groups absent from the latest panel${missing.length ? ` (${missing.slice(0, 8).map(item => item.name).join(', ')})` : ''}.`, ...selectedPanelIds))
-    for (const history of histories) for (const group of history.units) {
-      const comparison = compareLatest(group.observations)
-      if (!comparison || comparison.latest.panelId !== latest.id || comparison.previous.panelId !== previous.id) continue
-      const transition = comparison.evidence.range.transition
-      if (transition === 'remained_inside') continue
-      const ids = [evidenceId('comparison', `${comparison.previous.result.id}:${comparison.latest.result.id}`), evidenceId('lab', comparison.latest.result.id), evidenceId('lab', comparison.previous.result.id)].filter(id => selectedIds.has(id))
-      if (ids.length) facts.unshift(fact(`${history.name}: ${rangeTransitionText[transition]}`, ...ids))
+  if (guided) {
+    if (intent === 'protocol_context') selected = [...longitudinal.evidence.slice(0, 14), ...states.evidence.slice(0, 6)]
+    else if (intent === 'largest_changes') selected = rankedComparisons
+    else if (intent === 'missing_data') selected = []
+    else if (intent === 'current_snapshot') selected = [...states.evidence.slice(0, 6), ...labRows.filter(row => row.date === currentFindings.latestDate)]
+    else selected = [...rankedComparisons, ...labRows.filter(row => row.date === currentFindings.latestDate)]
+  }
+  const supportedFindings: FindingCandidate[] = []
+  if (integrated) {
+    const allLabRows = panels.flatMap(panel => panel.results.map(result => labEvidence(panel, result)))
+    const panelRows: AnalystEvidence[] = panels.map(panel => ({
+      id: evidenceId('panel', panel.id), type: 'lab_panel', date: panel.test_date,
+      title: 'Recorded lab panel', detail: `Panel on ${panel.test_date}: ${panel.results.length} recorded results. Panel membership describes recorded presence or absence, not a value or testing recommendation.`,
+      confidence: 'high', sourceLabel: panel.panel_name || panel.provider || 'Lab panel',
+    }))
+    const bank = new Map([...allLabRows, ...panelRows, ...comparisons.evidence].map(row => [row.id, row]))
+    let candidates = findingCandidates(currentFindings, histories, bank)
+    if (guided === 'protocol_context') candidates = []
+    if (guided === 'missing_data') candidates = candidates.filter(row => row.finding.evidence.membership || row.finding.type === 'insufficient_history'
+      || row.finding.limitations.some(gap => gap !== 'assay_method_unknown' && gap !== 'excluded_history'))
+    if (guided === 'missing_data') selected = panelRows.filter(row => row.date === currentFindings.latestDate).slice(0, 2)
+    if (intent === 'missing_data') candidates = [...candidates.filter(row => row.finding.evidence.membership || row.finding.type === 'insufficient_history'),
+      ...candidates.filter(row => !row.finding.evidence.membership && row.finding.type !== 'insufficient_history')]
+    if (intent === 'largest_changes') {
+      const order = new Map(rankedComparisons.map((row, i) => [row.id, i]))
+      candidates = [...candidates].sort((a, b) => (order.get(a.evidence[0].id) ?? Infinity) - (order.get(b.evidence[0].id) ?? Infinity))
     }
+    // Preserve intent-specific evidence before using the remaining budget for
+    // complete finding bundles. General/current context reserves non-lab records.
+    const reserved = guided ? (intent === 'largest_changes' ? rankedComparisons.slice(0, 8)
+      : intent === 'protocol_context' ? selected : intent === 'current_snapshot' ? states.evidence.slice(0, 6) : [])
+      : intent === 'largest_changes' ? rankedComparisons.slice(0, 24)
+      : intent === 'protocol_context' ? [...longitudinal.evidence.slice(0, 24), ...states.evidence.slice(0, 4)]
+      : intent === 'general' || intent === 'current_snapshot' ? [...states.evidence.slice(0, 6), ...weights.evidence, ...journals.evidence.slice(0, 1)] : []
+    const chosen = new Map(reserved.map(row => [row.id, row]))
+    for (const candidate of candidates) {
+      const additions = candidate.evidence.filter(row => !chosen.has(row.id))
+      if (supportedFindings.length >= limits.findings || chosen.size + additions.length > limits.evidence - (guided ? 2 : 8)) continue
+      for (const row of additions) chosen.set(row.id, row)
+      supportedFindings.push(candidate)
+    }
+    // Unknown latest-panel ordering must not be silently resolved by selecting
+    // only panels[0]. Source records remain usable, without a current finding.
+    const fallback = guided === 'missing_data' || guided === 'protocol_context' ? [] : currentFindings.state === 'ambiguous_latest'
+      ? allLabRows.filter(row => row.date === currentFindings.latestDate) : []
+    selected = unique([...chosen.values(), ...fallback, ...selected]).slice(0, limits.evidence)
+  } else selected = unique(selected).slice(0, 40)
+  const selectedIds = new Set(selected.map(item => item.id))
+  // A selected source row alone must not pull an unselected older comparison
+  // into a guided answer. Its actual comparison evidence must be selected too.
+  const comparisonFacts = guided ? comparisons.facts.filter(item => selectedIds.has(item.evidenceIds[0])) : comparisons.facts
+  const facts = [...longitudinal.facts, ...comparisonFacts, ...events.facts, ...states.facts, ...weights.facts, ...journals.facts]
+    .map(item => ({ ...item, evidenceIds: item.evidenceIds.filter(id => selectedIds.has(id)) })).filter(item => item.evidenceIds.length).slice(0, 30)
+  // Compatibility prose for existing consumers (including optional Report AI)
+  // delegates to canonical findings instead of rebuilding membership/transitions.
+  // The Analyst gets the typed projection below, so it needs no duplicate prose.
+  if (!integrated) for (const finding of currentFindings.findings) {
+    const ids = findingSourceIds(finding).filter(id => selectedIds.has(id))
+    if (ids.length) facts.unshift(fact(`${finding.biomarkerName}: ${finding.reason} ${labLimitations(finding.limitations).join(' ')}`, ...ids))
   }
   // The model needs stable citation handles, not database identifiers. Keep the
   // evidence payload inspectable while replacing source IDs with request-local IDs.
@@ -176,7 +229,30 @@ export function buildAnalystContext(data: AnalystSourceData, question: string, t
   const mapFacts = (items: ContextFact[]) => items.map(item => ({ ...item,
     evidenceIds: item.evidenceIds.map(id => idMap.get(id)).filter((id): id is string => Boolean(id)),
   }))
+  if (guided && guided !== 'protocol_context') {
+    const relevant = currentFindings.findings.flatMap(finding => labLimitations(finding.limitations))
+    for (const text of [...new Set(relevant)]) if (!gaps.some(gap => gap.text === text)) gaps.push(fact(text))
+  }
   return { intent, question, asOfDate: today,
-    scope: `${selected.length} selected evidence items from ${panels.length} lab panels, ${data.protocols.length} protocols, structured/legacy protocol history, and recent numeric journal signals.`,
-    facts: mapFacts(facts.slice(0, 30)), evidence: mappedEvidence, gaps: mapFacts(gaps.slice(0, 10)) }
+    ...(guided ? { action: guided } : {}),
+    scope: guided ? `${selected.length} selected evidence items for ${guided}. Only the selected action is in scope.` : `${selected.length} selected evidence items from ${panels.length} lab panels, ${data.protocols.length} protocols, structured/legacy protocol history, and recent numeric journal signals.`,
+    facts: mapFacts((guided === 'missing_data' ? [] : facts).slice(0, guided ? 12 : 30)), evidence: mappedEvidence, gaps: mapFacts(gaps.slice(0, guided === 'current_snapshot' ? 1 : guided ? 5 : 10)),
+    ...(integrated ? {
+      deterministicFindings: supportedFindings.flatMap(candidate => {
+        const projected = projectAnalystFinding(candidate, currentFindings, idMap)
+        return projected ? [projected] : []
+      }),
+      currentFindingScope: { state: currentFindings.state, latestDate: currentFindings.latestDate,
+        previousDate: currentFindings.previousDate, previousPanelAmbiguous: currentFindings.previousPanelAmbiguous,
+        omittedFindingCount: currentFindings.findings.length - supportedFindings.length },
+    } : {}),
+  }
+}
+
+/** Public actions bypass text classification; other internal consumers keep their contract. */
+export function buildGuidedAnalystContext(data: AnalystSourceData, action: GuidedAnalystAction, today: string): HealthAnalystContext {
+  const needsProtocols = action === 'current_snapshot' || action === 'protocol_context'
+  return buildAnalystContext({ ...data, journal: [],
+    protocols: needsProtocols ? data.protocols : [], protocolEvents: needsProtocols ? data.protocolEvents : [],
+  }, guidedAnalystInstruction(action), today, { action, includeDeterministicFindings: true })
 }

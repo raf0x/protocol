@@ -1,9 +1,11 @@
+import type { GuidedAnalystAction } from './actions'
 import type { LongitudinalAnalystEvidence } from '../longitudinal/types'
+import type { AnalystDeterministicFinding, AnalystFindingScope } from './findings'
 import type { LabComparisonSummary } from '../labEvidence'
 
-export type AnalystIntent = 'since_last_labs' | 'current_snapshot' | 'protocol_context' | 'largest_changes' | 'missing_data' | 'general'
+export type AnalystIntent = GuidedAnalystAction | 'general'
 export type DataConfidence = 'high' | 'medium' | 'low'
-export type EvidenceType = 'lab_result' | 'lab_comparison' | 'protocol_event' | 'protocol_state' | 'weight' | 'journal_signal' | 'data_gap' | 'longitudinal_observation'
+export type EvidenceType = 'lab_result' | 'lab_panel' | 'lab_comparison' | 'protocol_event' | 'protocol_state' | 'weight' | 'journal_signal' | 'data_gap' | 'longitudinal_observation'
 
 export type AnalystEvidence = {
   id: string
@@ -19,6 +21,7 @@ export type AnalystEvidence = {
 
 export type ContextFact = { text: string; evidenceIds: string[] }
 export type HealthAnalystContext = {
+  action?: GuidedAnalystAction
   intent: AnalystIntent
   question: string
   asOfDate: string
@@ -26,6 +29,8 @@ export type HealthAnalystContext = {
   facts: ContextFact[]
   evidence: AnalystEvidence[]
   gaps: ContextFact[]
+  deterministicFindings?: AnalystDeterministicFinding[]
+  currentFindingScope?: AnalystFindingScope
 }
 
 export type AnalystFinding = {

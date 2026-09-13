@@ -30,6 +30,19 @@ function unsafeLanguage(value: string) {
   const normalized = value.toLowerCase()
   if (/\b(?:caused|causes|resulted from|is due to)\b/.test(normalized)) return true
   if (/\b(?:you have|you are diagnosed with|diagnosed as|suffering from)\b/.test(normalized)) return true
+  for (const sentence of normalized.split(/[.!?\n]/)) {
+    // Reject affirmative treatment/personal-normal claims, while allowing a
+    // narrowly phrased explanation that the records cannot establish one.
+    for (const match of sentence.matchAll(/\b(?:treatment effect|treatment response|response to treatment|normal for you|your normal|healthy for you|your healthy range)\b/g)) {
+      const prefix = sentence.slice(0, match.index)
+      const disclaimer = /\b(?:(?:cannot|can't|does not|do not|did not) (?:determine|establish|demonstrate|infer|assess|confirm|show)|no evidence (?:of|for)|not evidence (?:of|for)) (?:what is |a |an |the |any )?$/.test(prefix)
+      if (!disclaimer) return true
+    }
+    if (/\b(?:increas\w*|decreas\w*|improv\w*|worsen\w*|rose|fell|changed)\b[^.!?]{0,80}\b(?:because(?: of)?|due to|from (?:the )?(?:treatment|protocol|medication|dose|therapy))\b/.test(sentence)) return true
+    if (/\b(?:improved|worsened)\b[^.!?]{0,60}\bfrom\b/.test(sentence)) return true
+    if (/\b(?:attention|presentation priority)\b[^.!?]{0,60}\b(?:means|indicates|signals)\b[^.!?]{0,30}\b(?:danger|dangerous|urgent|urgency|serious|high risk)\b/.test(sentence)) return true
+    if (/^\s*(?:please )?(?:start|stop|increase|decrease|adjust|change|skip)\b[^.!?]{0,80}\b(?:dose|medication|medicine|protocol|drug)s?\b/.test(sentence)) return true
+  }
   return /\b(?:you should|i recommend|we recommend|you need to)\b[^.!?]{0,100}\b(?:start|stop|increase|decrease|adjust|change|skip)\b[^.!?]{0,80}\b(?:dose|medication|medicine|protocol|drug)\b/.test(normalized)
 }
 

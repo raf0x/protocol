@@ -1,47 +1,179 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
+import type { GuidedAnalystAction } from '../../lib/health/analyst/actions'
 import type { AnalystResult } from '../../lib/health/analyst/types'
 import styles from '../../app/health/health.module.css'
 import AiConsentDialog from './AiConsentDialog'
 
-const suggestions = ['What changed since my last labs?', 'Summarize my current health picture',
-  'Show protocol changes around my latest labs', 'Which biomarkers changed the most?', 'What information is missing?']
+const guidedActions: { action: GuidedAnalystAction; label: string }[] = [
+  { action: 'since_last_labs', label: 'What changed since my last labs?' },
+  { action: 'current_snapshot', label: 'Current health snapshot' },
+  { action: 'largest_changes', label: 'Largest recorded lab changes' },
+  { action: 'missing_data', label: 'What information is missing?' },
+  { action: 'protocol_context', label: 'Protocol timing around latest labs' },
+]
+
+type AnalystApiBody = AnalystResult & { error?: string; code?: string; retryAfter?: number }
+type UiError = { title: string; message?: string }
+
+/**
+ * Analyst output is structured JSON, but summary/detail fields are strings.
+ * Render them as scan lines instead of dense prose. Server prompts prefer
+ * newline-delimited facts; semicolon/sentence splitting is only a safe visual
+ * fallback and never changes the underlying health facts.
+ */
+function scanLines(value: string, max: number) {
+  const clean = value.trim()
+  if (!clean) return []
+  const newline = clean.split(/\r?\n/).map(line => line.replace(/^[-•]\s*/, '').trim()).filter(Boolean)
+  if (newline.length > 1) return newline.slice(0, max)
+  const semicolon = clean.split(/;\s+/).map(line => line.trim()).filter(Boolean)
+  if (semicolon.length > 1) return semicolon.slice(0, max)
+  const sentences = clean.split(/(?<=[.!?])\s+(?=[A-Z0-9])/).map(line => line.trim()).filter(Boolean)
+  return (sentences.length > 1 ? sentences : [clean]).slice(0, max)
+}
 
 export default function HealthAnalyst() {
-  const [question, setQuestion] = useState('')
+  const [selectedAction, setSelectedAction] = useState<GuidedAnalystAction | null>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [result, setResult] = useState<AnalystResult | null>(null)
-  const [message, setMessage] = useState('')
+  const [uiError, setUiError] = useState<UiError | null>(null)
   const [consentOpen, setConsentOpen] = useState(false)
-  const [pendingQuestion, setPendingQuestion] = useState('')
-  async function ask(value: string) {
-    const prompt = value.trim()
-    if (prompt.length < 3 || status === 'loading') return
-    setQuestion(prompt); setStatus('loading'); setMessage(''); setResult(null)
+  const [pendingAction, setPendingAction] = useState<GuidedAnalystAction | null>(null)
+
+  async function run(action: GuidedAnalystAction) {
+    if (status === 'loading') return
+    setSelectedAction(action)
+    setStatus('loading')
+    setUiError(null)
+    setResult(null)
     try {
-      const response = await fetch('/api/health-analyst', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) })
-      const body = await response.json() as AnalystResult & { error?: string; code?: string }
+      const response = await fetch('/api/health-analyst', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const body = await response.json() as AnalystApiBody
       if (response.status === 403 && body.code === 'AI_CONSENT_REQUIRED') {
-        setPendingQuestion(prompt); setStatus('idle'); setConsentOpen(true); return
+        setPendingAction(action)
+        setStatus('idle')
+        setConsentOpen(true)
+        return
       }
-      if (!response.ok) throw new Error(body.error || 'The analyst is temporarily unavailable.')
-      setResult(body); setStatus('ready')
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'The analyst is temporarily unavailable.'); setStatus('error') }
+      if (response.status === 429 && body.code === 'RATE_LIMITED') {
+        const minutes = Math.max(1, Math.ceil(Number(body.retryAfter ?? 60) / 60))
+        setUiError({ title: 'Analysis limit reached', message: `You've reached the analysis limit. Try again in about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.` })
+        setStatus('error')
+        return
+      }
+      if (body.code === 'RATE_LIMIT_UNAVAILABLE') {
+        setUiError({ title: 'Analysis temporarily unavailable', message: body.error || 'No health data was sent.' })
+        setStatus('error')
+        return
+      }
+      if (!response.ok) {
+        if (response.status === 502) setUiError({ title: "Couldn't complete this analysis reliably", message: 'Try again later.' })
+        else if (response.status === 401) setUiError({ title: 'Sign in required', message: body.error || 'Sign in to use the health analyst.' })
+        else setUiError({ title: 'Health analysis is temporarily unavailable.' })
+        setStatus('error')
+        return
+      }
+      setResult(body)
+      setStatus('ready')
+    } catch {
+      setUiError({ title: 'Health analysis is temporarily unavailable.' })
+      setStatus('error')
+    }
   }
-  function submit(event: FormEvent) { event.preventDefault(); void ask(question) }
+
   const evidence = new Map(result?.evidence.map(item => [item.id, item]))
+  const findingLimit = selectedAction === 'largest_changes' ? 5 : 3
+  const visibleFindings = result?.analysis.findings.slice(0, findingLimit) ?? []
+  const visibleUncertainties = result?.analysis.uncertainties.slice(0, 2) ?? []
+  const summaryLines = result ? scanLines(result.analysis.summary, 3) : []
+
   return <section className={styles.analyst} aria-labelledby="analyst-heading">
-    <AiConsentDialog open={consentOpen} onCancel={() => { setConsentOpen(false); setPendingQuestion('') }} onGranted={() => { const pending = pendingQuestion; setConsentOpen(false); setPendingQuestion(''); void ask(pending) }} />
-    <div className={styles.analystIntro}><span className={styles.analystIcon} aria-hidden="true">✦</span><div><span className={styles.eyebrow}>Evidence first</span><h2 id="analyst-heading">Ask your health history</h2><p>Compare your recorded labs, protocols, weight, and check-ins. When you ask, selected recorded health data is processed by the configured AI provider. Answers show supporting evidence and never replace clinical care.</p></div></div>
-    <div className={styles.promptGrid} aria-label="Suggested questions">{suggestions.map(prompt => <button key={prompt} type="button" onClick={() => void ask(prompt)} disabled={status === 'loading'}>{prompt}<span aria-hidden="true">›</span></button>)}</div>
-    <form className={styles.analystForm} onSubmit={submit}><label htmlFor="analyst-question">Ask another question</label><div><input id="analyst-question" value={question} onChange={event => setQuestion(event.target.value)} maxLength={500} placeholder="Ask about changes in your recorded health data" /><button className={styles.primary} type="submit" disabled={status === 'loading' || question.trim().length < 3}>Ask</button></div></form>
-    {status === 'loading' && <div className={styles.analystStatus} role="status"><span aria-hidden="true" />Preparing an evidence-based answer…</div>}
-    {status === 'error' && <div className={styles.analystError} role="alert"><strong>Analysis unavailable</strong><p>{message}</p></div>}
-    {result && <article className={styles.analysisResult} aria-live="polite"><header><span className={styles.eyebrow}>Summary</span><p>{result.analysis.summary}</p></header>
-      {result.analysis.findings.length > 0 && <section><h3>What stands out</h3><div className={styles.findingList}>{result.analysis.findings.map((finding, index) => <div className={styles.finding} key={`${finding.title}-${index}`}><div className={styles.findingHeading}><strong>{finding.title}</strong><span data-confidence={finding.confidence}>{finding.confidence} data confidence</span></div><p>{finding.detail}</p><details className={styles.evidence}><summary>View evidence</summary><ul>{finding.evidenceIds.map(id => { const item = evidence.get(id); return item ? <li key={id}><div><strong>{item.title}</strong>{item.date && <time dateTime={item.date}>{item.date}</time>}</div><p>{item.detail}</p><small>{item.sourceLabel} · {item.confidence} data confidence</small></li> : null })}</ul></details></div>)}</div></section>}
-      {result.analysis.uncertainties.length > 0 && <section className={styles.analysisNotes}><h3>What is uncertain</h3><ul>{result.analysis.uncertainties.map(item => <li key={item}>{item}</li>)}</ul></section>}
-      {result.analysis.nextObservations.length > 0 && <section className={styles.analysisNotes}><h3>What to watch next</h3><ul>{result.analysis.nextObservations.map(item => <li key={item}>{item}</li>)}</ul></section>}
-      <p className={styles.analystDisclaimer}>This summarizes recorded data. It does not diagnose conditions or establish why a change happened.</p></article>}
+    <AiConsentDialog
+      open={consentOpen}
+      onCancel={() => { setConsentOpen(false); setPendingAction(null) }}
+      onGranted={() => {
+        const pending = pendingAction
+        setConsentOpen(false)
+        setPendingAction(null)
+        if (pending) void run(pending)
+      }}
+    />
+
+    <div className={styles.analystIntro}>
+      <span className={styles.analystIcon} aria-hidden="true">✦</span>
+      <div>
+        <span className={styles.eyebrow}>Evidence first</span>
+        <h2 id="analyst-heading">Understand your recorded health</h2>
+        <p>Choose a focused view of your recorded evidence.</p>
+      </div>
+    </div>
+
+    <div
+      className={styles.promptGrid}
+      aria-label="Guided health analysis"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))' }}
+    >
+      {guidedActions.map(item => {
+        const active = selectedAction === item.action
+        const loading = active && status === 'loading'
+        return <button
+          key={item.action}
+          type="button"
+          data-analyst-action={item.action}
+          className={active ? styles.primary : undefined}
+          aria-pressed={active}
+          aria-busy={loading}
+          onClick={() => void run(item.action)}
+          disabled={status === 'loading'}
+        >
+          {item.label}<span aria-hidden="true">{loading ? '…' : '›'}</span>
+        </button>
+      })}
+    </div>
+
+    {status === 'loading' && <div className={styles.analystStatus} role="status"><span aria-hidden="true" />Preparing this evidence view…</div>}
+    {status === 'error' && uiError && <div className={styles.analystError} role="alert"><strong>{uiError.title}</strong>{uiError.message && <p>{uiError.message}</p>}</div>}
+
+    {result && <article className={styles.analysisResult} aria-live="polite">
+      <header>
+        <span className={styles.eyebrow}>At a glance</span>
+        <ul className={styles.analystSummaryList}>{summaryLines.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ul>
+      </header>
+
+      {visibleFindings.length > 0 && <section>
+        <h3>Highlights</h3>
+        <div className={styles.findingList}>{visibleFindings.map((finding, index) => {
+          const facts = scanLines(finding.detail, 4)
+          return <div className={styles.finding} key={`${finding.title}-${index}`}>
+            <div className={styles.findingHeading}><strong>{finding.title}</strong></div>
+            <ul className={styles.analystFactList}>{facts.map((fact, factIndex) => <li key={`${fact}-${factIndex}`}>{fact}</li>)}</ul>
+            <details className={styles.evidence}>
+              <summary>View evidence</summary>
+              <ul>{finding.evidenceIds.map(id => {
+                const item = evidence.get(id)
+                return item ? <li key={id}>
+                  <div><strong>{item.title}</strong>{item.date && <time dateTime={item.date}>{item.date}</time>}</div>
+                  <p>{item.detail}</p>
+                  <small>{item.sourceLabel}</small>
+                </li> : null
+              })}</ul>
+            </details>
+          </div>
+        })}</div>
+      </section>}
+
+      {visibleUncertainties.length > 0 && <section className={styles.analysisNotes}>
+        <h3>Evidence limits</h3>
+        <ul>{visibleUncertainties.map(item => <li key={item}>{item}</li>)}</ul>
+      </section>}
+
+      <p className={styles.analystDisclaimer}>This summarizes recorded data and does not establish why a change happened.</p>
+    </article>}
   </section>
 }

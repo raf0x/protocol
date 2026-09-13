@@ -40,7 +40,7 @@ const source = (panels = pair()) => ({ panels, journal: [], protocols: [], proto
   id: 'fictional-event', protocol_id: 'fictional-protocol', compound_id: null, date: '2026-01-10', event_type: 'started', metadata: { version: 1 },
 }] })
 const obs = panels => longitudinal.buildLongitudinal(source(panels), '2026-05-01').observations[0]
-const context = panels => analyst.buildAnalystContext(source(panels), 'since my last labs', '2026-05-01')
+const context = panels => analyst.buildAnalystContext(source(panels), 'since my last labs', '2026-05-01', { includeDeterministicFindings: true })
 
 // Recorded before refactoring. Intentional policy corrections are called out in
 // the corresponding assertions below and the delivery report, not hidden.
@@ -85,12 +85,12 @@ test('characterization: missing reference ranges do not prevent numeric arithmet
 })
 test('intentional correction: unknown prior status never manufactures a new flag', () => {
   const p = pair(10, 30); Object.assign(p[0].results[0], { status: 'unknown', reference_low: null, reference_high: null }); p[1].results[0].status = 'high'
-  assert.ok(!context(p).facts.some(f => /newly outside/i.test(f.text)))
-  assert.ok(context(p).facts.some(f => /Prior range status is unknown/.test(f.text)))
+  assert.ok(!context(p).deterministicFindings.some(f => f.type === 'newly_outside_range'))
+  assert.equal(context(p).deterministicFindings[0].comparison.range.transition, 'prior_status_unknown')
 })
 test('characterization: panel membership includes unusable measurements rather than treating them as absent', () => {
   const p = pair(); p[1].results.push({ ...p[1].results[0], id: 'novel', biomarker_name: 'Novel fictional marker', value: null, value_text: 'Detected' })
-  assert.ok(context(p).facts.some(f => f.text.includes('1 newly measured')))
+  assert.equal(context(p).deterministicFindings.filter(f => f.type === 'newly_measured').length, 1)
 })
 test('characterization: raw result identity and import confidence survive biomarker grouping', () => {
   const r = rows(pair())[0]; assert.equal(r.result.id, 'result-new'); assert.equal(r.panelId, 'new'); assert.equal(r.result.import_confidence, 'low'); assert.deepEqual(r.result.source_raw, { original: 'fictional raw entry' })

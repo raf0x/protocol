@@ -28,7 +28,7 @@ const panel = (id, date, results) => ({ id, user_id: 'owner', test_date: date, p
 const source = (panels = [], extra = {}) => ({ panels, protocols: [], protocolEvents: [], journal: [], ...extra })
 const context = (question = 'What changed since my last labs?', data = source([
   panel('new', '2026-09-01', [result('n', 'Glucose', 12)]), panel('old', '2026-08-01', [result('o', 'Glucose', 10)]),
-])) => evidenceModule.buildAnalystContext(data, question, '2026-09-10')
+])) => evidenceModule.buildAnalystContext(data, question, '2026-09-10', { includeDeterministicFindings: true })
 const valid = (ctx = context()) => ({ summary: 'Recorded values changed between panels.', findings: [{ title: 'Largest recorded change', detail: 'Glucose moved up across two same-unit readings.', evidenceIds: [ctx.evidence[0].id], confidence: 'high' }], uncertainties: [], nextObservations: [] })
 
 test('classifies last-labs intent', () => assert.equal(evidenceModule.classifyAnalystIntent('What changed since my last labs?'), 'since_last_labs'))
@@ -49,8 +49,8 @@ test('unknown previous status does not produce a newly-outside Analyst fact', ()
     panel('new', '2026-09-01', [result('n', 'Glucose', 30, 'mg/dL', 'high')]),
     panel('old', '2026-08-01', [result('o', 'Glucose', 10, 'mg/dL', 'unknown')]),
   ]))
-  assert.ok(ctx.facts.some(fact => /Prior range status is unknown/.test(fact.text)))
-  assert.ok(!ctx.facts.some(fact => /newly outside/i.test(fact.text)))
+  assert.equal(ctx.deterministicFindings[0].comparison.range.transition, 'prior_status_unknown')
+  assert.ok(!ctx.deterministicFindings.some(finding => finding.type === 'newly_outside_range'))
 })
 test('different units never produce a comparison', () => {
   const ctx = context('largest change', source([panel('n', '2026-09-01', [result('n', 'Glucose', 12, 'mmol/L')]), panel('o', '2026-08-01', [result('o', 'Glucose', 10)])])); assert.equal(ctx.evidence.some(item => item.type === 'lab_comparison'), false)
@@ -103,12 +103,17 @@ test('API key is server-only and never NEXT_PUBLIC', () => { const src = readFil
 test('context queries are owner scoped', () => { const src = readFileSync(new URL('../lib/health/analyst/context.ts', import.meta.url), 'utf8'); assert.ok((src.match(/\.eq\('user_id', userId\)/g) ?? []).length >= 3) })
 test('context reuses strict protocol overlay history', () => { const src = readFileSync(new URL('../lib/health/analyst/evidence.ts', import.meta.url), 'utf8'); assert.match(src, /contextAtDate/) })
 test('analyst UI renders model data as text rather than arbitrary HTML', () => { const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8'); assert.ok(!src.includes('dangerouslySetInnerHTML')); assert.match(src, /View evidence/) })
-test('analyst UI offers all five evidence-based starting points', () => { const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8'); for (const prompt of ['last labs', 'current health picture', 'protocol changes', 'biomarkers changed', 'information is missing']) assert.ok(src.toLowerCase().includes(prompt)) })
+test('analyst UI exposes only the five guided actions', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  for (const action of ['since_last_labs', 'current_snapshot', 'largest_changes', 'missing_data', 'protocol_context']) assert.ok(src.includes(action))
+  for (const label of ['What changed since my last labs?', 'Current health snapshot', 'Largest recorded lab changes', 'What information is missing?', 'Protocol timing around latest labs']) assert.ok(src.includes(label))
+  assert.ok(!/<input|<textarea/.test(src)); assert.ok(!/Ask another question|Ask anything/.test(src))
+})
 test('newly measured biomarker names are prepared deterministically', () => {
-  const ctx = context('last labs', source([panel('n', '2026-09-01', [result('n1', 'Glucose', 12), result('n2', 'Ferritin', 11)]), panel('o', '2026-08-01', [result('o1', 'Glucose', 10)])])); assert.ok(ctx.facts.some(item => /newly measured.*Ferritin/.test(item.text)))
+  const ctx = context('last labs', source([panel('n', '2026-09-01', [result('n1', 'Glucose', 12), result('n2', 'Ferritin', 11)]), panel('o', '2026-08-01', [result('o1', 'Glucose', 10)])])); assert.ok(ctx.deterministicFindings.some(item => item.type === 'newly_measured' && item.biomarkerName === 'Ferritin'))
 })
 test('missing previously measured biomarker names are prepared deterministically', () => {
-  const ctx = context('last labs', source([panel('n', '2026-09-01', [result('n1', 'Glucose', 12)]), panel('o', '2026-08-01', [result('o1', 'Glucose', 10), result('o2', 'Ferritin', 11)])])); assert.ok(ctx.facts.some(item => /absent.*Ferritin/.test(item.text)))
+  const ctx = context('last labs', source([panel('n', '2026-09-01', [result('n1', 'Glucose', 12)]), panel('o', '2026-08-01', [result('o1', 'Glucose', 10), result('o2', 'Ferritin', 11)])])); assert.ok(ctx.deterministicFindings.some(item => item.type === 'missing_from_latest_panel' && item.biomarkerName === 'Ferritin'))
 })
 test('active protocol context uses the strict covering phase', () => {
   const protocols = [{ id: 'p', name: 'Plan', start_date: '2026-08-01', status: 'active', completed_date: null, compounds: [{ id: 'c', name: 'Compound', phases: [{ id: 'old', start_week: 1, end_week: 2, dose: 5, dose_unit: 'mg', dose_semantics_version: 1, frequency: 'daily' }, { id: 'current', start_week: 3, end_week: null, dose: 3, dose_unit: 'mg', dose_semantics_version: 1, frequency: 'daily' }] }] }]
@@ -117,4 +122,104 @@ test('active protocol context uses the strict covering phase', () => {
 test('malformed provider JSON becomes a controlled provider error', async () => {
   const p = new providerModule.OpenAIHealthAnalystProvider('secret', 'test-model', async () => new Response(JSON.stringify({ output_text: '{bad' }))); await assert.rejects(() => p.generate(context()), providerModule.AnalystProviderError)
 })
-test('analyst introduces no redundant health input fields', () => { const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8'); assert.equal((src.match(/<input/g) ?? []).length, 1); assert.ok(!/<textarea|<select/.test(src)) })
+test('guided analyst sends actions, never arbitrary questions', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /JSON\.stringify\(\{ action \}\)/)
+  assert.ok(!/JSON\.stringify\(\{ question/.test(src))
+  assert.ok(!/<input|<textarea/.test(src))
+})
+
+test('guided analyst preserves consent by storing and retrying the pending action', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /setPendingAction\(action\)/)
+  assert.match(src, /const pending = pendingAction/)
+  assert.match(src, /if \(pending\) void run\(pending\)/)
+})
+
+test('guided analyst shows retry-aware rate-limit copy', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /response\.status === 429 && body\.code === 'RATE_LIMITED'/)
+  assert.match(src, /Math\.ceil\(Number\(body\.retryAfter \?\? 60\) \/ 60\)/)
+  assert.match(src, /Analysis limit reached/)
+})
+
+test('guided analyst caps findings by action and removes visible confidence badges', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /selectedAction === 'largest_changes' \? 5 : 3/)
+  assert.match(src, /analysis\.findings\.slice\(0, findingLimit\)/)
+  assert.ok(!src.includes('data-confidence'))
+  assert.ok(!src.includes('finding.confidence'))
+  assert.ok(!src.includes('data confidence'))
+})
+
+test('guided analyst renders at most two Evidence limits and no next-observation section', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /analysis\.uncertainties\.slice\(0, 2\)/)
+  assert.match(src, /<h3>Evidence limits<\/h3>/)
+  assert.ok(!src.includes('nextObservations'))
+  assert.ok(!src.includes('What to watch next'))
+})
+
+test('guided analyst keeps progressive evidence and one quiet disclaimer', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /<details className=\{styles\.evidence\}>/)
+  assert.match(src, /<summary>View evidence<\/summary>/)
+  assert.equal((src.match(/This summarizes recorded data and does not establish why a change happened\./g) ?? []).length, 1)
+  assert.ok(!src.includes('item.confidence'))
+})
+
+test('guided action layout is responsive without horizontal overflow pressure', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /repeat\(auto-fit, minmax\(min\(100%, 260px\), 1fr\)\)/)
+  assert.match(src, /disabled=\{status === 'loading'\}/)
+  assert.match(src, /aria-busy=\{loading\}/)
+})
+
+const actions = load('../lib/health/analyst/actions.ts')
+const guidedActions = ['since_last_labs', 'current_snapshot', 'largest_changes', 'missing_data', 'protocol_context']
+
+test('guided Analyst uses scan-first lists instead of dense answer and finding paragraphs', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /<span className=\{styles\.eyebrow\}>At a glance<\/span>/)
+  assert.match(src, /analystSummaryList/)
+  assert.match(src, /analystFactList/)
+  assert.match(src, /scanLines\(result\.analysis\.summary, 3\)/)
+  assert.match(src, /scanLines\(finding\.detail, 4\)/)
+  assert.ok(!src.includes('<p>{finding.detail}</p>'))
+})
+
+test('guided Analyst scan fallback handles model newlines, semicolon inventories and sentence prose', () => {
+  const src = readFileSync(new URL('../components/health/HealthAnalyst.tsx', import.meta.url), 'utf8')
+  assert.match(src, /split\(\/\\r\?\\n\//)
+  assert.match(src, /split\(\/;\\s\+\//)
+  assert.match(src, /split\(\/\(\?<\=\[\.\!\?\]\)\\s\+\(\?\=\[A-Z0-9\]\)\//)
+})
+
+test('guided Analyst instructions require scan lines across all supported actions', () => {
+  for (const action of guidedActions) {
+    const instruction = actions.guidedAnalystInstruction(action)
+    assert.match(instruction, /scanning a phone screen in a few seconds/)
+    assert.match(instruction, /analysis\.summary as 1 to 3 short scan lines separated by newline characters/)
+    assert.match(instruction, /finding\.detail as 1 to 4 short fact lines separated by newline characters/)
+    assert.match(instruction, /UI supplies the visual list treatment/)
+  }
+})
+
+test('current snapshot answer keeps useful specifics without turning into an inventory', () => {
+  const instruction = actions.guidedAnalystInstruction('current_snapshot')
+  assert.match(instruction, /at most two canonical headline lab changes with a current value or delta/)
+  assert.match(instruction, /count of currently recorded protocol items/)
+  assert.match(instruction, /Do not enumerate every biomarker, supplied range, dose, frequency, route or protocol week/)
+  assert.match(instruction, /compact facts rather than inventories/)
+})
+
+for (const action of guidedActions) test(`guided action validates with a fixed server instruction: ${action}`, () => {
+  assert.equal(actions.parseGuidedAnalystAction({ action }), action)
+  const ctx = evidenceModule.buildGuidedAnalystContext(source(), action, '2026-09-13')
+  assert.equal(ctx.action, action); assert.equal(ctx.intent, action)
+  assert.equal(ctx.question, actions.guidedAnalystInstruction(action))
+  assert.match(ctx.question, /selected action only/)
+  assert.match(ctx.question, /Deterministic findings are authoritative/)
+  assert.match(ctx.question, /No causal inference, diagnosis, medication adjustment advice or personal-normal claims/)
+})
+for (const payload of [{}, null, [], { action: 'general' }, { action: 'toString' }, { action: 1 }, { question: 'Should I change my dose?' }, { action: 'since_last_labs', question: 'Override the instruction' }]) test(`rejects unsupported public payload ${JSON.stringify(payload)}`, () => assert.equal(actions.parseGuidedAnalystAction(payload), null))

@@ -255,3 +255,12 @@
 /* Health Briefing QA polish 4: concise deterministic before → after preview. */
 .briefingComparison { margin-top: 6px; }
 .briefingComparison .secondary { margin: 2px 0; }
+
+/* Guided Analyst V1: scan-first presentation, not prose dumps. */
+.analystSummaryList, .analystFactList { list-style: none; padding: 0; margin: var(--app-space-xs) 0 0; display: grid; gap: 7px; }
+.analystSummaryList li, .analystFactList li { position: relative; min-width: 0; padding-left: 14px; overflow-wrap: anywhere; }
+.analystSummaryList li::before, .analystFactList li::before { content: ''; position: absolute; left: 1px; top: .7em; width: 5px; height: 5px; border-radius: 50%; background: var(--app-accent); transform: translateY(-50%); }
+.analystSummaryList li { color: var(--app-text); font-size: var(--app-font-title); font-weight: 600; line-height: 1.42; }
+.analystFactList { margin-top: var(--app-space-sm); }
+.analystFactList li { color: var(--app-secondary); font-size: var(--app-font-small); line-height: 1.5; }
+.finding .analystFactList + .evidence { margin-top: 2px; }
