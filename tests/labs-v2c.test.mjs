@@ -8,11 +8,12 @@ const require = createRequire(import.meta.url), cache = new Map()
 function load(path) {
   const url = path.startsWith('file:') ? new URL(path) : new URL(path, import.meta.url)
   if (cache.has(url.href)) return cache.get(url.href)
-  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const out = { exports: {} }
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.css')) return { default: {} }
     if (!name.startsWith('.')) return require(name)
-    for (const suffix of ['', '.ts']) { try { return load(new URL(name + suffix, url).href) } catch (error) { if (error.code !== 'ENOENT') throw error } }
+    for (const suffix of ['', '.ts', '.tsx']) { try { return load(new URL(name + suffix, url).href) } catch (error) { if (error.code !== 'ENOENT') throw error } }
     throw new Error(`Missing module ${name}`)
   }, out, out.exports)
   cache.set(url.href, out.exports); return out.exports
@@ -35,6 +36,46 @@ test('Total Testosterone variants share one canonical key', () => {
   assert.equal(new Set(keys).size, 1)
 })
 test('Total and Free Testosterone remain separate', () => assert.notEqual(intelligence.classifyBiomarker('Total Testosterone').key, intelligence.classifyBiomarker('Free Testosterone').key))
+test('uppercase comma Free Testosterone and all supported equivalent names share the existing identity', () => {
+  for (const name of ['TESTOSTERONE, FREE', 'Free Testosterone', 'Testosterone Free', 'testosterone, free']) assert.equal(intelligence.classifyBiomarker(name).key, 'testosterone-free')
+})
+test('Free Testosterone supported aliases yield a same-unit historical trend, even without ranges', () => {
+  const panels = [panel('new', '2026-09-01', [result({ id: 'new', biomarker_name: 'TESTOSTERONE, FREE', value: 18, unit: 'pg/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
+    panel('old', '2026-08-01', [result({ id: 'old', biomarker_name: 'Free Testosterone', value: 12, unit: 'pg/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })])]
+  const histories = biomarkerHistories(panels)
+  assert.equal(histories.length, 1); assert.equal(histories[0].units[0].observations.length, 2)
+  const c = intelligence.compareLatest(histories[0].units[0].observations)
+  assert.equal(c.delta, 6); assert.equal(c.evidence.range.transition, 'prior_status_unknown')
+  assert.equal(intelligence.trendChart(histories[0].units[0].observations).points.length, 2)
+})
+test('a latest Free Testosterone unit group can show one reading while older other-unit history exists', () => {
+  const panels = [panel('new', '2026-09-01', [result({ id: 'new', biomarker_name: 'TESTOSTERONE, FREE', value: 18, unit: 'pg/mL' })]),
+    panel('old', '2026-08-01', [result({ id: 'old', biomarker_name: 'Free Testosterone', value: 2, unit: 'ng/dL' })]),
+    panel('earlier', '2026-07-01', [result({ id: 'earlier', biomarker_name: 'Testosterone, Free', value: 1, unit: 'ng/dL' })])]
+  const histories = biomarkerHistories(panels), history = histories[0]
+  assert.equal(histories.length, 1); assert.equal(history.panelCount, 3); assert.equal(history.units.length, 2)
+  const newest = history.units.find(group => group.unit === 'pg/mL'), prior = history.units.find(group => group.unit === 'ng/dL')
+  assert.equal(newest.observations.length, 1); assert.equal(intelligence.compareLatest(newest.observations), null)
+  assert.equal(prior.observations.length, 2); assert.equal(intelligence.trendChart(prior.observations).points.length, 2)
+  const React = require('react'), View = load('../components/health/LabInsights.tsx').default
+  const html = require('react-dom/server').renderToStaticMarkup(React.createElement(View, { panels, histories }))
+  assert.match(html, /TESTOSTERONE, FREE/); assert.match(html, /18 pg\/mL · 1 readings/); assert.match(html, /No comparable prior result/)
+})
+test('Free Testosterone method-qualified names are not merged by guesswork', () => {
+  for (const name of ['Free Testosterone (Direct)', 'Testosterone, Free, Dialysis']) assert.notEqual(intelligence.classifyBiomarker(name).key, 'testosterone-free')
+})
+test('Free Testosterone percentage and mass-concentration results remain separate unit series', () => {
+  const histories = biomarkerHistories([panel('old', '2026-08-01', [result({ id: 'old', biomarker_name: 'Free Testosterone %', unit: '%' })]),
+    panel('new', '2026-09-01', [result({ id: 'new', biomarker_name: 'TESTOSTERONE, FREE', unit: 'pg/mL' })])])
+  assert.equal(histories[0].units.length, 2)
+  assert.ok(histories[0].units.every(group => intelligence.compareLatest(group.observations) === null))
+})
+test('Free Testosterone same-day ambiguity prevents comparison but does not reduce the stored reading count', () => {
+  const rows = observations({ biomarker_name: 'TESTOSTERONE, FREE', unit: 'pg/mL' }, { biomarker_name: 'Free Testosterone', unit: 'pg/mL' })
+  rows.push({ ...rows[0], result: { ...rows[0].result, id: 'another', value: 14 } })
+  assert.equal(rows.length, 3); assert.equal(intelligence.compareLatest(rows), null)
+  assert.ok(intelligence.labTrajectory(rows).limitations.includes('conflicting_same_day'))
+})
 test('Estradiol and sensitive Estradiol remain separate', () => assert.notEqual(intelligence.classifyBiomarker('Estradiol').key, intelligence.classifyBiomarker('Sensitive Estradiol').key))
 test('LDL-C and LDL particle number remain separate', () => assert.notEqual(intelligence.classifyBiomarker('LDL-C').key, intelligence.classifyBiomarker('LDL Particle Number').key))
 test('known marker receives its category', () => assert.equal(intelligence.classifyBiomarker('Creatinine').category, 'Kidney'))

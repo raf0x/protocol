@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import type { LongitudinalObservation, LongitudinalResult, Measurement } from '../../lib/health/longitudinal/types'
 import { comparableLabObservations, protocolChangeOptions, protocolChangeUrl } from '../../lib/health/longitudinal/presentation'
 import { formatTimelineDate } from '../../lib/health/timeline'
@@ -19,7 +19,6 @@ function Reading({ row }: { row: Measurement }) {
 }
 
 export default function LongitudinalChanges() {
-  const router = useRouter()
   const query = useSearchParams()
   const changeId = query.get('change') || ''
   const [result, setResult] = useState<LongitudinalResult | null>(null)
@@ -44,7 +43,12 @@ export default function LongitudinalChanges() {
       <p className={styles.caption}>Nearest baseline within {result.window.baselineDays} days before each update; follow-up {result.window.followupStartDays}–{result.window.followupEndDays} days afterward, through {formatTimelineDate(result.asOf)}. These are comparison windows, not expected medication response times.</p>
     </div>
     <div className={styles.form}><label htmlFor="protocol-change">Protocol change
-      <select id="protocol-change" value={changeId} onChange={event => router.push(protocolChangeUrl(query.toString(), event.target.value), { scroll: false })}>
+      <select id="protocol-change" value={changeId} onChange={event => {
+        // This filters already-loaded data. Next's native History integration
+        // updates useSearchParams without waiting for a server navigation.
+        // Push (not replace) preserves Back/Forward between selections.
+        window.history.pushState(null, '', protocolChangeUrl(window.location.search, event.target.value))
+      }}>
         <option value="">All changes</option>
         {unavailable && <option value={changeId}>Unavailable protocol change</option>}
         {options.map(item => <option key={item.id} value={item.id}>{item.title} · {formatTimelineDate(item.date)}</option>)}

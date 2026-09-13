@@ -370,7 +370,8 @@ test('rendered selected change hides other comparison cards', () => {
 test('pagination resets through the URL-keyed list, while the selector and periods stay mounted', () => {
   const ui = readFileSync(new URL('../components/health/LongitudinalChanges.tsx', import.meta.url), 'utf8')
   assert.match(ui, /<ObservationList key=\{changeId\}/)
-  assert.match(ui, /router\.push\(protocolChangeUrl\(query\.toString\(\), event\.target\.value\), \{ scroll: false \}\)/)
+  assert.match(ui, /window\.history\.pushState\(null, '', protocolChangeUrl\(window\.location\.search, event\.target\.value\)\)/)
+  assert.ok(!ui.includes('router.push('))
   assert.match(ui.slice(ui.indexOf('export function ObservationList')), /useState\(8\)/)
   assert.ok(!ui.slice(ui.indexOf('export function ObservationList')).includes('Derived health periods'))
 })
