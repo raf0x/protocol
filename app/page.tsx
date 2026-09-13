@@ -174,8 +174,8 @@ export default function Home() {
           <div className={styles.previewImageWrap}>
             <Image
               src="/protocol.png"
-              width={1151}
-              height={2265}
+              width={1206}
+              height={2418}
               sizes="(max-width: 720px) 88vw, 430px"
               priority
               alt="MyPepProtocol daily dashboard with active protocol rings and health tracking"
