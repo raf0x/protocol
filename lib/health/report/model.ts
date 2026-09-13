@@ -1,9 +1,13 @@
 import { compareLatest, statusIsFlagged } from '../biomarkerIntelligence'
 import { biomarkerHistories, labReference, labValue } from '../labs'
-import { contextAtDate, overlayMarkers } from '../protocolOverlay'
+import { overlayMarkers } from '../protocolOverlay'
 import type { AnalystSourceData } from '../analyst/evidence'
 import type { DoctorReport, ReportRange } from './types'
 import { labComparisonSummary, labLimitations } from '../labEvidence'
+
+import { healthStateAtDate } from '../longitudinal/history'
+import { numberLabel } from '../longitudinal/dates'
+import { buildReportIntelligence } from './intelligence'
 
 const dayDistance = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000)
 export function reportStartDate(range: ReportRange, today: string) {
@@ -23,10 +27,14 @@ const periodLabel = (range: ReportRange, start: string | null, today: string) =>
 
 export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, today: string): DoctorReport {
   const data = filterReportSource(input, range, today), start = reportStartDate(range, today)
-  const currentProtocols = data.protocols.filter(protocol => protocol.status === 'active').flatMap(protocol => contextAtDate(protocol, today, input.protocolEvents).map(state => ({
-    name: state.compoundName, dose: state.confirmed ? state.dose : 'Dose not confirmed', frequency: state.frequency, route: state.route,
-    startDate: protocol.start_date?.slice(0, 10) ?? null, status: 'Active', verified: state.confirmed,
-  }))).sort((a, b) => a.name.localeCompare(b.name))
+  const currentState = healthStateAtDate(input, today)
+  const protocolsById = new Map(input.protocols.map(protocol => [protocol.id, protocol]))
+  const currentProtocols = currentState.map(state => ({
+    name: state.name, dose: state.medication ? `${numberLabel(state.medication.value)} ${state.medication.unit}` : 'Dose not confirmed',
+    frequency: state.frequency, route: state.route,
+    startDate: protocolsById.get(state.protocolId)?.start_date?.slice(0, 10) ?? null,
+    status: 'Active', verified: Boolean(state.medication),
+  })).sort((a, b) => a.name.localeCompare(b.name))
 
   const rawEvents = new Map(input.protocolEvents.map(event => [`event:${event.id}`, event]))
   const protocolHistory = overlayMarkers(data.protocols, data.protocolEvents).filter(marker => (!start || marker.date >= start) && marker.date <= today).map(marker => {
@@ -84,5 +92,6 @@ export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, 
   if (range === 'all' && (input.protocolEvents.length >= 1000 || input.journal.length >= 1000 || input.protocols.length >= 250)) limitations.push('The account reached a report loading limit. The oldest protocol or journal history may not be included.')
 
   return { generatedAt: new Date().toISOString(), asOfDate: today, range, periodLabel: periodLabel(range, start, today), currentProtocols,
-    protocolHistory, labPanels, highlightedResults, trends, weight, journal, protocolLabContext, limitations }
+    protocolHistory, labPanels, highlightedResults, trends, weight, journal, protocolLabContext, limitations,
+    intelligence: buildReportIntelligence(input, panels, histories, currentState, start, today) }
 }
