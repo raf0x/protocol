@@ -285,7 +285,7 @@ test('recorded changes are stable when source order changes', () => {
   assert.deepEqual(run(data), run(shuffled))
 })
 
-const { comparableLabObservations, protocolChangeOptions, protocolChangeUrl } = load('../lib/health/longitudinal/presentation.ts')
+const { comparableLabObservations, protocolChangeOptions, protocolChangeUrl, protocolChangesUrl } = load('../lib/health/longitudinal/presentation.ts')
 test('numeric labs are included with their original result provenance', () => {
   const rows = normalizeMeasurements(source(), '2026-05-01')
   assert.equal(rows.length, 2); assert.ok(rows.every(row => row.type === 'lab' && row.source.table === 'lab_results'))
@@ -329,6 +329,14 @@ test('URL selection round-trips encoded IDs and preserves other query parameters
   assert.equal(url.pathname, '/health'); assert.equal(url.searchParams.get('change'), id); assert.equal(url.searchParams.get('other'), 'value')
   assert.equal(new URL(protocolChangeUrl(url.search, ''), url.origin).searchParams.has('change'), false)
 })
+test('treatment URL state preserves exact keys and clears stale change refinement', () => {
+  const key = 't1:["protocol:one","compound:one"]'
+  const url = new URL(protocolChangesUrl('view=changes&change=stale&other=kept', key), 'https://example.test')
+  assert.equal(url.searchParams.get('treatment'), key); assert.equal(url.searchParams.has('change'), false)
+  assert.equal(url.searchParams.get('other'), 'kept')
+  const refined = new URL(protocolChangesUrl(url.search, key, 'event:exact'), url.origin)
+  assert.equal(refined.searchParams.get('change'), 'event:exact')
+})
 test('unknown linked selection does not silently display all observations', () => assert.equal(comparableLabObservations(twoChanges().observations, 'missing-id').length, 0))
 test('empty series cannot displace comparable labs under the response cap', () => {
   const extra = Array.from({ length: 210 }, (_, index) => panel(`gap-${index}`, '2026-01-31', 10, 'mg/dL', { biomarker_name: `Fictional marker ${index}` }))
@@ -369,8 +377,9 @@ test('rendered selected change hides other comparison cards', () => {
 })
 test('pagination resets through the URL-keyed list, while the selector and periods stay mounted', () => {
   const ui = readFileSync(new URL('../components/health/LongitudinalChanges.tsx', import.meta.url), 'utf8')
-  assert.match(ui, /<ObservationList key=\{changeId\}/)
-  assert.match(ui, /window\.history\.pushState\(null, '', protocolChangeUrl\(window\.location\.search, event\.target\.value\)\)/)
+  assert.match(ui, /<ObservationList key=\{`\$\{effectiveTreatmentKey\}:\$\{changeId\}`\}/)
+  assert.equal((ui.match(/window\.history\.pushState/g) || []).length, 2)
+  assert.match(ui, /protocolChangesUrl\(window\.location\.search, selectedTreatment\?\.key \?\? '', event\.target\.value\)/)
   assert.ok(!ui.includes('router.push('))
   assert.match(ui.slice(ui.indexOf('export function ObservationList')), /useState\(8\)/)
   assert.ok(!ui.slice(ui.indexOf('export function ObservationList')).includes('Derived health periods'))

@@ -25,8 +25,13 @@ function load(path, overrides, cache = new Map()) {
 // Fictional, distinct interventions intentionally share a title. Selection must
 // use the exact ID, including encoded punctuation, rather than the display name.
 const firstId = 'event:first', secondId = 'phase:second:2026-01-12:dose_changed'
-const intervention = (id, date) => ({ id, date, title: 'Example protocol started', sources: [], limitations: [] })
-const interventions = [intervention(firstId, '2026-01-10'), intervention(secondId, '2026-01-12'), intervention('event:empty', '2026-02-01')]
+const firstTreatmentKey = 't1:["protocol:first","compound:first"]'
+const secondTreatmentKey = 't1:["protocol:second","compound:second"]'
+const intervention = (id, date, protocolId, compoundId) => ({ id, date, protocolId, compoundId, phaseId: null, kind: 'started',
+  treatmentName: 'Example protocol', title: 'Example protocol started', sources: [], limitations: [] })
+const interventions = [intervention(firstId, '2026-01-10', 'protocol:first', 'compound:first'),
+  intervention(secondId, '2026-01-12', 'protocol:second', 'compound:second'),
+  intervention('event:empty', '2026-02-01', 'protocol:empty', 'compound:empty')]
 const observation = (change, i) => {
   const reading = (id, date, value) => ({ id, date, value, unit: 'mg/dL', type: 'lab', source: { parentId: 'fictional-panel', label: 'Fictional panel' } })
   return { id: `${change.id}:${i}`, intervention: change, metric: { name: `Fictional marker ${i}`, unit: 'mg/dL' },
@@ -85,7 +90,9 @@ function mount(t, initial = '/health?view=changes') {
   }
   const nodes = type => render().filter(node => node.type === type)
   return { nodes, navigation, pushes, url: () => entries[cursor], history,
-    select(value) { nodes('select')[0].props.onChange({ target: { value } }) },
+    select(value) { nodes('select').find(node => node.props.id === 'protocol-change').props.onChange({ target: { value } }) },
+    selectTreatment(value) { nodes('select').find(node => node.props.id === 'protocol-treatment').props.onChange({ target: { value } }) },
+    selected(id) { return nodes('select').find(node => node.props.id === id).props.value },
     more() { nodes('button').find(node => node.props.children === 'Show more recorded comparisons').props.onClick() },
     refresh() { states = new Map(); mountedScopes = new Set(); render() },
   }
@@ -95,7 +102,7 @@ test('actual select filters immediately even while server navigation cannot comp
   const app = mount(t)
   app.select(secondId)
   assert.equal(app.url().searchParams.get('change'), secondId)
-  assert.equal(app.nodes('select')[0].props.value, secondId)
+  assert.equal(app.selected('protocol-change'), secondId)
   assert.ok(app.nodes('article').every(node => node.key.startsWith(secondId)))
   assert.equal(app.navigation.length, 0, 'filtering loaded data must not request a server navigation')
 })
@@ -112,19 +119,20 @@ test('selection round-trips exact IDs and preserves unrelated search parameters'
 })
 test('refresh preserves a selected change', t => {
   const app = mount(t); app.select(secondId); app.refresh()
-  assert.equal(app.nodes('select')[0].props.value, secondId)
+  assert.equal(app.selected('protocol-change'), secondId)
+  assert.equal(app.selected('protocol-treatment'), secondTreatmentKey)
   assert.ok(app.nodes('article').every(node => node.key.startsWith(secondId)))
 })
 test('Back and Forward restore both selection and cards', t => {
   const app = mount(t); app.select(firstId); app.select(secondId); app.history.back()
-  assert.equal(app.nodes('select')[0].props.value, firstId)
+  assert.equal(app.selected('protocol-change'), firstId)
   assert.ok(app.nodes('article').every(node => node.key.startsWith(firstId)))
-  app.history.forward(); assert.equal(app.nodes('select')[0].props.value, secondId)
+  app.history.forward(); assert.equal(app.selected('protocol-change'), secondId)
   assert.ok(app.nodes('article').every(node => node.key.startsWith(secondId)))
 })
 test('unknown linked ID renders zero cards, not All changes', t => {
   const app = mount(t, '/health?view=changes&change=unknown')
-  assert.equal(app.nodes('select')[0].props.value, 'unknown'); assert.equal(app.nodes('article').length, 0)
+  assert.equal(app.selected('protocol-change'), 'unknown'); assert.equal(app.nodes('article').length, 0)
   assert.ok(app.nodes('h3').some(node => node.props.children === 'This protocol change is not available in the loaded history.'))
 })
 test('known change without comparable labs produces one empty state', t => {
@@ -136,12 +144,13 @@ test('selection and history navigation reset Show more pagination', t => {
   const app = mount(t); app.more(); assert.equal(app.nodes('article').length, 16)
   app.select(firstId); assert.equal(app.nodes('article').length, 8)
   app.more(); assert.equal(app.nodes('article').length, 10)
-  app.select(secondId); assert.equal(app.nodes('article').length, 8)
+  app.selectTreatment(secondTreatmentKey); assert.equal(app.nodes('article').length, 8)
   app.history.back(); assert.equal(app.nodes('article').length, 8)
 })
-test('switching back to All changes removes the URL filter and restores all groups', t => {
-  const app = mount(t); app.select(secondId); app.select('')
-  assert.equal(app.url().searchParams.has('change'), false); assert.equal(app.nodes('select')[0].props.value, '')
+test('switching back to All treatments removes both URL filters and restores all groups', t => {
+  const app = mount(t); app.select(secondId); app.selectTreatment('')
+  assert.equal(app.url().searchParams.has('treatment'), false); assert.equal(app.url().searchParams.has('change'), false)
+  assert.equal(app.selected('protocol-treatment'), ''); assert.equal(app.selected('protocol-change'), '')
   app.more(); app.more(); assert.equal(app.nodes('article').length, 20)
 })
 test('identically named interventions remain separate options and selections', t => {
@@ -149,4 +158,21 @@ test('identically named interventions remain separate options and selections', t
   assert.ok(app.nodes('option').some(node => node.props.value === firstId))
   assert.ok(app.nodes('option').some(node => node.props.value === secondId))
   app.select(firstId); assert.ok(app.nodes('article').every(node => node.key.startsWith(firstId)))
+})
+test('treatment is the primary filter and individual change is an optional refinement', t => {
+  const app = mount(t); app.selectTreatment(firstTreatmentKey)
+  assert.equal(app.url().searchParams.get('treatment'), firstTreatmentKey)
+  assert.equal(app.url().searchParams.has('change'), false)
+  assert.equal(app.selected('protocol-treatment'), firstTreatmentKey)
+  assert.ok(app.nodes('article').every(node => node.key.startsWith(firstId)))
+  const changeOptions = app.nodes('select').find(node => node.props.id === 'protocol-change').props.children.flat(Infinity).filter(React.isValidElement)
+  assert.ok(changeOptions.some(option => option.props.value === firstId))
+  assert.ok(!changeOptions.some(option => option.props.value === secondId))
+})
+test('treatment Back and Forward restore the exact episode', t => {
+  const app = mount(t); app.selectTreatment(firstTreatmentKey); app.selectTreatment(secondTreatmentKey); app.history.back()
+  assert.equal(app.selected('protocol-treatment'), firstTreatmentKey)
+  assert.ok(app.nodes('article').every(node => node.key.startsWith(firstId)))
+  app.history.forward(); assert.equal(app.selected('protocol-treatment'), secondTreatmentKey)
+  assert.ok(app.nodes('article').every(node => node.key.startsWith(secondId)))
 })

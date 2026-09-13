@@ -3,6 +3,24 @@ import type { TimelineEvent } from './timeline'
 
 export const timelineFilters = ['All', 'Protocols', 'Weight', 'Journal', 'Labs'] as const
 export type TimelineFilter = typeof timelineFilters[number]
+const timelineFilterParams: Record<TimelineFilter, string> = { All: '', Protocols: 'protocols', Weight: 'weight', Journal: 'journal', Labs: 'labs' }
+
+export function timelineFilterFromParam(value: string | null): TimelineFilter {
+  return timelineFilters.find(filter => timelineFilterParams[filter] === value) ?? 'All'
+}
+
+/** Preserve unrelated query state and use native History for synchronous,
+ * client-only filtering. A treatment selection always implies Protocols. */
+export function timelineFilterUrl(query: string, filter: TimelineFilter, treatmentKey = '') {
+  const params = new URLSearchParams(query)
+  const effectiveFilter = treatmentKey ? 'Protocols' : filter
+  if (effectiveFilter === 'All') params.delete('category')
+  else params.set('category', timelineFilterParams[effectiveFilter])
+  if (treatmentKey) params.set('treatment', treatmentKey)
+  else params.delete('treatment')
+  const suffix = params.toString()
+  return suffix ? `/timeline?${suffix}` : '/timeline'
+}
 
 /** Presentation only. Compare with a strictly earlier calendar day; ambiguous
  * multiple weights on that day are not given an invented ordering. */
@@ -63,10 +81,16 @@ export function timelineTreatmentOptions(events: readonly TimelineEvent[]) {
       const value = compound ? event.metadata?.compoundName : group.identity.compoundId === null ? event.metadata?.protocolName : null
       return typeof value === 'string' && value.trim() ? [value.trim()] : []
     }).sort()
+    const recordedStarts = group.items.flatMap(event => {
+      const value = event.metadata?.protocolStartDate
+      return typeof value === 'string' && value ? [value] : []
+    }).sort()
+    const eventDates = group.items.map(event => event.date.slice(0, 10)).filter(Boolean).sort()
     return { key: group.key, identity: group.identity, scope: treatmentScope(group.identity),
       label: labels[0] ?? (group.identity.compoundId === null ? 'Recorded protocol' : 'Recorded compound'),
+      startedAt: recordedStarts[0] ?? eventDates[0] ?? null,
       eventIds: [...new Set(group.items.map(event => event.id))].sort() }
-  })
+  }).sort((a, b) => a.label.localeCompare(b.label) || (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.key.localeCompare(b.key))
 }
 
 /** Build once from the full collection, then use with Array.filter. Null means

@@ -20,6 +20,18 @@ export function protocolChangeUrl(query: string, changeId: string) {
   return `/health?${params.toString()}`
 }
 
+/** Primary treatment selection with optional event refinement. Changing the
+ * treatment clears an incompatible event; unrelated query state is retained. */
+export function protocolChangesUrl(query: string, treatmentKey: string, changeId = '') {
+  const params = new URLSearchParams(query)
+  params.set('view', 'changes')
+  if (treatmentKey) params.set('treatment', treatmentKey)
+  else params.delete('treatment')
+  if (changeId) params.set('change', changeId)
+  else params.delete('change')
+  return `/health?${params.toString()}`
+}
+
 export function interventionTreatmentIdentity(item: Intervention): TreatmentIdentity | null {
   return treatmentIdentity(item.protocolId, item.compoundId)
 }
@@ -28,10 +40,12 @@ export function longitudinalTreatmentOptions(interventions: readonly Interventio
   return groupTreatments(interventions, interventionTreatmentIdentity).map(group => {
     const labels = group.items.filter(item => item.compoundId === group.identity.compoundId)
       .flatMap(item => item.treatmentName?.trim() ? [item.treatmentName.trim()] : []).sort()
+    const dates = group.items.map(item => item.date.slice(0, 10)).filter(Boolean).sort()
     return { key: group.key, identity: group.identity, scope: treatmentScope(group.identity),
       label: labels[0] ?? (group.identity.compoundId === null ? 'Recorded protocol' : 'Recorded compound'),
+      startedAt: dates[0] ?? null,
       interventionIds: [...new Set(group.items.map(item => item.id))].sort() }
-  })
+  }).sort((a, b) => a.label.localeCompare(b.label) || (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.key.localeCompare(b.key))
 }
 
 /** Refine existing change options without changing their IDs, order, or URL

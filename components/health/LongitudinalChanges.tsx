@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import type { LongitudinalObservation, LongitudinalResult, Measurement } from '../../lib/health/longitudinal/types'
-import { comparableLabObservations, protocolChangeOptions, protocolChangeUrl } from '../../lib/health/longitudinal/presentation'
+import { comparableLabObservations, longitudinalTreatmentOptions, protocolChangeOptions, protocolChangesUrl, treatmentProtocolChangeOptions } from '../../lib/health/longitudinal/presentation'
+import { parseTreatmentIdentityKey } from '../../lib/health/protocolIdentity'
 import { formatTimelineDate } from '../../lib/health/timeline'
 import styles from '../../app/health/health.module.css'
 
@@ -35,26 +36,53 @@ export default function LongitudinalChanges() {
   }, [attempt])
   if (error) return <section className={styles.card} role="alert"><h2>History unavailable</h2><p>{error}</p><button type="button" onClick={() => { setError(''); setAttempt(value => value + 1) }}>Try again</button><Link className={styles.textLink} href="/auth/login">Sign in</Link></section>
   if (!result) return <p role="status">Matching recorded changes and measurements…</p>
-  const options = protocolChangeOptions(result.interventions)
-  const unavailable = Boolean(changeId && !options.some(item => item.id === changeId))
+  const allChanges = protocolChangeOptions(result.interventions)
+  const treatments = longitudinalTreatmentOptions(result.interventions)
+  const hasTreatmentQuery = query.has('treatment')
+  const requestedTreatmentKey = query.get('treatment') ?? ''
+  const requestedTreatment = hasTreatmentQuery ? parseTreatmentIdentityKey(requestedTreatmentKey) : null
+  const linkedTreatment = !hasTreatmentQuery && allChanges.some(item => item.id === changeId)
+    ? treatments.find(item => item.interventionIds.includes(changeId)) : undefined
+  const effectiveTreatmentKey = hasTreatmentQuery ? requestedTreatmentKey : linkedTreatment?.key ?? ''
+  const selectedTreatment = treatments.find(item => item.key === effectiveTreatmentKey)
+  const treatmentUnavailable = hasTreatmentQuery && (!requestedTreatment || !selectedTreatment)
+  const changes = treatmentUnavailable ? [] : treatmentProtocolChangeOptions(result.interventions, selectedTreatment?.identity ?? null)
+  const changeUnavailable = Boolean(changeId && !changes.some(item => item.id === changeId))
+  const changeIds = new Set(changes.map(item => item.id))
+  const observations = treatmentUnavailable || changeUnavailable ? [] : changeId
+    ? comparableLabObservations(result.observations, changeId)
+    : selectedTreatment ? comparableLabObservations(result.observations).filter(item => changeIds.has(item.intervention.id))
+      : comparableLabObservations(result.observations)
+  const repeatedLabels = new Set(treatments.filter((item, index) => treatments.findIndex(other => other.label === item.label) !== index).map(item => item.label))
+  const selection = treatmentUnavailable ? 'treatment' : changeId ? 'change' : selectedTreatment ? 'treatment' : 'all'
   return <section aria-labelledby="longitudinal-heading">
     <div className={styles.card}><span className={styles.eyebrow}>Recorded patterns · No AI needed</span><h2 id="longitudinal-heading">Changes following protocol updates</h2>
       <p>Lab biomarkers measured before and afterward, with the dates and other changes that matter. This shows timing, not what caused a change.</p>
       <p className={styles.caption}>Nearest baseline within {result.window.baselineDays} days before each update; follow-up {result.window.followupStartDays}–{result.window.followupEndDays} days afterward, through {formatTimelineDate(result.asOf)}. These are comparison windows, not expected medication response times.</p>
     </div>
-    <div className={styles.form}><label htmlFor="protocol-change">Protocol change
-      <select id="protocol-change" value={changeId} onChange={event => {
-        // This filters already-loaded data. Next's native History integration
-        // updates useSearchParams without waiting for a server navigation.
-        // Push (not replace) preserves Back/Forward between selections.
-        window.history.pushState(null, '', protocolChangeUrl(window.location.search, event.target.value))
-      }}>
-        <option value="">All changes</option>
-        {unavailable && <option value={changeId}>Unavailable protocol change</option>}
-        {options.map(item => <option key={item.id} value={item.id}>{item.title} · {formatTimelineDate(item.date)}</option>)}
-      </select>
-    </label></div>
-    <ObservationList key={changeId} observations={comparableLabObservations(result.observations, changeId)} selected={Boolean(changeId)} unavailable={unavailable} />
+    <div className={styles.form}>
+      <label htmlFor="protocol-treatment">Treatment
+        <select id="protocol-treatment" value={treatmentUnavailable ? '__unavailable__' : effectiveTreatmentKey} onChange={event => {
+          window.history.pushState(null, '', protocolChangesUrl(window.location.search, event.target.value))
+        }}>
+          <option value="">All treatments</option>
+          {treatmentUnavailable && <option value="__unavailable__">Unavailable treatment</option>}
+          {treatments.map(item => <option key={item.key} value={item.key}>{item.label}{repeatedLabels.has(item.label) && item.startedAt ? ` · ${formatTimelineDate(item.startedAt)}` : ''}</option>)}
+        </select>
+      </label>
+      <label htmlFor="protocol-change">Specific change <small>Optional</small>
+        <select id="protocol-change" value={changeId} disabled={treatmentUnavailable} onChange={event => {
+          // Native History updates useSearchParams synchronously and preserves
+          // Back/Forward without refetching the already-loaded evidence.
+          window.history.pushState(null, '', protocolChangesUrl(window.location.search, selectedTreatment?.key ?? '', event.target.value))
+        }}>
+          <option value="">{selectedTreatment ? `All ${selectedTreatment.label} changes` : 'All changes'}</option>
+          {changeUnavailable && <option value={changeId}>Unavailable protocol change</option>}
+          {changes.map(item => <option key={item.id} value={item.id}>{item.title} · {formatTimelineDate(item.date)}</option>)}
+        </select>
+      </label>
+    </div>
+    <ObservationList key={`${effectiveTreatmentKey}:${changeId}`} observations={observations} selection={selection} unavailable={treatmentUnavailable ? 'treatment' : changeUnavailable ? 'change' : null} />
     <details className={styles.trend}><summary><strong>Derived health periods</strong><span>Regimen at each recorded boundary, not an administration log</span></summary>
       {result.versions.slice().reverse().map(version => <div key={version.id} className={styles.trendGroup}><h3>{version.start} → {version.endExclusive ? `${version.endExclusive} (exclusive)` : `${result.asOf} (through today)`}</h3>
         <p className={styles.secondary}>{version.measurementIds.length} lab measurements recorded in this period.</p>
@@ -67,11 +95,11 @@ export default function LongitudinalChanges() {
 
 // A changed URL key remounts only this list, resetting pagination for selection
 // and browser back/forward while keeping focus on the persistent select.
-export function ObservationList({ observations, selected, unavailable = false }: { observations: LongitudinalObservation[]; selected: boolean; unavailable?: boolean }) {
+export function ObservationList({ observations, selection, unavailable = null }: { observations: LongitudinalObservation[]; selection: 'all' | 'treatment' | 'change'; unavailable?: 'treatment' | 'change' | null }) {
   const [visible, setVisible] = useState(8)
   if (!observations.length) return <div className={styles.card} role="status">
-    <h3>{unavailable ? 'This protocol change is not available in the loaded history.' : selected ? 'No comparable lab changes were recorded around this protocol update.' : 'No comparable lab changes recorded yet.'}</h3>
-    <p>{selected ? 'Lab measurements need a comparable result before and after the selected change.' : 'Lab measurements need comparable results before and after a recorded protocol change.'}</p>
+    <h3>{unavailable === 'treatment' ? 'This treatment is not available in the loaded history.' : unavailable === 'change' ? 'This protocol change is not available in the loaded history.' : selection === 'change' ? 'No comparable lab changes were recorded around this protocol update.' : selection === 'treatment' ? 'No comparable lab changes were recorded for this treatment.' : 'No comparable lab changes recorded yet.'}</h3>
+    <p>{selection === 'change' ? 'Lab measurements need a comparable result before and after the selected change.' : selection === 'treatment' ? 'Lab measurements need comparable results before and after a recorded change for this treatment.' : 'Lab measurements need comparable results before and after a recorded protocol change.'}</p>
     <Link className={styles.textLink} href="/timeline">View recorded history</Link>
   </div>
   return <>

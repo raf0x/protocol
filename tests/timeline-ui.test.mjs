@@ -27,7 +27,7 @@ function load(path) {
   cache.set(url.href, compiled.exports)
   return compiled.exports
 }
-const { weightComparisons, journalPresentation, eventTime } = load('../lib/health/timelinePresentation.ts')
+const { weightComparisons, journalPresentation, eventTime, timelineFilterFromParam, timelineFilterUrl } = load('../lib/health/timelinePresentation.ts')
 const { TimelineEventCard } = load('../components/timeline/TimelineHistory.tsx')
 const Filters = load('../components/timeline/TimelineFilters.tsx').default
 const Empty = load('../components/timeline/TimelineEmpty.tsx').default
@@ -55,11 +55,27 @@ test('calendar-only dates never get fabricated times', () => {
   assert.equal(eventTime('2026-09-08'), null)
   assert.equal(eventTime('invalidTdate'), null)
 })
+test('Timeline URL filters preserve unrelated state and treatment implies Protocols', () => {
+  const key = 't1:["protocol:one","compound:one"]'
+  const url = new URL(timelineFilterUrl('other=kept&category=labs', 'All', key), 'https://example.test')
+  assert.equal(url.pathname, '/timeline'); assert.equal(url.searchParams.get('other'), 'kept')
+  assert.equal(url.searchParams.get('category'), 'protocols'); assert.equal(url.searchParams.get('treatment'), key)
+  assert.equal(timelineFilterFromParam(url.searchParams.get('category')), 'Protocols')
+  const cleared = new URL(timelineFilterUrl(url.search, 'All'), url.origin)
+  assert.equal(cleared.searchParams.has('category'), false); assert.equal(cleared.searchParams.has('treatment'), false)
+})
 test('all five accessible filter controls remain with one selected', () => {
-  const html = render(Filters, { value: 'Weight', onChange() {} })
+  const html = render(Filters, { value: 'Weight', treatments: [{ key: 't1:["p","c"]', label: 'Tirzepatide', startedAt: '2026-01-01' }], onChange() {} })
   assert.equal((html.match(/<button/g) || []).length, 5)
   assert.equal((html.match(/aria-pressed="true"/g) || []).length, 1)
   for (const label of ['All', 'Protocols', 'Weight', 'Journal', 'Labs']) assert.ok(html.includes(label))
+  assert.match(html, /<label[^>]*for="timeline-treatment"/); assert.match(html, /<select[^>]*id="timeline-treatment"/)
+  assert.ok(html.includes('All treatments')); assert.ok(html.includes('Tirzepatide'))
+})
+test('Timeline page reads both filters from URL state and uses native History', () => {
+  const ui = readFileSync(new URL('../app/timeline/page.tsx', import.meta.url), 'utf8')
+  assert.match(ui, /useSearchParams\(\)/); assert.match(ui, /query\.get\('category'\)/); assert.match(ui, /query\.get\('treatment'\)/)
+  assert.equal((ui.match(/window\.history\.pushState/g) || []).length, 2)
 })
 test('protocol cards retain original event title and identify mutable saved-plan context', () => {
   const html = render(TimelineEventCard, { event: { id: 'p', date: '2026-09-08', title: 'Plan dose changed', category: 'Protocol', description: 'Recorded change', metadata: { dose: 3, doseUnit: 'mg', protocolId: 'different-id' } } })
