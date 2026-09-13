@@ -209,6 +209,7 @@ test('evidence disclosure contains current and previous deterministic values', (
 test('rendered summary never exposes raw result or panel ids', () => {
   const p = sameMarkerPanels([['secret-old-panel', '2026-08-01', 10], ['secret-new-panel', '2026-09-01', 12]], { reference_high: 100, status: 'normal' })
   const rendered = html(p)
+  assert.doesNotMatch(rendered, /secret-old-panel|secret-new-panel|result-\d+/)
   assert.doesNotMatch(treeJson(view(p)), /secret-old-panel|secret-new-panel|result-\d+/)
 })
 
@@ -248,10 +249,12 @@ test('multiple findings retain the responsive two-column desktop layout', () => 
   assert.match(css, /\.panelList, \.findingsList \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/)
 })
 
-test('LabInsights places What Changed before existing summary and detail surfaces', () => {
-  const source = readFileSync(new URL('../components/health/LabInsights.tsx', import.meta.url), 'utf8')
-  const findings = source.indexOf('<LabFindingsSummary')
-  const summary = source.indexOf('className={styles.summaryGrid}')
-  const categories = source.indexOf('By category')
-  assert.ok(findings >= 0 && findings < summary && summary < categories)
+test('the single findings section moves into the briefing before existing lab details', () => {
+  const dashboard = readFileSync(new URL('../components/health/HealthDashboard.tsx', import.meta.url), 'utf8')
+  const insights = readFileSync(new URL('../components/health/LabInsights.tsx', import.meta.url), 'utf8')
+  const briefing = readFileSync(new URL('../components/health/HealthBriefing.tsx', import.meta.url), 'utf8')
+  assert.ok(dashboard.indexOf('<HealthBriefing') < dashboard.indexOf('<LabInsights'))
+  assert.equal((briefing.match(/<LabFindingsSummary /g) || []).length, 1)
+  assert.ok(!insights.includes('LabFindingsSummary'))
+  assert.ok(insights.indexOf('className={styles.summaryGrid}') < insights.indexOf('By category'))
 })

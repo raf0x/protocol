@@ -191,3 +191,21 @@
 @media (prefers-reduced-motion: reduce) { .analystStatus span { animation: none; } }
 @media (max-width: 359px) { .fieldGrid { grid-template-columns: minmax(0, 1fr); } }
 @media (min-width: 640px) { .page { padding-inline: var(--app-space-lg); } .panelList, .findingsList { grid-template-columns: repeat(2, minmax(0, 1fr)); } .findingsList[data-count='1'] { grid-template-columns: minmax(0, 1fr); } .summaryGrid { grid-template-columns: 1.5fr repeat(3, minmax(0, 1fr)); } .summaryGrid .summaryLead { grid-column: auto; } .categoryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Briefing composes the existing Health cards; detailed Labs stay below it. */
+.briefing { min-width: 0; max-width: 100%; margin-bottom: var(--app-space-xl); padding-bottom: var(--app-space-md); border-bottom: 1px solid var(--app-border); }
+.briefing > .sectionHeading { margin-top: 0; flex-wrap: wrap; }
+.briefing .sectionHeading { margin-block: var(--app-space-md) var(--app-space-sm); }
+.briefing .sectionHeading h3, .briefingSection h3 { margin: 0; font-size: var(--app-font-name); font-weight: 650; color: var(--app-text); }
+.briefing .rowHeading h4 { margin: 0; font-size: var(--app-font-name); font-weight: 600; }
+.briefingSource { display: block; color: var(--app-muted); }
+.briefingSection { min-width: 0; margin-top: var(--app-space-md); }
+.briefingRows { list-style: none; padding: 0; margin: var(--app-space-sm) 0 0; }
+.briefingRows li { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-xs); padding-block: var(--app-space-sm); border-top: 1px solid var(--app-border); overflow-wrap: anywhere; }
+.briefingRows strong { font-size: var(--app-font-body); font-weight: 600; color: var(--app-text); }
+.briefingRows span, .briefingRows time { color: var(--app-secondary); font-size: var(--app-font-small); line-height: 1.5; }
+.briefingGaps { padding-inline-start: var(--app-space-md); margin-block: var(--app-space-sm) 0; color: var(--app-muted); font-size: var(--app-font-small); line-height: 1.5; }
+.briefingGaps li + li { margin-top: var(--app-space-xs); }
+.briefingEmptyContext { margin: var(--app-space-sm) 0 0; color: var(--app-muted); font-size: var(--app-font-small); line-height: 1.5; }
+.briefingActions { display: flex; flex-wrap: wrap; gap: var(--app-space-xs) var(--app-space-md); }
+.briefingActions a { min-width: 0; max-width: 100%; font-size: var(--app-font-small); line-height: 1.5; }

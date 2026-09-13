@@ -10,6 +10,7 @@ import AddLabForm from './AddLabForm'
 import LabPanelCard from './LabPanelCard'
 import BiomarkerTrend from './BiomarkerTrend'
 import LabInsights from './LabInsights'
+import HealthBriefing from './HealthBriefing'
 import PanelResultGroups from './PanelResultGroups'
 import ProtocolOverlayView from './ProtocolOverlayView'
 import ImportLabForm from './ImportLabForm'
@@ -66,6 +67,7 @@ export default function HealthDashboard() {
       <section className={styles.card} aria-label="Biomarker results"><h2>Results</h2><p className={styles.caption}>Status reflects the supplied lab interpretation or numeric reference bounds. It is not a diagnosis.</p><PanelResultGroups results={panel.results} /></section>
       <Link className={styles.textLink} href="/health">Back to all panels & trends</Link>
     </> : <section className={styles.card}><h2>Panel unavailable</h2><p>This panel is not available in your account.</p><Link href="/health">View your panels</Link></section> : biomarkerId ? biomarker ? protocolOverlay ? <><ProtocolOverlayView history={biomarker} /><Link className={styles.textLink} href={`/health?biomarker=${encodeURIComponent(biomarker.key)}`}>Back to biomarker trend</Link></> : <><BiomarkerTrend history={biomarker} /><Link className={styles.textLink} href="/health">Back to lab insights</Link></> : <section className={styles.card}><h2>Biomarker unavailable</h2><p>This biomarker is not available in your lab history.</p><Link href="/health">View lab insights</Link></section> : <>
+      <HealthBriefing panels={panels} histories={histories} />
       <LabInsights panels={panels} histories={histories} />
       <section aria-labelledby="panels-heading"><div className={styles.sectionHeading}><h2 id="panels-heading">Recent panels</h2><span>{panels.length}</span></div>{panels.length ? <div className={styles.panelList}>{panels.map(item => <LabPanelCard key={item.id} panel={item} />)}</div> : <div className={styles.card}><h3>Your lab history starts here</h3><p>Add the values from a lab report. Reference ranges are optional.</p><Link className={styles.textLink} href="/health?action=add">Add your first panel</Link></div>}</section>
     </>))}
