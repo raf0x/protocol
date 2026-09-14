@@ -198,7 +198,7 @@
 @media (min-width: 640px) {
   .today-container { padding-inline: var(--app-space-lg); }
   .today-card { padding: var(--app-space-lg); }
-  .today-insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .today-insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 639px) {
   .mobile-app-shell { --app-shell-safe-top-min: 24px; }
