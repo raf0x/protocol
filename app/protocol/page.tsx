@@ -488,15 +488,22 @@ export default function DashboardPage() {
               onShare={shareProtocol}
             />
           </details>}
-          schedule={<WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />}
+          schedule={<>
+            <WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />
+            {activeProtocols.length > 0 && (
+              <div style={{display:'flex',gap:'8px',margin:'8px 0 16px',justifyContent:'flex-end'}}>
+                <button type="button" onClick={exportToCSV} style={{background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>↓ Export CSV</button>
+                <a href='/protocol/manage' style={{background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>→ My Protocols</a>
+              </div>
+            )}
+          </>}
           checkin={<DailyCheckIn
             today={today} entries={entries} mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight}
             notes={entryNotes} weightUnit={weightUnit} saving={saving} saved={saved} scoreError={scoreError}
             onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry}
           />}
         />
-        <details className="today-dashboard-tools">
-          <summary>Dashboard tools <span>Charts, weekly recap & export</span></summary>
+
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
@@ -514,27 +521,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeProtocols.length > 0 && (
-          <div style={{display:'flex',gap:'8px',marginBottom:'16px',justifyContent:'flex-end'}}>
-            <button 
-              onClick={exportToCSV}
-              style={{background:'var(--color-card)',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}
-            >
-              ↓ Export CSV
-            </button>
-          </div>
-        )}
-
-        {(() => {
-          const activeCompound = activeProtocols
-            .flatMap((p: any) => (p.compounds || []).map((c: any) => ({ ...c, protocol_id: p.id, protocol_start: p.start_date })))
-            .find((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))
-          
-       if (!activeCompound) return null
-        return (
-          <>
-            <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
-
         {missedDoses.length > 0 && (
           <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>⚠️</span>
@@ -545,18 +531,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {entries.length > 1 ? (
-  <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
-    <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
-    <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
-  </div>
-) : (
-  <p style={{fontSize:'12px',color:dg,marginBottom:'16px'}}>Charts and your weekly recap will appear here once you've logged a few more days.</p>
-)}
-          </>
-        )
-        })()}
-        
+        <details className="today-dashboard-tools">
+          <summary>Charts & weekly recap <span>Optional — see trends over time</span></summary>
+          <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
+          {entries.length > 1 ? (
+            <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+              <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
+              <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
+            </div>
+          ) : (
+            <p style={{fontSize:'12px',color:dg,marginBottom:'16px'}}>Charts and your weekly recap will appear here once you've logged a few more days.</p>
+          )}
+
         {showChart && cd.length > 1 && (
           <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
             <p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p>
@@ -640,11 +626,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div style={{marginTop:'32px',paddingTop:'16px',borderTop:'1px solid '+bd,display:'flex',justifyContent:'center'}}>
-          <a href='/protocol/manage' style={{color:g,textDecoration:'none',fontSize:'13px',fontWeight:'700',padding:'12px 24px',background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'8px',cursor:'pointer',display:'inline-block'}}>
-            → My Protocols
-          </a>
-        </div>
         </details>
         {showNewProtocol && (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>

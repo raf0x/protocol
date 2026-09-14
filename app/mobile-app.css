@@ -157,6 +157,11 @@
 .today-dashboard-tools[open], .today-hero-detail[open] { padding: 0 12px 12px; }
 .today-hero-detail:not([open]), .today-dashboard-tools:not([open]) { background: color-mix(in srgb, var(--app-surface) 60%, transparent); border-color: color-mix(in srgb, var(--app-border) 65%, transparent); }
 .today-hero-detail > summary::marker, .today-dashboard-tools > summary::marker { color: var(--app-muted); font-size: 12px; }
+/* Everything load-bearing (export, protocols, CSV) has moved out to always-visible
+   spots — this drawer is only charts/weekly recap now, so its summary reads
+   smaller and quieter than Protocol details, signaling it's optional, not required. */
+.today-dashboard-tools > summary { min-height: auto; padding: 10px 16px; font-size: var(--app-font-small); font-weight: 500; color: var(--app-muted); }
+.today-dashboard-tools > summary span { font-size: 12px; margin-top: 3px; }
 .today-loading { color: var(--app-secondary); margin-top: 24px; padding-block: 40px; text-align: center; }
 .app-tab-bar { position: fixed; bottom: 0; inset-inline: 0; padding: 6px max(8px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(8px, env(safe-area-inset-left, 0px)); background: var(--app-bg); border-top: 1px solid var(--app-border); z-index: 50; }
 .app-tabs { max-width: 760px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
