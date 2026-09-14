@@ -21,8 +21,7 @@ export default function TodayOverview(props: Props) {
     {props.stats}
     <ActiveProtocolList items={todayProtocols(props.protocols, props.date)} selected={props.selected} onViewDetails={props.onViewDetails} detailsOpen={props.detailsOpen}>{props.rings}</ActiveProtocolList>
     {props.detail}
-    <TodaysFocusCard activeCount={props.protocols.length} due={props.due} logs={props.logs} saving={props.saving} onTaken={props.onTaken} error={props.error} />
-    {props.checkin}
+    <TodaysFocusCard activeCount={props.protocols.length} due={props.due} logs={props.logs} saving={props.saving} onTaken={props.onTaken} error={props.error}>{props.checkin}</TodaysFocusCard>
     {props.schedule}
     <div className="today-insights-grid"><RecentChangesCard events={recentChanges(props.events, props.protocols)} /><HealthTrendsCard entries={props.entries} unit={props.weightUnit} onToggleUnit={props.onToggleUnit} /></div>
     <p className="today-note">A clearer picture, one day at a time.</p>

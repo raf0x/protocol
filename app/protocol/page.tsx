@@ -545,11 +545,13 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {entries.length > 1 && (
+        {entries.length > 1 ? (
   <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
     <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
     <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
   </div>
+) : (
+  <p style={{fontSize:'12px',color:dg,marginBottom:'16px'}}>Charts and your weekly recap will appear here once you've logged a few more days.</p>
 )}
           </>
         )

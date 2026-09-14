@@ -179,11 +179,12 @@
 .today-next-dose { display: grid; grid-template-columns: var(--app-icon-size) minmax(0, 1fr); }
 .today-next-dose .today-taken-button { grid-column: 2; justify-self: start; }
 .today-dose-copy { min-width: 0; }
+.today-focus-checkin { margin-top: var(--app-space-sm); padding-top: var(--app-space-sm); border-top: 1px solid var(--app-border); }
 .today-checkin-scores { display: grid; }
-.today-checkin-score { padding: 10px 0; }
+.today-checkin-score { padding: 8px 0; text-align: center; }
 .today-checkin-score + .today-checkin-score { border-top: 1px solid var(--app-border); }
 .today-checkin-score-label { display: block; font-size: var(--app-font-small); font-weight: 600; color: var(--app-text); margin-bottom: 6px; }
-.today-checkin-score-row { display: flex; gap: 8px; }
+.today-checkin-score-row { display: flex; justify-content: center; gap: 8px; }
 .today-checkin-score-btn { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--app-border); background: var(--app-surface-secondary); color: var(--app-secondary); font-size: 14px; font-weight: 700; cursor: pointer; }
 /* Active color follows the same bad-to-good rank on every field (hunger's rank
    is pre-reversed in the component), reusing only existing semantic tokens. */

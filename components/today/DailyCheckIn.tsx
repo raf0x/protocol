@@ -1,4 +1,3 @@
-import AppIcon from '../app/AppIcon'
 import type { JournalEntryRow } from '../../lib/health/timeline'
 import { getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
@@ -50,8 +49,7 @@ export default function DailyCheckIn({
   onScoreTap, onSleepChange, onWeightChange, onNotesChange, onSave,
 }: Props) {
   const values: Record<ScoreField, number | null> = { mood, energy, hunger }
-  return <section className="today-card today-checkin" aria-labelledby="checkin-title">
-    <div className="today-section-heading"><h2 id="checkin-title"><AppIcon name="check" />Today&apos;s check-in</h2></div>
+  return <div className="today-checkin">
     <div className="today-checkin-scores">
       {SCORE_FIELDS.map(field => {
         const value = values[field.id]
@@ -72,5 +70,5 @@ export default function DailyCheckIn({
       <textarea value={notes} onChange={e => onNotesChange(e.target.value)} placeholder="Notes…" rows={2} />
       <button type="button" className="today-checkin-save" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : saved ? 'Update' : 'Save'}</button>
     </div>
-  </section>
+  </div>
 }
