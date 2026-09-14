@@ -11,7 +11,6 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
 import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
-import TodaysInjections from '../../components/dashboard/TodaysInjections'
 import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
 import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
@@ -34,7 +33,6 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<any[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
-  const [tomorrowCompounds, setTomorrowCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [allLogs, setAllLogs] = useState<any[]>([])
   const [currentWeek, setCurrentWeek] = useState(0)
@@ -336,19 +334,6 @@ export default function DashboardPage() {
           })
         } }) })
     setDueCompounds(due)
-      
-    const tmr: DueCompound[] = []
-    const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1)
-    const tomorrowStr = tomorrowDate.toISOString().split('T')[0]
-    ;(protocols || []).forEach((p: any) => {
-      ;(p.compounds||[]).forEach((c: any) => {
-        const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, tomorrowStr)
-        if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, tomorrowStr, phase.days_of_week ?? undefined)) {
-          tmr.push({ id: c.id, name: c.name, dose: dosingDisplay(phase).primary, dose_unit: '', volume_ml: 0, syringe_units: 0, time_of_day: phase.time_of_day || '', protocol_name: p.name, start_date: p.start_date, frequency: phase.frequency || undefined, day_of_week: phase.day_of_week })
-        }
-      })
-    })
-    setTomorrowCompounds(tmr)
     const ls = logsResult.status === 'fulfilled' ? logsResult.value.data : null
     const logsError = logsResult.status === 'rejected' || !!logsResult.value.error
     const allLogsData = allLogsResult.status === 'fulfilled' ? allLogsResult.value.data : null
@@ -372,28 +357,36 @@ export default function DashboardPage() {
     }
   }
 
-  async function toggleInjection(cid: string) {
+  // Single write path for every dose log surface (today's focus card and the
+  // weekly schedule table) so they always agree on what has been logged.
+  async function toggleInjection(cid: string, dateStr: string = today) {
     if (doseSavePending.current) return
     doseSavePending.current = true
-    setTogglingId(cid)
+    const isToday = dateStr === today
+    if (isToday) setTogglingId(cid)
     setDoseSaveError(null)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Sign in again to save this dose.')
-      const cur = logs[cid]
-      const taken = !cur?.taken
+      const cur = isToday ? logs[cid] : undefined
+      const wasTaken = isToday ? !!cur?.taken : allLogs.some(log => log.compound_id === cid && log.date === dateStr && log.taken)
+      const taken = !wasTaken
       const { error } = await supabase.from('injection_logs').upsert({
-        user_id: user.id, compound_id: cid, date: today, taken, discomfort: cur?.discomfort || 0
+        user_id: user.id, compound_id: cid, date: dateStr, taken, discomfort: cur?.discomfort || 0
       }, { onConflict: 'user_id,compound_id,date' })
       if (error) throw error
-      setLogs(previous => ({ ...previous, [cid]: { compound_id: cid, taken, discomfort: cur?.discomfort || 0 } }))
-      setAllLogs(previous => [...previous.filter(log => !(log.compound_id === cid && log.date === today)), ...(taken ? [{ compound_id: cid, date: today, taken }] : [])])
+      if (isToday) setLogs(previous => ({ ...previous, [cid]: { compound_id: cid, taken, discomfort: cur?.discomfort || 0 } }))
+      setAllLogs(previous => [...previous.filter(log => !(log.compound_id === cid && log.date === dateStr)), ...(taken ? [{ compound_id: cid, date: dateStr, taken }] : [])])
+      const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', cid).single()
+      const currentDoses = compound?.doses_taken_override ?? 0
+      await supabase.from('compounds').update({ doses_taken_override: taken ? currentDoses + 1 : Math.max(0, currentDoses - 1) }).eq('id', cid)
+      window.dispatchEvent(new Event('doses_updated'))
     } catch {
       setDoseSaveError('This dose wasn’t saved. Please check your connection and try again.')
     } finally {
       doseSavePending.current = false
-      setTogglingId(null)
+      if (isToday) setTogglingId(null)
     }
   }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
@@ -500,9 +493,9 @@ export default function DashboardPage() {
             />
           </details>}
         />
+        <WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />
         <details className="today-dashboard-tools">
-          <summary>Dashboard tools <span>Daily log, weekly schedule, charts & export</span></summary>
-          <TodaysInjections dueCompounds={dueCompounds} tomorrowCompounds={tomorrowCompounds} logs={logs} onToggle={toggleInjection} />
+          <summary>Dashboard tools <span>Daily log, charts & export</span></summary>
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
@@ -539,9 +532,7 @@ export default function DashboardPage() {
        if (!activeCompound) return null
         return (
           <>
-            <WeeklySchedule activeProtocols={activeProtocols} />
-
-        <CompactDailyLog
+            <CompactDailyLog
           mood={mood}
           energy={energy}
           hunger={hunger}

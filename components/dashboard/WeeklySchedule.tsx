@@ -5,7 +5,8 @@ import { createClient } from '../../lib/supabase'
 import { isDueToday } from '../../lib/utils'
 
 type Compound = { id: string; name: string; protocol_start: string; phases: any[] }
-type Props = { activeProtocols: any[] }
+type LoggedEntry = { compound_id: string; date: string; taken: boolean }
+type Props = { activeProtocols: any[]; allLogs: LoggedEntry[]; onToggle: (compoundId: string, dateStr: string) => void }
 
 function getWeekDates(weekOffset: number = 0): Date[] {
   const today = new Date(); today.setHours(0,0,0,0)
@@ -17,9 +18,7 @@ function getWeekDates(weekOffset: number = 0): Date[] {
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
-export default function WeeklySchedule({ activeProtocols }: Props) {
-  const [logs, setLogs] = useState<Record<string,boolean>>({})
-  const [loading, setLoading] = useState(true)
+export default function WeeklySchedule({ activeProtocols, allLogs, onToggle }: Props) {
   const [order, setOrder] = useState<string[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
@@ -53,62 +52,19 @@ function changeWeekOffset(newOffset: number) {
     (p.compounds || []).map((c: any) => ({ id: c.id, name: c.name, protocol_start: p.start_date, phases: c.phases || [] }))
   )
 
+  // Derived from the parent's shared log state (the same data the focus card and
+  // dosing use), not a separate fetch, so a change from either surface shows here.
+  const logs: Record<string, boolean> = {}
+  allLogs.forEach(l => { if (l.taken) logs[l.compound_id + '_' + l.date] = true })
+
   useEffect(() => {
     if (compounds.length > 0 && order.length === 0) {
       setOrder(compounds.map(c => c.id))
     }
   }, [compounds.length])
 
-  useEffect(() => {
-    async function loadLogs() {
-      if (compounds.length === 0) { setLoading(false); return }
-      const supabase = createClient()
-      
-      // NEW: Load logs for a wider date range (4 weeks back, 4 weeks forward)
-      const startDate = new Date(today); startDate.setDate(today.getDate() - 28)
-      const endDate = new Date(today); endDate.setDate(today.getDate() + 28)
-      const startStr = startDate.toISOString().split('T')[0]
-      const endStr = endDate.toISOString().split('T')[0]
-      
-      const { data } = await supabase.from('injection_logs').select('compound_id, date, taken').gte('date', startStr).lte('date', endStr).eq('taken', true)
-      const map: Record<string,boolean> = {}
-      ;(data || []).forEach((l: any) => { map[l.compound_id + '_' + l.date] = true })
-      setLogs(map)
-      setLoading(false)
-    }
-    loadLogs()
-  }, [activeProtocols.length, weekOffset])  // Reload when week changes
-
-  async function toggleLog(compoundId: string, dateStr: string) {
-    const key = compoundId + '_' + dateStr
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    
-    if (logs[key]) {
-      // Unchecking - delete log AND decrement dose counter
-      await supabase.from('injection_logs').delete().eq('compound_id', compoundId).eq('date', dateStr).eq('user_id', user.id)
-      const u = { ...logs }; delete u[key]; setLogs(u)
-      
-      // Decrement doses_taken_override (floor at 0)
-      const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', compoundId).single()
-      const currentDoses = compound?.doses_taken_override ?? 0
-      const newDoses = Math.max(0, currentDoses - 1)
-      await supabase.from('compounds').update({ doses_taken_override: newDoses }).eq('id', compoundId)
-      
-    } else {
-      // Checking - create log AND increment dose counter
-      await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: compoundId, date: dateStr, taken: true, discomfort: 0 }, { onConflict: 'user_id,compound_id,date' })
-      setLogs({ ...logs, [key]: true })
-      
-      // Increment doses_taken_override
-      const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', compoundId).single()
-      const currentDoses = compound?.doses_taken_override ?? 0
-      await supabase.from('compounds').update({ doses_taken_override: currentDoses + 1 }).eq('id', compoundId)
-    }
-    
-    // Notify UI to refresh vial display
-    window.dispatchEvent(new Event('doses_updated'))
+  function toggleLog(compoundId: string, dateStr: string) {
+    onToggle(compoundId, dateStr)
     try { navigator.vibrate(8) } catch(e) {}
   }
 
@@ -166,7 +122,7 @@ function changeWeekOffset(newOffset: number) {
     return isDueToday(phase.frequency, compound.protocol_start, phase.day_of_week, dateStr, phase.days_of_week)
   }
 
-  if (loading || compounds.length === 0) return null
+  if (compounds.length === 0) return null
   const sortedCompounds = order.length > 0
     ? [...compounds].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
     : compounds
