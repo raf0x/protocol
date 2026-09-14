@@ -492,8 +492,8 @@ export default function DashboardPage() {
               onShare={shareProtocol}
             />
           </details>}
+          schedule={<WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />}
         />
-        <WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />
         <details className="today-dashboard-tools">
           <summary>Dashboard tools <span>Daily log, charts & export</span></summary>
         {hasDemoCompounds && (
