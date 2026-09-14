@@ -6,7 +6,7 @@ import TodayHeader from '../../components/today/TodayHeader'
 
 import StatsBoxes from '../../components/dashboard/StatsBoxes'
 import CompoundRings from '../../components/dashboard/CompoundRings'
-import CompactDailyLog from '../../components/dashboard/CompactDailyLog'
+import DailyCheckIn from '../../components/today/DailyCheckIn'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const heroRef = useRef<HTMLDetailsElement>(null)
   const [doseSaveError, setDoseSaveError] = useState<string | null>(null)
   const doseSavePending = useRef(false)
+  const [scoreError, setScoreError] = useState<Partial<Record<'mood' | 'energy' | 'hunger', string | null>>>({})
+  const scorePending = useRef<Partial<Record<'mood' | 'energy' | 'hunger', boolean>>>({})
   const [loading, setLoading] = useState(true)
   const [streakDays, setStreakDays] = useState(0)
   const [loadError, setLoadError] = useState(false)
@@ -45,14 +47,7 @@ export default function DashboardPage() {
   const dragStartX = useRef(0)
   const scrollStartX = useRef(0)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
-  const [showAddEvent, setShowAddEvent] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  const [eventDesc, setEventDesc] = useState('')
-  const [editingEventId, setEditingEventId] = useState<string | null>(null)
-  const [editEventDesc, setEditEventDesc] = useState('')
-  const [editEventType, setEditEventType] = useState('')
-  const [eventType, setEventType] = useState('dose_change')
-  const [selectedProtocol, setSelectedProtocol] = useState<any>(null)
   const today = new Date().toISOString().split('T')[0]
   const [mood, setMood] = useState<number | null>(null)
   const [energy, setEnergy] = useState<number | null>(null)
@@ -117,40 +112,6 @@ export default function DashboardPage() {
     setCreateSuccess(true)
     setShowNewProtocol(false)
     loadAll()
-  }
-
-  async function saveEvent() {
-    if (!eventDesc.trim()) return
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const todayStr = new Date().toISOString().split('T')[0]
-    await supabase.from('protocol_events').insert({ user_id: user.id, date: todayStr, event_type: eventType, description: eventDesc.trim() })
-    setEventDesc('')
-    setShowAddEvent(false)
-    loadAll()
-  }
-
-  async function deleteEvent(id: string) {
-    if (!confirm('Delete this event?')) return
-    const supabase = createClient()
-    await supabase.from('protocol_events').delete().eq('id', id)
-    if (selectedEvent?.id === id) setSelectedEvent(null)
-    loadAll()
-  }
-
-  async function updateEvent() {
-    if (!editEventDesc.trim() || !editingEventId) return
-    const supabase = createClient()
-    await supabase.from('protocol_events').update({ description: editEventDesc.trim(), event_type: editEventType }).eq('id', editingEventId)
-    setEditingEventId(null)
-    loadAll()
-  }
-
-  function startEditEvent(ev: any) {
-    setEditingEventId(ev.id)
-    setEditEventDesc(ev.description)
-    setEditEventType(ev.event_type)
   }
 
   async function exportToCSV() {
@@ -311,8 +272,16 @@ export default function DashboardPage() {
     }
     setStreakDays(streak)
     const todayEntry = (js || []).find((e: any) => e.date === today)
-    if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
-    
+    if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
+    // Sleep and weight pre-fill from today's own entry when present, otherwise the
+    // most recent prior entry that logged that field — a starting point to confirm
+    // or adjust, not a blank field. js is already newest-first.
+    const latestSleep = (js || []).find((e: any) => e.sleep !== null && e.sleep !== undefined)?.sleep
+    setSleep(latestSleep != null ? latestSleep.toString() : '')
+    const displayUnit: WeightUnit = (profile?.weight_unit as WeightUnit) || weightUnit
+    const latestWeight = (js || []).find((e: any) => e.weight !== null && e.weight !== undefined)?.weight
+    setWeight(latestWeight != null ? formatWeight(convertWeight(latestWeight, 'lbs', displayUnit), displayUnit) : '')
+
     const protocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data : null
     const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
 
@@ -390,8 +359,35 @@ export default function DashboardPage() {
     }
   }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
-  async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (mood !== null) row.mood = mood; if (energy !== null) row.energy = energy; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = parseFloat(weight); if (hunger !== null) row.hunger = hunger; await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
-  
+  // Mood/Energy/Hunger save instantly on tap via saveJournalField below. This
+  // now only covers the secondary, typed fields that still need an explicit confirm.
+  async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = convertWeight(parseFloat(weight), weightUnit, 'lbs'); await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
+
+  // Single-tap save for Mood/Energy/Hunger: a partial upsert touching only that
+  // column, so it can never clobber Sleep/Weight/Notes. Optimistic update with a
+  // per-field pending lock and revert-on-failure, same spirit as toggleInjection.
+  async function saveJournalField(field: 'mood' | 'energy' | 'hunger', value: number) {
+    if (scorePending.current[field]) return
+    scorePending.current[field] = true
+    setScoreError(previous => ({ ...previous, [field]: null }))
+    const previousValue = field === 'mood' ? mood : field === 'energy' ? energy : hunger
+    const setValue = field === 'mood' ? setMood : field === 'energy' ? setEnergy : setHunger
+    setValue(value)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sign in again to save this.')
+      const { error } = await supabase.from('journal_entries').upsert({ user_id: user.id, date: today, [field]: value }, { onConflict: 'user_id,date' })
+      if (error) throw error
+      setSaved(true)
+    } catch {
+      setValue(previousValue)
+      setScoreError(previous => ({ ...previous, [field]: 'Not saved. Try again.' }))
+    } finally {
+      scorePending.current[field] = false
+    }
+  }
+
   async function toggleWeightUnit() {
     const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
     setWeightUnit(newUnit)
@@ -493,9 +489,14 @@ export default function DashboardPage() {
             />
           </details>}
           schedule={<WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />}
+          checkin={<DailyCheckIn
+            today={today} entries={entries} mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight}
+            notes={entryNotes} weightUnit={weightUnit} saving={saving} saved={saved} scoreError={scoreError}
+            onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry}
+          />}
         />
         <details className="today-dashboard-tools">
-          <summary>Dashboard tools <span>Daily log, charts & export</span></summary>
+          <summary>Dashboard tools <span>Charts, weekly recap & export</span></summary>
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
@@ -532,25 +533,7 @@ export default function DashboardPage() {
        if (!activeCompound) return null
         return (
           <>
-            <CompactDailyLog
-          mood={mood}
-          energy={energy}
-          hunger={hunger}
-          sleep={sleep}
-          weight={weight}
-          notes={entryNotes}
-          saving={saving}
-          saved={saved}
-          onMoodChange={setMood}
-          onEnergyChange={setEnergy}
-          onHungerChange={setHunger}
-          onSleepChange={setSleep}
-          onWeightChange={setWeight}
-          onNotesChange={setEntryNotes}
-          onSave={saveEntry}
-        />
-
-        <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
+            <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
 
         {missedDoses.length > 0 && (
           <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
@@ -652,46 +635,6 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </>
             )}
-          </div>
-        )}
-
-        {protocolEvents.length > 0 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL TIMELINE</span>
-            {protocolEvents.slice(-5).reverse().map((ev: any, i: number) => (
-              editingEventId === ev.id ? (
-                <div key={ev.id} style={{padding:'10px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
-                  <select value={editEventType} onChange={e => setEditEventType(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'6px',color:'var(--color-text)',fontSize:'12px',boxSizing:'border-box',marginBottom:'6px'}}>
-                    <option value='dose_change'>Dose changed</option>
-                    <option value='compound_added'>Added compound</option>
-                    <option value='compound_removed'>Stopped compound</option>
-                    <option value='phase_change'>Phase change</option>
-                    <option value='started'>Started</option>
-                    <option value='other'>Other</option>
-                  </select>
-                  <input value={editEventDesc} onChange={e => setEditEventDesc(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',marginBottom:'6px'}} />
-                  <div style={{display:'flex',gap:'6px'}}>
-                    <button onClick={() => setEditingEventId(null)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'6px',fontSize:'12px',cursor:'pointer'}}>Cancel</button>
-                    <button onClick={updateEvent} style={{flex:2,background:g,color:'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'6px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>Save</button>
-                  </div>
-                </div>
-              ) : (
-                <div key={ev.id || i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'8px 0',borderBottom:i < Math.min(protocolEvents.length, 5) - 1 ? '1px solid '+bd : 'none'}}>
-                  <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(ev.event_type),marginTop:'4px',flexShrink:0}} />
-                  <div style={{flex:1}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
-                      <span style={{fontSize:'10px',color:'#0a0a0f',background:eventColor(ev.event_type),padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
-                      <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>{ev.description}</span>
-                    </div>
-                    <span style={{fontSize:'11px',color:'#8b8ba7',display:'block',marginTop:'2px'}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>
-                  </div>
-                  <div style={{display:'flex',gap:'8px',flexShrink:0}}>
-                    <button onClick={() => startEditEvent(ev)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'11px'}}>Edit</button>
-                    <button onClick={() => deleteEvent(ev.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'11px'}}>Delete</button>
-                  </div>
-                </div>
-              )
-            ))}
           </div>
         )}
 

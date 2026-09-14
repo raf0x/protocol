@@ -179,6 +179,31 @@
 .today-next-dose { display: grid; grid-template-columns: var(--app-icon-size) minmax(0, 1fr); }
 .today-next-dose .today-taken-button { grid-column: 2; justify-self: start; }
 .today-dose-copy { min-width: 0; }
+.today-checkin-scores { display: grid; }
+.today-checkin-score { padding: 10px 0; }
+.today-checkin-score + .today-checkin-score { border-top: 1px solid var(--app-border); }
+.today-checkin-score-label { display: block; font-size: var(--app-font-small); font-weight: 600; color: var(--app-text); margin-bottom: 6px; }
+.today-checkin-score-row { display: flex; gap: 8px; }
+.today-checkin-score-btn { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--app-border); background: var(--app-surface-secondary); color: var(--app-secondary); font-size: 14px; font-weight: 700; cursor: pointer; }
+/* Active color follows the same bad-to-good rank on every field (hunger's rank
+   is pre-reversed in the component), reusing only existing semantic tokens. */
+.today-checkin-score-btn[data-active="true"][data-rank="1"] { border-color: var(--app-error); background: var(--app-error); color: var(--app-bg); }
+.today-checkin-score-btn[data-active="true"][data-rank="2"] { border-color: var(--app-warning); background: color-mix(in srgb, var(--app-error) 45%, var(--app-warning)); color: var(--app-bg); }
+.today-checkin-score-btn[data-active="true"][data-rank="3"] { border-color: var(--app-warning); background: var(--app-warning); color: var(--app-bg); }
+.today-checkin-score-btn[data-active="true"][data-rank="4"] { border-color: var(--app-success); background: color-mix(in srgb, var(--app-warning) 45%, var(--app-success)); color: var(--app-bg); }
+.today-checkin-score-btn[data-active="true"][data-rank="5"] { border-color: var(--app-success); background: var(--app-success); color: var(--app-bg); }
+.today-checkin-delta, .today-checkin-error { display: block; margin-top: 6px; font-size: 12px; }
+.today-checkin-delta { color: var(--app-secondary); }
+.today-checkin-error { color: var(--app-error); }
+.today-checkin-secondary { margin-top: var(--app-space-sm); padding-top: var(--app-space-sm); border-top: 1px solid var(--app-border); }
+.today-checkin-fields { display: flex; gap: var(--app-space-sm); flex-wrap: wrap; margin-bottom: var(--app-space-sm); }
+.today-checkin-fields label { flex: 1 1 0; min-width: 100px; display: block; font-size: 11px; font-weight: 600; color: var(--app-secondary); }
+.today-checkin-fields input { width: 100%; margin-top: 4px; background: var(--app-surface-secondary); border: 1px solid var(--app-border); border-radius: var(--app-radius-button); padding: 8px 10px; color: var(--app-text); font-size: var(--app-font-small); font-weight: 600; text-align: center; box-sizing: border-box; }
+.today-checkin-secondary textarea { width: 100%; background: var(--app-surface-secondary); border: 1px solid var(--app-border); border-radius: var(--app-radius-button); padding: 8px 10px; color: var(--app-text); font-size: var(--app-font-small); box-sizing: border-box; resize: none; margin-bottom: var(--app-space-sm); }
+/* Deliberately quieter than .today-taken-button (the page's primary CTA) — this
+   is the de-emphasized, secondary confirm, not another headline action. */
+.today-checkin-save { width: 100%; min-height: 40px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface-secondary); color: var(--app-text); font-weight: 600; font-size: var(--app-font-small); cursor: pointer; }
+.today-checkin-save:disabled { opacity: .6; cursor: wait; }
 .today-main :is(button, summary):active, .app-tab:active { filter: brightness(.94); }
 .app-icon-button { width: 44px; height: 44px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--app-surface-secondary); border: 1px solid var(--app-border); color: var(--app-secondary); cursor: pointer; text-decoration: none; }
 .app-more-sheet { box-sizing: border-box; position: fixed; inset: auto 0 0; margin: 0 auto; width: min(100%, 560px); max-width: 100%; max-height: min(85dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 12px)); overflow-y: auto; overscroll-behavior: contain; background: var(--app-surface); color: var(--app-text); padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px)); border: 1px solid var(--app-border); border-radius: 24px 24px 0 0; box-shadow: var(--app-shadow); }
