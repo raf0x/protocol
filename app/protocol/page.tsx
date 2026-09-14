@@ -285,10 +285,24 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
     
-    const { data: profile } = await supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single()
+    // Only getUser() is a real dependency for the rest (they all need user.id via
+    // the session, not a value from each other). Run the six independent queries
+    // concurrently. allSettled (not all) so one failed query never blanks out the
+    // setters for the others that already succeeded.
+    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult] = await Promise.allSettled([
+      supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single(),
+      supabase.from('journal_entries').select('*').order('date', { ascending: false }),
+      supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
+      supabase.from('injection_logs').select('*').eq('date', today),
+      supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true),
+      supabase.from('protocol_events').select('*').order('date', { ascending: true }),
+    ])
+
+    const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null
     if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
-    
-    const { data: js, error: journalError } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
+
+    const js = journalResult.status === 'fulfilled' ? journalResult.value.data : null
+    const journalError = journalResult.status === 'rejected' || !!journalResult.value.error
     setEntries(js || [])
     let streak = 0
     const today2 = new Date(); today2.setHours(0,0,0,0)
@@ -301,8 +315,9 @@ export default function DashboardPage() {
     const todayEntry = (js || []).find((e: any) => e.date === today)
     if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setSleep(todayEntry.sleep?.toString() || ''); setWeight(todayEntry.weight?.toString() || ''); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
     
-    const { data: protocols, error: protocolsError } = await supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active')
-    
+    const protocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data : null
+    const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
+
     setActiveProtocols(protocols || [])
     if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
@@ -334,11 +349,13 @@ export default function DashboardPage() {
       })
     })
     setTomorrowCompounds(tmr)
-    const { data: ls, error: logsError } = await supabase.from('injection_logs').select('*').eq('date', today)
-    const { data: allLogsData } = await supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true)
+    const ls = logsResult.status === 'fulfilled' ? logsResult.value.data : null
+    const logsError = logsResult.status === 'rejected' || !!logsResult.value.error
+    const allLogsData = allLogsResult.status === 'fulfilled' ? allLogsResult.value.data : null
     setAllLogs(allLogsData || [])
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
-    const { data: events, error: eventsError } = await supabase.from('protocol_events').select('*').order('date', { ascending: true })
+    const events = eventsResult.status === 'fulfilled' ? eventsResult.value.data : null
+    const eventsError = eventsResult.status === 'rejected' || !!eventsResult.value.error
     setProtocolEvents(events || [])
     if (journalError || protocolsError || logsError || eventsError) setLoadError(true)
     const hour = new Date().getHours()
