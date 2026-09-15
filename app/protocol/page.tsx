@@ -48,7 +48,11 @@ export default function DashboardPage() {
   const scrollStartX = useRef(0)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
-  const today = new Date().toISOString().split('T')[0]
+  // Local calendar day, not UTC — toISOString() drifts a day off in the evening
+  // (US timezones) or at any hour (positive-UTC-offset timezones). This value
+  // keys every injection_logs/journal_entries read and write on this page, so
+  // it must use the same local-date basis as isDueToday and the weekly schedule.
+  const today = new Date().toLocaleDateString('en-CA')
   const [mood, setMood] = useState<number | null>(null)
   const [energy, setEnergy] = useState<number | null>(null)
   const [hunger, setHunger] = useState<number | null>(null)
@@ -197,7 +201,7 @@ export default function DashboardPage() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `protocol-export-${new Date().toISOString().split('T')[0]}.csv`
+    link.download = `protocol-export-${new Date().toLocaleDateString('en-CA')}.csv`
     link.style.display = 'none'
     document.body.appendChild(link)
     link.click()
@@ -267,7 +271,7 @@ export default function DashboardPage() {
     const today2 = new Date(); today2.setHours(0,0,0,0)
     for (let i = 0; i < 365; i++) {
       const d = new Date(today2); d.setDate(d.getDate() - i)
-      const ds = d.toISOString().split('T')[0]
+      const ds = d.toLocaleDateString('en-CA')
       if ((js || []).find((e: any) => e.date === ds)) { streak++ } else { break }
     }
     setStreakDays(streak)

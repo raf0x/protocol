@@ -42,7 +42,7 @@ function changeWeekOffset(newOffset: number) {
   
   const weekDates = getWeekDates(weekOffset)
   const today = new Date(); today.setHours(0,0,0,0)
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = today.toLocaleDateString('en-CA')
   const g = 'var(--color-green)'
   const bd = 'var(--color-border)'
   const cb = 'var(--color-card)'
@@ -114,7 +114,7 @@ function changeWeekOffset(newOffset: number) {
   }
 
   function isDueOnDate(compound: Compound, date: Date): boolean {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = date.toLocaleDateString('en-CA')
     const daysIn = Math.max(0, Math.floor((date.getTime() - new Date(compound.protocol_start + 'T00:00:00').getTime()) / 86400000))
     const wk = Math.max(1, Math.floor(daysIn/7)+1)
     const phase = compound.phases.find((ph: PhaseRow) => wk >= (ph.start_week ?? Infinity) && (ph.end_week == null || wk <= ph.end_week))
@@ -184,7 +184,7 @@ function changeWeekOffset(newOffset: number) {
             <tr>
               <th style={{padding:'6px 10px',textAlign:'left',fontSize:'11px',color:dg,fontWeight:'600',minWidth:'80px',borderBottom:'1px solid '+bd}}></th>
               {weekDates.map((date, i) => {
-                const isToday = date.toISOString().split('T')[0] === todayStr
+                const isToday = date.toLocaleDateString('en-CA') === todayStr
                 return (
                   <th key={i} style={{padding:'6px 4px',textAlign:'center',fontSize:'10px',fontWeight:'700',borderBottom:'1px solid '+bd,background:isToday?g:'transparent',color:isToday?'var(--color-green-text)':dg,minWidth:'40px'}}>
                     <div>{DAY_LABELS[i]}</div>
@@ -220,7 +220,7 @@ function changeWeekOffset(newOffset: number) {
                   {compound.name.split('/')[0].split(' ')[0]}
                 </td>
                 {weekDates.map((date, di) => {
-                  const dateStr = date.toISOString().split('T')[0]
+                  const dateStr = date.toLocaleDateString('en-CA')
                   const isToday = dateStr === todayStr
                   const isPast = date.getTime() < today.getTime() && !isToday
                   const isFuture = date.getTime() > today.getTime()
