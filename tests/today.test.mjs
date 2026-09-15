@@ -96,7 +96,7 @@ function component(file) {
     if (name.startsWith('.')) {
       const base = new URL(name, url)
       for (const extension of ['.ts', '.tsx']) {
-        try { readFileSync(base.href.replace('file://', '') + extension); return component(base.href + extension) } catch (error) { if (error.code !== 'ENOENT') throw error }
+        try { readFileSync(new URL(base.href + extension)); return component(base.href + extension) } catch (error) { if (error.code !== 'ENOENT') throw error }
       }
     }
     return require(name)
@@ -111,7 +111,7 @@ test('rendered Today has the requested section order and honest empty states', (
     date: '2026-09-09', protocols: [], events: [], entries: [], due: [], logs: {}, saving: false,
     onTaken() {}, error: null, selected: null, onViewDetails() {}, detailsOpen: false, rings: null, detail: null, weightUnit: 'lbs', onToggleUnit() {},
   }))
-  const positions = ['Today’s focus', 'Active protocols', 'Recent changes', 'Health trends'].map(text => html.indexOf(text))
+  const positions = ['Active protocols', 'Today’s focus', 'Recent changes', 'Health trends'].map(text => html.indexOf(text))
   assert.ok(positions.every((position, index) => position >= 0 && (!index || position > positions[index - 1])))
   assert.match(html, /No doses scheduled today/)
   assert.match(html, /Create your first protocol/)
