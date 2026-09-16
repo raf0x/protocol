@@ -1,9 +1,18 @@
 'use client'
 import { useRef, useState } from 'react'
-import { detectColumns, importFields, mapCsv, parseCsv, parsePdfLines, type ColumnMap, type CsvTable } from '../../lib/health/labImport'
-import type { LabDraft, LabPanel } from '../../lib/health/labs'
+import { classifyImportError, detectColumns, importFields, mapCsv, parseCsv, parsePdfLines, type ColumnMap, type CsvTable } from '../../lib/health/labImport'
+import type { LabDraft, LabDraftRow, LabPanel } from '../../lib/health/labs'
+import { reportClientError } from '../../lib/clientMonitoring'
 import AddLabForm from './AddLabForm'
 import styles from '../../app/health/health.module.css'
+
+// Classification and the existing import_confidence signal only -- never the
+// rows/values/document content themselves. See lib/health/labImport.ts for the
+// sanitized slug rules; this is the one place the client actually reports them.
+function reportImportFailure(message: string) { reportClientError(undefined, '/health:import', classifyImportError(message)) }
+function reportIfNeedsReview(kind: 'csv' | 'pdf', results: LabDraftRow[]) {
+  if (results.some(row => row.included === false)) reportClientError(undefined, '/health:import', `${kind}_needs_review`, 200)
+}
 
 export default function ImportLabForm({kind,panels,onSaved,onCancel}:{kind:'csv'|'pdf';panels:LabPanel[];onSaved:(id:string)=>void;onCancel:()=>void}) {
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[filename,setFilename]=useState('')
@@ -22,9 +31,12 @@ export default function ImportLabForm({kind,panels,onSaved,onCancel}:{kind:'csv'
         const parsed=parseCsv(new TextDecoder(encoding,{fatal:true}).decode(data));setTable(parsed);setMapping(detectColumns(parsed.headers))
       }else {
         const {extractPdfText}=await import('../../lib/health/pdfImport')
-        const lines=await extractPdfText(data);setDraft(parsePdfLines(lines,file.name))
+        const lines=await extractPdfText(data);const parsed=parsePdfLines(lines,file.name);setDraft(parsed);reportIfNeedsReview('pdf',parsed.results)
       }
-    }catch(reason){setError(reason instanceof Error && !(reason instanceof TypeError)?reason.message:'This file could not be decoded. Export a UTF-8 CSV or an unlocked text PDF.')}
+    }catch(reason){
+      const message=reason instanceof Error && !(reason instanceof TypeError)?reason.message:'This file could not be decoded. Export a UTF-8 CSV or an unlocked text PDF.'
+      setError(message);reportImportFailure(message)
+    }
     finally{pending.current=false;setBusy(false)}
   }
   if(draft)return <><button type="button" onClick={()=>setDraft(null)}>Back to import</button>
@@ -34,7 +46,7 @@ export default function ImportLabForm({kind,panels,onSaved,onCancel}:{kind:'csv'
     {error&&<p role="alert" className={styles.notice}>{error}</p>}
     <label>Choose {kind.toUpperCase()} file<input type="file" accept={kind==='pdf'?'.pdf,application/pdf':'.csv,text/csv'} disabled={busy} onChange={event=>{void open(event.target.files?.[0]);event.target.value=''}} /></label>
     {busy&&<p role="status">Reading file… Nothing is being saved.</p>}
-    {table&&mapping&&<form onSubmit={event=>{event.preventDefault();try{setDraft(mapCsv(table,mapping,filename));setError('')}catch(reason){setError(reason instanceof Error?reason.message:'Check column mapping.')}}}>
+    {table&&mapping&&<form onSubmit={event=>{event.preventDefault();try{const parsed=mapCsv(table,mapping,filename);setDraft(parsed);setError('');reportIfNeedsReview('csv',parsed.results)}catch(reason){const message=reason instanceof Error?reason.message:'Check column mapping.';setError(message);reportImportFailure(message)}}}>
       <h3>Match columns</h3><p className={styles.caption}>Detected mappings are selected. Adjust only what needs changing. {table.rows.length} rows found.</p>
       {importFields.map(field=><label key={field}>{field==='biomarker'?'Biomarker name':field==='value'?'Result':field[0].toUpperCase()+field.slice(1)}<select value={mapping[field]} onChange={event=>setMapping({...mapping,[field]:Number(event.target.value)})}><option value={-1}>Not in this file</option>{table.headers.map((header,index)=><option key={index} value={index}>{index+1}: {header||'(unnamed column)'}</option>)}</select></label>)}
       <details className={styles.formDetails}><summary>Preview original rows</summary><pre className={styles.raw}>{JSON.stringify(table.rows.slice(0,3),null,2)}</pre></details>

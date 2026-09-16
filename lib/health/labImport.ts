@@ -106,3 +106,32 @@ export function parsePdfLines(lines: PdfLine[], filename: string, adapters: PdfA
     source_metadata: { parser, line_count: lines.length, ...metadata, candidate_count: rows.length,
       included_count: rows.filter(row => row.included).length, review_count: rows.filter(row => !row.included).length }, results: rows }
 }
+
+/** Sanitized classification only -- never the parsed biomarker names, values, or
+ * document content. Fixed slugs, not the raw thrown message, so a later copy edit
+ * never changes what gets logged and no unanticipated message text can leak
+ * through this boundary. Order matters: more specific patterns are checked first. */
+const importErrorRules: [RegExp, string][] = [
+  // Narrowed to the exact scanned-PDF message, not a bare /scanned/ match --
+  // the "no rows detected" message below also mentions "Scanned PDFs" in
+  // passing and would otherwise be misclassified as the wrong failure mode.
+  [/appears to be scanned/i, 'pdf_scanned'],
+  [/timed out/i, 'pdf_timeout'],
+  [/damaged or password-protected/i, 'pdf_unreadable'],
+  [/at most \d+ pages/i, 'pdf_too_many_pages'],
+  [/too much text/i, 'pdf_too_much_text'],
+  [/couldn.t detect lab results/i, 'pdf_no_rows_detected'],
+  [/candidate rows were found/i, 'pdf_too_many_rows'],
+  [/CSV is too large/i, 'csv_too_large'],
+  [/unexpected quote|closing quote|unclosed quoted field/i, 'csv_quote_error'],
+  [/header and at least one result row/i, 'csv_missing_rows'],
+  [/result rows and \d+ columns/i, 'csv_too_many_rows'],
+  [/map the biomarker name/i, 'csv_mapping_incomplete'],
+  [/can map to only one field/i, 'csv_mapping_duplicate'],
+  [/could not be decoded/i, 'decode_failed'],
+  [/under \d+ MB/i, 'file_too_large'],
+  [/^Choose a \./i, 'wrong_extension'],
+]
+export function classifyImportError(message: string): string {
+  return importErrorRules.find(([pattern]) => pattern.test(message))?.[1] ?? 'unclassified'
+}
