@@ -23,6 +23,7 @@ const labs = load('../lib/health/labs.ts')
 const longitudinal = load('../lib/health/longitudinal/engine.ts')
 const analyst = load('../lib/health/analyst/evidence.ts')
 const report = load('../lib/health/report/model.ts')
+const reportAi = load('../lib/health/report/ai.ts')
 const shared = load('../lib/health/labEvidence.ts')
 const longitudinalAnalyst = load('../lib/health/longitudinal/analyst.ts')
 const { analystInput } = load('../lib/health/analyst/prompts.ts')
@@ -316,8 +317,17 @@ test('chart geometry uses shared eligibility without choosing duplicate or quali
 })
 test('Report identity-free projection remains deterministic without AI', () => {
   const r = report.buildDoctorReport(source(), 'all', '2026-05-01')
-  assert.equal(r.trends[0].comparison.delta, 2); assert.doesNotMatch(JSON.stringify(r), /result-old|result-new|fictional-owner|source_raw/)
+  assert.equal(r.trends[0].comparison.delta, 2)
   assert.ok(r.limitations.some(text => text.includes('Assay/method compatibility is unverified')))
+  // The report's own internal model (r.intelligence) may retain traceable
+  // resultId/panelId -- see "V2A identities are traceable but raw document and
+  // owner metadata are excluded" in doctor-report.test.mjs, which is the
+  // deliberate, later spec for that surface. Those fields are never rendered
+  // as visible text (screen or PDF -- print is the same DOM) and never leave
+  // this process. What this test actually protects, per its own name, is the
+  // AI-bound payload specifically: it must never carry identity or raw content.
+  const aiContext = reportAi.buildReportAiContext(r)
+  assert.doesNotMatch(JSON.stringify(aiContext), /result-old|result-new|fictional-owner|source_raw|resultId|panelId/)
 })
 test('no arbitrary range-transition claim from equal same-day records', () => {
   const p = [...pair(), panel('same', '2026-01-31', 12, { status: 'high' })]
