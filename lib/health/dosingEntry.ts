@@ -85,7 +85,8 @@ export function quickEntryPayload(body:Record<string,unknown>) {
   const entry=entryFromForm({input_mode:'medication',dose:field('dose'),dose_unit:field('dose_unit'),vial_strength:field('vial'),vial_unit:field('vial_unit'),bac_water_ml:field('water'),concentration_value:field('concentration_value'),concentration_unit:field('concentration_unit'),syringe_scale:field('syringe_scale')})
   const frequency=body.frequency ?? ''
   if(typeof frequency!=='string' || (frequency && !/^(daily|[1-7]x\/week|every[1-7]days)$/.test(frequency))) throw new Error('Invalid frequency.')
-  return {name:body.name.trim(),compounds:[{name:body.name.trim(),phase:{name:'Phase 1',dosing_entry:entry,start_week:1,end_week:null,frequency}}]}
+  if(typeof body.date!=='string' || !validDate(body.date)) throw new Error('Invalid date.')
+  return {name:body.name.trim(),date:body.date,compounds:[{name:body.name.trim(),phase:{name:'Phase 1',dosing_entry:entry,start_week:1,end_week:null,frequency}}]}
 }
 
 export function administrationForPhase(phase?: {dosing_entry?:DosingEntry|null;dose_semantics_version?:number|null;injection_volume_ml?:number|null;syringe_units?:number|null}|null) {

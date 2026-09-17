@@ -24,7 +24,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showNewVial, setShowNewVial] = useState(false)
-  const [newReconDate, setNewReconDate] = useState(new Date().toISOString().split('T')[0])
+  const [newReconDate, setNewReconDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [newBacWater, setNewBacWater] = useState(bacWaterMl ? String(bacWaterMl) : '')
   const [newVialStrength, setNewVialStrength] = useState(vialStrength ? String(vialStrength) : '')
 
@@ -85,7 +85,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   }
 
   async function handleNewVial() {
-    setNewReconDate(new Date().toISOString().split('T')[0])
+    setNewReconDate(new Date().toLocaleDateString('en-CA'))
     setNewBacWater(bacWaterMl ? String(bacWaterMl) : '')
     setNewVialStrength(vialStrength ? String(vialStrength) : '')
     setShowNewVial(true)

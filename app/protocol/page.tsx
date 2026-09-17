@@ -107,7 +107,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/create-protocol', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
         name:newName.trim(), dose:prefillDose, dose_unit:quickDoseUnit,
-        vial:prefillVial, vial_unit:quickVialUnit, water:prefillWater,
+        vial:prefillVial, vial_unit:quickVialUnit, water:prefillWater, date:today,
       }) })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Unable to create protocol')

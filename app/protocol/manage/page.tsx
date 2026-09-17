@@ -77,7 +77,7 @@ export default function ManagePage() {
   const [savedNotice,setSavedNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
   const showCompleted = true
@@ -284,7 +284,7 @@ export default function ManagePage() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `protocol-export-${new Date().toISOString().split('T')[0]}.csv`
+    link.download = `protocol-export-${new Date().toLocaleDateString('en-CA')}.csv`
     link.style.display = 'none'
     document.body.appendChild(link)
     link.click()
@@ -297,7 +297,7 @@ export default function ManagePage() {
     setDetailId(null)
     setRemovedCompoundIds([])
     setEditingId(null)
-    setStartDate(new Date().toISOString().split('T')[0])
+    setStartDate(new Date().toLocaleDateString('en-CA'))
     setCompounds([newCompound()])
     setContinuedFromId('')
     setChangeHappenedEarlier(false)
