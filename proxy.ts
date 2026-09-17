@@ -28,6 +28,7 @@ export async function proxy(request: NextRequest) {
   path === '/calculator' ||
   path === '/onboarding' ||
   path === '/privacy' ||
+  path === '/terms' ||
   path === '/support' ||
   path === '/offline' ||
   path.startsWith('/share') ||
