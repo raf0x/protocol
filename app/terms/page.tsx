@@ -1,4 +1,10 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
+
+export const metadata: Metadata = {
+  title: 'Terms of Use',
+  description: 'Terms for using MyPepProtocol, including the medical disclaimer: it is an organizational and informational tool, not a healthcare provider or substitute for professional medical advice.',
+}
 
 export default function TermsPage() {
   return (

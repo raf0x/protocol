@@ -1,4 +1,10 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description: "What MyPepProtocol collects, how it's used, and how to request access, correction, or deletion of your data. No personal data is sold, and no advertising trackers are used.",
+}
 
 const sectionStyle = { marginBottom: '32px' }
 
