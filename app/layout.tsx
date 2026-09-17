@@ -9,15 +9,31 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#090e16' }
 
+const description = 'Private longitudinal health and protocol tracking.'
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.mypepprotocol.app'),
   applicationName: 'MyPepProtocol',
   title: { default: 'MyPepProtocol', template: '%s | MyPepProtocol' },
-  description: 'Private longitudinal health and protocol tracking.',
+  description,
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'MyPepProtocol' },
   icons: {
     icon: [{ url: '/favicon.ico', sizes: 'any' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  openGraph: {
+    type: 'website',
+    url: '/',
+    siteName: 'MyPepProtocol',
+    title: 'MyPepProtocol',
+    description,
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'MyPepProtocol',
+    description,
   },
 }
 
