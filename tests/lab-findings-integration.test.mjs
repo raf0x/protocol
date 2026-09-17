@@ -131,6 +131,26 @@ test('headline count is capped at four', () => {
   assert.equal(model([panel('old', '2026-08-01', oldRows), panel('new', '2026-09-01', newRows)]).headlines.length, 4)
 })
 
+test('totalFindingsCount reflects the true count beyond the four-headline cap', () => {
+  const oldRows = [], newRows = []
+  for (let i = 0; i < 7; i++) { oldRows.push(result(`Marker ${i}`, 10, { reference_high: 100, status: 'normal' })); newRows.push(result(`Marker ${i}`, 12 + i, { reference_high: 100, status: 'normal' })) }
+  const m = model([panel('old', '2026-08-01', oldRows), panel('new', '2026-09-01', newRows)])
+  assert.equal(m.headlines.length, 4)
+  assert.equal(m.totalFindingsCount, 7)
+})
+
+test('totalFindingsCount excludes missing-from-latest-panel findings, matching the headline pool', () => {
+  const p = [panel('old', '2026-08-01', [result('Old A', 10), result('Old B', 11)]), panel('new', '2026-09-01', [result('Current', 12)])]
+  const m = model(p)
+  assert.equal(m.missingFromLatestCount, 2)
+  assert.equal(m.totalFindingsCount, 1)
+})
+
+test('latestPanelId identifies the panel the current findings are anchored to', () => {
+  const p = sameMarkerPanels([['old', '2026-08-01', 10], ['new', '2026-09-01', 30]])
+  assert.equal(model(p).latestPanelId, 'new')
+})
+
 test('deterministic priority ordering is preserved', () => {
   const oldRows = [result('Directional', 10, { reference_high: 100, status: 'normal' }), result('Range transition', 10)]
   const newRows = [result('Directional', 12, { reference_high: 100, status: 'normal' }), result('Range transition', 30)]

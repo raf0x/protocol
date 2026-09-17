@@ -7,7 +7,9 @@ const MAX_HEADLINES = 4
 export type LabFindingsSummaryModel = {
   state: 'empty' | 'insufficient' | 'ambiguous_latest' | 'ready'
   latestDate: string | null
+  latestPanelId: string | null
   headlines: LabFinding[]
+  totalFindingsCount: number
   newlyMeasuredCount: number
   missingFromLatestCount: number
   previousPanelAmbiguous: boolean
@@ -75,7 +77,8 @@ export function buildLabFindingsSummaryModel(
     keptNewlyMeasured = true
     return true
   }).slice(0, limit)
-  return { state: current.state, latestDate: current.latestDate, headlines,
+  return { state: current.state, latestDate: current.latestDate, latestPanelId: current.latestPanelId, headlines,
+    totalFindingsCount: headlinePool.length,
     newlyMeasuredCount: newlyMeasured.length, missingFromLatestCount,
     previousPanelAmbiguous: current.previousPanelAmbiguous }
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { buildHealthBriefing, type BriefingProtocols, type HealthBriefingModel } from '../../lib/health/healthBriefing'
 import { loadProtocolOverlay } from '../../lib/health/loadProtocolOverlay'
+import { loadLastSeenLabPanelId, markLabFindingsSeen } from '../../lib/health/labFindingsSeenMarker'
 import type { BiomarkerHistory, LabPanel } from '../../lib/health/labs'
 import { formatTimelineDate } from '../../lib/health/timeline'
 import LabFindingsSummary from './LabFindingsSummary'
@@ -15,12 +16,13 @@ function compoundAccent(identity: string) {
   return String(hash % 5)
 }
 
-export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
+export function HealthBriefingView({ model, newFindingsCount = 0 }: { model: HealthBriefingModel; newFindingsCount?: number }) {
   if (model.state === 'empty') return null
   const snapshot = model.currentSnapshot
   const context = model.protocolContext
   return <section className={styles.briefing} aria-labelledby="health-briefing-heading">
     <div className={styles.sectionHeading}><h2 id="health-briefing-heading">Health briefing</h2><span className={styles.caption}>From your recorded evidence</span></div>
+    {newFindingsCount > 0 && <p className={styles.caption} role="status">{newFindingsCount} new {newFindingsCount === 1 ? 'finding' : 'findings'} since your last visit</p>}
 
     <section className={`${styles.card} ${styles.snapshotCard}`} aria-labelledby="briefing-snapshot-heading">
       <div className={styles.rowHeading}><h3 id="briefing-snapshot-heading">Current snapshot</h3>{snapshot.asOf && <span className={styles.caption}>As of <time dateTime={snapshot.asOf}>{formatTimelineDate(snapshot.asOf)}</time></span>}</div>
@@ -59,8 +61,11 @@ export function HealthBriefingView({ model }: { model: HealthBriefingModel }) {
   </section>
 }
 
+type SeenMarker = { status: 'loading' } | { status: 'ready'; lastSeenPanelId: string | null }
+
 export default function HealthBriefing({ panels, histories }: { panels: LabPanel[]; histories: BiomarkerHistory[] }) {
   const [protocols, setProtocols] = useState<BriefingProtocols>({ status: 'loading', asOf: null })
+  const [seenMarker, setSeenMarker] = useState<SeenMarker>({ status: 'loading' })
   const dates = useMemo(() => panels.map(panel => panel.test_date).sort(), [panels])
   const earliestLab = dates[0], latestLab = dates.at(-1)
   useEffect(() => {
@@ -78,7 +83,32 @@ export default function HealthBriefing({ panels, histories }: { panels: LabPanel
     })
     return () => { live = false }
   }, [earliestLab, latestLab])
+
+  useEffect(() => {
+    let live = true
+    loadLastSeenLabPanelId().then(lastSeenPanelId => {
+      if (live) setSeenMarker({ status: 'ready', lastSeenPanelId })
+    }).catch(() => {
+      if (live) setSeenMarker({ status: 'ready', lastSeenPanelId: null })
+    })
+    return () => { live = false }
+  }, [])
+
   const model = useMemo(() => buildHealthBriefing({ panels, histories, protocols }), [panels, histories, protocols])
+  const latestPanelId = model.findings.latestPanelId
+
+  // Only counts as "new" when a prior marker actually existed -- a first-ever
+  // visit has nothing to compare against and must stay silent, not announce
+  // every existing finding as new.
+  const newFindingsCount = seenMarker.status === 'ready' && seenMarker.lastSeenPanelId != null
+    && latestPanelId && seenMarker.lastSeenPanelId !== latestPanelId
+    ? model.findings.totalFindingsCount : 0
+
+  useEffect(() => {
+    if (seenMarker.status !== 'ready' || !latestPanelId || seenMarker.lastSeenPanelId === latestPanelId) return
+    void markLabFindingsSeen(latestPanelId)
+  }, [seenMarker, latestPanelId])
+
   if (!panels.length && protocols.status === 'loading') return null
-  return <HealthBriefingView model={model} />
+  return <HealthBriefingView model={model} newFindingsCount={newFindingsCount} />
 }
