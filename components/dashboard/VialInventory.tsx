@@ -1,5 +1,4 @@
 'use client'
-import { dosingDisplay, type DosingEntry } from '../../lib/health/dosingEntry'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
 
@@ -9,18 +8,11 @@ type Props = {
   reconstitutionDate?: string
   bacWaterMl?: number
   vialStrength?: number
-  activePhase?: { dosing_entry?: DosingEntry | null; dose_semantics_version?: number | null; dose: number | null; dose_unit: string | null; injection_volume_ml?: number | null; syringe_units?: number | null; syringe_scale?: number | null } | null
   vialUnit?: string
 }
 
-export default function VialInventory({ compoundId, compoundName, reconstitutionDate, bacWaterMl, vialStrength, vialUnit, activePhase }: Props) {
+export default function VialInventory({ compoundId, compoundName, reconstitutionDate, bacWaterMl, vialStrength, vialUnit }: Props) {
   const [count, setCount] = useState<number | null>(null)
-  const [editing, setEditing] = useState(false)
-  const [input, setInput] = useState('')
-  const [dosesOverride, setDosesOverride] = useState<number | null>(null)
-  const [editingDoses, setEditingDoses] = useState(false)
-  const [dosesInput, setDosesInput] = useState('')
-  const [mlPerDose, setMlPerDose] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showNewVial, setShowNewVial] = useState(false)
@@ -29,8 +21,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const [newVialStrength, setNewVialStrength] = useState(vialStrength ? String(vialStrength) : '')
 
   useEffect(() => {
-    setCount(null); setDosesOverride(null); setMlPerDose(null)
-    setEditing(false); setEditingDoses(false)
+    setCount(null)
     setLoading(true)
     loadInventory()
   }, [compoundId])
@@ -46,42 +37,11 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
     const supabase = createClient()
     const { data } = await supabase
       .from('compounds')
-      .select('vials_in_stock, doses_taken_override, ml_per_dose')
+      .select('vials_in_stock')
       .eq('id', compoundId)
       .single()
-    if (data) {
-      setCount(data.vials_in_stock ?? null)
-      setDosesOverride(data.doses_taken_override ?? null)
-      setMlPerDose(data.ml_per_dose ?? null)
-      try {
-        if (data.doses_taken_override !== null) localStorage.setItem('vial_inventory_' + compoundId + '_doses', String(data.doses_taken_override))
-        if (data.ml_per_dose !== null) localStorage.setItem('vial_inventory_' + compoundId + '_ml', String(data.ml_per_dose))
-      } catch(e) {}
-    }
+    if (data) setCount(data.vials_in_stock ?? null)
     setLoading(false)
-  }
-
-  async function saveCount() {
-    const val = parseInt(input)
-    if (!isNaN(val) && val >= 0) {
-      setCount(val); setSaving(true)
-      const supabase = createClient()
-      await supabase.from('compounds').update({ vials_in_stock: val }).eq('id', compoundId)
-      setSaving(false)
-    }
-    setEditing(false)
-  }
-
-  async function saveDoses() {
-    const val = parseInt(dosesInput)
-    if (!isNaN(val) && val >= 0) {
-      setDosesOverride(val); setSaving(true)
-      const supabase = createClient()
-      await supabase.from('compounds').update({ doses_taken_override: val }).eq('id', compoundId)
-      setSaving(false)
-      try { localStorage.setItem('vial_inventory_' + compoundId + '_doses', String(val)); window.dispatchEvent(new Event('doses_updated')) } catch(e) {}
-    }
-    setEditingDoses(false)
   }
 
   async function handleNewVial() {
@@ -104,13 +64,12 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
       bac_water_ml: newBacWater ? parseFloat(newBacWater) : bacWaterMl,
       vial_strength: parsedStrength
     }).eq('id', compoundId)
-    setCount(next); setDosesOverride(0)
-    try { localStorage.setItem('vial_inventory_' + compoundId + '_doses', '0'); window.dispatchEvent(new Event('doses_updated')) } catch(e) {}
+    setCount(next)
+    try { window.dispatchEvent(new Event('doses_updated')) } catch(e) {}
     setSaving(false); setShowNewVial(false)
   }
 
-  const weeksLeft = count !== null && count > 0 ? count * 4 : null
-  const daysElapsed = reconstitutionDate 
+  const daysElapsed = reconstitutionDate
     ? Math.floor((Date.now() - new Date(reconstitutionDate + 'T00:00:00').getTime()) / 86400000)
     : null
   const expiryDays = 28
@@ -152,76 +111,23 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         </div>
       )}
 
-      {/* Vial lifecycle bar */}
+      {/* Vial lifecycle: label, day badge, and the new-vial trigger on one row; bar underneath */}
       {reconstitutionDate && daysElapsed !== null && (
-        <div style={{marginBottom:'12px',paddingBottom:'12px',borderBottom:'1px solid var(--color-border)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px',gap:'8px',flexWrap:'wrap'}}>
             <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px'}}>VIAL LIFECYCLE</span>
             <span style={{fontSize:'13px',fontWeight:'700',color:barColor}}>
               Day {daysElapsed}/{expiryDays}
               {daysLeft !== null && daysLeft > 0 && <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'6px'}}>({daysLeft}d left)</span>}
               {daysLeft === 0 && <span style={{fontSize:'11px',fontWeight:'700',color:'#ef4444',marginLeft:'6px'}}>(EXPIRED)</span>}
             </span>
+            <button onClick={handleNewVial} style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'6px',padding:'5px 10px',color:'#39ff14',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>+ New Vial</button>
           </div>
           <div style={{width:'100%',height:'6px',background:'var(--color-surface)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--color-border)'}}>
             <div style={{width:`${progress}%`,height:'100%',background:barColor,transition:'width 0.3s ease, background 0.3s ease'}} />
           </div>
-          <div style={{fontSize:'10px',color:'var(--color-muted)',marginTop:'4px'}}>
-            Reconstituted {new Date(reconstitutionDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-          </div>
         </div>
       )}
-
-      <div style={{margin:'12px 0',fontSize:13,color:'var(--color-text)'}}>
-        {activePhase?.dosing_entry ? <><p>{dosingDisplay(activePhase).primary}</p><p style={{color:'var(--color-dim)'}}>{dosingDisplay(activePhase).secondary}</p></> : activePhase?.dose_semantics_version === 1 ? <>
-          <p><span style={{color:'var(--color-dim)'}}>Medication:</span> {activePhase.dose} {activePhase.dose_unit}</p>
-          {activePhase.injection_volume_ml != null && <p><span style={{color:'var(--color-dim)'}}>Injection volume:</span> {Number(activePhase.injection_volume_ml.toPrecision(6))} mL</p>}
-          {activePhase.syringe_units != null && activePhase.syringe_scale != null && <p><span style={{color:'var(--color-dim)'}}>Syringe markings:</span> {Number(activePhase.syringe_units.toPrecision(6))} units on U-{activePhase.syringe_scale}</p>}
-        </> : mlPerDose != null && <p>Legacy recorded volume: {mlPerDose} mL (not a medication dose)</p>}
-        <a href={`/protocol/manage?compound=${compoundId}`} style={{color:'var(--color-green)'}}>Edit medication dose, concentration and syringe scale</a>
-      </div>
-      {/* Vials in stock */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',paddingTop:'8px',borderTop:'1px solid var(--color-border)'}}>
-        <div>
-          <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px',display:'block',marginBottom:'2px'}}>VIALS IN STOCK</span>
-          {count !== null ? (
-            <span style={{fontSize:'13px',color:count<=1?'#ff6b6b':count<=2?'#f59e0b':'var(--color-text)',fontWeight:'700'}}>
-              {count} vial{count !== 1 ? 's' : ''}{weeksLeft ? ' · ~' + weeksLeft + 'wk supply' : ' — reorder soon'}
-            </span>
-          ) : (
-            <span style={{fontSize:'12px',color:'var(--color-muted)'}}>Not set</span>
-          )}
-        </div>
-        <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-          <button onClick={handleNewVial} style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'6px',padding:'5px 10px',color:'#39ff14',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>+ New Vial</button>
-          {editing ? (
-            <div style={{display:'flex',gap:'4px'}}>
-              <input type='number' min='0' value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==='Enter' && saveCount()} style={{width:'50px',background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'5px',color:'var(--color-text)',fontSize:'12px',textAlign:'center'}} autoFocus />
-              <button onClick={saveCount} disabled={saving} style={{background:'#39ff14',color:'#000',border:'none',borderRadius:'6px',padding:'5px 8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>✓</button>
-            </div>
-          ) : (
-            <button onClick={() => { setEditing(true); setInput(count !== null ? String(count) : '') }} style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'5px 10px',color:'var(--color-text)',fontSize:'12px',cursor:'pointer'}}>{count === null ? 'Set' : 'Edit'}</button>
-          )}
-        </div>
-      </div>
-
-      {/* Doses taken */}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:'8px',borderTop:'1px solid var(--color-border)'}}>
-        <div>
-          <span style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px',display:'block',marginBottom:'2px'}}>DOSES TAKEN (THIS VIAL)</span>
-          <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'700'}}>{dosesOverride !== null ? dosesOverride : 'Not set'}</span>
-        </div>
-        <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-          {editingDoses ? (
-            <div style={{display:'flex',gap:'4px'}}>
-              <input type='number' min='0' value={dosesInput} onChange={e => setDosesInput(e.target.value)} onKeyDown={e => e.key==='Enter' && saveDoses()} style={{width:'55px',background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'5px',color:'var(--color-text)',fontSize:'12px',textAlign:'center'}} autoFocus />
-              <button onClick={saveDoses} disabled={saving} style={{background:'#39ff14',color:'#000',border:'none',borderRadius:'6px',padding:'5px 8px',fontSize:'12px',fontWeight:'700',cursor:'pointer'}}>✓</button>
-            </div>
-          ) : (
-            <button onClick={() => { setEditingDoses(true); setDosesInput(dosesOverride !== null ? String(dosesOverride) : '') }} style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'6px',padding:'5px 10px',color:'var(--color-text)',fontSize:'12px',cursor:'pointer'}}>{dosesOverride === null ? 'Set' : 'Edit'}</button>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
