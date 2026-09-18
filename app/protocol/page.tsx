@@ -23,8 +23,6 @@ type DueCompound = { id: string; name: string; dose: string; dose_unit: string; 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 export default function DashboardPage() {
-  const [heroOpen, setHeroOpen] = useState(false)
-  const heroRef = useRef<HTMLDetailsElement>(null)
   const [doseSaveError, setDoseSaveError] = useState<string | null>(null)
   const doseSavePending = useRef(false)
   const [scoreError, setScoreError] = useState<Partial<Record<'mood' | 'energy' | 'hunger', string | null>>>({})
@@ -474,7 +472,7 @@ export default function DashboardPage() {
           date={today} protocols={activeProtocols} events={protocolEvents} entries={entries}
           due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
           error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
-          onViewDetails={() => setHeroOpen(true)} detailsOpen={heroOpen} weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
+          weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
           stats={<StatsBoxes
             currentWeight={lw ?? null}
             totalLost={tl ? Number(tl) : 0}
@@ -484,14 +482,10 @@ export default function DashboardPage() {
             onToggleUnit={toggleWeightUnit}
           />}
           rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
-          detail={activeProtocols.length > 0 && <details id="today-protocol-detail" ref={heroRef} className="today-hero-detail" open={heroOpen} onToggle={event => setHeroOpen(event.currentTarget.open)}>
-            <summary>Protocol details <span>Schedule, inventory & sharing</span></summary>
-            <HeroProtocolCard
-              activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl}
-              compoundIndex={activeProtocols.flatMap((p: any) => p.compounds || []).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
-              onShare={shareProtocol}
-            />
-          </details>}
+          detail={activeProtocols.length > 0 && <HeroProtocolCard
+            activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl}
+            compoundIndex={activeProtocols.flatMap((p: any) => p.compounds || []).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
+          />}
           schedule={<>
             <WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />
             {activeProtocols.length > 0 && (

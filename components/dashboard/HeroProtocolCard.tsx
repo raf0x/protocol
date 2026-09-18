@@ -17,7 +17,6 @@ type Props = {
   allLogs: { compound_id: string; taken: boolean; date: string }[]
   totalLost: string | null
   compoundIndex: number
-  onShare: (protocolId: string) => void
 }
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -244,7 +243,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
 
   return (
-    <div style={{background:'var(--color-card)',borderRadius:'16px',padding:'20px',marginBottom:'16px',overflow:'hidden',position:'relative',border:'1px solid var(--color-border)',transition:'all 0.3s ease'}}>
+    <div style={{position:'relative',overflow:'hidden'}}>
       <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.08)',filter:'blur(40px)',pointerEvents:'none'}} />
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -282,31 +281,12 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
               <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
             )}
           </div>
-
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 16px',marginBottom:'12px'}}>
-            <StatCell label="PROTOCOL START" value={new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
-            <StatCell label="RECON. DATE" value={reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} />
-            <StatCell label="VIAL EXPIRES" valueColor={vialDaysLeft != null ? (vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)') : undefined} value={reconDate ? <>
-              {new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
-            </> : '—'} />
-            <StatCell label="EST. REMAINING" value={mlRemaining != null ? mlRemaining.toFixed(2) + ' mL' : '—'} />
-            <StatCell label="INJECTION VOLUME" value={administration.volume != null
-              ? `${administration.markings != null ? Number(administration.markings.toPrecision(6)) : '—'}u / ${Number(administration.volume.toPrecision(6))}mL`
-              : '—'} />
-            <StatCell label="NEXT DOSE" value={nextDoseText || '—'} valueColor={nextDoseText ? 'var(--color-green)' : undefined} />
-            <StatCell label="VIALS IN STOCK" value={vialsInStock != null ? <>
-              {vialsInStock} vial{vialsInStock !== 1 ? 's' : ''}
-              {weeksLeft != null && <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}> · ~{weeksLeft}wk</span>}
-            </> : '—'} />
-            <StatCell label="DOSES TAKEN (VIAL)" value={dosesOverride != null ? String(dosesOverride) : '—'} />
-          </div>
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
-          <DynamicVial 
-            name={activeCompound.name} 
-            color={color} 
+          <DynamicVial
+            name={activeCompound.name}
+            color={color}
             fillPct={fillPct}
             vialStrength={activeCompound.vial_strength}
             vialUnit={activeCompound.vial_unit}
@@ -316,7 +296,26 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           )}
         </div>
       </div>
-      
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 16px',marginBottom:'12px'}}>
+        <StatCell label="PROTOCOL START" value={new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+        <StatCell label="RECON. DATE" value={reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} />
+        <StatCell label="VIAL EXPIRES" valueColor={vialDaysLeft != null ? (vialDaysLeft<=5?'#ff6b6b':vialDaysLeft<=10?'#f59e0b':'var(--color-text)') : undefined} value={reconDate ? <>
+          {new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
+        </> : '—'} />
+        <StatCell label="EST. REMAINING" value={mlRemaining != null ? mlRemaining.toFixed(2) + ' mL' : '—'} />
+        <StatCell label="INJECTION VOLUME" value={administration.volume != null
+          ? `${administration.markings != null ? Number(administration.markings.toPrecision(6)) : '—'}u / ${Number(administration.volume.toPrecision(6))}mL`
+          : '—'} />
+        <StatCell label="NEXT DOSE" value={nextDoseText || '—'} valueColor={nextDoseText ? 'var(--color-green)' : undefined} />
+        <StatCell label="VIALS IN STOCK" value={vialsInStock != null ? <>
+          {vialsInStock} vial{vialsInStock !== 1 ? 's' : ''}
+          {weeksLeft != null && <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}> · ~{weeksLeft}wk</span>}
+        </> : '—'} />
+        <StatCell label="DOSES TAKEN (VIAL)" value={dosesOverride != null ? String(dosesOverride) : '—'} />
+      </div>
+
       {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
         <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
           <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} />

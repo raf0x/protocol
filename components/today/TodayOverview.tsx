@@ -12,15 +12,14 @@ type Props = {
   date: string; protocols: ProtocolRow[]; events: ProtocolEventRow[]; entries: JournalEntryRow[]
   due: TodayDue[]; logs: Record<string, { taken: boolean }>; saving: boolean
   onTaken: (id: string) => void; error: string | null; selected: string | null
-  onViewDetails: () => void; detailsOpen: boolean; stats: ReactNode; rings: ReactNode; detail: ReactNode
+  stats: ReactNode; rings: ReactNode; detail: ReactNode
   weightUnit: WeightUnit; onToggleUnit: () => void; schedule?: ReactNode; checkin?: ReactNode
 }
 export default function TodayOverview(props: Props) {
   return <div className="today-overview">
     <TodayHeader date={props.date} />
     {props.stats}
-    <ActiveProtocolList items={todayProtocols(props.protocols, props.date)} selected={props.selected} onViewDetails={props.onViewDetails} detailsOpen={props.detailsOpen}>{props.rings}</ActiveProtocolList>
-    {props.detail}
+    <ActiveProtocolList items={todayProtocols(props.protocols, props.date)} selected={props.selected} detail={props.detail}>{props.rings}</ActiveProtocolList>
     <TodaysFocusCard activeCount={props.protocols.length} due={props.due} logs={props.logs} saving={props.saving} onTaken={props.onTaken} error={props.error}>{props.checkin}</TodaysFocusCard>
     {props.schedule}
     <div className="today-insights-grid"><RecentChangesCard events={recentChanges(props.events, props.protocols)} /><HealthTrendsCard entries={props.entries} unit={props.weightUnit} onToggleUnit={props.onToggleUnit} /></div>

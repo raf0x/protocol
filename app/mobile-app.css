@@ -114,15 +114,7 @@
 .today-protocol-list li + li { border-top: 1px solid color-mix(in srgb, var(--app-border) 70%, transparent); }
 .today-protocol-row { width: 100%; min-height: 88px; display: flex; align-items: center; gap: var(--app-space-sm); padding: var(--app-space-sm) 0; border: 0; background: transparent; text-align: left; cursor: pointer; color: var(--app-text); }
 .today-protocol-row[aria-expanded="true"] { background: var(--app-accent-soft); border-radius: var(--app-radius-button); }
-.today-protocol-copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
-.today-selected-protocol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-sm); padding-top: var(--app-space-md); border-top: 1px solid var(--app-border); }
-.today-selected-protocol .today-protocol-copy { flex-basis: 180px; }
-.today-selected-protocol > button { flex-shrink: 0; }
-.today-protocol-copy strong { font-size: var(--app-font-name); font-weight: 650; letter-spacing: -.3px; line-height: 1.3; overflow-wrap: anywhere; }
-.today-protocol-copy > span { color: var(--app-secondary); font-size: var(--app-font-small); line-height: 1.5; overflow-wrap: anywhere; }
-.today-protocol-copy small { color: var(--app-muted); font-size: 12px; }
-.today-protocol-copy > .today-row-status { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--app-muted); margin-top: 1px; }
-.today-row-status i { width: 5px; height: 5px; border-radius: 50%; background: var(--app-success); margin-right: 2px; }
+.today-merged-detail { padding-top: var(--app-space-md); border-top: 1px solid var(--app-border); }
 .today-protocol-chevron { color: var(--app-muted); flex-shrink: 0; display: grid; place-items: center; }
 .today-compound-icon { border: 1px solid color-mix(in srgb, currentColor 30%, transparent); box-shadow: inset 0 1px 0 var(--app-highlight); }
 .today-color-0 { color: #80b4fa; background: #80b4fa16; }
@@ -151,15 +143,15 @@
 .today-journal-link { margin-top: 8px; }
 .today-empty { color: var(--app-secondary); font-size: var(--app-font-body); line-height: 1.6; margin: 8px 0; }
 .today-note { padding: 4px 12px; color: var(--app-muted); font-size: var(--app-font-small); text-align: center; }
-.today-dashboard-tools, .today-hero-detail { border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); overflow: clip; }
-.today-dashboard-tools > summary, .today-hero-detail > summary { cursor: pointer; padding: 14px 16px; color: var(--app-secondary); font-size: var(--app-font-body); font-weight: 600; min-height: 54px; }
-.today-dashboard-tools > summary span, .today-hero-detail > summary span { display: block; color: var(--app-muted); font-size: var(--app-font-small); font-weight: 400; margin-top: 6px; }
-.today-dashboard-tools[open], .today-hero-detail[open] { padding: 0 12px 12px; }
-.today-hero-detail:not([open]), .today-dashboard-tools:not([open]) { background: color-mix(in srgb, var(--app-surface) 60%, transparent); border-color: color-mix(in srgb, var(--app-border) 65%, transparent); }
-.today-hero-detail > summary::marker, .today-dashboard-tools > summary::marker { color: var(--app-muted); font-size: 12px; }
+.today-dashboard-tools { border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); overflow: clip; }
+.today-dashboard-tools > summary { cursor: pointer; padding: 14px 16px; color: var(--app-secondary); font-size: var(--app-font-body); font-weight: 600; min-height: 54px; }
+.today-dashboard-tools > summary span { display: block; color: var(--app-muted); font-size: var(--app-font-small); font-weight: 400; margin-top: 6px; }
+.today-dashboard-tools[open] { padding: 0 12px 12px; }
+.today-dashboard-tools:not([open]) { background: color-mix(in srgb, var(--app-surface) 60%, transparent); border-color: color-mix(in srgb, var(--app-border) 65%, transparent); }
+.today-dashboard-tools > summary::marker { color: var(--app-muted); font-size: 12px; }
 /* Everything load-bearing (export, protocols, CSV) has moved out to always-visible
    spots — this drawer is only charts/weekly recap now, so its summary reads
-   smaller and quieter than Protocol details, signaling it's optional, not required. */
+   small and quiet, signaling it's optional, not required. */
 .today-dashboard-tools > summary { min-height: auto; padding: 10px 16px; font-size: var(--app-font-small); font-weight: 500; color: var(--app-muted); }
 .today-dashboard-tools > summary span { font-size: 12px; margin-top: 3px; }
 .today-loading { color: var(--app-secondary); margin-top: 24px; padding-block: 40px; text-align: center; }
