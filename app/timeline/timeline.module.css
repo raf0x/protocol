@@ -28,10 +28,12 @@
 .filterControls { margin: var(--app-space-sm) 0; }
 .filters { display: flex; gap: var(--app-space-xs); width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; padding: var(--app-space-xs) 2px; margin: var(--app-space-sm) 0; scrollbar-width: none; }
 .filters::-webkit-scrollbar { display: none; }
-.treatmentFilter { display: grid; gap: var(--app-space-xs); color: var(--app-secondary); font-size: var(--app-font-small); }
-.treatmentFilter select { color-scheme: dark; box-sizing: border-box; width: 100%; min-height: 48px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface); color: var(--app-text); padding: var(--app-space-sm); font: inherit; font-size: 16px; }
-:global([data-theme='light']) .treatmentFilter select { color-scheme: light; }
-.page button { min-height: 44px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface); color: var(--app-secondary); padding: 10px 15px; font: inherit; font-size: var(--app-font-small); font-weight: 600; cursor: pointer; flex-shrink: 0; }
+.treatmentFilter { display: grid; gap: 2px; min-width: 0; }
+.treatmentLabel { color: var(--app-muted); font-size: var(--app-font-small); font-weight: 500; }
+.treatmentChips { display: flex; gap: var(--app-space-xs); width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; padding: var(--app-space-xs) 2px; scrollbar-width: none; }
+.treatmentChips::-webkit-scrollbar { display: none; }
+.treatmentChips button { white-space: nowrap; }
+.treatmentChips button:disabled { cursor: default; opacity: .72; }.page button { min-height: 44px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface); color: var(--app-secondary); padding: 10px 15px; font: inherit; font-size: var(--app-font-small); font-weight: 600; cursor: pointer; flex-shrink: 0; }
 .page button[aria-pressed='true'] { background: var(--app-accent-soft); border-color: var(--app-accent); color: var(--app-accent); box-shadow: inset 0 -2px 0 var(--app-accent); }
 .page :is(button, a, summary, select):focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; border-radius: var(--app-radius-button); }
 .count { font-size: var(--app-font-small); color: var(--app-muted); margin: 0 0 var(--app-space-sm); }
@@ -42,7 +44,7 @@
 .monthSummary::-webkit-details-marker { display: none; }
 .monthSummary strong { color: var(--app-text); font-size: var(--app-font-name); letter-spacing: -.2px; }
 .monthSummary span { display: inline-flex; align-items: center; gap: 6px; color: var(--app-muted); font-size: var(--app-font-small); white-space: nowrap; }
-.monthSummary span::after { content: '›'; color: var(--app-secondary); font-size: 20px; line-height: 1; transform: rotate(90deg); transition: transform .16s ease; }
+.monthSummary span::after { content: 'â€º'; color: var(--app-secondary); font-size: 20px; line-height: 1; transform: rotate(90deg); transition: transform .16s ease; }
 .monthGroup[open] .monthSummary span::after { transform: rotate(-90deg); }
 .monthBody { padding: 0 var(--app-space-xs) var(--app-space-sm); }
 .day { border-left: 1px solid var(--app-border); padding-left: var(--app-space-sm); margin-bottom: var(--app-space-md); }
