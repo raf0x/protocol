@@ -570,6 +570,17 @@ export default function ManagePage() {
                   </div>
                 )}
 
+                {!editingId && (
+                  <div style={{marginTop:'16px'}}>
+                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PLANNED DURATION (optional)</label>
+                    <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                      <input aria-label='Planned duration weeks' type='number' min='1' max='52' placeholder='Ongoing' value={c.duration_weeks} onChange={e => updateCompound(ci,'duration_weeks',e.target.value)} style={{...is,width:'80px',flex:'none'}} />
+                      <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>weeks</span>
+                    </div>
+                    <p style={{fontSize:'11px',color:mg,marginTop:'6px'}}>Leave blank if ongoing.</p>
+                  </div>
+                )}
+
                 </EditorSection>
                 <EditorSection title="Administration" hint="Route and syringe scale, if known." optional>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
@@ -633,7 +644,7 @@ export default function ManagePage() {
                   </div>
                 </div>}
                 </EditorSection>
-                <EditorSection title="Phase" hint="Choose a phase to edit. Leave duration blank for ongoing.">
+                {editingId && <EditorSection title="Dose phases" hint="Choose a phase to edit or add a later dose phase.">
                 {c.id && <div style={{marginBottom:12}}>
                   <p style={{fontSize:12,color:dg}}>Editing only the selected phase. Other phases and recorded injections are preserved.</p>
                   <select aria-label="Select phase" value={c.phase_id || ''} style={is} onChange={e => {
@@ -654,7 +665,7 @@ export default function ManagePage() {
                   </div>
                 </div>
 
-                </EditorSection>
+                </EditorSection>}
                 <EditorSection title="Inventory & notes" hint="Keep the details that help you day to day." optional>
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIALS IN STOCK</label>
