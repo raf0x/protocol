@@ -1,10 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase'
+import styles from './journal.module.css'
 
-export default function HistoryPage() {
-  const [entries, setEntries] = useState<any[]>([])
+type JournalEntry = {
+  id: string
+  date: string
+  mood: number | null
+  energy: number | null
+  hunger: number | null
+  sleep: number | null
+  weight: number | null
+  notes: string | null
+}
+
+const scoreColors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e']
+
+export default function ManageHealthEntriesPage() {
+  const [entries, setEntries] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [mood, setMood] = useState<number | null>(null)
@@ -15,140 +30,312 @@ export default function HistoryPage() {
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState('')
   const [saving, setSaving] = useState(false)
-  const [protocolEvents, setProtocolEvents] = useState<any[]>([])
 
-  const g = 'var(--color-green)'
-  const dg = 'var(--color-dim)'
-  const mg = 'var(--color-muted)'
-  const cb = 'var(--color-card)'
-  const bd = 'var(--color-border)'
-
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   async function load() {
     setLoading(true)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    const { data } = await supabase.from('journal_entries').select('*').order('date', { ascending: false })
-    setEntries(data || [])
-    const { data: events } = await supabase.from('protocol_events').select('*').order('date', { ascending: false })
-    setProtocolEvents(events || [])
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    const { data } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .order('date', { ascending: false })
+
+    setEntries((data || []) as JournalEntry[])
     setLoading(false)
   }
 
-  function startEdit(e: any) {
-    setEditingId(e.id); setDate(e.date); setMood(e.mood); setEnergy(e.energy)
-    setSleep(e.sleep?.toString() || ''); setWeight(e.weight?.toString() || '')
-    setHunger(e.hunger ?? null); setNotes(e.notes || '')
+  function startEdit(entry: JournalEntry) {
+    setEditingId(entry.id)
+    setDate(entry.date)
+    setMood(entry.mood)
+    setEnergy(entry.energy)
+    setSleep(entry.sleep?.toString() || '')
+    setWeight(entry.weight?.toString() || '')
+    setHunger(entry.hunger ?? null)
+    setNotes(entry.notes || '')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  function cancelEdit() { setEditingId(null) }
+  function cancelEdit() {
+    setEditingId(null)
+  }
 
   async function saveEdit() {
     setSaving(true)
     const supabase = createClient()
-    const row: any = { mood, energy, notes: notes.trim() }
+    const row: Record<string, string | number | null> = {
+      mood,
+      energy,
+      notes: notes.trim(),
+    }
+
     if (sleep) row.sleep = parseFloat(sleep)
     if (weight) row.weight = parseFloat(weight)
     if (hunger !== null) row.hunger = hunger
     if (date) row.date = date
+
     await supabase.from('journal_entries').update(row).eq('id', editingId)
-    setSaving(false); setEditingId(null); load()
+
+    setSaving(false)
+    setEditingId(null)
+    load()
   }
 
   async function deleteEntry(id: string) {
-    if (!confirm('Delete this entry?')) return
+    if (!confirm('Delete this health entry?')) return
+
     const supabase = createClient()
     await supabase.from('journal_entries').delete().eq('id', id)
     load()
   }
 
-  function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) {
+  function ScoreButton({
+    label,
+    value,
+    current,
+    onChange,
+  }: {
+    label: string
+    value: number
+    current: number | null
+    onChange: (value: number) => void
+  }) {
     const isActive = current === value
-    const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']; const sc = scoreColors[value-1]
-    return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:isActive?'none':'1px solid var(--color-border)',background:isActive?sc:'var(--color-card)',color:isActive?'#fff':'var(--color-dim)',fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:isActive?1:0.5}}>{value}</button>
+    const scoreColor = scoreColors[value - 1]
+
+    return (
+      <button
+        type="button"
+        className={styles.scoreButton}
+        aria-label={`${label} ${value}`}
+        aria-pressed={isActive}
+        onClick={() => onChange(value)}
+        style={
+          isActive
+            ? {
+                backgroundColor: scoreColor,
+                borderColor: scoreColor,
+              }
+            : undefined
+        }
+      >
+        {value}
+      </button>
+    )
   }
 
-  if (loading) return <main style={{minHeight:'100vh',color:dg,display:'flex',alignItems:'center',justifyContent:'center'}}>Loading...</main>
+  if (loading) {
+    return (
+      <main className={styles.loading} role="status">
+        Loading health entries...
+      </main>
+    )
+  }
 
   return (
-    <main style={{minHeight:'100vh',color:'var(--color-text)',padding:'24px'}}>
-      <div style={{maxWidth:'540px',margin:'0 auto'}}>
-        <h1 style={{fontSize:'24px',fontWeight:'bold',color:g,marginBottom:'4px'}}>History</h1>
-        <p style={{color:dg,fontSize:'13px',marginBottom:'20px'}}>Your past entries. Tap Edit to update.</p>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.eyebrow}>Health data</p>
+          <h1>Manage health entries</h1>
+          <p className={styles.intro}>
+            Correct or remove daily check-ins. Your complete history lives in
+            Timeline.
+          </p>
+        </div>
 
-        {editingId && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <h2 style={{fontSize:'13px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',marginBottom:'14px'}}>EDIT ENTRY</h2>
-            <div style={{marginBottom:'10px'}}>
-              <span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Date</span>
-              <input type='date' value={date} onChange={e => setDate(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',colorScheme:'dark'}} />
+        <Link
+          className={styles.timelineLink}
+          href="/timeline?category=journal"
+        >
+          View health timeline
+          <span aria-hidden="true">›</span>
+        </Link>
+      </header>
+
+      {editingId && (
+        <section className={styles.editor} aria-labelledby="edit-entry-title">
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>Selected entry</p>
+              <h2 id="edit-entry-title">Edit health entry</h2>
             </div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-              <span style={{fontSize:'12px',color:dg}}>Mood</span>
-              <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={mood} onChange={setMood} />)}</div>
-            </div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-              <span style={{fontSize:'12px',color:dg}}>Energy</span>
-              <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={energy} onChange={setEnergy} />)}</div>
-            </div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-              <span style={{fontSize:'12px',color:dg}}>Hunger</span>
-              <div style={{display:'flex',gap:'6px'}}>{[1,2,3,4,5].map(v => <ScoreBtn key={v} value={v} current={hunger} onChange={setHunger} reverse />)}</div>
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'10px'}}>
-              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Sleep</span><input type='number' step='0.5' value={sleep} onChange={e => setSleep(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div>
-              <div><span style={{fontSize:'11px',color:mg,display:'block',marginBottom:'4px'}}>Weight</span><input type='number' step='0.1' value={weight} onChange={e => setWeight(e.target.value)} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}} /></div>
-            </div>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder='Notes...' rows={2} style={{width:'100%',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px',color:'var(--color-text)',fontSize:'13px',boxSizing:'border-box',resize:'none',marginBottom:'12px'}} />
-            <div style={{display:'flex',gap:'8px'}}>
-              <button onClick={cancelEdit} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'6px',padding:'10px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={saveEdit} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?'var(--color-muted)':'var(--color-green-text)',border:'none',borderRadius:'6px',padding:'10px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':'Save Changes'}</button>
-            </div>
+            <button
+              type="button"
+              className={styles.quietButton}
+              onClick={cancelEdit}
+            >
+              Cancel
+            </button>
           </div>
-        )}
 
-        {entries.length === 0 && protocolEvents.length === 0 && <p style={{color:mg,textAlign:'center',padding:'48px 0'}}>No entries yet. Log your first day from the Dashboard.</p>}
+          <label className={styles.field}>
+            <span>Date</span>
+            <input
+              className={styles.dateInput}
+              type="date"
+              value={date}
+              onChange={event => setDate(event.target.value)}
+            />
+          </label>
 
-        {protocolEvents.length > 0 && (
-          <div style={{marginBottom:'20px'}}>
-            <span style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px',display:'block',marginBottom:'10px'}}>PROTOCOL CHANGES</span>
-            {protocolEvents.map((ev, i) => (
-              <div key={ev.id || i} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'4px'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
-                    <span style={{width:'8px',height:'8px',borderRadius:'50%',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',display:'inline-block'}} />
-                    <span style={{fontSize:'10px',color:'var(--color-green-text)',background:ev.event_type==='started'?g:ev.event_type==='dose_change'?'#f59e0b':ev.event_type==='compound_added'?'#06b6d4':ev.event_type==='compound_removed'?'#ff6b6b':'#6c63ff',padding:'2px 6px',borderRadius:'4px',fontWeight:'700',textTransform:'uppercase'}}>{ev.event_type.replace(/_/g,' ')}</span>
-                  </div>
-                  <span style={{fontSize:'12px',color:dg}}>{new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
+          <div className={styles.scoreRows}>
+            {[
+              ['Mood', mood, setMood],
+              ['Energy', energy, setEnergy],
+              ['Hunger', hunger, setHunger],
+            ].map(([label, current, setter]) => (
+              <div className={styles.scoreRow} key={label as string}>
+                <span>{label as string}</span>
+                <div
+                  className={styles.scoreGroup}
+                  role="group"
+                  aria-label={label as string}
+                >
+                  {[1, 2, 3, 4, 5].map(value => (
+                    <ScoreButton
+                      key={value}
+                      label={label as string}
+                      value={value}
+                      current={current as number | null}
+                      onChange={setter as (value: number) => void}
+                    />
+                  ))}
                 </div>
-                <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>{ev.description}</span>
               </div>
             ))}
           </div>
-        )}
-        {entries.map(e => (
-          <div key={e.id} style={{background:cb,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',marginBottom:'8px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
-              <span style={{fontSize:'13px',fontWeight:'600',color:g}}>{new Date(e.date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
-              <div style={{display:'flex',gap:'10px'}}>
-                <button onClick={() => startEdit(e)} style={{background:'none',border:'none',color:dg,cursor:'pointer',fontSize:'12px'}}>Edit</button>
-                <button onClick={() => deleteEntry(e.id)} style={{background:'none',border:'none',color:'#ff6b6b',cursor:'pointer',fontSize:'12px'}}>Delete</button>
-              </div>
-            </div>
-            <div style={{display:'flex',gap:'12px',fontSize:'12px',color:dg,flexWrap:'wrap'}}>
-              {e.mood !== null && <span>Mood {e.mood}</span>}
-              {e.energy !== null && <span>· Energy {e.energy}</span>}
-              {e.sleep !== null && <span>· Sleep {e.sleep}h</span>}
-              {e.weight && <span>· {e.weight}lbs</span>}
-              {e.hunger !== null && e.hunger !== undefined && <span>· Hunger {e.hunger}</span>}
-            </div>
-            {e.notes && <p style={{fontSize:'12px',color:dg,marginTop:'6px'}}>{e.notes}</p>}
+
+          <div className={styles.fieldGrid}>
+            <label className={styles.field}>
+              <span>Sleep, hours</span>
+              <input
+                type="number"
+                step="0.5"
+                value={sleep}
+                onChange={event => setSleep(event.target.value)}
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span>Weight, lbs</span>
+              <input
+                type="number"
+                step="0.1"
+                value={weight}
+                onChange={event => setWeight(event.target.value)}
+              />
+            </label>
           </div>
-        ))}
-      </div>
+
+          <label className={styles.field}>
+            <span>Notes</span>
+            <textarea
+              value={notes}
+              onChange={event => setNotes(event.target.value)}
+              placeholder="Add context..."
+              rows={3}
+            />
+          </label>
+
+          <div className={styles.editorActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={cancelEdit}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={saveEdit}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      <section aria-labelledby="saved-entries-title">
+        <div className={styles.listHeading}>
+          <div>
+            <p className={styles.eyebrow}>Recorded check-ins</p>
+            <h2 id="saved-entries-title">Saved entries</h2>
+          </div>
+          <span>
+            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+          </span>
+        </div>
+
+        {entries.length === 0 ? (
+          <div className={styles.empty}>
+            <h2>No health entries yet</h2>
+            <p>Add your first check-in from Today.</p>
+            <Link href="/protocol">Go to Today</Link>
+          </div>
+        ) : (
+          <div className={styles.entryList}>
+            {entries.map(entry => (
+              <article className={styles.entryCard} key={entry.id}>
+                <div className={styles.entryHeading}>
+                  <time dateTime={entry.date}>
+                    {new Date(
+                      entry.date + 'T12:00:00'
+                    ).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </time>
+
+                  <div className={styles.entryActions}>
+                    <button type="button" onClick={() => startEdit(entry)}>
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteButton}
+                      onClick={() => deleteEntry(entry.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.metrics}>
+                  {entry.mood !== null && <span>Mood {entry.mood}/5</span>}
+                  {entry.energy !== null && (
+                    <span>Energy {entry.energy}/5</span>
+                  )}
+                  {entry.sleep !== null && <span>Sleep {entry.sleep} h</span>}
+                  {entry.weight !== null && <span>{entry.weight} lbs</span>}
+                  {entry.hunger !== null && (
+                    <span>Hunger {entry.hunger}/5</span>
+                  )}
+                </div>
+
+                {entry.notes && (
+                  <p className={styles.notes}>{entry.notes}</p>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   )
 }
