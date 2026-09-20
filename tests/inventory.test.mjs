@@ -102,6 +102,51 @@ test('Today exposes the independent Inventory route', () => {
   assert.match(renderToStaticMarkup(React.createElement(Header,{date:'2026-09-21'})),/href="\/protocol\/inventory"/)
 })
 
+function renderPreview(review) {
+  let slot=0
+  const component={exports:{}}
+  const code=ts.transpileModule(readFileSync(new URL('../components/inventory/Inventory.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText
+  new Function('require','module','exports',code)(name=>{
+    if(name==='react') return {...React,useEffect(){},useState(initial){return [slot++===5?review:initial,()=>{}]},useRef(initial){return {current:initial}}}
+    if(name.endsWith('/model')) return model
+    if(name.endsWith('/client')||name.endsWith('.css')) return {}
+    if(name.includes('ProtocolDialog')) return {__esModule:true,default:({children})=>children}
+    return require(name)
+  },component,component.exports)
+  return renderToStaticMarkup(React.createElement(component.exports.default))
+}
+
+for (const count of [0,1,2]) test(`preview counts use correct wording for ${count} rows`,()=>{
+  const rows=[]
+  for(let i=0;i<count;i++) rows.push(
+    {...valid,item_name:`warning ${i}`,form:''},
+    {...valid,item_name:`duplicate ${i}`},
+    {...valid,item_name:`invalid ${i}`,quantity:0},
+    {...valid,row_type:'EXAMPLE'},
+  )
+  const existing=importableRows(preview(Array.from({length:count},(_,i)=>({...valid,item_name:`duplicate ${i}`}))))
+  const html=renderPreview(preview(rows,existing)),suffix=count===1?'':'s'
+  for(const label of [`valid new row${suffix}`,`row${suffix} with warnings`,`duplicate${suffix}`,`invalid row${suffix}`]) assert.ok(html.includes(`<li>${count} ${label}</li>`),label)
+  assert.ok(html.includes(`${count} example row${suffix} excluded.`))
+  assert.ok(html.includes(`Import ${count} valid new record${suffix} only.`))
+})
+
+test('each Review cell shows its warning status and every warning, while clean rows remain Valid',()=>{
+  const review=preview([{...valid,item_name:'One warning',form:''},{...valid,item_name:'Multiple warnings',form:'',reconstitution_status:'',expiration_date:'2026-09-02'},valid])
+  const html=renderPreview(review)
+  const cells=[...html.matchAll(/<td data-label="Review">(.*?)<\/td>/g)].map(match=>match[1])
+  assert.equal(cells.length,3)
+  assert.match(cells[0],/<strong>Valid with warning<\/strong>/)
+  assert.match(cells[1],/<strong>Valid with warnings<\/strong>/)
+  for(let i=0;i<2;i++) {
+    assert.doesNotMatch(cells[i],/<strong>Valid<\/strong>/)
+    assert.equal([...cells[i].matchAll(/<li>/g)].length,review.rows[i].warnings.length)
+    for(const warning of review.rows[i].warnings) assert.ok(cells[i].includes(`<li>${warning}</li>`),warning)
+  }
+  assert.match(cells[2],/<strong>Valid<\/strong>/)
+  assert.equal(importableRows(review).length,3,'warnings must not change import eligibility')
+})
+
 test('actual inventory UI previews before confirmation, serializes double clicks and confirms deletion', async () => {
   const states=[],refs=[]; let slot=0,refSlot=0,importCalls=0,deleted=0,release
   const saved={...importableRows(preview([valid]))[0],id:'record',user_id:'owner',created_at:'today'}

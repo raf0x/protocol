@@ -12,6 +12,7 @@ const labels: Record<string, string> = { item_name: 'Item or compound name', for
 const options: Record<string, readonly string[]> = { form: FORMS, strength_unit: UNITS, reconstitution_status: RECONSTITUTION }
 const today = () => new Date().toLocaleDateString('en-CA')
 const message = (error: unknown) => error instanceof Error ? error.message : 'This action could not be completed. Try again.'
+const counted = (count: number, singular: string) => `${count} ${singular}${count === 1 ? '' : 's'}`
 
 export default function Inventory() {
   const [items, setItems] = useState<SavedInventoryItem[]>([])
@@ -81,15 +82,15 @@ export default function Inventory() {
     {busy && <p role="status">Working…</p>}
     {preview && counts && <section className={styles.card} aria-labelledby="preview-title">
       <h2 id="preview-title">Review inventory</h2><p>{source}</p>
-      <ul className={styles.counts}><li>{counts.valid} valid new rows</li><li>{counts.warning} rows with warnings</li><li>{counts.duplicate} duplicates</li><li>{counts.invalid} invalid rows</li></ul>
-      <p>{preview.examples} example rows excluded. Only valid new rows will be imported; warnings need your review.</p>
+      <ul className={styles.counts}><li>{counted(counts.valid, 'valid new row')}</li><li>{counted(counts.warning, 'row')} with warnings</li><li>{counted(counts.duplicate, 'duplicate')}</li><li>{counted(counts.invalid, 'invalid row')}</li></ul>
+      <p>{counted(preview.examples, 'example row')} excluded. Only valid new rows will be imported; warnings need your review.</p>
       <p className={styles.secondary}>Duplicates match every saved field after trimming surrounding spaces. Quantity, notes, dates, units and case must match. Nothing is merged.</p>
       <div className={styles.tableWrap}><table className={styles.preview}><caption>Uploaded rows and validation results</caption><thead><tr><th>Row</th><th>Item and details</th><th>Review</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.rowNumber}>
         <td data-label="Row">{row.rowNumber}</td><td data-label="Item"><strong>{row.item.item_name || 'Missing item name'}</strong><dl>{Object.entries(row.item).filter(([key]) => key !== 'item_name').map(([key, val]) => <div key={key}><dt>{labels[key]}</dt><dd>{val == null ? 'Not recorded' : String(val)}</dd></div>)}</dl></td>
-        <td data-label="Review"><strong>{row.errors.length ? 'Invalid — not imported' : row.duplicate ? 'Duplicate — not imported' : row.warnings.length ? 'Valid with warnings' : 'Valid'}</strong><ul>{[...row.errors, ...row.warnings].map(text => <li key={text}>{text}</li>)}</ul></td>
+        <td data-label="Review"><strong>{row.errors.length ? 'Invalid — not imported' : row.duplicate ? 'Duplicate — not imported' : row.warnings.length ? `Valid with warning${row.warnings.length === 1 ? '' : 's'}` : 'Valid'}</strong><ul>{[...row.errors, ...row.warnings].map(text => <li key={text}>{text}</li>)}</ul></td>
       </tr>)}</tbody></table></div>
       {!preview.rows.length && <p>No item rows found. Add your items below the example row in the template.</p>}
-      <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={busy || !counts.valid} onChange={event => setConfirmed(event.target.checked)} />I reviewed the rows and warnings. Import {counts.valid} valid new records only.</label>
+      <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={busy || !counts.valid} onChange={event => setConfirmed(event.target.checked)} />I reviewed the rows and warnings. Import {counted(counts.valid, 'valid new record')} only.</label>
       <div className={styles.actions}><button type="button" disabled={busy || !confirmed || !counts.valid} onClick={save}>Confirm import</button><button type="button" disabled={busy} onClick={() => { setPreview(null); setConfirmed(false) }}>Cancel preview</button></div>
     </section>}
     <section aria-labelledby="current-inventory"><div className={styles.heading}><h2 id="current-inventory">Current inventory</h2><button type="button" disabled={busy} onClick={() => { setError(''); void refresh().catch(reason => setError(message(reason))) }}>Refresh</button></div>
