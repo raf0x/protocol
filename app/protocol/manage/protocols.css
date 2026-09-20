@@ -103,5 +103,14 @@
 .protocol-effective-date p { margin: 0; font-size: var(--app-font-small); }
 .protocol-confirm-dialog { box-sizing: border-box; margin: auto; padding: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); color: var(--app-text); width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .protocol-confirm-dialog::backdrop { background: #030711b8; }
+.protocol-activation { padding: 20px; }
+.protocol-activation label { display: grid; gap: 8px; }
+.protocol-activation input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px; font-size: 16px; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-border); border-radius: var(--app-radius-button); }
+.protocol-activation button, .planned-protocols button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-accent-soft); color: var(--app-accent); cursor: pointer; }
+.planned-protocols h2 { font-size: var(--app-font-title); }
+.planned-protocols p { color: var(--app-secondary); }
+.planned-protocols article { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; border-top: 1px solid var(--app-border); }
+.planned-protocols article > div { min-width: 0; overflow-wrap: anywhere; }
+.planned-protocols a { display: inline-flex; align-items: center; min-height: 44px; color: var(--app-accent); }
 .protocol-confirm-dialog > div { box-sizing: border-box; border: 0 !important; max-width: none !important; width: 100% !important; min-width: 0; }
 @media (min-width: 640px) { .protocol-day-picker { grid-template-columns: repeat(7, minmax(44px, 1fr)) !important; } .protocol-detail-compound { padding: var(--app-space-lg); } }

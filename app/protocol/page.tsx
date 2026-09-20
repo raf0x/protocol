@@ -1,6 +1,9 @@
 'use client'
 import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
 
+import PlannedProtocols from '../../components/protocols/PlannedProtocols'
+import type { LibraryProtocol } from '../../lib/health/protocolPresentation'
+import './manage/protocols.css'
 import TodayOverview from '../../components/today/TodayOverview'
 import TodayHeader from '../../components/today/TodayHeader'
 
@@ -31,6 +34,7 @@ export default function DashboardPage() {
   const [streakDays, setStreakDays] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
+  const [plannedProtocols, setPlannedProtocols] = useState<LibraryProtocol[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
@@ -135,6 +139,8 @@ export default function DashboardPage() {
     let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,mL per Injection\n'
 
     for (const protocol of allProtocols) {
+      // This export describes dated treatment history, not unstarted inventory.
+      if (protocol.status === 'planned') continue
       const compounds = protocol.compounds || []
       
       for (const compound of compounds) {
@@ -247,18 +253,20 @@ export default function DashboardPage() {
     if (!user) { setLoading(false); return }
     
     // Only getUser() is a real dependency for the rest (they all need user.id via
-    // the session, not a value from each other). Run the six independent queries
+    // the session, not a value from each other). Run the independent queries
     // concurrently. allSettled (not all) so one failed query never blanks out the
     // setters for the others that already succeeded.
-    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult] = await Promise.allSettled([
+    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult] = await Promise.allSettled([
       supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single(),
       supabase.from('journal_entries').select('*').order('date', { ascending: false }),
       supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
       supabase.from('injection_logs').select('*').eq('date', today),
       supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true),
       supabase.from('protocol_events').select('*').order('date', { ascending: true }),
+      supabase.from('protocols').select('id,name,status,start_date,compounds(id,name)').eq('status', 'planned'),
     ])
 
+    setPlannedProtocols(plannedResult.status === 'fulfilled' ? plannedResult.value.data || [] : [])
     const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null
     if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
 
@@ -313,7 +321,7 @@ export default function DashboardPage() {
     const events = eventsResult.status === 'fulfilled' ? eventsResult.value.data : null
     const eventsError = eventsResult.status === 'rejected' || !!eventsResult.value.error
     setProtocolEvents(events || [])
-    if (journalError || protocolsError || logsError || eventsError) setLoadError(true)
+    if (journalError || protocolsError || logsError || eventsError || plannedResult.status === 'rejected' || plannedResult.value.error) setLoadError(true)
     const hour = new Date().getHours()
     if (hour >= 20) {
       const logMap: Record<string, boolean> = {}
@@ -501,6 +509,8 @@ export default function DashboardPage() {
             onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry}
           />}
         />
+
+        <PlannedProtocols protocols={plannedProtocols} onActivated={() => void loadAll(true)} />
 
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>

@@ -4,7 +4,7 @@ import { resolveBaselineDetails, normalizeTimeline, type ProtocolRow, type Proto
 
 /** Presentation only. Scheduling, dose interpretation and writes remain in their existing owners. */
 export function todayProtocols(protocols: ProtocolRow[], date: string) {
-  return protocols.flatMap(protocol => (protocol.compounds ?? []).map(compound => {
+  return protocols.filter(protocol => protocol.status !== 'planned').flatMap(protocol => (protocol.compounds ?? []).map(compound => {
     const phase = protocol.start_date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
     const display = dosingDisplay(phase)
     const details = resolveBaselineDetails(compound, protocol, date)

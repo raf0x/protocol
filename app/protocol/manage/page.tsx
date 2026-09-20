@@ -77,6 +77,7 @@ export default function ManagePage() {
   const [savedNotice,setSavedNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [planned, setPlanned] = useState(false)
   const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
@@ -297,6 +298,7 @@ export default function ManagePage() {
     setDetailId(null)
     setRemovedCompoundIds([])
     setEditingId(null)
+    setPlanned(false)
     setStartDate(new Date().toLocaleDateString('en-CA'))
     setCompounds([newCompound()])
     setContinuedFromId('')
@@ -314,9 +316,10 @@ export default function ManagePage() {
     setEditingId(p.id)
     setChangeHappenedEarlier(false)
     setEffectiveDate(today)
-    setStartDate(p.start_date)
+    setPlanned(p.status === 'planned')
+    setStartDate(p.start_date || '')
     const cs = (p.compounds || []).map((c: any) => {
-      const ph = currentPhase(c.phases || [], p.start_date, new Date().toLocaleDateString('en-CA')) || [...(c.phases || [])].sort((a, b) => b.start_week - a.start_week)[0]
+      const ph = currentPhase(c.phases || [], p.start_date || '', new Date().toLocaleDateString('en-CA')) || [...(c.phases || [])].sort((a, b) => b.start_week - a.start_week)[0]
       const freq = ph?.frequency || ''
       const isRolling = freq.startsWith('every') && freq.endsWith('days')
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
@@ -373,7 +376,7 @@ export default function ManagePage() {
   async function save() {
     setError('')
     if (!compounds.length || compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
-    if (!validDate(startDate) || compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
+    if ((!planned && !validDate(startDate)) || compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
     setSaving(true)
     try {
       const payload = compounds.map(c => {
@@ -391,7 +394,7 @@ export default function ManagePage() {
             time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
         }
       })
-      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), startDate,
+      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), startDate: planned ? null : startDate,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
         effectiveDate: changeHappenedEarlier ? effectiveDate : today })
       const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
@@ -407,9 +410,10 @@ export default function ManagePage() {
     load()
   }
 
-  const activeProtocols = protocols.filter(p => p.status !== 'completed')
+  const activeProtocols = protocols.filter(p => p.status !== 'completed' && p.status !== 'planned')
+  const plannedProtocols = protocols.filter(p => p.status === 'planned')
   const completedProtocols = protocols.filter(p => p.status === 'completed')
-  const displayProtocols = showCompleted ? [...activeProtocols, ...completedProtocols] : activeProtocols
+  const displayProtocols = showCompleted ? [...activeProtocols, ...plannedProtocols, ...completedProtocols] : [...activeProtocols, ...plannedProtocols]
 
   const is = { width:'100%', background:inp, border:'1px solid '+bd, borderRadius:'8px', padding:'10px 12px', color:'var(--color-text)', fontSize:'15px', boxSizing:'border-box' as const }
 
@@ -443,6 +447,10 @@ export default function ManagePage() {
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
+            {!editingId && <label>Protocol state<select aria-label="Protocol state" value={planned ? 'planned' : 'active'} onChange={event => setPlanned(event.target.value === 'planned')} style={is}>
+              <option value="active">Active</option><option value="planned">Planned</option>
+            </select></label>}
+            {planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
 
             {compounds.map((c, ci) => (
               <div key={ci} style={{marginBottom:'24px'}}>
@@ -646,7 +654,7 @@ export default function ManagePage() {
                       <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>days</span>
                     </div>
                     <p style={{fontSize:'11px',color:mg,marginTop:'6px'}}>
-                      Pattern will shift naturally across weeks. Example: every 3 days from {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})} = {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+6*86400000).toLocaleDateString('en-US',{weekday:'short'})}...
+                      Pattern will shift naturally across weeks. {planned ? 'Calendar dates will be set when you activate.' : <>Example: every 3 days from {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})} = {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+6*86400000).toLocaleDateString('en-US',{weekday:'short'})}...</>}
                     </p>
                   </div>
                 )}
@@ -705,10 +713,10 @@ export default function ManagePage() {
 
             <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
 
-            <div style={{marginBottom:'16px'}}>
+            {!planned && <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL START DATE</label>
               <input aria-label='Protocol start date' type='date' value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
-            </div>
+            </div>}
 
             {completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
               <div style={{marginBottom:'16px'}}>
@@ -727,7 +735,7 @@ export default function ManagePage() {
 
             {error && <div style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
-            {editingId && <div className="protocol-effective-date">
+            {editingId && !planned && <div className="protocol-effective-date">
               <label className="protocol-check"><input type="checkbox" checked={changeHappenedEarlier} onChange={event => setChangeHappenedEarlier(event.target.checked)} /> These changes happened earlier</label>
               {changeHappenedEarlier && <label>Effective date<input type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
               <p>Otherwise, changes are recorded as effective today.</p>
@@ -735,12 +743,12 @@ export default function ManagePage() {
 
             <div className="protocol-save-bar">
               <button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':'Create Protocol'}</button>
+              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':planned?'Save Planned protocol':'Create Protocol'}</button>
             </div>
           </div>
         )}
 
-        {!showForm && !detailId && <ProtocolLibrary protocols={protocols} today={new Date().toLocaleDateString('en-CA')} onOpen={id => {setDetailId(id);window.scrollTo({top:0})}} onAdd={startNew} selecting={selectMode} selected={selectedProtocols} onSelect={toggleProtocolSelect} />}
+        {!showForm && !detailId && <ProtocolLibrary onReload={load} protocols={protocols} today={new Date().toLocaleDateString('en-CA')} onOpen={id => {setDetailId(id);window.scrollTo({top:0})}} onAdd={startNew} selecting={selectMode} selected={selectedProtocols} onSelect={toggleProtocolSelect} />}
         {!showForm && detailId && (() => {
           const selected = protocols.find(p => p.id === detailId)
           if (!selected) return <button className="protocol-back" onClick={() => setDetailId(null)}>Return to protocols</button>

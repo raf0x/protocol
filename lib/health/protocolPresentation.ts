@@ -34,7 +34,7 @@ export function compoundOverview(protocol: LibraryProtocol, compound: LibraryCom
   // Never turn an expired phase into today's dose or guess a final dose.
   const completed = protocol.status === 'completed'
   const date = completed ? protocol.completed_date?.slice(0, 10) : today
-  const phase = protocol.start_date && date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
+  const phase = protocol.status === 'planned' ? [...(compound.phases ?? [])].sort((a, b) => (a.start_week ?? 0) - (b.start_week ?? 0))[0] ?? null : protocol.start_date && date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
   const days = protocol.start_date ? (Date.parse(today) - Date.parse(protocol.start_date.slice(0, 10))) / 86400000 : NaN
   let next: { date: string; time: string | null } | null = null
   if (protocol.status === 'active' && protocol.start_date) {
@@ -49,7 +49,7 @@ export function compoundOverview(protocol: LibraryProtocol, compound: LibraryCom
     }
   }
   return { phase, dose: doseLabel(phase), frequency: scheduleLabel(phase),
-    week: !completed && Number.isFinite(days) && days >= 0 ? Math.floor(days / 7) + 1 : null, next }
+    week: protocol.status !== 'planned' && !completed && Number.isFinite(days) && days >= 0 ? Math.floor(days / 7) + 1 : null, next }
 }
 export function durationLabel(protocol: LibraryProtocol) {
   if (!protocol.start_date || !protocol.completed_date) return ''

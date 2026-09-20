@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
 
-export type ProtocolTransition = 'pause' | 'resume' | 'complete' | 'reactivate'
+export type ProtocolTransition = 'pause' | 'resume' | 'complete' | 'reactivate' | 'activate'
 
 function message(error: unknown, fallback: string) {
   return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
@@ -11,7 +11,7 @@ function message(error: unknown, fallback: string) {
 export async function saveProtocolWithEvents(input: {
   protocolId: string | null
   name: string
-  startDate: string
+  startDate: string | null
   compounds: unknown[]
   continuedFromId?: string | null
   removedCompoundIds?: string[]

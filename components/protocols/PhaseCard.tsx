@@ -19,7 +19,7 @@ export default function PhaseCard({ protocol, compound, today, onEdit, onReload 
     } catch { setError('This phase could not be continued. Please try again.') }
     finally { setBusy(false) }
   }
-  return <section className="protocol-phase"><h3>{protocol.status === 'completed' ? 'Final phase' : 'Current phase'}</h3>
+  return <section className="protocol-phase"><h3>{protocol.status === 'completed' ? 'Final phase' : protocol.status === 'planned' ? 'Planned phase' : 'Current phase'}</h3>
     {info.phase ? <><strong>{info.dose}</strong><p>{phaseLabel(info.phase)}</p></> : <p>{expired ? 'Latest phase ended' : 'No current phase saved'}</p>}
     {expired && <div className="protocol-action-row"><button disabled={busy} onClick={continueLatest}>{busy ? 'Continuing…' : 'Continue latest phase'}</button><button onClick={() => onEdit(compound.id, true)}>Add new phase</button></div>}
     {!compound.phases?.length && protocol.status !== 'completed' && <button onClick={() => onEdit(compound.id, true)}>Add a phase</button>}
