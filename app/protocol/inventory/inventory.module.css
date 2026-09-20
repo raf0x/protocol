@@ -1,0 +1,42 @@
+.page { box-sizing: border-box; width: min(100%, 960px); min-width: 0; margin: auto; padding: 24px 16px; color: var(--app-text); overflow-wrap: anywhere; }
+.page h1 { font-size: 30px; margin: 16px 0 4px; }
+.page h2 { font-size: var(--app-font-title); }
+.page h3 { font-size: var(--app-font-name); }
+.page p { line-height: 1.6; }
+.page a { color: var(--app-accent); display: inline-flex; align-items: center; min-height: 44px; }
+.card { min-width: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); padding: 16px; margin: 16px 0; }
+.secondary, .page dt { color: var(--app-secondary); font-size: var(--app-font-small); }
+.actions, .heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.heading { justify-content: space-between; }
+.page button, .dialog button { min-height: 44px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); color: var(--app-accent); background: var(--app-accent-soft); padding: 10px 14px; font: inherit; cursor: pointer; }
+.page button:disabled, .dialog button:disabled { opacity: .5; cursor: default; }
+.page :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
+.upload, .fields label { display: grid; gap: 8px; min-width: 0; }
+.page input:not([type=checkbox]), .page select, .page textarea { box-sizing: border-box; min-width: 0; width: 100%; max-width: 100%; min-height: 44px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-bg); color: var(--app-text); padding: 10px; font: inherit; font-size: 16px; }
+.page select { color-scheme: dark; }
+:global([data-theme=light]) .page select { color-scheme: light; }
+.page summary { min-height: 44px; cursor: pointer; padding-top: 12px; }
+.fields, .items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.fields { margin-block: 16px; }
+.items .card { margin: 0; }
+.error { border-left: 3px solid var(--app-error); padding: 12px; }
+.notice { border-left: 3px solid var(--app-accent); padding: 12px; }
+.counts { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-left: 20px; }
+.tableWrap { min-width: 0; max-width: 100%; }
+.preview { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.preview th, .preview td { text-align: left; padding: 12px; vertical-align: top; border-bottom: 1px solid var(--app-border); overflow-wrap: anywhere; }
+.preview th:first-child { width: 40px; }
+.preview caption { text-align: left; font-size: var(--app-font-small); padding-block: 12px; }
+.page dl { margin: 8px 0; }
+.page dl > div { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-block: 6px; }
+.page dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.confirm { display: flex; gap: 12px; align-items: center; min-height: 44px; margin-block: 16px; }
+.confirm input { width: 20px; height: 20px; flex: 0 0 20px; }
+.dialog { padding: 20px; }
+@media (min-width: 700px) { .fields, .items { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .preview thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .preview, .preview tbody, .preview tr, .preview td { display: block; width: auto; }
+  .preview tr { margin-bottom: 16px; border: 1px solid var(--app-border); border-radius: 10px; }
+  .preview td::before { content: attr(data-label); display: block; color: var(--app-secondary); font-size: var(--app-font-small); margin-bottom: 6px; }
+}
