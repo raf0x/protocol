@@ -65,15 +65,6 @@ export default function DashboardPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [missedDoses, setMissedDoses] = useState<string[]>([])
-  const [showNewProtocol, setShowNewProtocol] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [quickDoseUnit, setQuickDoseUnit] = useState('mg')
-  const [quickVialUnit, setQuickVialUnit] = useState('mg')
-  const [prefillDose, setPrefillDose] = useState('')
-  const [prefillVial, setPrefillVial] = useState('')
-  const [prefillWater, setPrefillWater] = useState('')
-  const [creatingProtocol, setCreatingProtocol] = useState(false)
-  const [createSuccess, setCreateSuccess] = useState(false)
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
   const g = 'var(--color-green)'
   const dg = 'var(--color-dim)'
@@ -87,12 +78,8 @@ export default function DashboardPage() {
     if (pending) {
       try {
         const p = JSON.parse(pending)
-        setNewName(p.name || '')
-        setPrefillDose(p.dose?.toString() || '')
-        setQuickDoseUnit(p.dose_unit || 'mg'); setQuickVialUnit(p.vial_unit || 'mg')
-        setPrefillVial(p.vial?.toString() || '')
-        setPrefillWater(p.water?.toString() || '')
-        setShowNewProtocol(true)
+        const params = new URLSearchParams({new:'1',name:p.name || '',dose:String(p.dose ?? ''),dose_unit:p.dose_unit || 'mg',vial:String(p.vial ?? ''),vial_unit:p.vial_unit || 'mg',water:String(p.water ?? '')})
+        window.location.assign('/protocol/manage?' + params.toString())
         localStorage.removeItem('pendingProtocol')
       } catch(e) { localStorage.removeItem('pendingProtocol') }
     }
@@ -102,23 +89,6 @@ export default function DashboardPage() {
     window.addEventListener('doses_updated', handleDosesUpdate)
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
   }, [])
-
-  async function createProtocolFromCalc() {
-    if (!newName.trim()) return
-    setCreatingProtocol(true)
-    try {
-      const response = await fetch('/api/create-protocol', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
-        name:newName.trim(), dose:prefillDose, dose_unit:quickDoseUnit,
-        vial:prefillVial, vial_unit:quickVialUnit, water:prefillWater, date:today,
-      }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Unable to create protocol')
-    } catch (error) { alert(error instanceof Error ? error.message : 'Unable to create protocol'); setCreatingProtocol(false); return }
-    setCreatingProtocol(false)
-    setCreateSuccess(true)
-    setShowNewProtocol(false)
-    loadAll()
-  }
 
   async function exportToCSV() {
     const supabase = createClient()
@@ -522,13 +492,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {createSuccess && (
-          <div style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'12px',padding:'16px',marginBottom:'16px',textAlign:'center'}}>
-            <span style={{color:g,fontSize:'14px',fontWeight:'700'}}>Protocol Created!</span>
-            <p style={{fontSize:'12px',color:dg,marginTop:'4px'}}>It's now in your active stack below.</p>
-          </div>
-        )}
-
         {missedDoses.length > 0 && (
           <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
             <span style={{fontSize:'16px',flexShrink:0}}>⚠️</span>
@@ -635,72 +598,7 @@ export default function DashboardPage() {
         )}
 
         </details>
-        {showNewProtocol && (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999,padding:'20px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowNewProtocol(false)}}>
-            <div style={{background:cb,border:'1px solid '+bd,borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'420px'}}>
-              <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'8px',color:g}}>Create Your Protocol</h3>
-              <p style={{fontSize:'13px',color:dg,marginBottom:'20px'}}>Enter your compound details to get started</p>
-              
-              <div style={{marginBottom:'12px'}}>
-                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Compound Name</label>
-                <input 
-                  placeholder='e.g., Semaglutide' 
-                  value={newName} 
-                  onChange={e=>setNewName(e.target.value)} 
-                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                />
-              </div>
-              
-              <div style={{display:'flex',gap:12,marginBottom:12}}><label>Dose unit <select value={quickDoseUnit} onChange={e => setQuickDoseUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label><label>Vial unit <select value={quickVialUnit} onChange={e => setQuickVialUnit(e.target.value)}>{['mg','mcg','IU'].map(u => <option key={u}>{u}</option>)}</select></label></div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px',marginBottom:'20px'}}>
-                <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Medication dose</label>
-                  <input 
-                    placeholder='Medication amount' 
-                    value={prefillDose} 
-                    onChange={e=>setPrefillDose(e.target.value)} 
-                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                  />
-                </div>
-                <div>
-                  <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>Vial amount</label>
-                  <input 
-                    placeholder='5' 
-                    value={prefillVial} 
-                    onChange={e=>setPrefillVial(e.target.value)} 
-                    style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                  />
-                </div>
-              </div>
-              
-              <div style={{marginBottom:'20px'}}>
-                <label style={{fontSize:'12px',fontWeight:'600',color:'var(--color-text)',display:'block',marginBottom:'6px'}}>BAC Water (ml)</label>
-                <input 
-                  placeholder='2' 
-                  value={prefillWater} 
-                  onChange={e=>setPrefillWater(e.target.value)} 
-                  style={{width:'100%',padding:'12px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'8px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box'}}
-                />
-              </div>
-              
-              <div style={{display:'flex',gap:'10px'}}>
-                <button 
-                  onClick={() => setShowNewProtocol(false)} 
-                  style={{flex:1,background:'transparent',color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'14px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}
-                >
-                  Cancel
-                </button>
-                <button 
-                  disabled={creatingProtocol||!newName.trim()} 
-                  onClick={createProtocolFromCalc} 
-                  style={{flex:2,background:createSuccess?'#10b981':creatingProtocol?mg:g,color:createSuccess?'#fff':creatingProtocol?dg:'#000',padding:'14px',borderRadius:'8px',fontWeight:'700',border:'none',cursor:creatingProtocol||!newName.trim()?'not-allowed':'pointer',opacity:creatingProtocol||!newName.trim()?0.5:1}}
-                >
-                  {createSuccess?'✓ Created!':creatingProtocol?'Creating...':'Create Protocol'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </main>
   )

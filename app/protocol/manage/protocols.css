@@ -111,6 +111,19 @@
 .protocol-save-bar button { min-height: 48px; }
 .protocol-effective-date { display: grid; gap: 8px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface-secondary); padding: 10px 12px; margin-bottom: 10px; }
 .protocol-effective-date p { margin: 0; font-size: var(--app-font-small); }
+.protocol-quick-fields, .protocol-quick-name { display: grid; gap: 12px; margin-bottom: 20px; min-width: 0; }
+.protocol-quick-fields label { display: grid; gap: 6px; min-width: 0; }
+.protocol-quick-fields .protocol-check { display: flex; align-items: center; }
+.protocol-quick-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(85px, 1fr); gap: 12px; }
+.protocol-quick-fields input:not([type=checkbox]), .protocol-quick-fields select, .protocol-quick-name input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-bg); color: var(--app-text); font: inherit; font-size: 16px; }
+.protocol-quick-fields fieldset { min-width: 0; border: 1px solid var(--app-border); border-radius: 8px; padding: 10px; }
+.protocol-quick-fields .protocol-day-picker { display: grid; gap: 6px; }
+.protocol-quick-fields button, .protocol-more-details, .protocol-effective-date button { min-height: 44px; padding: 8px 12px; background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); border-radius: 8px; }
+.protocol-quick-fields button[aria-pressed=true] { background: var(--app-accent-soft); border-color: var(--app-accent); }
+.protocol-more-details { margin-bottom: 16px; }
+.protocol-empty-rings { text-align: center; }
+.protocol-empty-rings a { display: flex; flex-direction: column; align-items: center; gap: 12px; min-height: 44px; }
+.protocol-empty-rings p, .protocol-quick-fields p { font-size: var(--app-font-small); color: var(--app-secondary); }
 .protocol-confirm-dialog { box-sizing: border-box; margin: auto; padding: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); color: var(--app-text); width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .protocol-confirm-dialog::backdrop { background: #030711b8; }
 .protocol-activation { padding: 20px; }

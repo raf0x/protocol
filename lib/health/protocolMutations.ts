@@ -15,16 +15,17 @@ export async function saveProtocolWithEvents(input: {
   compounds: unknown[]
   continuedFromId?: string | null
   removedCompoundIds?: string[]
-  effectiveDate: string
+  effectiveDate?: string | null
 }, client: SupabaseClient = createClient()) {
-  const { data, error } = await client.rpc('save_protocol_with_events_v1', {
+  const { data, error } = await client.rpc('save_protocol_with_events_v2', {
     p_protocol_id: input.protocolId,
     p_name: input.name,
     p_start_date: input.startDate,
     p_compounds: input.compounds,
     p_continued_from_id: input.continuedFromId ?? null,
     p_removed_compound_ids: input.removedCompoundIds ?? [],
-    p_effective_date: input.effectiveDate,
+    p_effective_date: input.protocolId ? input.effectiveDate ?? null : input.startDate,
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   })
   if (error) throw new Error(message(error, 'Unable to save protocol.'))
   return data as string

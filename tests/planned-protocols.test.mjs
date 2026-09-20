@@ -97,7 +97,7 @@ test('activation dialog requires a valid date and sends the chosen date with the
 })
 
 for (const state of ['active', 'planned']) test(`Add Protocol usage choices preserve ${state} date and value mapping`, async () => {
-  const states=[]; let slot=0
+  const states=[],refs=[]; let slot=0,refSlot=0
   const calls=[]
   const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},
     from:()=>({select:()=>({order:async()=>({data:[]})})}),
@@ -108,7 +108,7 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
   const code=ts.transpileModule(readFileSync(url,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText
   const compiled={exports:{}}
   new Function('require','module','exports',code)(name=>{
-    if(name==='react')return {...React,useEffect:()=>{},useState(initial){
+    if(name==='react')return {...React,useEffect:()=>{},useRef(initial){return refs[refSlot++]??(refs[refSlot-1]={current:initial})},useState(initial){
       const index=slot++;if(!(index in states))states[index]=initial===true ? false : initial
       return [states[index],value=>{states[index]=typeof value==='function'?value(states[index]):value}]
     }}
@@ -122,7 +122,7 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
   const previous=globalThis.window
   globalThis.window={scrollTo(){},location:{search:''}}
   try{
-    function render(){slot=0;const nodes=[];function visit(node){if(Array.isArray(node))return node.forEach(visit);if(!React.isValidElement(node))return;nodes.push(node);visit(node.props.children)}visit(compiled.exports.default());return nodes}
+    function render(){slot=0;refSlot=0;const nodes=[];function visit(node){if(Array.isArray(node))return node.forEach(visit);if(!React.isValidElement(node))return;nodes.push(node);visit(node.props.children)}visit(compiled.exports.default());return nodes}
     render().find(node=>node.props.onAdd).props.onAdd()
     for (const wording of ['Are you using this protocol now?', 'Yes, start it now', 'Included in Today, schedules, and health history.', 'No, save it for later', 'Saved as Planned. It will not appear in Today or schedules until you activate it.']) {
       assert.ok(render().some(node=>node.props.children===wording), wording)
@@ -131,12 +131,12 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
     assert.equal(radio('active').props.checked,true)
     radio('planned').props.onChange()
     assert.equal(radio('planned').props.checked,true)
-    assert.ok(!render().some(node=>node.props['aria-label']==='Protocol start date'))
+    assert.ok(!render().some(node=>node.props['aria-label']==='When did you start?'))
     if(state==='active') radio('active').props.onChange()
     render().find(node=>node.props['aria-label']==='Compound name').props.onChange({target:{value:'Saved compound'}})
-    const submit = () => render().find(node=>node.type==='button'&&node.props.children===(state==='planned'?'Save Planned protocol':'Create Protocol'))
+    const submit = () => render().find(node=>node.type==='button'&&node.props.children==='Create protocol')
     if(state==='active') {
-      const date = () => render().find(node=>node.props['aria-label']==='Protocol start date')
+      const date = () => render().find(node=>node.props['aria-label']==='When did you start?')
       assert.equal(date().props.required,true)
       date().props.onChange({target:{value:''}})
       await submit().props.onClick()
@@ -145,7 +145,7 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
     }
     await submit().props.onClick()
     assert.equal(calls.length,1)
-    assert.equal(calls[0].name,'save_protocol_with_events_v1')
+    assert.equal(calls[0].name,'save_protocol_with_events_v2')
     assert.equal(calls[0].args.p_start_date,state==='planned'?null:'2026-09-20')
     assert.equal(calls[0].args.p_protocol_id,null)
     assert.equal(calls[0].args.p_compounds[0].name,'Saved compound')

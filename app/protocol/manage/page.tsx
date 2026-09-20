@@ -3,8 +3,10 @@ import ProtocolDialog from '../../../components/protocols/ProtocolDialog'
 import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import EditorSection from '../../../components/protocols/EditorSection'
+import QuickProtocolFields from '../../../components/protocols/QuickProtocolFields'
+import { localCalendarDate, protocolSaveDates } from '../../../lib/health/protocolDates'
 import './protocols.css'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { phaseEndWeek } from '../../../lib/health/phaseLifecycle'
@@ -77,8 +79,11 @@ export default function ManagePage() {
   const [savedNotice,setSavedNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [quickAdd, setQuickAdd] = useState(false)
+  const savePending = useRef(false)
+  const mode = editingId === null ? 'create' : 'edit'
   const [planned, setPlanned] = useState(false)
-  const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'))
+  const [startDate, setStartDate] = useState(localCalendarDate())
   const [compounds, setCompounds] = useState<Compound[]>([newCompound()])
   const [saving, setSaving] = useState(false)
   const showCompleted = true
@@ -93,7 +98,7 @@ export default function ManagePage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [removedCompoundIds, setRemovedCompoundIds] = useState<string[]>([])
   const [continuedFromId, setContinuedFromId] = useState('')
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = localCalendarDate()
   const [changeHappenedEarlier, setChangeHappenedEarlier] = useState(false)
   const [effectiveDate, setEffectiveDate] = useState(today)
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
@@ -119,12 +124,16 @@ export default function ManagePage() {
     if (!user) { router.push('/auth/login'); return }
     const { data } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
     setProtocols(data || [])
-    const target = new URLSearchParams(window.location.search).get('protocol')
-    const compoundTarget = new URLSearchParams(window.location.search).get('compound')
-    const selected = data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
-    if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
     const params = new URLSearchParams(window.location.search)
-    if (!selected && params.has('dose') && !showForm) { setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || '',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || '',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}]);setShowForm(true);window.history.replaceState(null,'','/protocol/manage') }
+    const target = params.get('protocol')
+    const compoundTarget = params.get('compound')
+    const selected = params.get('new') === '1' ? undefined : data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
+    if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
+    if (!selected && (params.get('new') === '1' || params.has('dose')) && !showForm) {
+      startNew()
+      if (params.has('dose')) setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || 'mg',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || 'mg',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}])
+      window.history.replaceState(null,'','/protocol/manage')
+    }
     setLoading(false)
   }
 
@@ -298,12 +307,13 @@ export default function ManagePage() {
     setDetailId(null)
     setRemovedCompoundIds([])
     setEditingId(null)
+    setQuickAdd(true)
     setPlanned(false)
-    setStartDate(new Date().toLocaleDateString('en-CA'))
+    setStartDate(localCalendarDate())
     setCompounds([newCompound()])
     setContinuedFromId('')
     setChangeHappenedEarlier(false)
-    setEffectiveDate(today)
+    setEffectiveDate('')
     setShowForm(true)
     setError('')
   }
@@ -314,6 +324,7 @@ export default function ManagePage() {
     setRemovedCompoundIds([])
     const parameters = new URLSearchParams(window.location.search)
     setEditingId(p.id)
+    setQuickAdd(false)
     setChangeHappenedEarlier(false)
     setEffectiveDate(today)
     setPlanned(p.status === 'planned')
@@ -374,11 +385,16 @@ export default function ManagePage() {
   }
 
   async function save() {
+    if (savePending.current) return
     setError('')
     if (!compounds.length || compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
-    if ((!planned && !validDate(startDate)) || compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
+    if (compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
+    savePending.current = true
     setSaving(true)
     try {
+      const dates = protocolSaveDates(mode === 'create'
+        ? { mode, planned, startDate, today: localCalendarDate() }
+        : { mode, planned, startDate, today: localCalendarDate(), originalStartDate: protocols.find(p => p.id === editingId)?.start_date || startDate, useDifferentDate: changeHappenedEarlier, effectiveDate })
       const payload = compounds.map(c => {
         const entry = entryFromForm(c)
         // Incomplete interpretation is guidance, not a save prerequisite.
@@ -394,13 +410,13 @@ export default function ManagePage() {
             time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
         }
       })
-      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), startDate: planned ? null : startDate,
+      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
-        effectiveDate: changeHappenedEarlier ? effectiveDate : today })
+      })
       const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
       setSavedNotice(guidance.length ? `Saved. ${guidance.join(' ')}` : 'Protocol saved.'); setShowForm(false); setEditingId(null); await load()
     } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
-    finally { setSaving(false) }
+    finally { savePending.current = false; setSaving(false) }
   }
 
   async function deleteProtocol(id: string) {
@@ -447,6 +463,7 @@ export default function ManagePage() {
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
+            {quickAdd && mode === 'create' && <label className="protocol-quick-name">What are you taking?<input aria-label="Compound name" value={compounds[0].name} onChange={event => updateCompound(0,'name',event.target.value)} placeholder="Item or compound name" /></label>}
             {!editingId && <fieldset className="protocol-use-choice">
               <legend>Are you using this protocol now?</legend>
               <div className="protocol-use-options">
@@ -462,6 +479,7 @@ export default function ManagePage() {
             </fieldset>}
             {editingId && planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
 
+            {quickAdd && mode === 'create' ? <QuickProtocolFields value={compounds[0]} onChange={(field,value) => updateCompound(0,field,value)} /> : <>
             {compounds.map((c, ci) => (
               <div key={ci} style={{marginBottom:'24px'}}>
                 {compounds.length > 1 && (
@@ -722,13 +740,15 @@ export default function ManagePage() {
             ))}
 
             <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
+            </>}
 
             {!planned && <div style={{marginBottom:'16px'}}>
-              <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL START DATE</label>
-              <input aria-label='Protocol start date' type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>{mode === 'create' ? 'When did you start?' : 'Protocol start date'}</label>
+              <input id="protocol-start-date" aria-label={mode === 'create' ? 'When did you start?' : 'Protocol start date'} type='date' required max={mode === 'create' ? today : undefined} value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
             </div>}
+            {quickAdd && mode === 'create' && <button type="button" className="protocol-more-details" onClick={() => setQuickAdd(false)}>Add more details</button>}
 
-            {completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
+            {!quickAdd && completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
               <div style={{marginBottom:'16px'}}>
                 <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>CONTINUING A PREVIOUS PROTOCOL? <span style={{color:mg,fontWeight:'400',textTransform:'none',letterSpacing:0}}>(optional)</span></label>
                 <select aria-label='Continuing a previous protocol' value={continuedFromId} onChange={e => setContinuedFromId(e.target.value)} style={is}>
@@ -743,17 +763,17 @@ export default function ManagePage() {
               </div>
             )}
 
-            {error && <div style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
+            {error && <div role="alert" style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
             {editingId && !planned && <div className="protocol-effective-date">
-              <label className="protocol-check"><input type="checkbox" checked={changeHappenedEarlier} onChange={event => setChangeHappenedEarlier(event.target.checked)} /> These changes happened earlier</label>
-              {changeHappenedEarlier && <label>Effective date<input type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
-              <p>Otherwise, changes are recorded as effective today.</p>
+              <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate(localCalendarDate())}}>Use a different effective date</button>
+              {changeHappenedEarlier && <label>Effective date<input aria-label="Effective date" type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
+              <p>Changes are effective today unless you choose another date.</p>
             </div>}
 
             <div className="protocol-save-bar">
               <button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':editingId?'Save Changes':planned?'Save Planned protocol':'Create Protocol'}</button>
+              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':mode === 'edit'?'Save changes':'Create protocol'}</button>
             </div>
           </div>
         )}

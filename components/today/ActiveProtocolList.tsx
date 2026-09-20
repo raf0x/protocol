@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import AppIcon from '../app/AppIcon'
+import EmptyProtocolRings from '../protocols/EmptyProtocolRings'
 import type { todayProtocols } from '../../lib/health/today'
 
 type Props = { items: ReturnType<typeof todayProtocols>; selected: string | null; detail: ReactNode; children: ReactNode }
@@ -11,6 +12,6 @@ export default function ActiveProtocolList({ items, selected, detail, children }
     {item ? <>
       <div className="today-rings">{children}<p>Tap a ring to see your protocol.</p></div>
       <div className="today-merged-detail">{detail}</div>
-    </> : <p className="today-empty">Your active protocols will live here. <Link href="/protocol/manage" className="today-text-link">Add a protocol</Link> when you’re ready.</p>}
+    </> : <EmptyProtocolRings />}
   </section>
 }
