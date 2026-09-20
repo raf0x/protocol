@@ -31,8 +31,8 @@ test('Active creation uses its single start date; Planned ignores all date state
 })
 test('edits default to today; hidden and blank overrides are ignored; inclusive boundaries have specific errors',()=>{
   const input={mode:'edit',planned:false,startDate:start,originalStartDate:start,today,useDifferentDate:false,effectiveDate:'1999-01-01'}
-  assert.equal(protocolSaveDates(input).effectiveDate,today)
-  assert.equal(protocolSaveDates({...input,useDifferentDate:true,effectiveDate:''}).effectiveDate,today)
+  assert.equal(protocolSaveDates(input).effectiveDate,null)
+  assert.equal(protocolSaveDates({...input,useDifferentDate:true,effectiveDate:''}).effectiveDate,null)
   for(const date of [start,today])assert.equal(protocolSaveDates({...input,useDifferentDate:true,effectiveDate:date}).effectiveDate,date)
   assert.throws(()=>protocolSaveDates({...input,useDifferentDate:true,effectiveDate:'2026-08-31'}),/Effective date cannot be before the protocol start date\./)
   assert.throws(()=>protocolSaveDates({...input,useDifferentDate:true,effectiveDate:'2026-09-23'}),/Effective date cannot be in the future\./)
@@ -45,9 +45,19 @@ test('local calendar boundaries do not parse YYYY-MM-DD as UTC',()=>{
   }
 })
 
-function harness(protocols=[]) {
+test('edit bounds use the submitted start, independent of old start or reconstitution',()=>{
+  const input={mode:'edit',planned:false,startDate:today,today,useDifferentDate:true,effectiveDate:start,originalStartDate:'2099-01-01',reconstitution_date:'1900-01-01'}
+  assert.throws(()=>protocolSaveDates(input),/Effective date cannot be before the protocol start date\./)
+  assert.equal(protocolSaveDates({...input,effectiveDate:today}).effectiveDate,today)
+  assert.equal(protocolSaveDates({...input,useDifferentDate:false}).effectiveDate,null)
+  assert.equal(protocolSaveDates({...input,effectiveDate:''}).effectiveDate,null)
+  assert.deepEqual(protocolSaveDates({...input,planned:true,startDate:''}),{startDate:null,effectiveDate:null})
+})
+
+function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null}) {
   const states=[],refs=[],calls=[];let slot=0,refSlot=0
-  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select:()=>({order:async()=>({data:protocols})})}),rpc:async(name,args)=>{calls.push({name,args});return {data:'saved',error:null}}}
+  const deletion={eq(){return this},select:async()=>{calls.push({name:'delete'});return deleteResult}}
+  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select:()=>({order:async()=>({data:protocols})}),delete:()=>deletion}),rpc:async(name,args)=>{calls.push({name,args});return {data:'saved',error:null}}}
   const url=new URL('../app/protocol/manage/page.tsx',import.meta.url),out={exports:{}}
   const code=ts.transpileModule(readFileSync(url,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText
   const mutations=load('../lib/health/protocolMutations.ts')
@@ -55,7 +65,7 @@ function harness(protocols=[]) {
     if(name==='react')return {...React,useEffect(){},useRef(initial){return refs[refSlot++]??(refs[refSlot-1]={current:initial})},useState(initial){const i=slot++;if(!(i in states))states[i]=i===1?false:i===2?protocols:typeof initial==='function'?initial():initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]}}
     if(name==='next/navigation')return {useRouter:()=>({push(){}})}
     if(name.endsWith('/supabase'))return {createClient:()=>client}
-    if(name.endsWith('/protocolMutations'))return {...mutations,saveProtocolWithEvents:input=>mutations.saveProtocolWithEvents(input,client)}
+    if(name.endsWith('/protocolMutations'))return {...mutations,saveProtocolWithEvents:input=>mutations.saveProtocolWithEvents(input,client),transitionProtocol:input=>mutations.transitionProtocol(input,client),deleteOwnedProtocol:id=>mutations.deleteOwnedProtocol(id,client)}
     if(name.endsWith('.css'))return {}
     if(name.startsWith('.'))return load(new URL(name+(name.includes('/components/')?'.tsx':'.ts'),url).href)
     return require(name)
@@ -91,7 +101,7 @@ test('edit UI defaults today, ignores closed overrides and resets edit identity 
     assert.ok(h.render().some(n=>n.props.children==='Effective date cannot be in the future.'))
     h.button('Use a different effective date').props.onClick()
     await h.button('Save changes').props.onClick()
-    assert.equal(h.calls[0].args.p_effective_date,localCalendarDate());assert.equal(h.calls[0].args.p_protocol_id,saved.id)
+    assert.equal(h.calls[0].args.p_effective_date,null);assert.equal(h.calls[0].args.p_protocol_id,saved.id)
     assert.equal(h.calls[0].args.p_compounds[0].id,'compound-id');assert.equal(h.calls[0].args.p_compounds[0].phase.id,'phase-id')
     h.render().find(n=>n.props.onAdd).props.onAdd();h.input('Compound name','New')
     assert.equal(h.button('Use a different effective date'),undefined)
@@ -103,6 +113,55 @@ test('empty rings link directly to Quick Add without suggesting active treatment
   const html=renderToStaticMarkup(React.createElement(Empty))
   assert.match(html,/href="\/protocol\/manage\?new=1"/);assert.equal((html.match(/<circle/g)||[]).length,5)
   assert.match(html,/Add your first protocol/);assert.doesNotMatch(html,/week|dose due/i)
+})
+
+test('completion submits no hidden override and uses the local-calendar RPC',async()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const h=harness([saved]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onComplete).props.onComplete()
+    await h.button('Complete').props.onClick()
+    assert.equal(h.calls[0].name,'transition_protocol_v2');assert.equal(h.calls[0].args.p_effective_date,null)
+    assert.equal(h.calls[0].args.p_timezone,Intl.DateTimeFormat().resolvedOptions().timeZone)
+  }finally{globalThis.window=previous}
+})
+for(const result of [{data:null,error:{message:'Linked record prevents deletion'}},{data:[],error:null},{data:[{id:'existing-id'}],error:null}]) test(`delete reports the actual outcome (${JSON.stringify(result)})`,async()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const h=harness([saved],result);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onDelete).props.onDelete()
+    assert.equal(h.calls.length,0,'deletion requires dialog confirmation')
+    await h.button('Delete').props.onClick()
+    assert.equal(h.calls.length,1)
+    if(result.error||!result.data.length) {
+      assert.ok(h.render().some(n=>n.props.role==='alert'&&/delet/i.test(n.props.children)))
+      assert.ok(h.button('Delete'),'failed deletion keeps the dialog open')
+    }else assert.equal(h.button('Delete'),undefined)
+  }finally{globalThis.window=previous}
+})
+
+for (const custom of ['disabled','blank','toggled-off']) test(`hotfix: moving start to today and changing reconstitution submits no override (${custom})`,async()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const h=harness([saved]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+    h.input('Reconstitution date','2026-09-02')
+    h.input('Protocol start date',localCalendarDate())
+    if(custom!=='disabled') {
+      h.button('Use a different effective date').props.onClick()
+      h.input('Effective date',custom==='blank'?'':start)
+      if(custom==='toggled-off') {
+        h.button('Use a different effective date').props.onClick()
+        assert.equal(h.field('Effective date'),undefined)
+        h.button('Use a different effective date').props.onClick()
+        assert.equal(h.field('Effective date').props.value,'','reopening cannot resurrect a custom date')
+        h.button('Use a different effective date').props.onClick()
+      }
+    }
+    await h.button('Save changes').props.onClick()
+    assert.equal(h.calls.length,1,'the reproduced edit must save')
+    assert.equal(h.calls[0].args.p_start_date,localCalendarDate())
+    assert.equal(h.calls[0].args.p_effective_date,null,'no custom override is submitted')
+    assert.equal(h.calls[0].args.p_compounds[0].reconstitution_date,'2026-09-02')
+    assert.equal(h.calls[0].args.p_protocol_id,saved.id)
+  }finally{globalThis.window=previous}
 })
 
 test('explicit new/calculator entry resets edit identity and retains prefilled units',async()=>{

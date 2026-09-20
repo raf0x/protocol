@@ -11,7 +11,7 @@ export function isCalendarDate(value: string) {
 }
 
 type Dates = { planned: boolean; startDate: string; today: string } & (
-  { mode: 'create' } | { mode: 'edit'; originalStartDate: string; useDifferentDate: boolean; effectiveDate: string }
+  { mode: 'create' } | { mode: 'edit'; useDifferentDate: boolean; effectiveDate: string }
 )
 export function protocolSaveDates(input: Dates) {
   if (input.planned) return { startDate: null, effectiveDate: null }
@@ -21,9 +21,11 @@ export function protocolSaveDates(input: Dates) {
     return { startDate: input.startDate, effectiveDate: input.startDate }
   }
   // Hidden state is ignored. Clearing the optional override means effective today.
-  const effective = input.useDifferentDate && input.effectiveDate ? input.effectiveDate : input.today
+  const override = input.useDifferentDate ? input.effectiveDate.trim() || null : null
+  const effective = override ?? input.today
   if (!isCalendarDate(effective)) throw new Error('Choose a valid effective date.')
-  if (effective < input.originalStartDate || effective < input.startDate) throw new Error('Effective date cannot be before the protocol start date.')
+  if (effective < input.startDate) throw new Error('Effective date cannot be before the protocol start date.')
   if (effective > input.today) throw new Error('Effective date cannot be in the future.')
-  return { startDate: input.startDate, effectiveDate: effective }
+  // NULL preserves "no override" through the RPC; SQL resolves local today.
+  return { startDate: input.startDate, effectiveDate: override }
 }

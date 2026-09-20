@@ -23,6 +23,8 @@ test('date-aware save reuses canonical history, validates local boundaries, pres
     const migration=readFileSync(new URL('../supabase/migrations/202609220001_protocol_save_dates.sql',import.meta.url),'utf8')
     for(const file of ['202609090001_dosing_semantics_v1.sql','202609100001_advisory_dosing.sql','202609140001_structured_protocol_events.sql','202609160001_historical_protocol_context_v1.sql','202609200001_planned_protocols.sql'])await db.exec(readFileSync(new URL('../supabase/migrations/'+file,import.meta.url),'utf8'))
     await db.exec(migration);await db.exec(migration)
+    const hotfix=readFileSync(new URL('../supabase/migrations/202609230001_protocol_edit_date_hotfix.sql',import.meta.url),'utf8')
+    await db.exec(hotfix);await db.exec(hotfix)
     for(const table of ['protocols','compounds','phases','protocol_events'])await db.exec(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY; CREATE POLICY owner ON ${table} TO authenticated USING(user_id=auth.uid()) WITH CHECK(user_id=auth.uid()); GRANT SELECT,INSERT,UPDATE,DELETE ON ${table} TO authenticated;`)
     await db.exec("SET ROLE authenticated; SET app.user_id='00000000-0000-0000-0000-000000000001'; SET timezone='UTC'")
     const entry=entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',vial_strength:'10',vial_unit:'mg',bac_water_ml:'2',reviewed:true})
@@ -51,13 +53,54 @@ test('date-aware save reuses canonical history, validates local boundaries, pres
         assert.ok(original.every(e=>changed.some(after=>JSON.stringify(after)===JSON.stringify(e))),'existing history stays intact')
         const dose=changed.find(e=>e.event_type==='dose_change');assert.equal(dose.metadata.previousDose,2);assert.equal(dose.metadata.newDose,3)
         assert.equal(dose.metadata.phaseId,ph.id);assert.equal(dose.metadata.compoundId,c.id)
+        if(date===past) {
+          const prior=await events(id)
+          rows[0].reconstitution_date=today
+          assert.equal(await save(id,today,rows,null,zone),id,'exact reproduction: reconstitution change + start moved to today + no override succeeds')
+          const updated=(await db.query('SELECT start_date::text FROM protocols WHERE id=$1',[id])).rows[0]
+          assert.equal(updated.start_date,today)
+          const after=await events(id)
+          assert.ok(prior.every(e=>after.some(row=>JSON.stringify(row)===JSON.stringify(e))),'start-date edit must retain prior history verbatim')
+          assert.equal((await db.query('SELECT reconstitution_date::text FROM compounds WHERE id=$1',[c.id])).rows[0].reconstitution_date,today)
+          // Reconstitution-date-only edits need not emit a dosing event. A later
+          // dose change makes the default SQL effective date directly observable.
+          rows[0].phase.dosing_entry={...entry,dose:'4'}
+          await save(id,today,rows,null,zone)
+          const added=(await events(id)).filter(e=>!after.some(old=>old.id===e.id))
+          assert.ok(added.some(e=>e.event_type==='dose_change'))
+          assert.ok(added.every(e=>e.date.toISOString().slice(0,10)===today&&e.metadata.effectiveDate===today))
+          await assert.rejects(save(id,today,rows,past,zone),/Effective date cannot be before the protocol start date\./)
+          assert.equal(await save(id,today,rows,today,zone),id,'explicit effective = new start = today is inclusive')
+          assert.equal((await db.query('SELECT id FROM compounds WHERE protocol_id=$1',[id])).rows[0].id,c.id)
+          assert.equal((await db.query('SELECT id FROM phases WHERE compound_id=$1',[c.id])).rows[0].id,ph.id)
+          await db.query("SELECT transition_protocol_v2($1,'complete',null,$2)",[id,zone])
+          await db.query("SELECT transition_protocol_v2($1,'complete',null,$2)",[id,zone])
+          const completed=(await events(id)).filter(e=>e.event_type==='completed')
+          assert.equal(completed.length,1,'completion retries cannot duplicate events')
+          assert.equal(completed[0].date.toISOString().slice(0,10),today)
+          assert.equal(completed[0].metadata.effectiveDate,today)
+        }
       }
       await assert.rejects(save(null,future,undefined,null,zone),/Start date cannot be in the future\./)
     }
     assert.equal((await db.query('SHOW timezone')).rows[0].TimeZone,'UTC','function timezone cannot leak to subsequent queries')
+    // Previously saved future starts must not veto correction to a valid new start.
+    const {today,future}=(await db.query("SELECT current_date::text AS today,(current_date+1)::text AS future")).rows[0]
+    const legacy=(await db.query('SELECT save_protocol_with_events_v1(null,$1,$2,$3::jsonb) AS id',['Legacy future start',future,JSON.stringify([compound])])).rows[0].id
+    const lc=(await db.query('SELECT id FROM compounds WHERE protocol_id=$1',[legacy])).rows[0]
+    const lp=(await db.query('SELECT id FROM phases WHERE compound_id=$1',[lc.id])).rows[0]
+    const legacyRows=[{...compound,id:lc.id,phase:{...compound.phase,id:lp.id}}]
+    await assert.rejects(db.query("SELECT transition_protocol_v2($1,'complete',null,'UTC')",[legacy]),/Completion date cannot be before the protocol start date/)
+    assert.equal(await save(legacy,today,legacyRows,null),legacy,'both v2 and nested v1 must use the submitted start date')
+    await db.query("SELECT transition_protocol_v2($1,'complete',null,'UTC')",[legacy])
+    assert.equal((await db.query('SELECT status FROM protocols WHERE id=$1',[legacy])).rows[0].status,'completed')
     const planned=await save(null,null,undefined,'2099-01-01')
     assert.equal((await events(planned)).length,0)
     assert.equal((await db.query('SELECT status FROM protocols WHERE id=$1',[planned])).rows[0].status,'planned')
+    const pc=(await db.query('SELECT id FROM compounds WHERE protocol_id=$1',[planned])).rows[0]
+    const pp=(await db.query('SELECT id FROM phases WHERE compound_id=$1',[pc.id])).rows[0]
+    assert.equal(await save(planned,null,[{...compound,id:pc.id,reconstitution_date:today,phase:{...compound.phase,id:pp.id}}],null),planned)
+    assert.equal((await events(planned)).length,0,'Planned edits still create no start event')
     await db.exec("SET app.user_id='00000000-0000-0000-0000-000000000002'")
     await assert.rejects(save(planned,null),/Protocol not found/)
   }finally{await db.close()}

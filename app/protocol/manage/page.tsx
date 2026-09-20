@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { phaseEndWeek } from '../../../lib/health/phaseLifecycle'
 import { currentPhase } from '../../../lib/health/dosing'
 import { dosingDisplay, entryFromForm, entryFormState, interpretEntry, validDate, type EntryMode } from '../../../lib/health/dosingEntry'
-import { saveProtocolWithEvents, transitionProtocol } from '../../../lib/health/protocolMutations'
+import { saveProtocolWithEvents, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
@@ -100,7 +100,7 @@ export default function ManagePage() {
   const [continuedFromId, setContinuedFromId] = useState('')
   const today = localCalendarDate()
   const [changeHappenedEarlier, setChangeHappenedEarlier] = useState(false)
-  const [effectiveDate, setEffectiveDate] = useState(today)
+  const [effectiveDate, setEffectiveDate] = useState('')
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
   const [completionDate, setCompletionDate] = useState(today)
 
@@ -138,14 +138,17 @@ export default function ManagePage() {
   }
 
   async function completeProtocol() {
-    if (!confirmComplete) return
+    if (!confirmComplete || savePending.current) return
+    savePending.current = true
     try {
-      await transitionProtocol({ protocolId: confirmComplete.id, action: 'complete', effectiveDate: completionHappenedEarlier ? completionDate : today })
+      setError('')
+      await transitionProtocol({ protocolId: confirmComplete.id, action: 'complete', effectiveDate: completionHappenedEarlier ? completionDate || null : null })
       setShowConfetti(true)
       setTimeout(() => setShowConfetti(false), 3000)
       setConfirmComplete(null)
       await load()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to complete the protocol.') }
+    finally { savePending.current = false }
   }
 
   async function changeStatus(protocol: any, action: 'pause' | 'resume') {
@@ -157,11 +160,15 @@ export default function ManagePage() {
   }
 
   async function deleteCompletedProtocol() {
-    if (!confirmDelete) return
-    const supabase = createClient()
-    await supabase.from('protocols').delete().eq('id', confirmDelete.id)
-    setConfirmDelete(null)
-    load()
+    if (!confirmDelete || savePending.current) return
+    savePending.current = true
+    setError('')
+    try {
+      await deleteOwnedProtocol(confirmDelete.id)
+      setConfirmDelete(null); setDetailId(null)
+      await load()
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to delete protocol.') }
+    finally { savePending.current = false }
   }
 
   async function reactivateProtocol() {
@@ -182,10 +189,10 @@ export default function ManagePage() {
 
   async function bulkDeleteProtocols() {
     if (selectedProtocols.size === 0) return
-    const supabase = createClient()
-    for (const id of selectedProtocols) {
-      await supabase.from('protocols').delete().eq('id', id)
-    }
+    setError('')
+    try {
+      for (const id of selectedProtocols) await deleteOwnedProtocol(id)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to delete protocol.'); setConfirmBulkDelete(false); await load(); return }
     setSelectedProtocols(new Set())
     setSelectMode(false)
     setConfirmBulkDelete(false)
@@ -326,7 +333,7 @@ export default function ManagePage() {
     setEditingId(p.id)
     setQuickAdd(false)
     setChangeHappenedEarlier(false)
-    setEffectiveDate(today)
+    setEffectiveDate('')
     setPlanned(p.status === 'planned')
     setStartDate(p.start_date || '')
     const cs = (p.compounds || []).map((c: any) => {
@@ -394,7 +401,7 @@ export default function ManagePage() {
     try {
       const dates = protocolSaveDates(mode === 'create'
         ? { mode, planned, startDate, today: localCalendarDate() }
-        : { mode, planned, startDate, today: localCalendarDate(), originalStartDate: protocols.find(p => p.id === editingId)?.start_date || startDate, useDifferentDate: changeHappenedEarlier, effectiveDate })
+        : { mode, planned, startDate, today: localCalendarDate(), useDifferentDate: changeHappenedEarlier, effectiveDate })
       const payload = compounds.map(c => {
         const entry = entryFromForm(c)
         // Incomplete interpretation is guidance, not a save prerequisite.
@@ -417,13 +424,6 @@ export default function ManagePage() {
       setSavedNotice(guidance.length ? `Saved. ${guidance.join(' ')}` : 'Protocol saved.'); setShowForm(false); setEditingId(null); await load()
     } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
     finally { savePending.current = false; setSaving(false) }
-  }
-
-  async function deleteProtocol(id: string) {
-    if (!confirm('Delete this protocol and all its data?')) return
-    const supabase = createClient()
-    await supabase.from('protocols').delete().eq('id', id)
-    load()
   }
 
   const activeProtocols = protocols.filter(p => p.status !== 'completed' && p.status !== 'planned')
@@ -766,7 +766,7 @@ export default function ManagePage() {
             {error && <div role="alert" style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
             {editingId && !planned && <div className="protocol-effective-date">
-              <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate(localCalendarDate())}}>Use a different effective date</button>
+              <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate('')}}>Use a different effective date</button>
               {changeHappenedEarlier && <label>Effective date<input aria-label="Effective date" type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
               <p>Changes are effective today unless you choose another date.</p>
             </div>}
@@ -790,7 +790,7 @@ export default function ManagePage() {
             }}
             onComplete={() => { setError(''); setCompletionHappenedEarlier(false); setCompletionDate(today); setConfirmComplete(selected) }} onReactivate={() => { setError(''); setConfirmReactivate(selected) }}
             onPause={() => void changeStatus(selected, 'pause')} onResume={() => void changeStatus(selected, 'resume')}
-            onDelete={() => selected.status === 'completed' ? setConfirmDelete(selected) : deleteProtocol(selected.id)}
+            onDelete={() => {setError('');setConfirmDelete(selected)}}
             onReload={load} />
         })()}
 
@@ -808,7 +808,7 @@ export default function ManagePage() {
               <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
                 This will archive <strong>{confirmComplete.name}</strong> from your active stack. All data will be preserved.
               </p>
-              <label className="protocol-check"><input type="checkbox" checked={completionHappenedEarlier} onChange={event => setCompletionHappenedEarlier(event.target.checked)} /> This protocol ended earlier</label>
+              <label className="protocol-check"><input type="checkbox" checked={completionHappenedEarlier} onChange={event => {setCompletionHappenedEarlier(event.target.checked);setCompletionDate('')}} /> This protocol ended earlier</label>
               {completionHappenedEarlier && <label style={{display:'block',fontSize:'13px',color:dg,marginBottom:'16px'}}>Completion date<input aria-label="Completion date" type="date" min={confirmComplete.start_date} max={today} value={completionDate} onChange={event => setCompletionDate(event.target.value)} style={{...is,marginTop:'6px'}} /></label>}
               {error && <p role="alert" className="protocol-error">{error}</p>}
               <div style={{display:'flex',gap:'10px'}}>
@@ -862,6 +862,7 @@ export default function ManagePage() {
               <p style={{fontSize:'14px',color:dg,marginBottom:'20px',lineHeight:'1.5'}}>
                 Permanently delete <strong>{confirmDelete.name}</strong> and all its data. This cannot be undone.
               </p>
+              {error && <p role="alert" className="protocol-error">{error}</p>}
               <div style={{display:'flex',gap:'10px'}}>
                 <button 
                   onClick={() => setConfirmDelete(null)}

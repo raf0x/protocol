@@ -50,14 +50,23 @@ export async function changeProtocolDose(input: {
 export async function transitionProtocol(input: {
   protocolId: string
   action: ProtocolTransition
-  effectiveDate: string
+  effectiveDate: string | null
 }, client: SupabaseClient = createClient()) {
-  const { error } = await client.rpc('transition_protocol_v1', {
+  const { error } = await client.rpc(input.action === 'complete' ? 'transition_protocol_v2' : 'transition_protocol_v1', {
     p_protocol_id: input.protocolId,
     p_action: input.action,
     p_effective_date: input.effectiveDate,
+    ...(input.action === 'complete' ? { p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),
   })
   if (error) throw new Error(message(error, 'Unable to update the protocol.'))
+}
+
+export async function deleteOwnedProtocol(protocolId: string, client: SupabaseClient = createClient()) {
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (authError || !user) throw new Error('Sign in again to delete this protocol.')
+  const { data, error } = await client.from('protocols').delete().eq('id', protocolId).eq('user_id', user.id).select('id')
+  if (error) throw new Error(message(error, 'Unable to delete protocol.'))
+  if (!data?.length) throw new Error('Protocol was not deleted. It may no longer exist, or your account may not have permission. Refresh and try again.')
 }
 
 export async function continueLatestPhase(input: {
