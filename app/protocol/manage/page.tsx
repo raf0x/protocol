@@ -447,10 +447,20 @@ export default function ManagePage() {
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
-            {!editingId && <label>Protocol state<select aria-label="Protocol state" value={planned ? 'planned' : 'active'} onChange={event => setPlanned(event.target.value === 'planned')} style={is}>
-              <option value="active">Active</option><option value="planned">Planned</option>
-            </select></label>}
-            {planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
+            {!editingId && <fieldset className="protocol-use-choice">
+              <legend>Are you using this protocol now?</legend>
+              <div className="protocol-use-options">
+                <label className="protocol-use-option">
+                  <input type="radio" name="protocol-state" value="active" checked={!planned} onChange={() => setPlanned(false)} aria-describedby="protocol-active-help" />
+                  <span><strong>Yes, start it now</strong><small id="protocol-active-help">Included in Today, schedules, and health history.</small></span>
+                </label>
+                <label className="protocol-use-option">
+                  <input type="radio" name="protocol-state" value="planned" checked={planned} onChange={() => setPlanned(true)} aria-describedby="protocol-planned-help" />
+                  <span><strong>No, save it for later</strong><small id="protocol-planned-help">Saved as Planned. It will not appear in Today or schedules until you activate it.</small></span>
+                </label>
+              </div>
+            </fieldset>}
+            {editingId && planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
 
             {compounds.map((c, ci) => (
               <div key={ci} style={{marginBottom:'24px'}}>
@@ -715,7 +725,7 @@ export default function ManagePage() {
 
             {!planned && <div style={{marginBottom:'16px'}}>
               <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PROTOCOL START DATE</label>
-              <input aria-label='Protocol start date' type='date' value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              <input aria-label='Protocol start date' type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
             </div>}
 
             {completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (

@@ -79,6 +79,16 @@
 .protocol-action-row button, .protocol-phase > button { border: 1px solid var(--app-border); color: var(--app-accent); background: var(--app-surface-secondary); padding: 10px 14px; font-size: var(--app-font-small); }
 .protocols-page .protocol-danger { color: var(--app-error); }
 .protocol-editor { display: grid; gap: var(--app-space-md); }
+.protocol-use-choice { min-width: 0; margin: 0; padding: 0; border: 0; }
+.protocol-use-choice legend { margin-bottom: 12px; font-size: var(--app-font-title); font-weight: 650; }
+.protocol-use-options { display: grid; gap: 10px; }
+.protocol-use-option { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 16px; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); cursor: pointer; }
+.protocol-use-option:has(input:checked) { border-color: var(--app-accent); background: var(--app-accent-soft); }
+.protocols-page .protocol-use-option input { width: 20px; height: 20px; min-height: 20px; flex: 0 0 20px; margin: 2px 0 0; accent-color: var(--app-accent); }
+.protocol-use-option span { min-width: 0; }
+.protocol-use-option strong { display: block; font-weight: 650; }
+.protocol-use-option small { display: block; margin-top: 4px; color: var(--app-secondary); font-size: var(--app-font-small); line-height: 1.5; }
+@media (min-width: 640px) { .protocol-use-options { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .protocol-editor-section { min-width: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); padding: var(--app-space-md); margin: 0 0 var(--app-space-md); }
 .protocol-editor-section legend { font-size: var(--app-font-title); font-weight: 650; padding: 0 6px; color: var(--app-text); }
 .protocol-editor-section > summary { padding: 0; font-size: var(--app-font-body); }
