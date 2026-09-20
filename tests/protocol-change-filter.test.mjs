@@ -91,8 +91,11 @@ function mount(t, initial = '/health?view=changes') {
   const nodes = type => render().filter(node => node.type === type)
   return { nodes, navigation, pushes, url: () => entries[cursor], history,
     select(value) { nodes('select').find(node => node.props.id === 'protocol-change').props.onChange({ target: { value } }) },
-    selectTreatment(value) { nodes('select').find(node => node.props.id === 'protocol-treatment').props.onChange({ target: { value } }) },
-    selected(id) { return nodes('select').find(node => node.props.id === id).props.value },
+    selectTreatment(value) { nodes('button').find(node => value ? node.key === value : node.props.children === 'All treatments').props.onClick() },
+    selected(id) {
+      if (id === 'protocol-treatment') return nodes('button').find(node => node.props['aria-pressed'] === true)?.key ?? ''
+      return nodes('select').find(node => node.props.id === id).props.value
+    },
     more() { nodes('button').find(node => node.props.children === 'Show more recorded comparisons').props.onClick() },
     refresh() { states = new Map(); mountedScopes = new Set(); render() },
   }
@@ -175,4 +178,25 @@ test('treatment Back and Forward restore the exact episode', t => {
   assert.ok(app.nodes('article').every(node => node.key.startsWith(firstId)))
   app.history.forward(); assert.equal(app.selected('protocol-treatment'), secondTreatmentKey)
   assert.ok(app.nodes('article').every(node => node.key.startsWith(secondId)))
+})
+
+test('specific-change refinement starts collapsed and exposes a linked selection', t => {
+  const app = mount(t)
+  const refinement = () => app.nodes('details').find(node => node.props.open !== undefined)
+  assert.equal(refinement().props.open, false)
+  app.select(secondId)
+  assert.equal(refinement().props.open, true)
+  app.selectTreatment(firstTreatmentKey)
+  assert.equal(refinement().props.open, false)
+  assert.equal(app.selected('protocol-change'), '')
+})
+
+test('unavailable treatment stays visibly selected without showing other episodes', t => {
+  const app = mount(t, '/health?view=changes&treatment=unknown')
+  const unavailable = app.nodes('button').find(node => node.props.children === 'Unavailable treatment')
+  assert.equal(unavailable.props['aria-pressed'], 'true')
+  assert.equal(unavailable.props.disabled, true)
+  assert.equal(app.nodes('article').length, 0)
+  app.selectTreatment('')
+  assert.equal(app.nodes('article').length, 8)
 })

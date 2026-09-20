@@ -37,6 +37,17 @@
 .form :is(input, textarea, select) { color-scheme: dark; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 48px; font-size: 16px; font-family: inherit; color: var(--app-text); background: var(--app-bg); border: 1px solid var(--app-border); border-radius: var(--app-radius-button); padding: var(--app-space-sm); }
 :global([data-theme='light']) .form :is(input, textarea, select) { color-scheme: light; }
 .form textarea { resize: vertical; }
+.changeFilters { margin-block: var(--app-space-sm); }
+.changeTreatments legend { color: var(--app-secondary); font-size: var(--app-font-small); }
+.changeChips { display: flex; flex-wrap: wrap; gap: var(--app-space-xs); padding-top: var(--app-space-xs); }
+.page .changeChips button { max-width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 999px; text-align: left; overflow-wrap: anywhere; }
+.page .changeChips button[aria-pressed='true'] { color: var(--app-accent); border-color: var(--app-accent); background: var(--app-accent-soft); }
+.changeRefinement summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--app-secondary); font-size: var(--app-font-small); }
+.changeRefinement summary::before { content: '+'; margin-right: var(--app-space-xs); }
+.changeRefinement[open] summary::before { content: '−'; }
+.changeRefinement summary::-webkit-details-marker { display: none; }
+.form .changeRefinement label { margin-top: 0; margin-bottom: var(--app-space-sm); }
+.changeRefinement label small { display: inline; }
 .fieldGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--app-space-sm); }
 .formDetails summary { min-height: 44px; cursor: pointer; font-size: var(--app-font-small); padding-block: var(--app-space-sm); color: var(--app-secondary); }
 .formDetails summary span { color: var(--app-muted); }

@@ -60,17 +60,22 @@ export default function LongitudinalChanges() {
       <p>Lab biomarkers measured before and afterward, with the dates and other changes that matter. This shows timing, not what caused a change.</p>
       <p className={styles.caption}>Nearest baseline within {result.window.baselineDays} days before each update; follow-up {result.window.followupStartDays}–{result.window.followupEndDays} days afterward, through {formatTimelineDate(result.asOf)}. These are comparison windows, not expected medication response times.</p>
     </div>
-    <div className={styles.form}>
-      <label htmlFor="protocol-treatment">Treatment
-        <select id="protocol-treatment" value={treatmentUnavailable ? '__unavailable__' : effectiveTreatmentKey} onChange={event => {
-          window.history.pushState(null, '', protocolChangesUrl(window.location.search, event.target.value))
-        }}>
-          <option value="">All treatments</option>
-          {treatmentUnavailable && <option value="__unavailable__">Unavailable treatment</option>}
-          {treatments.map(item => <option key={item.key} value={item.key}>{item.label}{repeatedLabels.has(item.label) && item.startedAt ? ` · ${formatTimelineDate(item.startedAt)}` : ''}</option>)}
-        </select>
-      </label>
-      <label htmlFor="protocol-change">Specific change <small>Optional</small>
+    <div className={`${styles.form} ${styles.changeFilters}`}>
+      <fieldset className={styles.changeTreatments}>
+        <legend>Treatment</legend>
+        <div className={styles.changeChips}>
+          <button type="button" aria-pressed={!effectiveTreatmentKey && !treatmentUnavailable} onClick={() => {
+            window.history.pushState(null, '', protocolChangesUrl(window.location.search, ''))
+          }}>All treatments</button>
+          {treatmentUnavailable && <button type="button" aria-pressed="true" disabled>Unavailable treatment</button>}
+          {treatments.map(item => <button type="button" key={item.key} aria-pressed={!treatmentUnavailable && effectiveTreatmentKey === item.key} onClick={() => {
+            window.history.pushState(null, '', protocolChangesUrl(window.location.search, item.key))
+          }}>{item.label}{repeatedLabels.has(item.label) && item.startedAt ? ` · ${formatTimelineDate(item.startedAt)}` : ''}</button>)}
+        </div>
+      </fieldset>
+      <details className={styles.changeRefinement} open={Boolean(changeId)}>
+        <summary>{changeId ? 'Specific change selected' : 'Refine by specific change'}</summary>
+        <label htmlFor="protocol-change">Specific change <small>Optional</small>
         <select id="protocol-change" value={changeId} disabled={treatmentUnavailable} onChange={event => {
           // Native History updates useSearchParams synchronously and preserves
           // Back/Forward without refetching the already-loaded evidence.
@@ -80,7 +85,8 @@ export default function LongitudinalChanges() {
           {changeUnavailable && <option value={changeId}>Unavailable protocol change</option>}
           {changes.map(item => <option key={item.id} value={item.id}>{item.title} · {formatTimelineDate(item.date)}</option>)}
         </select>
-      </label>
+        </label>
+      </details>
     </div>
     <ObservationList key={`${effectiveTreatmentKey}:${changeId}`} observations={observations} selection={selection} unavailable={treatmentUnavailable ? 'treatment' : changeUnavailable ? 'change' : null} />
     <details className={styles.trend}><summary><strong>Derived health periods</strong><span>Regimen at each recorded boundary, not an administration log</span></summary>
