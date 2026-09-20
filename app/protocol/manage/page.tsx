@@ -454,6 +454,8 @@ export default function ManagePage() {
                 )}
 
                 <EditorSection title="Medication" hint="What are you taking, and how much?">
+                <div className="protocol-medication-grid">
+                <section className="protocol-intake-group"><h3>Medication dose</h3>
                 <div style={{marginBottom:'12px'}}>
                   <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>COMPOUND NAME</label>
                   <input aria-label='Compound name' value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} />
@@ -474,11 +476,90 @@ export default function ManagePage() {
                 </div>
 
                 <details style={{fontSize:12,color:dg,marginBottom:12}}><summary>Not sure what unit you have?</summary><p>mg / mcg = medication mass. mL = liquid volume. U-100 units = syringe markings. IU = medication International Units.</p><p>18 units on a U-100 syringe = 0.18 mL. The actual medication dose depends on the vial strength and concentration.</p></details>
-                {c.input_mode==='unknown' && <div style={{fontSize:13,color:dg}}><label>What does the vial label say?<input style={is} value={c.vial_label} onChange={e=>updateCompound(ci,'vial_label',e.target.value)} /></label><p>How much liquid/BAC water was added? Use the field below. What number do you draw to? Use the syringe markings field. Select your syringe type below; leave it blank if unknown.</p><label>Liquid/BAC water added (mL)<input aria-label="Liquid added" type="number" min="0" step="any" style={is} value={c.bac_water_ml} onChange={e=>updateCompound(ci,'bac_water_ml',e.target.value)} /></label></div>}
+                {c.input_mode==='unknown' && <div style={{fontSize:13,color:dg}}><label>What does the vial label say?<input style={is} value={c.vial_label} onChange={e=>updateCompound(ci,'vial_label',e.target.value)} /></label><p>How much liquid/BAC water was added? Use Preparation. What number do you draw to? Use the syringe markings field. Select your syringe scale in Administration; leave it blank if unknown.</p></div>}
                 <p style={{fontSize:12,color:dg}}>IU means medication International Units, never syringe markings.</p>
                 <label style={{display:'block',marginBottom:12,fontSize:13}}>
                   <input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm the calculated medication dose below (optional).
                 </label>
+                </section>
+                <section className="protocol-intake-group"><h3>Administration</h3>
+                <div className="protocol-intake-fields">
+                  <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
+                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option></select></label>
+                </div>
+                </section>
+                <section className="protocol-intake-group"><h3>Preparation</h3>
+                <div style={{marginBottom:'16px'}}>
+                  <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
+                    <input
+                      type='checkbox'
+                      checked={c.isPreMixed}
+                      onChange={e => updateCompound(ci, 'isPreMixed', e.target.checked)}
+                      style={{width:'18px',height:'18px',cursor:'pointer'}}
+                    />
+                    <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>
+                      Pre-mixed compound (no reconstitution needed)
+                    </span>
+                  </label>
+                  <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginLeft:'28px'}}>
+                    Choose this when your medication arrives ready to use, without adding liquid.
+                  </p>
+                </div>
+
+                {!c.isPreMixed && (
+                  <>
+                    <div className="protocol-intake-fields">
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
+                        <div style={{display:'flex',gap:'6px'}}>
+                          <input aria-label='Vial amount' type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
+                          <select aria-label='Vial unit' value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
+                            <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>BAC WATER</label>
+                        <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                          <input aria-label='BAC water in mL' type='number' step='0.5' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='3' style={{...is,flex:1}} />
+                          <span style={{fontSize:'13px',color:dg,fontWeight:'600',whiteSpace:'nowrap'}}>mL</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{marginBottom:'12px'}}>
+                      <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE (optional)</label>
+                      <input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
+                    </div>
+                  </>
+                )}
+
+                {c.isPreMixed && <div style={{marginBottom:12}}>
+                  <label>Labelled concentration (optional)</label>
+                  <div style={{display:'flex',gap:8}}>
+                    <input aria-label="Concentration value" type="number" step="any" value={c.concentration_value} onChange={e => updateCompound(ci,'concentration_value',e.target.value)} style={is} />
+                    <select aria-label="Concentration unit" value={c.concentration_unit} onChange={e => updateCompound(ci,'concentration_unit',e.target.value)} style={is}>
+                      <option value="">Select unit</option>{['mg/mL','mcg/mL','IU/mL'].map(u => <option key={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>}
+                </section>
+                <section className="protocol-intake-group"><h3>Inventory & notes</h3>
+                <div style={{marginBottom:'12px'}}>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIALS IN STOCK</label>
+                  <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                    <input aria-label='Vials in stock' type='number' min='0' value={c.vials_in_stock} onChange={e => updateCompound(ci,'vials_in_stock',e.target.value)} placeholder='0' style={{...is,width:'80px',flex:'none'}} />
+                    <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>vials</span>
+                  </div>
+                </div>
+
+                <div style={{marginBottom:'12px'}}>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>NOTES (optional)</label>
+                  <textarea aria-label='Notes' value={c.notes} onChange={e => updateCompound(ci,'notes',e.target.value)} placeholder='Goals, context, side effects...' rows={2} style={{...is,resize:'none'}} />
+                </div>
+
+                </section>
+                </div>
                 </EditorSection>
                 <EditorSection title="Schedule" hint="Choose your pattern and preferred time.">
                 <div style={{marginBottom:'16px'}}>
@@ -582,68 +663,7 @@ export default function ManagePage() {
                 )}
 
                 </EditorSection>
-                <EditorSection title="Administration" hint="Route and syringe scale, if known." optional>
-                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
-                  <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
-                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option></select></label>
-                </div>
-                </EditorSection>
-                <EditorSection title="Preparation" hint="Vial amount, reconstitution or labelled concentration." optional>
-                <div style={{marginBottom:'16px'}}>
-                  <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
-                    <input 
-                      type='checkbox' 
-                      checked={c.isPreMixed} 
-                      onChange={e => updateCompound(ci, 'isPreMixed', e.target.checked)}
-                      style={{width:'18px',height:'18px',cursor:'pointer'}}
-                    />
-                    <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>
-                      Pre-mixed compound (no reconstitution needed)
-                    </span>
-                  </label>
-                  <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginLeft:'28px'}}>
-                    Choose this when your medication arrives ready to use, without adding liquid.
-                  </p>
-                </div>
 
-                {!c.isPreMixed && (
-                  <>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
-                      <div>
-                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
-                        <div style={{display:'flex',gap:'6px'}}>
-                          <input aria-label='Vial amount' type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
-                          <select aria-label='Vial unit' value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
-                            <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>BAC WATER</label>
-                        <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                          <input aria-label='BAC water in mL' type='number' step='0.5' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='3' style={{...is,flex:1}} />
-                          <span style={{fontSize:'13px',color:dg,fontWeight:'600',whiteSpace:'nowrap'}}>mL</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{marginBottom:'12px'}}>
-                      <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE (optional)</label>
-                      <input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
-                    </div>
-                  </>
-                )}
-
-                {c.isPreMixed && <div style={{marginBottom:12}}>
-                  <label>Labelled concentration (optional)</label>
-                  <div style={{display:'flex',gap:8}}>
-                    <input aria-label="Concentration value" type="number" step="any" value={c.concentration_value} onChange={e => updateCompound(ci,'concentration_value',e.target.value)} style={is} />
-                    <select aria-label="Concentration unit" value={c.concentration_unit} onChange={e => updateCompound(ci,'concentration_unit',e.target.value)} style={is}>
-                      <option value="">Select unit</option>{['mg/mL','mcg/mL','IU/mL'].map(u => <option key={u}>{u}</option>)}
-                    </select>
-                  </div>
-                </div>}
-                </EditorSection>
                 {editingId && <EditorSection title="Dose phases" hint="Choose a phase to edit or add a later dose phase.">
                 {c.id && <div style={{marginBottom:12}}>
                   <p style={{fontSize:12,color:dg}}>Editing only the selected phase. Other phases and recorded injections are preserved.</p>
@@ -666,21 +686,7 @@ export default function ManagePage() {
                 </div>
 
                 </EditorSection>}
-                <EditorSection title="Inventory & notes" hint="Keep the details that help you day to day." optional>
-                <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIALS IN STOCK</label>
-                  <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-                    <input aria-label='Vials in stock' type='number' min='0' value={c.vials_in_stock} onChange={e => updateCompound(ci,'vials_in_stock',e.target.value)} placeholder='0' style={{...is,width:'80px',flex:'none'}} />
-                    <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>vials</span>
-                  </div>
-                </div>
 
-                <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>NOTES (optional)</label>
-                  <textarea aria-label='Notes' value={c.notes} onChange={e => updateCompound(ci,'notes',e.target.value)} placeholder='Goals, context, side effects...' rows={2} style={{...is,resize:'none'}} />
-                </div>
-
-                </EditorSection>
                 <EditorSection title="Review" hint="Calculations are guidance. Incomplete details can still be saved.">
                 {(() => { try {
                   const result = interpretEntry(entryFromForm(c))

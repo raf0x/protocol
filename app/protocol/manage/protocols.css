@@ -84,6 +84,12 @@
 .protocol-editor-section > summary { padding: 0; font-size: var(--app-font-body); }
 .protocol-editor-section > summary span, .protocol-section-hint { display: block; font-size: var(--app-font-small); font-weight: 400; color: var(--app-secondary); margin: 4px 0 12px; }
 .protocol-fields { display: grid; gap: 8px; min-width: 0; }
+.protocol-medication-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-lg); }
+.protocol-intake-group { min-width: 0; }
+.protocol-intake-group h3 { font-size: var(--app-font-body); font-weight: 650; margin: 0 0 var(--app-space-sm); }
+.protocol-intake-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+.protocol-intake-group textarea { resize: vertical !important; }
+@media (min-width: 640px) { .protocol-medication-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 .protocol-fields label { font-size: var(--app-font-small) !important; letter-spacing: 0 !important; color: var(--app-secondary) !important; }
 .protocol-fields label:has(input[type=checkbox]) { display: flex !important; align-items: center; gap: 8px; min-height: 44px; }
 .protocol-fields :is(input:not([type=checkbox]), select, textarea) { font-size: 16px !important; border-radius: var(--app-radius-button) !important; color-scheme: dark; }
