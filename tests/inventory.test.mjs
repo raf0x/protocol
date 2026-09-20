@@ -67,11 +67,11 @@ test('rejects wrong extension, missing headers, extra sheets, macros, external c
 })
 test('validates required fields, date ordering, reconstitution, quantity, enums and medication-strength semantics', () => {
   const cases = [
-    [{item_name:''},/item_name/], [{quantity:''},/quantity/], [{quantity:0},/quantity/], [{quantity:1.2},/quantity/], [{quantity:-1},/quantity/],
-    [{acquisition_date:'2026-02-30'},/real date/], [{expiration_date:'2026-08-01'},/before acquisition/],
-    [{reconstitution_status:'reconstituted'},/required/], [{reconstitution_date:'2026-09-02'},/Set reconstitution_status/],
-    [{reconstitution_status:'reconstituted',reconstitution_date:'2026-08-01'},/before acquisition/],
-    [{form:'tablet'},/form must/], [{strength_unit:'mL'},/Syringe units/], [{strength_unit:'units'},/Syringe units/],
+    [{item_name:''},/Item name/], [{quantity:''},/Quantity/], [{quantity:0},/Quantity/], [{quantity:1.2},/Quantity/], [{quantity:-1},/Quantity/],
+    [{acquisition_date:'2026-02-30'},/real date/], [{expiration_date:'2026-08-01'},/before Acquisition/],
+    [{reconstitution_status:'reconstituted'},/required/], [{reconstitution_date:'2026-09-02'},/Set Reconstitution status/],
+    [{reconstitution_status:'reconstituted',reconstitution_date:'2026-08-01'},/before Acquisition/],
+    [{form:'tablet'},/Form must/], [{strength_unit:'mL'},/Syringe units/], [{strength_unit:'units'},/Syringe units/],
     [{vial_strength:''},/both/], [{vial_strength:-10},/positive/], [{reconstitution_status:'yes'},/status must/],
   ]
   for(const [patch,error] of cases) assert.match(preview([{...valid,...patch}]).rows[0].errors.join(),error,JSON.stringify(patch))
@@ -145,6 +145,37 @@ test('each Review cell shows its warning status and every warning, while clean r
   }
   assert.match(cells[2],/<strong>Valid<\/strong>/)
   assert.equal(importableRows(review).length,3,'warnings must not change import eligibility')
+})
+
+test('warning count matches visible warning lists across valid, invalid and duplicate rows',()=>{
+  const warning={...valid,form:''}
+  const review=preview([warning,{...warning,item_name:'Invalid',quantity:0},warning, {...valid,item_name:'Clean'}])
+  const html=renderPreview(review)
+  const cells=[...html.matchAll(/<td data-label="Review">(.*?)<\/td>/g)].map(match=>match[1])
+  const withWarnings=cells.filter(cell=>cell.includes('aria-label="Warnings"'))
+  assert.equal(withWarnings.length,3)
+  assert.ok(html.includes(`<li>${withWarnings.length} rows with warnings</li>`))
+  assert.match(cells[1],/Invalid — not imported/)
+  assert.match(cells[2],/Duplicate — not imported/)
+  for(let i=0;i<3;i++) {
+    const list=cells[i].match(/<p>Warnings<\/p><ul aria-label="Warnings">(.*?)<\/ul>/)[1]
+    for(const warning of review.rows[i].warnings) assert.ok(list.includes(`<li>${warning}</li>`))
+    assert.doesNotMatch(list,/Quantity must/)
+  }
+  assert.match(cells[1],/<p>Errors<\/p><ul aria-label="Errors"><li>Quantity must/)
+  assert.deepEqual(importableRows(review).map(item=>item.item_name),['Test item','Clean'])
+})
+
+test('preview error messages use readable field labels without changing import keys or eligibility',()=>{
+  const review=preview([{...valid,item_name:'',quantity:0,expiration_date:'2026-08-01'}, {...valid,acquisition_date:'2026-02-30',expiration_date:'2026-02-31'},valid])
+  const html=renderPreview(review)
+  for(const label of ['Item name is required','Quantity must be a positive whole number','Expiration date cannot be before Acquisition date','Acquisition date must be a real date','Expiration date must be a real date']) assert.ok(html.includes(label),label)
+  assert.doesNotMatch(html,/item_name|expiration_date|acquisition_date/)
+  assert.doesNotMatch(html,/>quantity must/)
+  const rows=importableRows(review)
+  assert.equal(rows.length,1)
+  assert.equal(rows[0].item_name,valid.item_name); assert.equal(rows[0].quantity,valid.quantity)
+  assert.equal(rows[0].acquisition_date,valid.acquisition_date); assert.equal(rows[0].expiration_date,valid.expiration_date)
 })
 
 test('actual inventory UI previews before confirmation, serializes double clicks and confirms deletion', async () => {

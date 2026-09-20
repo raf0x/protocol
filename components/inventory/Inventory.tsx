@@ -87,7 +87,10 @@ export default function Inventory() {
       <p className={styles.secondary}>Duplicates match every saved field after trimming surrounding spaces. Quantity, notes, dates, units and case must match. Nothing is merged.</p>
       <div className={styles.tableWrap}><table className={styles.preview}><caption>Uploaded rows and validation results</caption><thead><tr><th>Row</th><th>Item and details</th><th>Review</th></tr></thead><tbody>{preview.rows.map(row => <tr key={row.rowNumber}>
         <td data-label="Row">{row.rowNumber}</td><td data-label="Item"><strong>{row.item.item_name || 'Missing item name'}</strong><dl>{Object.entries(row.item).filter(([key]) => key !== 'item_name').map(([key, val]) => <div key={key}><dt>{labels[key]}</dt><dd>{val == null ? 'Not recorded' : String(val)}</dd></div>)}</dl></td>
-        <td data-label="Review"><strong>{row.errors.length ? 'Invalid — not imported' : row.duplicate ? 'Duplicate — not imported' : row.warnings.length ? `Valid with warning${row.warnings.length === 1 ? '' : 's'}` : 'Valid'}</strong><ul>{[...row.errors, ...row.warnings].map(text => <li key={text}>{text}</li>)}</ul></td>
+        <td data-label="Review"><strong>{row.errors.length ? 'Invalid — not imported' : row.duplicate ? 'Duplicate — not imported' : row.warnings.length ? `Valid with warning${row.warnings.length === 1 ? '' : 's'}` : 'Valid'}</strong>
+          {row.errors.length > 0 && <div><p>Errors</p><ul aria-label="Errors">{row.errors.map(text => <li key={text}>{text}</li>)}</ul></div>}
+          {row.warnings.length > 0 && <div><p>Warnings</p><ul aria-label="Warnings">{row.warnings.map(text => <li key={text}>{text}</li>)}</ul></div>}
+        </td>
       </tr>)}</tbody></table></div>
       {!preview.rows.length && <p>No item rows found. Add your items below the example row in the template.</p>}
       <label className={styles.confirm}><input type="checkbox" checked={confirmed} disabled={busy || !counts.valid} onChange={event => setConfirmed(event.target.checked)} />I reviewed the rows and warnings. Import {counted(counts.valid, 'valid new record')} only.</label>

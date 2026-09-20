@@ -32,26 +32,27 @@ export function previewInventory(input: InputRow[], existing: InventoryItem[], t
     if (value(v.row_type) === 'EXAMPLE') { examples++; continue }
     if (Object.values(v).every(cell => !value(cell)) && !row.errors?.length) continue
     const errors = [...(row.errors ?? [])], warnings: string[] = []
-    if (value(v.row_type)) errors.push('row_type must be blank for your items (EXAMPLE rows are excluded).')
+    if (value(v.row_type)) errors.push('Row type must be blank for your items (EXAMPLE rows are excluded).')
     const name = value(v.item_name), form = value(v.form) || 'other', unit = value(v.strength_unit) || null
     const quantity = Number(value(v.quantity)), strengthText = value(v.vial_strength), strength = strengthText ? Number(strengthText) : null
-    if (!name || name.length > 200) errors.push('item_name is required and must be at most 200 characters.')
-    if (!FORMS.includes(form as typeof FORMS[number])) errors.push(`form must be: ${FORMS.join(', ')}.`)
-    if (!/^\d+$/.test(value(v.quantity)) || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1_000_000) errors.push('quantity must be a positive whole number, at most 1000000.')
-    if (strength !== null && (!/^\d+(\.\d+)?$/.test(strengthText) || !Number.isFinite(strength) || strength <= 0 || strength > 1_000_000)) errors.push('vial_strength must be a positive number, at most 1000000.')
-    if (unit && !UNITS.includes(unit as typeof UNITS[number])) errors.push('strength_unit must be mg, mcg, or IU. Syringe units and mL are not strength units.')
-    if ((strength !== null) !== (unit !== null)) errors.push('Provide both vial_strength and strength_unit, or leave both blank.')
+    if (!name || name.length > 200) errors.push('Item name is required and must be at most 200 characters.')
+    if (!FORMS.includes(form as typeof FORMS[number])) errors.push(`Form must be: ${FORMS.join(', ')}.`)
+    if (!/^\d+$/.test(value(v.quantity)) || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1_000_000) errors.push('Quantity must be a positive whole number, at most 1000000.')
+    if (strength !== null && (!/^\d+(\.\d+)?$/.test(strengthText) || !Number.isFinite(strength) || strength <= 0 || strength > 1_000_000)) errors.push('Vial strength must be a positive number, at most 1000000.')
+    if (unit && !UNITS.includes(unit as typeof UNITS[number])) errors.push('Strength unit must be mg, mcg, or IU. Syringe units and mL are not strength units.')
+    if ((strength !== null) !== (unit !== null)) errors.push('Provide both Vial strength and Strength unit, or leave both blank.')
     const dates = { acquisition_date: value(v.acquisition_date) || null, expiration_date: value(v.expiration_date) || null, reconstitution_date: value(v.reconstitution_date) || null }
-    for (const [field, date] of Object.entries(dates)) if (date && !dateOK(date)) errors.push(`${field} must be a real date in YYYY-MM-DD format (1900 or later).`)
-    if (dates.acquisition_date && dates.expiration_date && dates.expiration_date < dates.acquisition_date) errors.push('expiration_date cannot be before acquisition_date.')
+    const dateLabels = { acquisition_date: 'Acquisition date', expiration_date: 'Expiration date', reconstitution_date: 'Reconstitution date' }
+    for (const [field, date] of Object.entries(dates)) if (date && !dateOK(date)) errors.push(`${dateLabels[field as keyof typeof dateLabels]} must be a real date in YYYY-MM-DD format (1900 or later).`)
+    if (dates.acquisition_date && dates.expiration_date && dates.expiration_date < dates.acquisition_date) errors.push('Expiration date cannot be before Acquisition date.')
     const status = value(v.reconstitution_status) || 'unknown'
-    if (!RECONSTITUTION.includes(status as typeof RECONSTITUTION[number])) errors.push(`reconstitution_status must be: ${RECONSTITUTION.join(', ')}.`)
-    if (status === 'reconstituted' && !dates.reconstitution_date) errors.push('reconstitution_date is required for a reconstituted item.')
-    if (status !== 'reconstituted' && dates.reconstitution_date) errors.push('Set reconstitution_status to reconstituted when supplying a reconstitution_date.')
-    if (dates.acquisition_date && dates.reconstitution_date && dates.reconstitution_date < dates.acquisition_date) errors.push('reconstitution_date cannot be before acquisition_date.')
+    if (!RECONSTITUTION.includes(status as typeof RECONSTITUTION[number])) errors.push(`Reconstitution status must be: ${RECONSTITUTION.join(', ')}.`)
+    if (status === 'reconstituted' && !dates.reconstitution_date) errors.push('Reconstitution date is required for a reconstituted item.')
+    if (status !== 'reconstituted' && dates.reconstitution_date) errors.push('Set Reconstitution status to reconstituted when supplying a Reconstitution date.')
+    if (dates.acquisition_date && dates.reconstitution_date && dates.reconstitution_date < dates.acquisition_date) errors.push('Reconstitution date cannot be before Acquisition date.')
     const lot = value(v.lot_number) || null, notes = value(v.notes) || null
-    if (lot && lot.length > 100) errors.push('lot_number must be at most 100 characters.')
-    if (notes && notes.length > 2000) errors.push('notes must be at most 2000 characters.')
+    if (lot && lot.length > 100) errors.push('Lot / batch number must be at most 100 characters.')
+    if (notes && notes.length > 2000) errors.push('Notes must be at most 2000 characters.')
     if (!value(v.form)) warnings.push('Form not provided; saved as other.')
     if (!value(v.reconstitution_status)) warnings.push('Reconstitution status not provided; saved as unknown.')
     if (dates.expiration_date && dateOK(dates.expiration_date) && dates.expiration_date < today) warnings.push('The recorded expiration date has passed.')
