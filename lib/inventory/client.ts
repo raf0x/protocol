@@ -2,6 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
 import { importableRows, type InventoryPreview, type SavedInventoryItem } from './model'
 
+export async function loadInventoryItem(id: string, client: SupabaseClient = createClient()): Promise<SavedInventoryItem> {
+  const { data: { user }, error: authError } = await client.auth.getUser()
+  if (authError || !user) throw new Error('Sign in to use your inventory.')
+  const { data, error } = await client.from('inventory_items').select('*').eq('id', id).eq('user_id', user.id).maybeSingle()
+  if (error || !data) throw new Error('This inventory item is unavailable. Return to Inventory and try again.')
+  return data as SavedInventoryItem
+}
+
 export async function loadInventory(client: SupabaseClient = createClient()): Promise<SavedInventoryItem[]> {
   const { data: { user }, error } = await client.auth.getUser()
   if (error || !user) throw new Error('Sign in to view inventory.')

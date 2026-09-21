@@ -4,6 +4,9 @@ import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import EditorSection from '../../../components/protocols/EditorSection'
 import QuickProtocolFields from '../../../components/protocols/QuickProtocolFields'
+import InventoryProtocolTiming from '../../../components/inventory/InventoryProtocolTiming'
+import { loadInventoryItem } from '../../../lib/inventory/client'
+import { inventoryProtocolDates, inventoryProtocolFields, type InventoryProtocolTiming as InventoryTiming } from '../../../lib/inventory/protocol'
 import { localCalendarDate, protocolSaveDates } from '../../../lib/health/protocolDates'
 import { useLocalCalendarDate } from '../../../lib/health/useLocalCalendarDate'
 import './protocols.css'
@@ -82,6 +85,9 @@ export default function ManagePage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [quickAdd, setQuickAdd] = useState(false)
   const savePending = useRef(false)
+  const savedProtocolId = useRef<string | null>(null)
+  const [fromInventory, setFromInventory] = useState(false)
+  const [inventoryTiming, setInventoryTiming] = useState<InventoryTiming>('today')
   const mode = editingId === null ? 'create' : 'edit'
   const [planned, setPlanned] = useState(false)
   const [startDate, setStartDate] = useState(localCalendarDate())
@@ -122,22 +128,36 @@ export default function ManagePage() {
 
   async function load() {
     setLoading(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/auth/login'); return }
-    const { data } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
-    setProtocols(data || [])
-    const params = new URLSearchParams(window.location.search)
-    const target = params.get('protocol')
-    const compoundTarget = params.get('compound')
-    const selected = params.get('new') === '1' ? undefined : data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
-    if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
-    if (!selected && (params.get('new') === '1' || params.has('dose')) && !showForm) {
-      startNew()
-      if (params.has('dose')) setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || 'mg',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || 'mg',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}])
-      window.history.replaceState(null,'','/protocol/manage')
-    }
-    setLoading(false)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/auth/login'); return }
+      const { data, error: loadError } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
+      if (loadError) throw new Error('Protocols could not be loaded. Please refresh to try again.')
+      setProtocols(data || [])
+      const params = new URLSearchParams(window.location.search)
+      const target = params.get('protocol')
+      const compoundTarget = params.get('compound')
+      const selected = params.get('new') === '1' ? undefined : data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
+      if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
+      if (params.has('inventory') && params.get('new') === '1' && !showForm) {
+        try {
+          const item = await loadInventoryItem(params.get('inventory') || '', supabase)
+          startNew()
+          setFromInventory(true)
+          setCompounds([{ ...newCompound(), ...inventoryProtocolFields(item) }])
+          window.history.replaceState(null, '', '/protocol/manage')
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : 'Inventory could not be loaded.')
+        }
+      } else if (!selected && (params.get('new') === '1' || params.has('dose')) && !showForm) {
+        startNew()
+        if (params.has('dose')) setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || 'mg',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || 'mg',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}])
+        window.history.replaceState(null,'','/protocol/manage')
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Protocols could not be loaded. Please refresh to try again.')
+    } finally { setLoading(false) }
   }
 
   async function completeProtocol() {
@@ -313,6 +333,10 @@ export default function ManagePage() {
   }
 
   function startNew() {
+    savedProtocolId.current = null
+    setFromInventory(false)
+    setInventoryTiming('today')
+    setSavedNotice('')
     window.scrollTo({ top: 0 })
     setDetailId(null)
     setRemovedCompoundIds([])
@@ -329,6 +353,8 @@ export default function ManagePage() {
   }
 
   function startEdit(p: any) {
+    savedProtocolId.current = null
+    setFromInventory(false)
     window.scrollTo({ top: 0 })
     setDetailId(null)
     setRemovedCompoundIds([])
@@ -395,14 +421,14 @@ export default function ManagePage() {
   }
 
   async function save() {
-    if (savePending.current) return
+    if (savePending.current || savedProtocolId.current) return
     setError('')
     if (!compounds.length || compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
     if (compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
     savePending.current = true
     setSaving(true)
     try {
-      const dates = protocolSaveDates(mode === 'create'
+      const dates = fromInventory && mode === 'create' ? inventoryProtocolDates(inventoryTiming, startDate) : protocolSaveDates(mode === 'create'
         ? { mode, planned, startDate, today: localCalendarDate() }
         : { mode, planned, startDate, today: localCalendarDate(), originalStartDate: editingProtocol?.status === 'active' ? editingProtocol.start_date : null, useDifferentDate: changeHappenedEarlier, effectiveDate })
       const payload = compounds.map(c => {
@@ -411,8 +437,8 @@ export default function ManagePage() {
         const start = Number(c.phase_start_week)
         const end = phaseEndWeek(start,c.duration_weeks)
         return { id: c.id || null, name: c.name.trim(), 
-          vial_strength: c.isPreMixed ? null : Number(c.vial_strength), vial_unit: c.isPreMixed ? null : c.vial_unit,
-          bac_water_ml: c.isPreMixed ? null : Number(c.bac_water_ml), reconstitution_date: c.isPreMixed ? null : c.reconstitution_date || null,
+          vial_strength: c.isPreMixed || !c.vial_strength ? null : Number(c.vial_strength), vial_unit: c.isPreMixed ? null : c.vial_unit,
+          bac_water_ml: c.isPreMixed || !c.bac_water_ml ? null : Number(c.bac_water_ml), reconstitution_date: c.isPreMixed ? null : c.reconstitution_date || null,
           notes: c.notes.trim(), vials_in_stock: c.vials_in_stock ? Number(c.vials_in_stock) : null,
           phase: { id: c.phase_id || null, dosing_entry:entry, start_week: start, end_week: end,
             frequency: c.frequency_mode === 'rolling' ? (c.cycle_days ? `every${c.cycle_days}days` : '') : c.days_of_week.length === 7 ? 'daily' : c.days_of_week.length ? `${c.days_of_week.length}x/week` : '',
@@ -420,11 +446,12 @@ export default function ManagePage() {
             time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
         }
       })
-      await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
+      savedProtocolId.current = await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
       })
       const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
-      setSavedNotice(guidance.length ? `Saved. ${guidance.join(' ')}` : 'Protocol saved.'); setShowForm(false); setEditingId(null); await load()
+      const success = fromInventory ? 'Protocol created. Your inventory quantity is unchanged.' : 'Protocol saved.'
+      setSavedNotice(guidance.length ? `${success} ${guidance.join(' ')}` : success); setShowForm(false); setEditingId(null); await load()
     } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
     finally { savePending.current = false; setSaving(false) }
   }
@@ -467,7 +494,15 @@ export default function ManagePage() {
       {showForm && (
           <div className="protocol-editor">
             {quickAdd && mode === 'create' && <label className="protocol-quick-name">What are you taking?<input aria-label="Compound name" value={compounds[0].name} onChange={event => updateCompound(0,'name',event.target.value)} placeholder="Item or compound name" /></label>}
-            {!editingId && <fieldset className="protocol-use-choice">
+            {fromInventory && <>
+              <p>Creating a protocol will not change your inventory quantity.</p>
+              {compounds[0].reconstitution_date && <p>Recorded reconstitution date: {compounds[0].reconstitution_date}</p>}
+              <InventoryProtocolTiming value={inventoryTiming} disabled={saving} onChange={timing => {
+                setInventoryTiming(timing); setPlanned(timing === 'planned')
+                setStartDate(timing === 'today' ? localCalendarDate() : '')
+              }} />
+            </>}
+            {!editingId && !fromInventory && <fieldset className="protocol-use-choice">
               <legend>When should this protocol begin?</legend>
               <div className="protocol-use-options">
                 <label className="protocol-use-option">
@@ -745,9 +780,9 @@ export default function ManagePage() {
             <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
             </>}
 
-            {!planned && <div style={{marginBottom:'16px'}}>
+            {!planned && (!fromInventory || inventoryTiming === 'scheduled') && <div style={{marginBottom:'16px'}}>
               <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>Protocol start date</label>
-              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required min={fromInventory ? today : undefined} value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
               {startDate > today && <p>Scheduled · Starts {startDate}. Tracking begins automatically.</p>}
             </div>}
             {quickAdd && mode === 'create' && <button type="button" className="protocol-more-details" onClick={() => setQuickAdd(false)}>Add more details</button>}
@@ -776,7 +811,7 @@ export default function ManagePage() {
             </div>}
 
             <div className="protocol-save-bar">
-              <button onClick={() => {setShowForm(false);setEditingId(null)}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
+              <button disabled={saving} onClick={() => {if (fromInventory) router.push('/protocol/inventory'); else {setShowForm(false);setEditingId(null)}}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
               <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':mode === 'edit'?'Save changes':'Create protocol'}</button>
             </div>
           </div>

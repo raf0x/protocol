@@ -99,6 +99,7 @@ export default function Inventory() {
     <section aria-labelledby="current-inventory"><div className={styles.heading}><h2 id="current-inventory">Current inventory</h2><button type="button" disabled={busy} onClick={() => { setError(''); void refresh().catch(reason => setError(message(reason))) }}>Refresh</button></div>
       {!loaded ? <p role="status">{error ? 'Inventory is unavailable. Use Refresh to retry.' : 'Loading inventory…'}</p> : !items.length ? <div className={styles.card}><h3>No inventory recorded yet</h3><p>Download the template or add an item manually. Saving inventory does not create a protocol.</p></div> : <div className={styles.items}>{items.map(item => <article className={styles.card} key={item.id}>
         <h3>{item.item_name}</h3><p><strong>{item.quantity}</strong> · {item.form}{item.vial_strength !== null ? ` · ${item.vial_strength} ${item.strength_unit}` : ''}</p>
+        <Link className={styles.useProtocol} href={`/protocol/manage?new=1&inventory=${encodeURIComponent(item.id)}`} aria-label={`Use ${item.item_name} in a protocol`}>Use in a protocol</Link>
         <dl>{['acquisition_date', 'expiration_date', 'lot_number', 'reconstitution_status', 'reconstitution_date', 'notes'].map(key => <div key={key}><dt>{labels[key]}</dt><dd>{String(item[key as keyof SavedInventoryItem] ?? 'Not recorded')}</dd></div>)}</dl>
         <button type="button" disabled={busy} onClick={() => { setError(''); setDeleting(item) }}>Delete {item.item_name}</button>
       </article>)}</div>}
