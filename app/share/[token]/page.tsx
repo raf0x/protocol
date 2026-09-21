@@ -24,7 +24,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
   if (!protocol) return notFound()
 
-  const startDate = new Date(protocol.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const startDate = protocol.start_date ? new Date(protocol.start_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
 
   return (
     <main style={{minHeight:'100vh',background:'#0c0c14',color:'white',padding:'24px',fontFamily:'Inter,sans-serif'}}>
@@ -33,7 +33,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <div style={{marginBottom:'24px'}}>
           <div style={{fontSize:'13px',color:'#8b8ba7',marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>SHARED PROTOCOL</div>
           <h1 style={{fontSize:'26px',fontWeight:'900',color:'#39ff14',marginBottom:'4px',letterSpacing:'-0.5px'}}>{protocol.name}</h1>
-          <p style={{color:'#8b8ba7',fontSize:'13px'}}>Started {startDate}</p>
+          <p style={{color:'#8b8ba7',fontSize:'13px'}}>{startDate ? `Start date: ${startDate}` : 'Planned — no start date'}</p>
           {protocol.notes && <p style={{color:'#8b8ba7',fontSize:'13px',marginTop:'6px'}}>{protocol.notes}</p>}
         </div>
 

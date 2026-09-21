@@ -38,9 +38,9 @@ export async function loadTimeline() {
     readLabPanels(supabase, user.id).then(panels => ({ events: normalizeLabTimeline(panels), error: null as string | null }))
       .catch(() => ({ events: [], error: 'Lab history could not be loaded. Your other history is still available.' })),
   ])
-  const events = [...normalizeTimeline(protocolEvents, journalEntries), ...labs.events]
-    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
   const now = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const events = [...normalizeTimeline(protocolEvents.filter(event => event.date <= today), journalEntries), ...labs.events]
+    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
   return { events, baseline: deriveBaseline(protocols, journalEntries, events, today), labsError: labs.error }
 }

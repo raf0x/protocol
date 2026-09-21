@@ -1,10 +1,11 @@
 import { currentPhase } from './dosing'
 import { dosingDisplay } from './dosingEntry'
+import { protocolLifecycle, localCalendarDate } from './protocolDates'
 import { resolveBaselineDetails, normalizeTimeline, type ProtocolRow, type ProtocolEventRow, type JournalEntryRow } from './timeline'
 
 /** Presentation only. Scheduling, dose interpretation and writes remain in their existing owners. */
 export function todayProtocols(protocols: ProtocolRow[], date: string) {
-  return protocols.filter(protocol => protocol.status !== 'planned').flatMap(protocol => (protocol.compounds ?? []).map(compound => {
+  return protocols.filter(protocol => protocolLifecycle(protocol,date) === 'active').flatMap(protocol => (protocol.compounds ?? []).map(compound => {
     const phase = protocol.start_date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
     const display = dosingDisplay(phase)
     const details = resolveBaselineDetails(compound, protocol, date)
@@ -25,8 +26,8 @@ export function nextTodayDose(due: TodayDue[], logs: Record<string, { taken: boo
     (order[a.time_of_day] ?? 4) - (order[b.time_of_day] ?? 4) || a.id.localeCompare(b.id))[0] ?? null
 }
 
-export function recentChanges(events: ProtocolEventRow[], protocols: ProtocolRow[]) {
-  return normalizeTimeline(events.map(event => {
+export function recentChanges(events: ProtocolEventRow[], protocols: ProtocolRow[], today = localCalendarDate()) {
+  return normalizeTimeline(events.filter(event => event.date <= today).map(event => {
     const protocol = event.protocols ?? protocols.find(p => p.id === event.protocol_id) ?? null
     return { ...event, protocols: protocol, compounds: event.compounds ?? protocol?.compounds?.find(c => c.id === event.compound_id) ?? null }
   }), []).slice(0, 3)

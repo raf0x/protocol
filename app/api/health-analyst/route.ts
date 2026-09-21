@@ -10,6 +10,7 @@ import { AnalystConfigurationError, AnalystProviderError } from '../../../lib/he
 import { captureAnalystOperationalError } from '../../../lib/health/analyst/monitoring'
 import { AnalystOutputError } from '../../../lib/health/analyst/schema'
 import { createAuthenticatedServerClient } from '../../../lib/serverSupabase'
+import { requestCalendarDate } from '../../../lib/health/protocolDates'
 
 export async function POST(request: NextRequest) {
   if (Number(request.headers.get('content-length') || 0) > 12_000) return NextResponse.json({ error: 'The request is too large.' }, { status: 413 })
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     }, { status: unavailable ? 503 : 429, headers: rateLimitHeaders(limit) })
   }
   try {
-    const context = await loadHealthAnalystContext(supabase, user.id, action, new Date().toISOString().slice(0, 10))
+    const context = await loadHealthAnalystContext(supabase, user.id, action, requestCalendarDate(request.headers.get('x-timezone')))
     const result = await analyzeHealthContext(context)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {

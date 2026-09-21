@@ -8,6 +8,7 @@ import { createDoctorReport } from '../../../lib/health/report/service'
 import type { ReportRange } from '../../../lib/health/report/types'
 import { captureOperationalError } from '../../../lib/monitoring'
 import { createAuthenticatedServerClient } from '../../../lib/serverSupabase'
+import { requestCalendarDate } from '../../../lib/health/protocolDates'
 
 const ranges = new Set<ReportRange>(['3m', '6m', '12m', 'all'])
 export async function POST(request: NextRequest) {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     }, { status: unavailable ? 503 : 429, headers: rateLimitHeaders(limit) })
   }
   try {
-    return NextResponse.json(await createDoctorReport(supabase, user.id, range, includeAi, new Date().toISOString().slice(0, 10), undefined,
+    return NextResponse.json(await createDoctorReport(supabase, user.id, range, includeAi, requestCalendarDate(request.headers.get('x-timezone')), undefined,
       async error => { await captureAnalystOperationalError('/api/health-report', error) }), { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     await captureOperationalError({ route: '/api/health-report', error, source: includeAi ? 'ai' : 'report', status: 500 })

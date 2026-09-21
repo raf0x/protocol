@@ -1,9 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
+import { localCalendarDate } from './protocolDates'
 import type { LibraryProtocol } from './protocolPresentation'
 import type { OverlayProtocolEvent, ProtocolOverlayData } from './protocolOverlay'
 
 export async function readProtocolOverlay(client: SupabaseClient, userId: string, earliest: string, latest: string): Promise<ProtocolOverlayData> {
+  latest = latest < localCalendarDate() ? latest : localCalendarDate()
   const protocols = await client.from('protocols')
     .select('id,name,start_date,status,completed_date,compounds(id,name,phases(id,dosing_entry,dose,dose_unit,dose_semantics_version,frequency,days_of_week,start_week,end_week,route))')
     .eq('user_id', userId).lte('start_date', latest).or(`completed_date.is.null,completed_date.gte.${earliest}`).order('start_date')

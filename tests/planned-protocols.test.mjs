@@ -112,6 +112,7 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
       const index=slot++;if(!(index in states))states[index]=initial===true ? false : initial
       return [states[index],value=>{states[index]=typeof value==='function'?value(states[index]):value}]
     }}
+    if(name.endsWith('/useLocalCalendarDate'))return {useLocalCalendarDate:()=>new Date().toLocaleDateString('en-CA')}
     if(name==='next/navigation')return {useRouter:()=>({push(){}})}
     if(name.endsWith('.css'))return {}
     if(name.endsWith('/supabase'))return {createClient:()=>client}
@@ -124,19 +125,19 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
   try{
     function render(){slot=0;refSlot=0;const nodes=[];function visit(node){if(Array.isArray(node))return node.forEach(visit);if(!React.isValidElement(node))return;nodes.push(node);visit(node.props.children)}visit(compiled.exports.default());return nodes}
     render().find(node=>node.props.onAdd).props.onAdd()
-    for (const wording of ['Are you using this protocol now?', 'Yes, start it now', 'Included in Today, schedules, and health history.', 'No, save it for later', 'Saved as Planned. It will not appear in Today or schedules until you activate it.']) {
+    for (const wording of ['When should this protocol begin?', 'Choose a start date', 'Today, a past date, or a future date. Tracking begins automatically on that date.', 'Save for later without a start date', 'Saved as Planned. Activate or schedule it when you are ready.']) {
       assert.ok(render().some(node=>node.props.children===wording), wording)
     }
     const radio = value => render().find(node=>node.type==='input' && node.props.type==='radio' && node.props.value===value)
     assert.equal(radio('active').props.checked,true)
     radio('planned').props.onChange()
     assert.equal(radio('planned').props.checked,true)
-    assert.ok(!render().some(node=>node.props['aria-label']==='When did you start?'))
+    assert.ok(!render().some(node=>node.props['aria-label']==='Protocol start date'))
     if(state==='active') radio('active').props.onChange()
     render().find(node=>node.props['aria-label']==='Compound name').props.onChange({target:{value:'Saved compound'}})
     const submit = () => render().find(node=>node.type==='button'&&node.props.children==='Create protocol')
     if(state==='active') {
-      const date = () => render().find(node=>node.props['aria-label']==='When did you start?')
+      const date = () => render().find(node=>node.props['aria-label']==='Protocol start date')
       assert.equal(date().props.required,true)
       date().props.onChange({target:{value:''}})
       await submit().props.onClick()

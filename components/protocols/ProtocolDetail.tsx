@@ -6,6 +6,7 @@ import { administrationForPhase } from '../../lib/health/dosingEntry'
 import { normalizeTimeline, type ProtocolEventRow } from '../../lib/health/timeline'
 import { compoundOverview, dateLabel, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import ActivateProtocol from './ActivateProtocol'
+import { protocolLifecycle } from '../../lib/health/protocolDates'
 import PhaseCard from './PhaseCard'
 import DoseChangeAction from './DoseChangeAction'
 
@@ -13,6 +14,7 @@ type Log = { id: string; compound_id: string; date: string; taken: boolean }
 type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean) => void; onComplete: () => void; onPause: () => void; onResume: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
 export default function ProtocolDetail(props: Props) {
   const { protocol, today } = props
+  const scheduled = protocolLifecycle(protocol,today) === 'scheduled'
   const [history, setHistory] = useState<ProtocolEventRow[]>([])
   const [logs, setLogs] = useState<Log[]>([])
   const [historyState, setHistoryState] = useState('loading')
@@ -33,10 +35,10 @@ export default function ProtocolDetail(props: Props) {
     void loadHistory()
     return () => { live = false }
   }, [protocol])
-  const events = normalizeTimeline(history.map(event => ({ ...event, protocols: protocol, compounds: protocol.compounds?.find(compound => compound.id === event.compound_id) ?? null })), [])
+  const events = normalizeTimeline(history.filter(event => event.date <= today).map(event => ({ ...event, protocols: protocol, compounds: protocol.compounds?.find(compound => compound.id === event.compound_id) ?? null })), [])
   return <div className="protocol-detail">
     <button className="protocol-back" onClick={props.onBack}>‹ All protocols</button>
-    <header className="protocol-detail-header"><span className="protocol-status">{protocol.status === 'planned' ? 'Planned' : protocol.status || 'Active'}</span><h1>{protocol.name}</h1><p>{protocol.status === 'planned' ? 'Not started' : `Started ${dateLabel(protocol.start_date)}`}{protocol.completed_date && ` · Completed ${dateLabel(protocol.completed_date)}`}</p><button className="protocol-primary" onClick={() => props.onEdit()}>Edit protocol</button>{protocol.status === 'planned' && <ActivateProtocol protocol={protocol} onActivated={props.onReload} />}</header>
+    <header className="protocol-detail-header"><span className="protocol-status">{scheduled ? 'Scheduled' : protocol.status === 'planned' ? 'Planned' : protocol.status || 'Active'}</span><h1>{protocol.name}</h1><p>{scheduled ? `Starts ${dateLabel(protocol.start_date)}` : protocol.status === 'planned' ? 'Not started' : `Started ${dateLabel(protocol.start_date)}`}{protocol.completed_date && ` · Completed ${dateLabel(protocol.completed_date)}`}</p><button className="protocol-primary" onClick={() => props.onEdit()}>Edit protocol</button>{protocol.status === 'planned' && <ActivateProtocol protocol={protocol} onActivated={props.onReload} />}</header>
     {!protocol.compounds?.length && <div className="protocol-empty">No compounds saved yet. Add the details you know in the editor.</div>}
     {(protocol.compounds ?? []).map(compound => {
       const info = compoundOverview(protocol, compound, today)
@@ -47,8 +49,8 @@ export default function ProtocolDetail(props: Props) {
       const lastLog = logs.find(log => log.compound_id === compound.id)
       return <section className="protocol-detail-compound" key={compound.id}>
         <h2>{compound.name}</h2>
-        <div className="protocol-dose-overview"><span>{protocol.status === 'completed' ? 'Dose at completion' : protocol.status === 'planned' ? 'Planned dose' : 'Current dose'}</span><strong>{info.dose}</strong><p>{info.frequency}{info.phase?.route && ` · ${info.phase.route}`}{info.week && ` · Week ${info.week}`}</p></div>
-        <DoseChangeAction protocol={protocol} compound={compound} today={today} onSaved={props.onReload} />
+        <div className="protocol-dose-overview"><span>{protocol.status === 'completed' ? 'Dose at completion' : protocol.status === 'planned' || scheduled ? 'Planned dose' : 'Current dose'}</span><strong>{info.dose}</strong><p>{info.frequency}{info.phase?.route && ` · ${info.phase.route}`}{info.week && ` · Week ${info.week}`}</p></div>
+        {!scheduled && <DoseChangeAction protocol={protocol} compound={compound} today={today} onSaved={props.onReload} />}
         <section className="protocol-phase"><h3>{protocol.status === 'planned' ? 'Planned pattern' : 'Schedule'}</h3><p>{info.frequency}{info.phase?.time_of_day && ` · ${info.phase.time_of_day}`}</p>
           {!!info.phase?.days_of_week?.length && <p>{info.phase.days_of_week.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(' · ')}</p>}
           {info.next && <p>Scheduled {info.next.date === today ? 'today' : dateLabel(info.next.date)}{info.next.time && ` · ${info.next.time}`}</p>}
@@ -78,9 +80,9 @@ export default function ProtocolDetail(props: Props) {
       </>}
     </details>
     <details className="protocol-advanced"><summary>Protocol actions</summary><div className="protocol-action-row">
-      {protocol.status === 'active' && <button onClick={props.onPause}>Pause protocol</button>}
+      {protocol.status === 'active' && !scheduled && <button onClick={props.onPause}>Pause protocol</button>}
       {protocol.status === 'paused' && <button onClick={props.onResume}>Resume protocol</button>}
-      {protocol.status !== 'planned' && <button onClick={protocol.status === 'completed' ? props.onReactivate : props.onComplete}>{protocol.status === 'completed' ? 'Reactivate protocol' : 'Complete protocol'}</button>}
+      {protocol.status !== 'planned' && !scheduled && <button onClick={protocol.status === 'completed' ? props.onReactivate : props.onComplete}>{protocol.status === 'completed' ? 'Reactivate protocol' : 'Complete protocol'}</button>}
       <button className="protocol-danger" onClick={props.onDelete}>Delete protocol</button>
     </div></details>
   </div>

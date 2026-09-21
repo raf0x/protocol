@@ -103,7 +103,7 @@ export default function DoctorReport() {
   async function generate(ai = includeAi) {
     setStatus('loading'); setMessage('')
     try {
-      const request = await fetch('/api/health-report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ range, includeAi: ai }) })
+      const request = await fetch('/api/health-report', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone }, body: JSON.stringify({ range, includeAi: ai }) })
       const body = await request.json() as DoctorReportResponse & { error?: string; code?: string; retryAfter?: number }
       if (request.status === 403 && body.code === 'AI_CONSENT_REQUIRED') {
         setStatus('idle'); setConsentOpen(true); return

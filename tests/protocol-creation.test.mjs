@@ -24,7 +24,7 @@ const {protocolSaveDates,localCalendarDate,isCalendarDate}=load('../lib/health/p
 const today='2026-09-22',start='2026-09-01'
 test('Active creation uses its single start date; Planned ignores all date state',()=>{
   for(const date of [start,today]) assert.deepEqual(protocolSaveDates({mode:'create',planned:false,startDate:date,today,effectiveDate:'garbage',useDifferentDate:true}),{startDate:date,effectiveDate:date})
-  assert.throws(()=>protocolSaveDates({mode:'create',planned:false,startDate:'2026-09-23',today}),/Start date cannot be in the future\./)
+  assert.equal(protocolSaveDates({mode:'create',planned:false,startDate:'2026-09-23',today}).effectiveDate,'2026-09-23')
   assert.throws(()=>protocolSaveDates({mode:'create',planned:false,startDate:'',today}),/Choose a valid start date/)
   assert.deepEqual(protocolSaveDates({mode:'create',planned:true,startDate:'',today,effectiveDate:'garbage'}),{startDate:null,effectiveDate:null})
   assert.equal(isCalendarDate('2026-02-29'),false);assert.equal(isCalendarDate('2028-02-29'),true)
@@ -46,7 +46,7 @@ test('local calendar boundaries do not parse YYYY-MM-DD as UTC',()=>{
 })
 
 test('edit bounds use the submitted start, independent of old start or reconstitution',()=>{
-  const input={mode:'edit',planned:false,startDate:today,today,useDifferentDate:true,effectiveDate:start,originalStartDate:'2099-01-01',reconstitution_date:'1900-01-01'}
+  const input={mode:'edit',planned:false,startDate:today,today,useDifferentDate:true,effectiveDate:start,originalStartDate:start,reconstitution_date:'1900-01-01'}
   assert.throws(()=>protocolSaveDates(input),/Effective date cannot be before the protocol start date\./)
   assert.equal(protocolSaveDates({...input,effectiveDate:today}).effectiveDate,today)
   assert.equal(protocolSaveDates({...input,useDifferentDate:false}).effectiveDate,null)
@@ -63,6 +63,7 @@ function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null
   const mutations=load('../lib/health/protocolMutations.ts')
   new Function('require','module','exports',code)(name=>{
     if(name==='react')return {...React,useEffect(){},useRef(initial){return refs[refSlot++]??(refs[refSlot-1]={current:initial})},useState(initial){const i=slot++;if(!(i in states))states[i]=i===1?false:i===2?protocols:typeof initial==='function'?initial():initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value}]}}
+    if(name.endsWith('/useLocalCalendarDate'))return {useLocalCalendarDate:()=>new Date().toLocaleDateString('en-CA')}
     if(name==='next/navigation')return {useRouter:()=>({push(){}})}
     if(name.endsWith('/supabase'))return {createClient:()=>client}
     if(name.endsWith('/protocolMutations'))return {...mutations,saveProtocolWithEvents:input=>mutations.saveProtocolWithEvents(input,client),transitionProtocol:input=>mutations.transitionProtocol(input,client),deleteOwnedProtocol:id=>mutations.deleteOwnedProtocol(id,client)}
@@ -80,11 +81,11 @@ test('Quick Add and full editor preserve values, create label, single date and m
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd()
     assert.ok(h.button('Create protocol'));assert.equal(h.field('Effective date'),undefined)
     assert.equal(h.button('Use a different effective date'),undefined)
-    for(const [field,value] of [['Compound name','Test'],['Vial strength','10'],['Medication dose per injection','2'],['BAC water (mL)','2'],['Vials in stock','3'],['Duration (weeks, blank for ongoing)','8'],['When did you start?',localCalendarDate()]])h.input(field,value)
+    for(const [field,value] of [['Compound name','Test'],['Vial strength','10'],['Medication dose per injection','2'],['BAC water (mL)','2'],['Vials in stock','3'],['Duration (weeks, blank for ongoing)','8'],['Protocol start date',localCalendarDate()]])h.input(field,value)
     h.button('Mon').props.onClick();h.button('Thu').props.onClick()
     h.button('Add more details').props.onClick()
     assert.equal(h.field('Compound name').props.value,'Test');assert.equal(h.field('Vial amount').props.value,'10')
-    assert.equal(h.field('Vials in stock').props.value,'3');assert.equal(h.field('When did you start?').props.value,localCalendarDate())
+    assert.equal(h.field('Vials in stock').props.value,'3');assert.equal(h.field('Protocol start date').props.value,localCalendarDate())
     const save=h.button('Create protocol').props.onClick;await Promise.all([save(),save()])
     assert.equal(h.calls.length,1)
     const args=h.calls[0].args;assert.equal(args.p_protocol_id,null);assert.equal(args.p_effective_date,args.p_start_date)
@@ -178,4 +179,69 @@ test('explicit new/calculator entry resets edit identity and retains prefilled u
     await h.button('Create protocol').props.onClick()
     assert.equal(h.calls[0].args.p_protocol_id,null)
   }finally{globalThis.window=previous}
+})
+
+test('Scheduled state, active counts, Today and history switch on the local start day without a mutation',()=>{
+  const {protocolLifecycle}=load('../lib/health/protocolDates.ts')
+  const {todayProtocols,recentChanges}=load('../lib/health/today.ts')
+  const {deriveBaseline}=load('../lib/health/timeline.ts')
+  const {compoundOverview}=load('../lib/health/protocolPresentation.ts')
+  const {isDueToday}=load('../lib/utils.ts')
+  const protocol={...saved,start_date:'2026-09-23'}
+  const event={id:'start',protocol_id:protocol.id,date:protocol.start_date,event_type:'started',description:'Started Existing',protocols:protocol}
+  assert.equal(protocolLifecycle(protocol,today),'scheduled')
+  assert.equal(todayProtocols([protocol],today).length,0)
+  assert.equal(deriveBaseline([protocol],[],[],today).activeProtocolCount,0)
+  assert.equal(recentChanges([event],[protocol],today).length,0)
+  assert.equal(compoundOverview(protocol,protocol.compounds[0],today).week,null)
+  assert.equal(isDueToday('daily',protocol.start_date,null,today),false)
+  const Library=load('../components/protocols/ProtocolLibrary.tsx').default
+  const html=renderToStaticMarkup(React.createElement(Library,{protocols:[protocol],today,selected:new Set(),onOpen(){},onAdd(){},onSelect(){}}))
+  assert.match(html,/Scheduled protocols/);assert.match(html,/Starts Sep 23, 2026/)
+  assert.doesNotMatch(html.slice(html.indexOf('aria-label="Active protocols"'),html.indexOf('aria-label="Scheduled protocols"')),/View Existing/)
+  assert.equal(protocolLifecycle(protocol,protocol.start_date),'active')
+  assert.equal(todayProtocols([protocol],protocol.start_date).length,1)
+  assert.equal(deriveBaseline([protocol],[],[],protocol.start_date).activeProtocolCount,1)
+  assert.equal(recentChanges([event],[protocol],protocol.start_date).length,1)
+  assert.equal(isDueToday('daily',protocol.start_date,null,protocol.start_date),true)
+})
+
+test('creation accepts a future start and preparation today without an effective-date override',async()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd()
+    h.input('Compound name','Scheduled medication')
+    h.input('Protocol start date','2099-01-01')
+    assert.equal(h.field('Protocol start date').props.max,undefined)
+    h.button('Add more details').props.onClick()
+    h.input('Reconstitution date',localCalendarDate())
+    assert.equal(h.field('Effective date'),undefined)
+    await h.button('Create protocol').props.onClick()
+    assert.equal(h.calls.length,1)
+    assert.equal(h.calls[0].args.p_protocol_id,null)
+    assert.equal(h.calls[0].args.p_start_date,'2099-01-01')
+    assert.equal(h.calls[0].args.p_effective_date,'2099-01-01')
+    assert.equal(h.calls[0].args.p_compounds[0].reconstitution_date,localCalendarDate())
+  }finally{globalThis.window=previous}
+})
+
+test('pre-start edit ignores edit-history overrides, including when rescheduling or preparing earlier',async()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const scheduled={...saved,start_date:'2099-01-01'}
+    const h=harness([scheduled]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+    assert.equal(h.button('Use a different effective date'),undefined)
+    h.input('Protocol start date','2099-02-01');h.input('Reconstitution date',localCalendarDate())
+    await h.button('Save changes').props.onClick()
+    assert.equal(h.calls.length,1);assert.equal(h.calls[0].args.p_protocol_id,saved.id)
+    assert.equal(h.calls[0].args.p_effective_date,'2099-02-01')
+    assert.equal(h.calls[0].args.p_compounds[0].reconstitution_date,localCalendarDate())
+  }finally{globalThis.window=previous}
+})
+
+test('open pages refresh local calendar state at midnight and when returning to the foreground',()=>{
+  const dates=ts.transpileModule(readFileSync(new URL('../lib/health/protocolDates.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText
+  const hook=ts.transpileModule(readFileSync(new URL('../lib/health/useLocalCalendarDate.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText
+  const script=`const RealDate=Date;let clock=RealDate.parse('2026-09-22T23:59:59-04:00');global.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[clock]))}};let timer,delay,focus,current;global.setTimeout=(fn,ms)=>{timer=fn;delay=ms;return 1};global.clearTimeout=()=>{};global.window={addEventListener:(name,fn)=>{focus=fn},removeEventListener(){}};const d={exports:{}};new Function('exports',${JSON.stringify(dates)})(d.exports);const h={exports:{}};new Function('require','exports',${JSON.stringify(hook)})(name=>name==='react'?{useState:initial=>{current=initial;return[current,value=>{current=value}]},useEffect:fn=>fn()}:d.exports,h.exports);h.exports.useLocalCalendarDate();if(current!=='2026-09-22'||delay>1100)throw Error('midnight not scheduled');clock+=2000;timer();if(current!=='2026-09-23')throw Error('no midnight refresh');clock+=86400000;focus();if(current!=='2026-09-24')throw Error('no foreground refresh');console.log('pass')`
+  assert.equal(execFileSync(process.execPath,['-e',script],{env:{...process.env,TZ:'America/New_York'},encoding:'utf8'}).trim(),'pass')
 })

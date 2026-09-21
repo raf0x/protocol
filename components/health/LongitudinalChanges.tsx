@@ -27,7 +27,7 @@ export default function LongitudinalChanges() {
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     const controller = new AbortController()
-    fetch('/api/health-longitudinal', { cache: 'no-store', signal: controller.signal }).then(async response => {
+    fetch('/api/health-longitudinal', { cache: 'no-store', signal: controller.signal, headers: { 'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone } }).then(async response => {
       if (!response.ok) throw new Error(response.status === 401 ? 'Sign in again to view your recorded changes.' : 'Your recorded changes are temporarily unavailable. Please try again.')
       const data: LongitudinalResult = await response.json()
       if (!controller.signal.aborted) setResult(data)

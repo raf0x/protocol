@@ -5,6 +5,7 @@ import { loadProtocolOverlay } from '../../lib/health/loadProtocolOverlay'
 import { filterByWindow, overlappingProtocolIds, overlayMarkers, unitSeries, type OverlayWindow, type ProtocolOverlayData } from '../../lib/health/protocolOverlay'
 import { labValue, type BiomarkerHistory } from '../../lib/health/labs'
 import { formatTimelineDate } from '../../lib/health/timeline'
+import { localCalendarDate } from '../../lib/health/protocolDates'
 import ProtocolOverlayChart from './ProtocolOverlayChart'
 import TestDateProtocolContext from './TestDateProtocolContext'
 import styles from '../../app/health/health.module.css'
@@ -30,7 +31,7 @@ export default function ProtocolOverlayView({ history }: { history: BiomarkerHis
   const series = unit ? unitSeries(history, unit) : null
   const latestDate = series?.observations[0]?.date ?? ''
   const observations = series ? filterByWindow(series.observations, latestDate, window) : []
-  const allMarkers = data ? overlayMarkers(data.protocols, data.events) : []
+  const allMarkers = data ? overlayMarkers(data.protocols, data.events).filter(marker => marker.date <= localCalendarDate()) : []
   const markers = filterByWindow(allMarkers.filter(marker => selected.has(marker.protocolId)), latestDate, window)
   const protocols = data?.protocols.filter(protocol => selected.has(protocol.id)) ?? []
   function toggle(id: string) { setSelected(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next }) }

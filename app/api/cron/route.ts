@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
 import webpush from 'web-push'
 import { configureWebPush } from '../../../lib/pushConfig'
 import { captureOperationalError } from '../../../lib/monitoring'
+import { requestCalendarDate } from '../../../lib/health/protocolDates'
 
 type StoredPushSubscription = { subscription: webpush.PushSubscription }
 
@@ -53,9 +54,14 @@ export async function GET(request: NextRequest) {
 
   // 2. Vial expiry warning: runs once per day at hour 9.
   if (currentHour === 9) {
+    // Subscriptions have no user timezone. UTC-12 is the earliest local date
+    // anywhere, so a future local start can never trigger a protocol reminder.
+    const startedEverywhere = requestCalendarDate(null, now)
     const { data: compounds } = await supabase
       .from('compounds')
-      .select('id, name, reconstitution_date, user_id')
+      .select('id, name, reconstitution_date, user_id, protocols!inner(status,start_date)')
+      .eq('protocols.status', 'active')
+      .lte('protocols.start_date', startedEverywhere)
       .not('reconstitution_date', 'is', null)
 
     const expiringNames: Record<string, string[]> = {}

@@ -5,6 +5,7 @@ import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import EditorSection from '../../../components/protocols/EditorSection'
 import QuickProtocolFields from '../../../components/protocols/QuickProtocolFields'
 import { localCalendarDate, protocolSaveDates } from '../../../lib/health/protocolDates'
+import { useLocalCalendarDate } from '../../../lib/health/useLocalCalendarDate'
 import './protocols.css'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
@@ -98,7 +99,9 @@ export default function ManagePage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [removedCompoundIds, setRemovedCompoundIds] = useState<string[]>([])
   const [continuedFromId, setContinuedFromId] = useState('')
-  const today = localCalendarDate()
+  const today = useLocalCalendarDate()
+  const editingProtocol = protocols.find(p => p.id === editingId)
+  const preStart = editingProtocol?.status === 'active' && (editingProtocol.start_date || '') > today
   const [changeHappenedEarlier, setChangeHappenedEarlier] = useState(false)
   const [effectiveDate, setEffectiveDate] = useState('')
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
@@ -401,7 +404,7 @@ export default function ManagePage() {
     try {
       const dates = protocolSaveDates(mode === 'create'
         ? { mode, planned, startDate, today: localCalendarDate() }
-        : { mode, planned, startDate, today: localCalendarDate(), useDifferentDate: changeHappenedEarlier, effectiveDate })
+        : { mode, planned, startDate, today: localCalendarDate(), originalStartDate: editingProtocol?.status === 'active' ? editingProtocol.start_date : null, useDifferentDate: changeHappenedEarlier, effectiveDate })
       const payload = compounds.map(c => {
         const entry = entryFromForm(c)
         // Incomplete interpretation is guidance, not a save prerequisite.
@@ -465,15 +468,15 @@ export default function ManagePage() {
           <div className="protocol-editor">
             {quickAdd && mode === 'create' && <label className="protocol-quick-name">What are you taking?<input aria-label="Compound name" value={compounds[0].name} onChange={event => updateCompound(0,'name',event.target.value)} placeholder="Item or compound name" /></label>}
             {!editingId && <fieldset className="protocol-use-choice">
-              <legend>Are you using this protocol now?</legend>
+              <legend>When should this protocol begin?</legend>
               <div className="protocol-use-options">
                 <label className="protocol-use-option">
                   <input type="radio" name="protocol-state" value="active" checked={!planned} onChange={() => setPlanned(false)} aria-describedby="protocol-active-help" />
-                  <span><strong>Yes, start it now</strong><small id="protocol-active-help">Included in Today, schedules, and health history.</small></span>
+                  <span><strong>Choose a start date</strong><small id="protocol-active-help">Today, a past date, or a future date. Tracking begins automatically on that date.</small></span>
                 </label>
                 <label className="protocol-use-option">
                   <input type="radio" name="protocol-state" value="planned" checked={planned} onChange={() => setPlanned(true)} aria-describedby="protocol-planned-help" />
-                  <span><strong>No, save it for later</strong><small id="protocol-planned-help">Saved as Planned. It will not appear in Today or schedules until you activate it.</small></span>
+                  <span><strong>Save for later without a start date</strong><small id="protocol-planned-help">Saved as Planned. Activate or schedule it when you are ready.</small></span>
                 </label>
               </div>
             </fieldset>}
@@ -743,8 +746,9 @@ export default function ManagePage() {
             </>}
 
             {!planned && <div style={{marginBottom:'16px'}}>
-              <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>{mode === 'create' ? 'When did you start?' : 'Protocol start date'}</label>
-              <input id="protocol-start-date" aria-label={mode === 'create' ? 'When did you start?' : 'Protocol start date'} type='date' required max={mode === 'create' ? today : undefined} value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>Protocol start date</label>
+              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              {startDate > today && <p>Scheduled · Starts {startDate}. Tracking begins automatically.</p>}
             </div>}
             {quickAdd && mode === 'create' && <button type="button" className="protocol-more-details" onClick={() => setQuickAdd(false)}>Add more details</button>}
 
@@ -765,7 +769,7 @@ export default function ManagePage() {
 
             {error && <div role="alert" style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
-            {editingId && !planned && <div className="protocol-effective-date">
+            {editingId && !planned && !preStart && <div className="protocol-effective-date">
               <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate('')}}>Use a different effective date</button>
               {changeHappenedEarlier && <label>Effective date<input aria-label="Effective date" type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
               <p>Changes are effective today unless you choose another date.</p>

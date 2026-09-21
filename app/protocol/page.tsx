@@ -2,6 +2,8 @@
 import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
 
 import PlannedProtocols from '../../components/protocols/PlannedProtocols'
+import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
+import { localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
 import type { LibraryProtocol } from '../../lib/health/protocolPresentation'
 import './manage/protocols.css'
 import TodayOverview from '../../components/today/TodayOverview'
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<any[]>([])
   const [plannedProtocols, setPlannedProtocols] = useState<LibraryProtocol[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
+  const [scheduledProtocols, setScheduledProtocols] = useState<LibraryProtocol[]>([])
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [allLogs, setAllLogs] = useState<any[]>([])
@@ -54,7 +57,7 @@ export default function DashboardPage() {
   // (US timezones) or at any hour (positive-UTC-offset timezones). This value
   // keys every injection_logs/journal_entries read and write on this page, so
   // it must use the same local-date basis as isDueToday and the weekly schedule.
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = useLocalCalendarDate()
   const [mood, setMood] = useState<number | null>(null)
   const [energy, setEnergy] = useState<number | null>(null)
   const [hunger, setHunger] = useState<number | null>(null)
@@ -88,7 +91,7 @@ export default function DashboardPage() {
     function handleDosesUpdate() { refreshProtocolsSilently() }
     window.addEventListener('doses_updated', handleDosesUpdate)
     return () => window.removeEventListener('doses_updated', handleDosesUpdate)
-  }, [])
+  }, [today])
 
   async function exportToCSV() {
     const supabase = createClient()
@@ -110,7 +113,7 @@ export default function DashboardPage() {
 
     for (const protocol of allProtocols) {
       // This export describes dated treatment history, not unstarted inventory.
-      if (protocol.status === 'planned') continue
+      if (['planned', 'scheduled'].includes(protocolLifecycle(protocol, localCalendarDate()) || '')) continue
       const compounds = protocol.compounds || []
       
       for (const compound of compounds) {
@@ -229,7 +232,7 @@ export default function DashboardPage() {
     const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult] = await Promise.allSettled([
       supabase.from('user_profiles').select('weight_unit').eq('id', user.id).single(),
       supabase.from('journal_entries').select('*').order('date', { ascending: false }),
-      supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
+      supabase.from('protocols').select('id, status, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
       supabase.from('injection_logs').select('*').eq('date', today),
       supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true),
       supabase.from('protocol_events').select('*').order('date', { ascending: true }),
@@ -262,7 +265,9 @@ export default function DashboardPage() {
     const latestWeight = (js || []).find((e: any) => e.weight !== null && e.weight !== undefined)?.weight
     setWeight(latestWeight != null ? formatWeight(convertWeight(latestWeight, 'lbs', displayUnit), displayUnit) : '')
 
-    const protocols = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data : null
+    const configured = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data || [] : []
+    const protocols = configured.filter((p: {start_date:string}) => p.start_date && p.start_date <= localCalendarDate())
+    setScheduledProtocols(configured.filter((p: {start_date:string}) => p.start_date > localCalendarDate()))
     const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
 
     setActiveProtocols(protocols || [])
@@ -290,7 +295,7 @@ export default function DashboardPage() {
     const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
     const events = eventsResult.status === 'fulfilled' ? eventsResult.value.data : null
     const eventsError = eventsResult.status === 'rejected' || !!eventsResult.value.error
-    setProtocolEvents(events || [])
+    setProtocolEvents((events || []).filter((event: {date:string}) => event.date <= localCalendarDate()))
     if (journalError || protocolsError || logsError || eventsError || plannedResult.status === 'rejected' || plannedResult.value.error) setLoadError(true)
     const hour = new Date().getHours()
     if (hour >= 20) {
@@ -298,7 +303,7 @@ export default function DashboardPage() {
       ;(ls || []).forEach((l: any) => { if (l.taken) logMap[l.compound_id] = true })
       const missed = due.filter((c: any) => !logMap[c.id]).map((c: any) => c.name)
       setMissedDoses(missed)
-    }
+    } else setMissedDoses([])
     setLoading(false)
     } catch {
       setLoadError(true)
@@ -481,6 +486,7 @@ export default function DashboardPage() {
         />
 
         <PlannedProtocols protocols={plannedProtocols} onActivated={() => void loadAll(true)} />
+        {!!scheduledProtocols.length && <section className="today-card"><h2>Scheduled protocols</h2>{scheduledProtocols.map(protocol => <p key={protocol.id}><a className="today-text-link" href={`/protocol/manage?protocol=${protocol.id}`}>{protocol.name}</a> · Starts {protocol.start_date}</p>)}</section>}
 
         {hasDemoCompounds && (
           <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>

@@ -51,7 +51,7 @@ export default function HealthAnalyst() {
     try {
       const response = await fetch('/api/health-analyst', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone },
         body: JSON.stringify({ action }),
       })
       const body = await response.json() as AnalystApiBody

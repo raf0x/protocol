@@ -2,6 +2,7 @@ import { currentPhase } from './dosing'
 import { dosingDisplay } from './dosingEntry'
 import { formatFrequency, type CompoundRow, type PhaseRow, type ProtocolRow } from './timeline'
 import { isDueToday } from '../utils'
+import { protocolLifecycle } from './protocolDates'
 
 export type LibraryCompound = CompoundRow & {
   concentration_value?: number | null; concentration_unit?: string | null
@@ -34,10 +35,10 @@ export function compoundOverview(protocol: LibraryProtocol, compound: LibraryCom
   // Never turn an expired phase into today's dose or guess a final dose.
   const completed = protocol.status === 'completed'
   const date = completed ? protocol.completed_date?.slice(0, 10) : today
-  const phase = protocol.status === 'planned' ? [...(compound.phases ?? [])].sort((a, b) => (a.start_week ?? 0) - (b.start_week ?? 0))[0] ?? null : protocol.start_date && date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
+  const phase = protocol.status === 'planned' || protocolLifecycle(protocol,today) === 'scheduled' ? [...(compound.phases ?? [])].sort((a, b) => (a.start_week ?? 0) - (b.start_week ?? 0))[0] ?? null : protocol.start_date && date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
   const days = protocol.start_date ? (Date.parse(today) - Date.parse(protocol.start_date.slice(0, 10))) / 86400000 : NaN
   let next: { date: string; time: string | null } | null = null
-  if (protocol.status === 'active' && protocol.start_date) {
+  if (protocolLifecycle(protocol,today) === 'active' && protocol.start_date) {
     for (let offset = 0; offset < 8; offset++) {
       const day = new Date(today + 'T12:00:00Z')
       day.setUTCDate(day.getUTCDate() + offset)

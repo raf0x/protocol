@@ -68,7 +68,7 @@ export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, 
   const journal = journalRows.length ? { entryCount: journalRows.length, firstDate: journalRows.map(row => row.date).sort()[0], lastDate: journalRows.map(row => row.date).sort().at(-1)!,
     averages: [metric('mood', 'Mood', '/5'), metric('energy', 'Energy', '/5'), metric('sleep', 'Sleep', ' hours'), metric('hunger', 'Hunger', '/5')].filter((item): item is NonNullable<typeof item> => Boolean(item)) } : null
 
-  const markers = overlayMarkers(data.protocols, data.protocolEvents)
+  const markers = overlayMarkers(data.protocols, data.protocolEvents).filter(marker => marker.date <= today)
   const protocolLabContext = panels.flatMap(panel => markers.filter(marker => Math.abs(dayDistance(marker.date, panel.test_date)) <= 30).map(marker => {
     const days = dayDistance(marker.date, panel.test_date)
     return { labDate: panel.test_date, panel: panel.panel_name || 'Lab panel', eventDate: marker.date, event: marker.title,

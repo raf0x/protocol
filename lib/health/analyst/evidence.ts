@@ -112,6 +112,7 @@ function journalEvidence(entries: JournalEntryRow[]) {
 function unique<T extends { id: string }>(items: T[]) { return [...new Map(items.map(item => [item.id, item])).values()] }
 
 export function buildAnalystContext(data: AnalystSourceData, question: string, today: string, options: { minimumDate?: string | null; includeDeterministicFindings?: boolean; action?: GuidedAnalystAction } = {}): HealthAnalystContext {
+  data = { ...data, protocolEvents: data.protocolEvents.filter(event => event.date <= today) }
   const guided = options.action
   const intent = guided ?? classifyAnalystIntent(question)
   if (guided) question = guidedAnalystInstruction(guided)

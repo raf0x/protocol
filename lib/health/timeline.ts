@@ -231,7 +231,7 @@ export type CurrentBaseline = {
 }
 
 export function deriveBaseline(protocols: ProtocolRow[], journal: JournalEntryRow[], events: TimelineEvent[], today: string): CurrentBaseline {
-  const active = protocols.filter(protocol => protocol.status === 'active')
+  const active = protocols.filter(protocol => protocol.status === 'active' && protocol.start_date && protocol.start_date <= today)
     .sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '') || a.id.localeCompare(b.id))
   const weight = [...journal].filter(row => row.date <= today && row.weight != null && Number.isFinite(row.weight))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))[0]
