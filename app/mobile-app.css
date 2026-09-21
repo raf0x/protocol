@@ -99,6 +99,11 @@
 .today-secondary { font-size: var(--app-font-small); color: var(--app-secondary); line-height: 1.6; }
 .today-taken-button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--app-success); border-radius: var(--app-radius-button); color: var(--app-bg); background: var(--app-success); font-weight: 700; font-size: 14px; cursor: pointer; }
 .today-taken-button:disabled { opacity: .6; cursor: wait; }
+.today-dose-navigation { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.today-dose-navigation span { text-align: center; font-size: var(--app-font-small); color: var(--app-secondary); }
+.today-dose-navigation button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface); color: var(--app-text); font: inherit; cursor: pointer; }
+.today-dose-navigation button:disabled { opacity: .5; cursor: default; }
+.today-dose-navigation button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
 .today-focus-footer { font-size: var(--app-font-small); color: var(--app-muted); margin: 12px 0 0; }
 .today-focus-empty > div { flex: 1; min-width: 180px; }
 .today-error { color: var(--app-error); font-size: var(--app-font-body); line-height: 1.5; }

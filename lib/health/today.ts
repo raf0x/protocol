@@ -19,11 +19,30 @@ export function todayProtocols(protocols: ProtocolRow[], date: string) {
   }))
 }
 
-export type TodayDue = { id: string; name: string; dose: string; dose_unit: string; time_of_day: string }
+export type TodayDue = { id: string; name: string; dose: string; dose_unit: string; time_of_day: string | null; protocol_name?: string }
+const normalized = (value: string | null | undefined) => (value ?? '').trim().toLowerCase()
+const compareText = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0
+function timeRank(value: string | null) {
+  const index = ['morning', 'afternoon', 'evening', 'night'].indexOf(normalized(value))
+  return index < 0 ? 4 : index
+}
+
+// No explicit saved schedule order exists. Ties use normalized compound name
+// (protocol name if absent), then protocol name, then stable compound ID.
+// Code-point comparison avoids device-locale-dependent ordering. Never mutate input.
+export function orderTodayDoses<T extends TodayDue>(due: readonly T[]): T[] {
+  return [...due].sort((a, b) => timeRank(a.time_of_day) - timeRank(b.time_of_day)
+    || compareText(normalized(a.name) || normalized(a.protocol_name), normalized(b.name) || normalized(b.protocol_name))
+    || compareText(normalized(a.protocol_name), normalized(b.protocol_name))
+    || compareText(a.id, b.id))
+}
+
+export function untakenTodayDoses<T extends TodayDue>(due: readonly T[], logs: Record<string, { taken: boolean }>): T[] {
+  return orderTodayDoses(due).filter(item => !logs[item.id]?.taken)
+}
+
 export function nextTodayDose(due: TodayDue[], logs: Record<string, { taken: boolean }>) {
-  const order: Record<string, number> = { morning: 0, afternoon: 1, evening: 2, night: 3 }
-  return [...due].filter(item => !logs[item.id]?.taken).sort((a, b) =>
-    (order[a.time_of_day] ?? 4) - (order[b.time_of_day] ?? 4) || a.id.localeCompare(b.id))[0] ?? null
+  return untakenTodayDoses(due, logs)[0] ?? null
 }
 
 export function recentChanges(events: ProtocolEventRow[], protocols: ProtocolRow[], today = localCalendarDate()) {

@@ -4,6 +4,7 @@ import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEn
 import PlannedProtocols from '../../components/protocols/PlannedProtocols'
 import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
+import { orderTodayDoses } from '../../lib/health/today'
 import type { LibraryProtocol } from '../../lib/health/protocolPresentation'
 import './manage/protocols.css'
 import TodayOverview from '../../components/today/TodayOverview'
@@ -287,7 +288,7 @@ export default function DashboardPage() {
             protocol_name: p.name
           })
         } }) })
-    setDueCompounds(due)
+    setDueCompounds(orderTodayDoses(due))
     const ls = logsResult.status === 'fulfilled' ? logsResult.value.data : null
     const logsError = logsResult.status === 'rejected' || !!logsResult.value.error
     const allLogsData = allLogsResult.status === 'fulfilled' ? allLogsResult.value.data : null
