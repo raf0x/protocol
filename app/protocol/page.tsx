@@ -227,7 +227,7 @@ export default function DashboardPage() {
     // concurrently. allSettled (not all) so one failed query never blanks out the
     // setters for the others that already succeeded.
     const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult] = await Promise.allSettled([
-      supabase.from('user_profiles').select('weight_unit').eq('user_id', user.id).single(),
+      supabase.from('user_profiles').select('weight_unit').eq('id', user.id).single(),
       supabase.from('journal_entries').select('*').order('date', { ascending: false }),
       supabase.from('protocols').select('id, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
       supabase.from('injection_logs').select('*').eq('date', today),
@@ -374,7 +374,7 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('user_id', user.id)
+      await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('id', user.id)
     }
   }
   

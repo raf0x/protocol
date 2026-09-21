@@ -31,15 +31,16 @@ test('consent persistence supports the established id-owned profile', async () =
   assert.deepEqual(calls, ['id'])
 })
 
-test('consent persistence falls through an unavailable id shape to user_id ownership', async () => {
+test('consent persistence preserves id errors without probing an alternate ownership column', async () => {
   const { resolveUserProfileOwnership } = await loadPure('../lib/userProfileOwnership.ts')
   const calls = []
   const result = await resolveUserProfileOwnership(async key => {
     calls.push(key)
     return key === 'id' ? { data: null, error: { code: '42703' } } : { data: [{ ai_processing_consent: true }], error: null }
   }, data => Array.isArray(data) && data.length > 0)
-  assert.equal(result.ownerKey, 'user_id')
-  assert.deepEqual(calls, ['id', 'user_id'])
+  assert.equal(result.ownerKey, null)
+  assert.equal(result.error.code, '42703')
+  assert.deepEqual(calls, ['id'])
 })
 
 test('both consent read and write paths use ownership compatibility', () => {

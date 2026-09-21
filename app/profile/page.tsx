@@ -42,8 +42,7 @@ export default function ProfilePage() {
       const date = new Date(user.created_at)
       setCreatedAt(date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))
       const profileFields = 'weight_unit,ai_processing_consent,ai_processing_consent_version'
-      const { data: ownerProfile } = await supabase.from('user_profiles').select(profileFields).eq('user_id', user.id).limit(1).maybeSingle()
-      const profile = ownerProfile || (await supabase.from('user_profiles').select(profileFields).eq('id', user.id).limit(1).maybeSingle()).data
+      const { data: profile } = await supabase.from('user_profiles').select(profileFields).eq('id', user.id).limit(1).maybeSingle()
       if (!live) return
       if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
       setAiConsent(profile?.ai_processing_consent === true && profile?.ai_processing_consent_version === 1)
@@ -71,7 +70,7 @@ export default function ProfilePage() {
     setWeightUnit(unit)
     setWeightSaving(true)
     const supabase = createClient()
-    await supabase.from('user_profiles').update({ weight_unit: unit }).eq('user_id', userId)
+    await supabase.from('user_profiles').update({ weight_unit: unit }).eq('id', userId)
     setWeightSaving(false)
   }
 

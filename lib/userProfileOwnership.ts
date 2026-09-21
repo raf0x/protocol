@@ -1,4 +1,4 @@
-export const USER_PROFILE_OWNER_KEYS = ['id', 'user_id'] as const
+export const USER_PROFILE_OWNER_KEYS = ['id'] as const
 
 export type UserProfileOwnerKey = typeof USER_PROFILE_OWNER_KEYS[number]
 
@@ -12,9 +12,9 @@ type OwnershipResult<T> = OwnershipAttempt<T> & {
 }
 
 /**
- * Supports deployments where a profile is owned by either `id` or `user_id`.
- * A missing column, RLS error, or empty result on one key must not prevent the
- * other established ownership shape from being tried.
+ * Profiles use the auth user ID as their primary key, as in onboarding and the
+ * auth callback. Missing rows or RLS errors do not imply an alternate schema:
+ * never probe a nonexistent user_id column after an unsuccessful lookup.
  */
 export async function resolveUserProfileOwnership<T>(
   attempt: (ownerKey: UserProfileOwnerKey) => Promise<OwnershipAttempt<T>>,
