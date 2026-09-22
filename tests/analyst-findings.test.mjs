@@ -134,7 +134,7 @@ test('newly measured means absent on prior panel, not never measured in history'
 test('presentation can collapse new biomarkers without destroying shared facts', () => {
   const panels = [panel('old', '2026-08-01', [result('existing-old', 10)]), panel('new', '2026-09-01', [result('existing-new', 10), ...Array.from({ length: 5 }, (_, i) => result(`new-${i}`, 12, { biomarker_name: `New marker ${i}` }))])]
   assert.equal(summary(panels).newlyMeasuredCount, 5)
-  assert.equal(summary(panels).headlines.filter(f => f.type === 'newly_measured').length, 1)
+  assert.equal(summary(panels).headlines.filter(f => f.type === 'newly_measured').length, 0)
   assert.equal(projection(panels).filter(f => f.type === 'newly_measured').length, 5)
 })
 test('empty and single-date states are shared, without invented new/missing findings', () => {

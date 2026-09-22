@@ -52,14 +52,29 @@ rules remain intact. Unchanged pairs without established history and unsupported
 comparisons are omitted from headlines. Existing newly measured membership
 cards are collapsed; missing-panel findings remain coverage details in Briefing.
 
-Briefing shows up to four findings; Report up to five. Each leads with the name,
-up to three exact recorded values and dates, and one short status label. Closed
-native details expose comparison arithmetic, baseline methodology, all eligible
-source readings, supplied ranges/status provenance, source type/row/confidence,
-ranking rules, and limitations. Exact panel/result IDs are retained internally,
-not rendered as user-facing identifiers. The full biomarker trend stays linked.
-Existing first-result supplemental updates remain available when there is no
-eligible comparison; they are explicitly labeled as such, not as a baseline.
+Briefing shows up to four meaningful findings; Report up to five. Consumer cards
+lead with the name, up to three exact values and dates, and a concise change such
+as "Up 68 (+6.7%) since June 29." Native consumer disclosures switch between
+"View details" and "Hide details" using the browser's open state. Their first
+layer contains only the previous/current comparison, valid supplied range, and
+one brief uncertainty message. Technical evidence is not rendered in consumer
+cards; the Report retains the existing full evidence component and shared data.
+
+One-reading results do not fill consumer slots unless they have a valid numeric
+outside-range result or a low-confidence verification issue. Canonical findings
+and report/audit evidence are retained. Consumer range presentation requires two
+finite, distinct, ordered bounds with no contradictory reported flag; missing,
+partial, malformed, reversed, or identical bounds are omitted, not repaired.
+Original source records are not modified.
+
+`import_confidence` describes original extraction quality. Import save requires
+confirmation and may retain a review record, but the existing audit guard keeps
+source metadata and confidence immutable on edits; there is no durable
+post-import verification state that clears low confidence. Low confidence is
+therefore retained as a shared limitation, qualifies finding reasons and labels,
+and displays "Imported result needs verification" in consumer cards. Arithmetic
+and ranking remain deterministic; uncertain imported records are not discarded.
+Clinician and Analyst consumers receive the same qualification and source facts.
 
 Analyst receives the same deterministic personal-history facts and the
 identity-free ranking prefix. Every contributing date must fit in its existing

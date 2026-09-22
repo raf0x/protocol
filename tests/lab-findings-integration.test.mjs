@@ -96,7 +96,7 @@ test('newly outside range becomes an attention headline', () => {
 test('returned to range is surfaced descriptively', () => {
   const p = sameMarkerPanels([['old', '2026-08-01', 30], ['new', '2026-09-01', 10]])
   assert.equal(model(p).headlines[0].type, 'returned_to_range')
-  assert.match(html(p), /Returned to supplied range/)
+  assert.match(html(p), /Within the supplied 5–20 range/)
 })
 
 test('persistent outside range is supported', () => {
@@ -143,7 +143,7 @@ test('totalFindingsCount excludes missing-from-latest-panel findings, matching t
   const p = [panel('old', '2026-08-01', [result('Old A', 10), result('Old B', 11)]), panel('new', '2026-09-01', [result('Current', 12)])]
   const m = model(p)
   assert.equal(m.missingFromLatestCount, 2)
-  assert.equal(m.totalFindingsCount, 1)
+  assert.equal(m.totalFindingsCount, 0)
 })
 
 test('latestPanelId identifies the panel the current findings are anchored to', () => {
@@ -158,12 +158,12 @@ test('deterministic priority ordering is preserved', () => {
   assert.equal(m.headlines[0].type, 'newly_outside_range')
 })
 
-test('repeated newly measured biomarkers collapse to one headline card', () => {
+test('one-reading in-range biomarkers do not fill headline positions', () => {
   const oldRows = [result('Existing', 10)]
   const newRows = [result('Existing', 10), ...Array.from({ length: 6 }, (_, i) => result(`New ${i}`, i + 7))]
   const m = model([panel('old', '2026-08-01', oldRows), panel('new', '2026-09-01', newRows)])
   assert.equal(m.newlyMeasuredCount, 6)
-  assert.equal(m.headlines.filter(item => item.type === 'newly_measured').length, 1)
+  assert.equal(m.headlines.filter(item => item.type === 'newly_measured').length, 0)
 })
 
 test('missing from latest panel is grouped and not rendered as headline cards', () => {
@@ -195,7 +195,7 @@ test('multiple panels on prior date preserve panel-membership uncertainty', () =
   const rendered = html(p)
   assert.match(rendered, /Some older results share the same test date, so new or missing biomarker comparisons are omitted\./)
   const tree = treeJson(view(p))
-  assert.ok(tree.indexOf('Some older results share the same test date') > tree.indexOf('Increased from previous eligible result'))
+  assert.ok(tree.indexOf('Some older results share the same test date') > tree.indexOf('Up 2'))
 })
 
 test('older eligible series are not promoted into latest-panel briefing', () => {
@@ -223,7 +223,8 @@ test('zero baseline keeps percentage unavailable in evidence UI', () => {
 test('evidence disclosure contains current and previous deterministic values', () => {
   const p = sameMarkerPanels([['old', '2026-08-01', 10], ['new', '2026-09-01', 12]], { reference_high: 100, status: 'normal' })
   const rendered = html(p)
-  assert.match(rendered, /Current:/); assert.match(rendered, /12 mg\/dL/); assert.match(rendered, /Previous:/); assert.match(rendered, /10 mg\/dL/)
+  assert.match(rendered, /10 → 12 mg\/dL/)
+  assert.match(rendered, /Up 2 \(\+20%\) since August 1/)
 })
 
 test('rendered summary never exposes raw result or panel ids', () => {

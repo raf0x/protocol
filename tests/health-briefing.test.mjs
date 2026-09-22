@@ -155,10 +155,10 @@ test('Total Testosterone and Total Testosterone MS can form one same-unit canoni
   assert.ok(finding.limitations.includes('assay_method_unknown'))
   assert.ok(!m.supplementalLabUpdates.some(item => item.biomarkerKey === 'testosterone-total'))
   const content = copy(m)
-  assert.match(content, /1009 ng\/dLJun 29, 20261077 ng\/dLSep 8, 2026/)
-  assert.match(content, /\+68 ng\/dL \(\+6\.7%\) over 71 days/)
-  assert.match(content, /Increased from previous eligible result/)
-  assert.match(content, /Assay\/method compatibility is unverified/)
+  assert.match(content, /1009Jun 29→ 1077 ng\/dLSep 8/)
+  assert.match(content, /Up 68 \(\+6\.7%\) since June 29/)
+  assert.doesNotMatch(content, /eligible/)
+  assert.match(content, /Test methods may differ/)
 })
 
 test('Total Testosterone alias does not weaken unit or same-day comparison protections', () => {
@@ -206,7 +206,7 @@ test('one canonical finding fills unused briefing slots with safe latest results
   assert.equal(m.findings.headlines.length, 1)
   assert.equal(m.supplementalLabUpdates.length, 2)
   assert.deepEqual(m.supplementalLabUpdates.map(item => item.biomarkerName), ['TESTOSTERONE, TOTAL, MS', 'SHBG'])
-  assert.ok(m.supplementalLabUpdates.every(item => item.label === 'No eligible prior comparison'))
+  assert.ok(m.supplementalLabUpdates.every(item => item.label === '1 reading'))
   assert.ok(m.supplementalLabUpdates.every(item => item.kind === 'latest_without_comparison'))
   assert.ok(m.supplementalLabUpdates.every(item => item.date === '2026-09-01'))
   assert.ok(m.supplementalLabUpdates.every(item => item.panelName === 'Fictional panel' && item.provider === 'Fictional lab'))
@@ -216,11 +216,11 @@ test('one canonical finding fills unused briefing slots with safe latest results
 })
 
 test('supplemental results are separate presentation updates, never fabricated LabFindings', () => {
-  const p = [panel('old-a', '2026-08-01', [row('Fictional marker', 10)]), panel('old-b', '2026-08-01', [row('Other old marker', 9)]), panel('new', '2026-09-01', [row('Fictional marker', 12), row('Latest only', 7)])]
+  const p = [panel('old-a', '2026-08-01', [row('Fictional marker', 10)]), panel('old-b', '2026-08-01', [row('Other old marker', 9)]), panel('new', '2026-09-01', [row('Fictional marker', 12), row('Latest only', 7, { import_confidence: 'low' })])]
   const m = build(p)
   const item = m.supplementalLabUpdates[0]
   assert.equal(item.kind, 'latest_without_comparison')
-  assert.equal(item.label, 'No eligible prior comparison')
+  assert.equal(item.label, '1 reading')
   assert.ok(!('type' in item)); assert.ok(!('evidence' in item)); assert.ok(!('priority' in item))
   assert.doesNotMatch(JSON.stringify(item), /increased|decreased|improved|worsened|percent|delta/i)
 })
@@ -232,10 +232,10 @@ test('supplemental cards disclose recorded current facts without fabricating a c
     panel('latest', '2026-09-01', [row('Fictional marker', 12), row('TESTOSTERONE, TOTAL, MS', 1077, { unit: 'ng/dL' })]),
   ]
   const rendered = view(build(p)), content = text(rendered)
-  assert.equal(nodes(rendered, node => node.type === 'summary' && ['Evidence', 'View details'].includes(text(node))).length, 2)
-  assert.match(content, /Current: 1077 ng\/dL · Sep 1, 2026/)
-  assert.match(content, /Panel: Fictional panel/); assert.match(content, /Provider: Fictional lab/)
-  assert.match(content, /Comparison: No eligible prior comparison is recorded\./)
+  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node).includes('View details')).length, 2)
+  assert.match(content, /1077 ng\/dL · Sep 1, 2026/)
+  assert.doesNotMatch(content, /Panel:|Provider:/)
+  assert.match(content, /No earlier comparison is available\./)
   const supplemental = nodes(rendered, node => node.props?.['data-update-kind'] === 'latest_without_comparison')[0]
   const supplementalText = text(supplemental)
   assert.doesNotMatch(supplementalText, /Previous:|Change:|percent|increased|decreased/i)
@@ -260,7 +260,7 @@ test('canonical findings remain ahead of supplemental updates and total visible 
   const p = [
     panel('old-a', '2026-08-01', [row('Marker A', 10)]),
     panel('old-b', '2026-08-01', [row('Old B', 8)]),
-    panel('new', '2026-09-01', [row('Marker A', 12), row('Latest 1', 1), row('Latest 2', 2), row('Latest 3', 3)]),
+    panel('new', '2026-09-01', [row('Marker A', 12), row('Latest 1', 31), row('Latest 2', 32), row('Latest 3', 33)]),
   ]
   const m = build(p), rendered = view(m)
   assert.equal(m.findings.headlines.length, 1); assert.equal(m.supplementalLabUpdates.length, 3)
@@ -285,19 +285,19 @@ test('same-day ambiguity is not guessed through for supplemental results', () =>
 })
 
 test('incompatible units remain separate and can only yield a no-comparison supplemental result', () => {
-  const p = [panel('old', '2026-08-01', [row('Unit marker', 10, { unit: 'mg/dL' })]), panel('new', '2026-09-01', [row('Unit marker', 20, { unit: 'ng/dL' })])]
+  const p = [panel('old', '2026-08-01', [row('Unit marker', 10, { unit: 'mg/dL' })]), panel('new', '2026-09-01', [row('Unit marker', 20, { unit: 'ng/dL', import_confidence: 'low' })])]
   const m = build(p)
   assert.equal(m.supplementalLabUpdates.length, 1)
   assert.equal(m.supplementalLabUpdates[0].unit, 'ng/dL')
-  assert.equal(m.supplementalLabUpdates[0].label, 'No eligible prior comparison')
+  assert.equal(m.supplementalLabUpdates[0].label, '1 reading')
 })
 
 test('method-qualified identities are not guessed into prior comparisons', () => {
-  const p = [panel('old-a', '2026-08-01', [row('Free Testosterone', 12, { unit: 'pg/mL' })]), panel('old-b', '2026-08-01', [row('Other marker', 4)]), panel('new', '2026-09-01', [row('Free Testosterone (Direct)', 18, { unit: 'pg/mL' })])]
+  const p = [panel('old-a', '2026-08-01', [row('Free Testosterone', 12, { unit: 'pg/mL' })]), panel('old-b', '2026-08-01', [row('Other marker', 4)]), panel('new', '2026-09-01', [row('Free Testosterone (Direct)', 18, { unit: 'pg/mL', import_confidence: 'low' })])]
   const m = build(p)
   assert.equal(m.supplementalLabUpdates.length, 1)
   assert.equal(m.supplementalLabUpdates[0].biomarkerName, 'Free Testosterone (Direct)')
-  assert.equal(m.supplementalLabUpdates[0].label, 'No eligible prior comparison')
+  assert.equal(m.supplementalLabUpdates[0].label, '1 reading')
 })
 
 test('a valid canonical comparison is never relabelled as a supplemental no-comparison result', () => {
@@ -328,8 +328,8 @@ test('missing-from-latest biomarkers remain grouped once, outside headlines', ()
 test('evidence details retain current/previous/delta facts and trend links', () => {
   const rendered = view(build())
   assert.ok(nodes(rendered, node => node.type === 'details').length)
-  assert.match(text(rendered), /Current: 30 mg\/dL/); assert.match(text(rendered), /Previous: 10 mg\/dL/)
-  assert.match(text(rendered), /Change: \+20 mg\/dL \(\+200%\)/)
+  assert.match(text(rendered), /10 → 30 mg\/dL/)
+  assert.match(text(rendered), /Up 20 \(\+200%\) since August 1/)
   assert.ok(nodes(rendered, node => node.type === 'a' && node.props.href.startsWith('/health?biomarker=')).length)
 })
 test('only strictly-between events enter context, excluding both boundary dates', () => {
@@ -383,11 +383,11 @@ test('current-only saved plan does not invent a historical gap', () => {
   const m = build([], ready([protocol()]))
   assert.ok(!m.gaps.some(gap => gap.key === 'historical_plan'))
 })
-test('one lab date shows recorded latest results without fabricating a comparison', () => {
+test('one in-range lab date does not fill a priority position', () => {
   const m = build([pair()[0]], ready([protocol()], [event()]))
   assert.equal(m.findings.state, 'insufficient'); assert.equal(m.protocolContext.items.length, 0)
-  assert.equal(m.supplementalLabUpdates.length, 1)
-  assert.match(copy(m), /No eligible prior comparison/)
+  assert.equal(m.supplementalLabUpdates.length, 0)
+  assert.match(copy(m), /not enough comparable lab history/)
   assert.doesNotMatch(copy(m), /Increased from|Decreased from|Change:/)
 })
 test('protocol load failure preserves identical lab headlines and a single quiet gap', () => {
@@ -417,22 +417,22 @@ test('one headline makes evidence review primary while clinician report remains 
 test('there is exactly one Lab updates heading with progressively disclosed evidence', () => {
   const rendered = view(build())
   assert.equal(nodes(rendered, node => /^h[1-6]$/.test(String(node.type)) && text(node) === 'Lab updates').length, 1)
-  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node) === 'View details').length, 1)
+  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node).includes('View details')).length, 1)
 })
 
-test('embedded canonical comparison leads with dated values and keeps arithmetic in View details', () => {
+test('embedded canonical comparison leads with dated values and a concise change', () => {
   const p = [
     panel('old-igf', '2026-06-29', [row('IGF 1', 234, { unit: 'ng/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
     panel('new-igf', '2026-09-08', [row('IGF 1', 204, { unit: 'ng/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
   ]
   const rendered = view(build(p)), content = text(rendered)
-  const evidence = nodes(rendered, node => node.type === 'summary' && text(node) === 'View details')[0]
-  assert.match(content, /234 ng\/mLJun 29, 2026204 ng\/mLSep 8, 2026/)
-  assert.match(content, /-30 ng\/mL \(-12\.8%\) over 71 days/)
-  assert.ok(content.indexOf('234 ng/mL') < content.indexOf('View details'))
+  const evidence = nodes(rendered, node => node.type === 'summary' && text(node).includes('View details'))[0]
+  assert.match(content, /234Jun 29→ 204 ng\/mLSep 8/)
+  assert.match(content, /Down 30 \(-12\.8%\) since June 29/)
+  assert.ok(content.indexOf('234') < content.indexOf('View details'))
   assert.ok(evidence)
-  assert.match(content.slice(0, content.indexOf('View details')), /Decreased from previous eligible result/)
-  assert.doesNotMatch(content.slice(0, content.indexOf('View details')), /-12\.8%|Change:/)
+  assert.match(content.slice(0, content.indexOf('View details')), /Down 30/)
+  assert.doesNotMatch(content, /eligible|Change:|Category priority/)
 })
 test('current snapshot, findings, context, gaps and review maintain reading order', () => {
   const content = copy(contextModel([event()]))

@@ -170,7 +170,7 @@ function baseFinding(
     type,
     priority,
     observedAt,
-    reason,
+    reason: limitations.includes('low_import_confidence') ? `Needs verification: ${reason}` : reason,
     limitations: unique(limitations),
     evidence: {
       current: observationRef(current),
@@ -315,7 +315,12 @@ export function labFindingPriorityTuple(finding: LabFinding): readonly [number, 
 }
 
 export function labFindingLabel(finding: LabFinding): string {
-  if (finding.type === 'outside_previously_observed_values') return finding.evidence.personalHistory.personalExtreme === 'low' ? 'New recorded personal low' : 'New recorded personal high'
+  const verification = finding.limitations.includes('low_import_confidence')
+  if (finding.type === 'outside_previously_observed_values') {
+    const side = finding.evidence.personalHistory.personalExtreme === 'low' ? 'low' : 'high'
+    return verification ? `Possible new recorded ${side} — needs verification` : `New recorded personal ${side}`
+  }
+  if (verification) return 'Needs verification'
   const labels: Record<LabFindingType, string> = {
     newly_outside_range: 'Newly outside supplied range', returned_to_range: 'Returned to supplied range',
     persistently_outside_range: 'Persistently outside supplied range', outside_previously_observed_values: 'New recorded personal extreme',

@@ -1,20 +1,15 @@
 import Link from 'next/link'
 import { labGapText } from '../../lib/health/labEvidence'
-import { labFindingLabel, labFindingPriorityTuple, type LabFinding, type LabFindingPriority } from '../../lib/health/labFindings'
+import { labFindingPriorityTuple, type LabFinding } from '../../lib/health/labFindings'
 import { labReference } from '../../lib/health/labs'
 import type { BiomarkerHistory, LabPanel } from '../../lib/health/labs'
 import type { BriefingSupplementalLabUpdate } from '../../lib/health/healthBriefing'
 import { formatTimelineDate } from '../../lib/health/timeline'
 import styles from '../../app/health/health.module.css'
+import { consumerChangeText, consumerSuppliedRange, consumerUncertainty, findingNeedsVerification } from '../../lib/health/labFindingPresentation'
 
 import { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
 export { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
-
-const priorityLabels: Record<LabFindingPriority, string> = {
-  attention: 'Review',
-  context: 'Context',
-  informational: 'Info',
-}
 
 function valueText(value: number, unit: string) {
   return `${String(value)}${unit ? ` ${unit}` : ''}`
@@ -40,6 +35,30 @@ export function ComparisonPreview({ finding }: { finding: LabFinding }) {
   </ol>
 }
 
+/** Native disclosure supplies keyboard interaction and expanded accessibility
+ * state. CSS switches the visible/accessibility label with its actual open state. */
+function DetailsToggle() {
+  return <summary><span className={styles.detailsClosed}>View details</span><span className={styles.detailsOpen}>Hide details</span></summary>
+}
+
+export function ConsumerFindingDetails({ finding }: { finding: LabFinding }) {
+  const { comparison, current } = finding.evidence
+  const range = consumerSuppliedRange(current)
+  const uncertainty = consumerUncertainty(finding)
+  return <details className={`${styles.formDetails} ${styles.consumerDetails}`}>
+    <DetailsToggle />
+    <div className={styles.consumerExplanation}>
+      <h5>What changed</h5>
+      {comparison ? <>
+        <p>{comparison.previous.value} → {valueText(comparison.current.value, finding.unit)}</p>
+        <p>{consumerChangeText(finding)}</p>
+      </> : current && <><p>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p><p>No earlier comparison is available.</p></>}
+      {range && <><h5>Range</h5><p>{range.text}</p></>}
+      {uncertainty && <p className={styles.caption}>{uncertainty}</p>}
+    </div>
+  </details>
+}
+
 export function FindingEvidence({ finding }: { finding: LabFinding }) {
   const current = finding.evidence.current
   const previous = finding.evidence.previous
@@ -55,7 +74,7 @@ export function FindingEvidence({ finding }: { finding: LabFinding }) {
     {current && <p className={styles.secondary}><strong>Current:</strong> {valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
     {previous && <p className={styles.secondary}><strong>Previous:</strong> {valueText(previous.value, previous.unit)} · {formatTimelineDate(previous.date)}</p>}
     {comparison && <p className={styles.secondary}><strong>Change:</strong> {changeText(finding)} over {comparison.elapsedDays} days</p>}
-    {extent && <p className={styles.secondary}><strong>Prior observed values:</strong> {valueText(extent.min, finding.unit)} to {valueText(extent.max, finding.unit)} across {extent.count} earlier eligible readings</p>}
+    {extent && <p className={styles.secondary}><strong>Prior observed values:</strong> {valueText(extent.min, finding.unit)} to {valueText(extent.max, finding.unit)} across {extent.count} earlier eligible {extent.count === 1 ? 'reading' : 'readings'}</p>}
     <p className={styles.secondary}><strong>Personal baseline:</strong> {baseline
       ? `Median ${valueText(baseline.median, finding.unit)} from ${baseline.count} earlier eligible dates (${baseline.start} to ${baseline.end}); the latest result is excluded.`
       : 'Not established: at least three earlier eligible measurement dates are required.'}</p>
@@ -73,18 +92,27 @@ export function FindingEvidence({ finding }: { finding: LabFinding }) {
 }
 
 function SupplementalEvidence({ item }: { item: BriefingSupplementalLabUpdate }) {
-  const reasons = [...new Set(item.evidenceReasons)]
-  const reasonText = reasons.filter(reason => reason !== 'missing_comparator').map(reason => labGapText[reason])
+  const range = consumerSuppliedRange(item)
 
-  return <details className={styles.formDetails}>
-    <summary>Evidence</summary>
-    <p className={styles.secondary}><strong>Current:</strong> {valueText(item.value, item.unit)} · {formatTimelineDate(item.date)}</p>
-    {item.panelName && <p className={styles.secondary}><strong>Panel:</strong> {item.panelName}</p>}
-    {item.provider && <p className={styles.secondary}><strong>Provider:</strong> {item.provider}</p>}
-    <p className={styles.secondary}><strong>Comparison:</strong> No eligible prior comparison is recorded.</p>
-    {reasonText.length > 0 && <p className={styles.caption}><strong>Why:</strong> {reasonText.join(' ')}</p>}
-    <Link className={styles.textLink} href={item.href}>View biomarker trend</Link>
+  return <details className={`${styles.formDetails} ${styles.consumerDetails}`}>
+    <DetailsToggle />
+    <div className={styles.consumerExplanation}>
+      <p>{valueText(item.value, item.unit)} · {formatTimelineDate(item.date)}</p>
+      <p>No earlier comparison is available.</p>
+      {range && <><h5>Range</h5><p>{range.text}</p></>}
+      {item.needsVerification && <p className={styles.caption}>Imported result needs verification</p>}
+    </div>
   </details>
+}
+
+function ConsumerComparisonPreview({ finding }: { finding: LabFinding }) {
+  const rows = finding.evidence.history.slice(-3)
+  return <ol className={styles.consumerHistory} aria-label="Recent recorded values" data-comparison-preview>
+    {rows.map((row, i) => <li key={row.date}>
+      <strong>{i > 0 && <span aria-hidden="true">→ </span>}{row.value}{i === rows.length - 1 && ` ${row.unit}`}</strong>
+      <time dateTime={row.date}>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(rows[0].date.slice(0, 4) !== rows.at(-1)!.date.slice(0, 4) ? { year: 'numeric' } : {}) })}</time>
+    </li>)}
+  </ol>
 }
 
 type Props = ({ model: LabFindingsSummaryModel; panels?: never; histories?: never } | { model?: undefined; panels: LabPanel[]; histories: BiomarkerHistory[] }) & { embedded?: boolean; supplemental?: BriefingSupplementalLabUpdate[] }
@@ -107,17 +135,18 @@ export default function LabFindingsSummary({ panels, histories, model: suppliedM
           {visibleHeadlines.map(finding => {
             const current = finding.evidence.current
             return <article className={`${styles.card} ${embedded ? styles.briefingFinding : ''}`} data-finding-type={finding.type} data-priority={finding.priority} key={finding.id}>
-              {!embedded && <span className={styles.eyebrow}>{priorityLabels[finding.priority]}</span>}
               <FindingHeading className={embedded ? styles.briefingUpdateName : undefined}>{finding.biomarkerName}</FindingHeading>
-              {finding.evidence.history.length ? <ComparisonPreview finding={finding} /> : current && <p className={styles.value}>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
-              <p className={styles.summary}><strong>{labFindingLabel(finding)}</strong></p>
-              <FindingEvidence finding={finding} />
+              {finding.evidence.history.length ? <ConsumerComparisonPreview finding={finding} /> : current && <p className={styles.value}>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
+              <p className={styles.summary}><strong>{consumerChangeText(finding)}</strong></p>
+              {findingNeedsVerification(finding) && <p className={styles.verificationNotice}>Imported result needs verification</p>}
+              <ConsumerFindingDetails finding={finding} />
             </article>
           })}
           {visibleSupplemental.map(item => <article className={`${styles.card} ${styles.briefingFinding} ${styles.briefingSupplemental}`} data-update-kind={item.kind} key={item.id}>
             <FindingHeading className={styles.briefingUpdateName}>{item.biomarkerName}</FindingHeading>
             <p className={`${styles.value} ${styles.briefingUpdateValue}`}>{valueText(item.value, item.unit)}</p>
-            <p className={styles.summary}><strong>{item.label}</strong></p>
+            <p className={styles.summary}><strong>{consumerSuppliedRange(item)?.outside && 'Outside supplied range · '}{item.label}</strong></p>
+            {item.needsVerification && <p className={styles.verificationNotice}>Imported result needs verification</p>}
             <SupplementalEvidence item={item} />
           </article>)}
         </div>

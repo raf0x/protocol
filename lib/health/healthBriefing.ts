@@ -7,6 +7,8 @@ import { healthStateAtDate, protocolActivityAtDate } from './longitudinal/histor
 import { detectInterventions } from './longitudinal/interventions'
 import type { Intervention, ProtocolState } from './longitudinal/types'
 import type { LabFinding } from './labFindings'
+import { consumerSuppliedRange } from './labFindingPresentation'
+import type { LabReading } from './labEvidence'
 
 export type BriefingProtocols =
   | { status: 'loading' | 'unavailable'; asOf: string | null }
@@ -23,7 +25,9 @@ export type BriefingSupplementalLabUpdate = {
   panelName: string | null
   provider: string | null
   evidenceReasons: LabGap[]
-  label: 'No eligible prior comparison'
+  label: '1 reading'
+  reference: LabReading['reference']
+  needsVerification: boolean
   href: string
 }
 
@@ -58,8 +62,8 @@ export function briefingInterventions(findings: readonly LabFinding[], intervent
   return [...unique.values()].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id))
 }
 
-/** Fill unused briefing slots with numeric results from the one unambiguous
- * latest panel only when canonical evidence has no eligible prior comparison.
+/** Fill unused briefing slots only with outside-range or verification results
+ * from the unambiguous latest panel when there is no prior comparison.
  * These are presentation updates, never fabricated LabFinding objects. */
 export function briefingSupplementalLabUpdates(
   latestPanel: LabPanel | null, histories: readonly BiomarkerHistory[], findings: readonly LabFinding[], limit = 4,
@@ -91,12 +95,15 @@ export function briefingSupplementalLabUpdates(
     // If canonical arithmetic has an eligible prior comparison, this is not a
     // no-comparison supplemental result and must not be relabelled as one.
     if (trajectory.latestVsPrevious.comparison) continue
+    const needsVerification = latestDate.reading.provenance.confidence === 'low'
+    if (!needsVerification && !consumerSuppliedRange(latestDate.reading)?.outside) continue
 
     selected.add(biomarkerKey)
     supplemental.push({
       kind: 'latest_without_comparison', id: `latest:${result.id}`, biomarkerKey, biomarkerName: result.biomarker_name.trim(),
       value: result.value, unit, date: latestPanel.test_date, panelName: latestPanel.panel_name, provider: latestPanel.provider,
-      evidenceReasons: [...trajectory.latestVsPrevious.reasons], label: 'No eligible prior comparison',
+      evidenceReasons: [...trajectory.latestVsPrevious.reasons], label: '1 reading',
+      reference: { ...latestDate.reading.reference }, needsVerification,
       href: `/health?biomarker=${encodeURIComponent(biomarkerKey)}`,
     })
   }

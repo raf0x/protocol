@@ -1,6 +1,7 @@
 import { buildLabTrajectory, labPanelMembership, toLabEvidenceObservation } from './labEvidence'
 import { deriveLabFindings, selectHeadlineFindings, type LabFinding } from './labFindings'
 import type { BiomarkerHistory, LabPanel } from './labs'
+import { meaningfulConsumerFinding } from './labFindingPresentation'
 
 const MAX_HEADLINES = 4
 
@@ -72,7 +73,7 @@ export function buildLabFindingsSummaryModel(
   const currentFindings = current.findings
   const missingFromLatestCount = currentFindings.filter(finding => finding.type === 'missing_from_latest_panel').length
   const newlyMeasured = currentFindings.filter(finding => finding.type === 'newly_measured')
-  const headlinePool = currentFindings.filter(finding => finding.type !== 'missing_from_latest_panel')
+  const headlinePool = currentFindings.filter(finding => finding.type !== 'missing_from_latest_panel' && meaningfulConsumerFinding(finding))
   const selected = selectHeadlineFindings(headlinePool, Math.max(limit * 2, limit))
   let keptNewlyMeasured = false
   const headlines = selected.filter(finding => {

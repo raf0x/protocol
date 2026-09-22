@@ -7,7 +7,7 @@ export type LabGap = 'missing_comparator' | 'missing_unit' | 'incompatible_unit'
   | 'missing_source_identity' | 'different_owners' | 'same_day_records' | 'conflicting_same_day'
   | 'unordered_dates' | 'non_finite_arithmetic' | 'percentage_unavailable' | 'assay_method_unknown'
   | 'reference_range_unavailable' | 'reference_ranges_differ' | 'prior_status_unknown'
-  | 'current_status_unknown' | 'insufficient_history' | 'excluded_history' | 'incompatible_assay'
+  | 'current_status_unknown' | 'insufficient_history' | 'excluded_history' | 'incompatible_assay' | 'low_import_confidence'
 
 export const labGapText: Record<LabGap, string> = {
   missing_comparator: 'No eligible comparator is available.',
@@ -34,6 +34,7 @@ export const labGapText: Record<LabGap, string> = {
   insufficient_history: 'Fewer than two eligible measurement dates are available.',
   excluded_history: 'Some recorded dates are excluded; eligible history is not the complete recorded sequence.',
   incompatible_assay: 'Explicit assay, method, or specimen metadata differ; no numeric comparison was made.',
+  low_import_confidence: 'An imported result needs verification; its original extraction confidence is low.',
 }
 export const labLimitations = (gaps: readonly LabGap[]) => [...new Set(gaps)].map(gap => labGapText[gap])
 
@@ -150,6 +151,7 @@ export function compareLabDates(before: LabDateEvidence | null, after: LabDateEv
   const percent = Number.isFinite(ratio) ? ratio : null
   const range = rangeFacts(a, b)
   const limitations: LabGap[] = ['assay_method_unknown']
+  if ([a, b].some(row => row.provenance.confidence === 'low')) limitations.push('low_import_confidence')
   if (percent == null) limitations.push('percentage_unavailable')
   if ([a, b].some(row => row.reference.low == null && row.reference.high == null && !row.reference.text)) limitations.push('reference_range_unavailable')
   if (['prior_status_unknown', 'current_status_unknown', 'reference_ranges_differ'].includes(range.transition)) limitations.push(range.transition as LabGap)
@@ -182,7 +184,8 @@ export function buildLabTrajectory(observations: LabEvidenceObservation[]): LabT
     // Compatibility adapter: do not label an older pair as the newest test.
     latestRecordedPair: pair(dates.at(-2), dates.at(-1)),
     limitations: unique([...seriesIssues, ...dates.flatMap(group => group.reasons), ...(dates.some(group => !group.reading) ? ['excluded_history' as const] : []),
-      ...(ordered.length < 2 ? ['insufficient_history' as const] : []), ...(observations.length ? ['assay_method_unknown' as const] : [])]) }
+      ...(ordered.length < 2 ? ['insufficient_history' as const] : []), ...(observations.length ? ['assay_method_unknown' as const] : []),
+      ...(observations.some(row => row.provenance.confidence === 'low') ? ['low_import_confidence' as const] : [])]) }
 }
 
 export type LabPersonalHistory = {

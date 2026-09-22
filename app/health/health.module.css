@@ -254,7 +254,7 @@
   .briefing .findingsList[data-visible-count='2'],
   .briefing .findingsList[data-visible-count='3'],
   .briefing .findingsList[data-visible-count='4'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .briefing .briefingFinding { min-height: 168px; }
+  .briefing .briefingFinding { min-height: 0; }
 }
 
 /* Health Briefing QA polish 2: interactive evidence and compact primary review. */
@@ -278,6 +278,22 @@
 .briefingFinding .briefingUpdateName { white-space: normal; overflow-wrap: anywhere; }
 .briefingFinding .formDetails summary { min-height: 44px; }
 .formDetails { overflow-wrap: anywhere; }
+
+/* Consumer findings: one comparison and a short explanation; audit stays in reports. */
+.consumerHistory { display: flex; flex-wrap: wrap; gap: 8px 16px; list-style: none; margin: 8px 0; padding: 0; }
+.consumerHistory li { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.consumerHistory strong { color: var(--app-text); font-size: var(--app-font-body); font-variant-numeric: tabular-nums; }
+.consumerHistory time { color: var(--app-secondary); font-size: var(--app-font-small); }
+.consumerDetails > summary { min-height: 44px; color: var(--app-accent); }
+.consumerDetails > summary span { color: inherit; }
+.consumerDetails > summary .detailsOpen, .consumerDetails[open] > summary .detailsClosed { display: none; }
+.consumerDetails[open] > summary .detailsOpen { display: inline; }
+.consumerDetails > summary:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; border-radius: 3px; }
+.consumerExplanation { padding-bottom: 4px; }
+.consumerExplanation h5 { margin: 8px 0 2px; font-size: var(--app-font-small); color: var(--app-secondary); }
+.consumerExplanation p { margin: 3px 0; font-size: var(--app-font-small); line-height: 1.45; color: var(--app-text); }
+.verificationNotice { margin: 4px 0 0; color: var(--app-secondary); font-size: var(--app-font-small); }
+.briefingFinding .consumerDetails { margin-top: 2px; padding-top: 0; }
 
 /* Guided Analyst V1: scan-first presentation, not prose dumps. */
 .analystSummaryList, .analystFactList { list-style: none; padding: 0; margin: var(--app-space-xs) 0 0; display: grid; gap: 7px; }
