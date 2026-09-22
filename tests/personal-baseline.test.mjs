@@ -338,10 +338,11 @@ test('supplemental verification appears once, with a disclosure only for an addi
   }
 })
 
-test('two and three result trajectories alternate result/date columns with separate hidden arrow cells', () => {
-  for (const count of [2, 3]) for (const unit of ['ng/dL', 'very-long-unit-label/with-additional-unit-description']) {
+test('two and three result trajectories use non-interactive centered tiles and separate arrow cells', () => {
+  for (const count of [2, 3]) for (const unit of ['ng/dL', 'very-long-unit-label/with-additional-unit-description']) for (const latest of [1077, 123456789.123456]) {
     const p = testosteroneImportHistory().slice(-count)
     p.forEach(panel => { panel.results[0].unit = unit })
+    p.at(-1).results[0].value = latest
     const rendered = tree(View({ model: summaryFor(p), embedded: true }))
     const track = nodes(rendered, n => n.props?.className === 'consumerHistory')[0]
     assert.equal(track.props['data-result-count'], count)
@@ -349,7 +350,7 @@ test('two and three result trajectories alternate result/date columns with separ
     assert.equal(track.props['aria-label'], 'Recent recorded values')
     const cells = track.props.children
     assert.equal(cells.length, count * 2 - 1)
-    const values = count === 3 ? [59, 1009, 1077] : [1009, 1077]
+    const values = count === 3 ? [59, 1009, latest] : [1009, latest]
     const dates = count === 3 ? ['Apr 10', 'Jun 29', 'Sep 8'] : ['Jun 29', 'Sep 8']
     cells.forEach((cell, i) => {
       assert.equal(cell.type, 'li')
@@ -359,8 +360,13 @@ test('two and three result trajectories alternate result/date columns with separ
         assert.equal(text(cell), '→')
       } else {
         const index = i / 2
-        assert.equal(cell.props.className, 'consumerHistoryResult')
+        assert.equal(cell.props.className, `consumerHistoryResult${index === count - 1 ? ' consumerHistoryLatest' : ''}`)
         assert.equal(cell.props['aria-hidden'], undefined)
+        assert.deepEqual(cell.props.children.map(child => child.type), ['strong', 'time'])
+        for (const element of nodes(cell, () => true)) {
+          assert.ok(!['button', 'a', 'input', 'summary'].includes(element.type))
+          for (const prop of ['role', 'tabIndex', 'href', 'onClick', 'onKeyDown', 'aria-selected', 'aria-pressed']) assert.equal(element.props[prop], undefined)
+        }
         const value = nodes(cell, n => n.type === 'strong')[0]
         assert.equal(text(value).trim(), `${values[index]}${index === count - 1 ? ` ${unit}` : ''}`)
         const date = nodes(cell, n => n.type === 'time')[0]
@@ -371,11 +377,16 @@ test('two and three result trajectories alternate result/date columns with separ
     })
   }
   const css = readFileSync(new URL('../app/health/health.module.css', import.meta.url), 'utf8')
-  assert.match(css, /\.consumerHistory \{[^}]*display: grid;[^}]*align-items: start/)
+  assert.match(css, /\.consumerHistory \{[^}]*display: grid;[^}]*align-items: stretch/)
   assert.match(css, /\[data-result-count="2"\] \{ grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/)
   assert.match(css, /\[data-result-count="3"\] \{ grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\) auto minmax\(0, 1fr\);/)
   assert.match(css, /\.consumerHistoryResult \{[^}]*min-width: 0;[^}]*text-align: center;[^}]*overflow-wrap: anywhere/)
-  assert.match(css, /\.consumerHistoryArrow \{ justify-self: center; \}/)
+  assert.match(css, /\.consumerHistoryResult \{[^}]*align-content: center;[^}]*padding: var\(--app-space-xs\)/)
+  assert.match(css, /\.consumerHistoryResult \{[^}]*background: var\(--app-surface-secondary\);[^}]*border: 1px solid var\(--app-border\)/)
+  assert.match(css, /\.consumerHistoryLatest \{ border-color: color-mix\(in srgb, var\(--app-accent\) 45%, var\(--app-border\)\); \}/)
+  assert.match(css, /\.consumerHistoryArrow \{ justify-self: center; align-self: center; \}/)
+  assert.match(css, /\.consumerHistory time \{ color: var\(--app-muted\); font-size: var\(--app-font-small\)/)
+  assert.doesNotMatch(css.match(/\.consumerHistoryResult \{[^}]*\}/)[0], /cursor: pointer|box-shadow|transition/)
 })
 
 test('consumer downward percentages use magnitudes while report consumers retain signed technical evidence', () => {

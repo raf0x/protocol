@@ -96,7 +96,7 @@ function ConsumerComparisonPreview({ finding }: { finding: LabFinding }) {
   return <ol className={styles.consumerHistory} role="list" aria-label="Recent recorded values" data-comparison-preview data-result-count={rows.length}>
     {rows.flatMap((row, i) => [
       ...(i > 0 ? [<li key={`arrow-${row.date}`} className={styles.consumerHistoryArrow} aria-hidden="true">→</li>] : []),
-      <li key={row.date} className={styles.consumerHistoryResult}>
+      <li key={row.date} className={`${styles.consumerHistoryResult}${i === rows.length - 1 ? ` ${styles.consumerHistoryLatest}` : ''}`}>
         <strong>{valueText(row.value, i === rows.length - 1 ? row.unit : '')}</strong>
         <time dateTime={row.date}>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(rows[0].date.slice(0, 4) !== rows.at(-1)!.date.slice(0, 4) ? { year: 'numeric' } : {}) })}</time>
       </li>])}

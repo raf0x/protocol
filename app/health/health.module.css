@@ -280,13 +280,15 @@
 .formDetails { overflow-wrap: anywhere; }
 
 /* Consumer findings: one comparison and a short explanation; audit stays in reports. */
-.consumerHistory { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 4px; list-style: none; margin: 8px 0; padding: 0; }
+.consumerHistory { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: var(--app-space-xs); list-style: none; margin: var(--app-space-sm) 0 var(--app-space-xs); padding: 0; }
 .consumerHistory[data-result-count="2"] { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .consumerHistory[data-result-count="3"] { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); }
-.consumerHistoryResult { display: grid; gap: 2px; min-width: 0; text-align: center; overflow-wrap: anywhere; }
-.consumerHistoryArrow { justify-self: center; }
+.consumerHistoryResult { display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; gap: 2px; min-width: 0; padding: var(--app-space-xs); text-align: center; overflow-wrap: anywhere; background: var(--app-surface-secondary); border: 1px solid var(--app-border); border-radius: calc(var(--app-radius-card) / 3); }
+.consumerHistoryLatest { border-color: color-mix(in srgb, var(--app-accent) 45%, var(--app-border)); }
+.consumerHistoryArrow { justify-self: center; align-self: center; }
 .consumerHistory strong, .consumerHistoryArrow { color: var(--app-text); font-size: var(--app-font-body); line-height: 1.5; font-variant-numeric: tabular-nums; }
-.consumerHistory time { color: var(--app-secondary); font-size: var(--app-font-small); }
+.consumerHistory strong { font-weight: 700; }
+.consumerHistory time { color: var(--app-muted); font-size: var(--app-font-small); }
 .consumerDetails > summary { min-height: 44px; color: var(--app-accent); }
 .consumerDetails > summary span { color: inherit; }
 .consumerDetails > summary .detailsOpen, .consumerDetails[open] > summary .detailsClosed { display: none; }
