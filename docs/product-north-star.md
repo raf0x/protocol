@@ -1,6 +1,6 @@
 # MyPepProtocol Product North Star
 
-**Finalized:** September 22, 2026  
+**Finalized:** September 22, 2026
 **Status:** Stable product direction
 
 ## North Star
@@ -19,13 +19,14 @@ MyPepProtocol must answer three questions exceptionally well:
 
 ## The ideal experience
 
-**Connect, upload, or record once**  
-→ MyPepProtocol organizes the record  
-→ MyPepProtocol reconstructs the history  
-→ MyPepProtocol identifies meaningful changes  
-→ MyPepProtocol determines what evidence exists  
-→ MyPepProtocol explains what matters and what remains uncertain  
-→ The user reviews a short, clear briefing and can inspect the evidence
+**Connect, upload, or record once**
+
+- MyPepProtocol organizes the record.
+- MyPepProtocol reconstructs the history.
+- MyPepProtocol identifies meaningful changes.
+- MyPepProtocol determines what evidence exists.
+- MyPepProtocol explains what matters and what remains uncertain.
+- The user reviews a short, clear briefing and can inspect the evidence.
 
 The product should not require users to maintain duplicate records, search through disconnected charts, or interpret everything themselves.
 
@@ -49,7 +50,7 @@ If the system already has information, never ask the user to enter it again. Can
 
 ### 2. AI does the work, not the user
 
-Prefer import, parsing, inference, normalization, reconciliation, comparison, and summarization over forms, manual tagging, and duplicate entry. Ask the user only when the system cannot determine the answer safely or reliably.
+Prefer import, scanning, parsing, inference, normalization, reconciliation, comparison, and summarization over blank forms, manual tagging, and duplicate entry. When the system already knows or can safely determine an answer, present it as a smart default for the user to review and adjust. Ask the user only when the system cannot determine the answer safely or reliably.
 
 ### 3. Deterministic logic owns facts
 
@@ -63,7 +64,7 @@ Show what matters, what changed, why it matters, what is stable, what is uncerta
 
 ### 5. Less but better
 
-Rank and compress aggressively. Do not surface information merely because it exists. Avoid noisy metrics, low-signal observations, excessive cards, repetitive empty states, and redundant explanations.
+Rank and compress aggressively. Every visible field and choice has a cognitive cost. Present the smallest useful set of recommended options, then use progressive disclosure for uncommon or advanced choices. Do not surface information merely because it exists. Avoid noisy metrics, low-signal observations, excessive cards, repetitive empty states, and redundant explanations.
 
 ### 6. Uncertainty is a feature
 
@@ -76,6 +77,31 @@ The user should not feel that they are operating an AI chatbot. AI is infrastruc
 ### 8. Manual entry remains available as a fallback
 
 Automation reduces manual work but never removes the user's ability to correct, confirm, override, or enter information when automation is unavailable or uncertain.
+
+## Human attention and smart-default standard
+
+Human attention is limited. More fields, more choices, and more visible options do not automatically create a better product. They often increase uncertainty, fatigue, and abandonment.
+
+Every MyPepProtocol workflow must follow these rules:
+
+1. **Review and adjust before fill from scratch.** Start from known facts, imported information, prior user choices, or safe contextual defaults whenever available.
+2. **Show fewer choices.** Present the most likely or most useful options first. Hide uncommon and advanced options behind progressive disclosure.
+3. **Ask only unresolved questions.** Never ask the user to restate information the product already has or can safely derive.
+4. **Prefer recognition over recall.** Scanning a label, choosing from a short list, or confirming a prepared summary is better than remembering and typing everything manually.
+5. **Make the recommended path obvious.** The primary action should reflect the most likely next step. Alternatives remain available without competing equally for attention.
+6. **Make defaults safe and reversible.** Clearly distinguish recorded facts, inferred values, and user-confirmed values. Every default must be easy to change or undo.
+7. **Never guess clinical decisions.** Smart defaults may prefill known medication facts, dates, preparation details, inventory information, and prior user-entered settings. They must not invent medication dose, frequency, route, or treatment decisions without a reliable source or explicit user confirmation.
+
+The preferred interaction pattern is:
+
+**Scan, import, or select**
+
+- MyPepProtocol prepares the likely setup.
+- The user reviews a concise summary.
+- The user changes only what does not fit.
+- Advanced details remain available when needed.
+
+Blank manual intake remains a fallback, not the default experience.
 
 ## Interpretation standard
 
@@ -129,7 +155,7 @@ Appropriate intelligence includes observed trends, supplied reference-range cont
 
 The product should prioritize work that:
 
-1. Reduces repeated or manual data entry.
+1. Replaces blank-slate intake with scanning, import, short selections, and smart defaults.
 2. Strengthens canonical, identity-safe longitudinal history.
 3. Improves personal-baseline and cross-date comparison.
 4. Ranks findings deterministically and explains them clearly.
@@ -166,6 +192,7 @@ Before approving work, ask:
 4. Does it show uncertainty honestly?
 5. Is it simpler than the experience it replaces?
 6. Does it preserve manual correction and fallback?
+7. Does it minimize choices and ask the user to review known answers instead of starting from a blank form?
 
 If the answer is no, the feature should be redesigned, deferred, or rejected.
 
