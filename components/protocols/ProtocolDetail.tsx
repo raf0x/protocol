@@ -80,6 +80,7 @@ export default function ProtocolDetail(props: Props) {
       </>}
     </details>
     <details className="protocol-advanced"><summary>Protocol actions</summary><div className="protocol-action-row">
+      {scheduled && <p>Scheduled to begin {dateLabel(protocol.start_date)}.</p>}
       {protocol.status === 'active' && !scheduled && <button onClick={props.onPause}>Pause protocol</button>}
       {protocol.status === 'paused' && <button onClick={props.onResume}>Resume protocol</button>}
       {protocol.status !== 'planned' && !scheduled && <button onClick={protocol.status === 'completed' ? props.onReactivate : props.onComplete}>{protocol.status === 'completed' ? 'Reactivate protocol' : 'Complete protocol'}</button>}

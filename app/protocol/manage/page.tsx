@@ -7,7 +7,7 @@ import QuickProtocolFields from '../../../components/protocols/QuickProtocolFiel
 import InventoryProtocolTiming from '../../../components/inventory/InventoryProtocolTiming'
 import { loadInventoryItem } from '../../../lib/inventory/client'
 import { inventoryProtocolDates, inventoryProtocolFields, type InventoryProtocolTiming as InventoryTiming } from '../../../lib/inventory/protocol'
-import { localCalendarDate, protocolSaveDates } from '../../../lib/health/protocolDates'
+import { localCalendarDate, protocolLifecycle, protocolSaveDates } from '../../../lib/health/protocolDates'
 import { useLocalCalendarDate } from '../../../lib/health/useLocalCalendarDate'
 import './protocols.css'
 import { useState, useEffect, useRef } from 'react'
@@ -162,6 +162,7 @@ export default function ManagePage() {
 
   async function completeProtocol() {
     if (!confirmComplete || savePending.current) return
+    if (protocolLifecycle(confirmComplete, localCalendarDate()) === 'scheduled') return
     savePending.current = true
     try {
       setError('')
@@ -821,7 +822,7 @@ export default function ManagePage() {
         {!showForm && detailId && (() => {
           const selected = protocols.find(p => p.id === detailId)
           if (!selected) return <button className="protocol-back" onClick={() => setDetailId(null)}>Return to protocols</button>
-          return <ProtocolDetail key={selected.id} protocol={selected} today={new Date().toLocaleDateString('en-CA')} onBack={() => setDetailId(null)}
+          return <ProtocolDetail key={selected.id} protocol={selected} today={today} onBack={() => setDetailId(null)}
             onEdit={(compoundId, addPhase) => {
               if (addPhase && compoundId) window.history.replaceState(null, '', '/protocol/manage?compound=' + encodeURIComponent(compoundId) + '&action=add-phase')
               startEdit(selected)
@@ -833,7 +834,7 @@ export default function ManagePage() {
             onReload={load} />
         })()}
 
-        {confirmComplete && (
+        {confirmComplete && protocolLifecycle(confirmComplete, today) !== 'scheduled' && (
           <ProtocolDialog title="Complete protocol" onClose={() => setConfirmComplete(null)}>
             <div style={{
               background:cb,

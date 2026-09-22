@@ -7,6 +7,9 @@ import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { createClient } from '../../lib/supabase'
 import { continueLatestPhase, transitionProtocol } from '../../lib/health/protocolMutations'
 import VialInventory from './VialInventory'
+import { localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
+import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
+import { dateLabel } from '../../lib/health/protocolPresentation'
 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
@@ -100,6 +103,7 @@ function StatCell({ label, value, valueColor }: { label: string; value: React.Re
 }
 
 export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex }: Props) {
+  const today = useLocalCalendarDate()
   const [continuing,setContinuing]=useState(false)
   const [phaseError,setPhaseError]=useState('')
   const [dosesRefresh, setDosesRefresh] = React.useState(0)
@@ -153,6 +157,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     activeCompound = activeProtocol?.compounds?.[0]
   }
   if (!activeCompound || !activeProtocol) return null
+  const scheduled = protocolLifecycle(activeProtocol, today) === 'scheduled'
 
   const color = RING_COLORS[compoundIndex] || RING_COLORS[0]
 
@@ -238,7 +243,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const badgeDoseText = dosingDisplay(currentPhase).primary
 
   async function archiveProtocol() {
-    await transitionProtocol({protocolId:activeProtocol.id,action:'complete',effectiveDate:new Date().toLocaleDateString('en-CA')})
+    const completionDate = localCalendarDate()
+    if (protocolLifecycle(activeProtocol, completionDate) === 'scheduled') return
+    await transitionProtocol({protocolId:activeProtocol.id,action:'complete',effectiveDate:completionDate})
     window.location.reload()
   }
 
@@ -291,7 +298,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
             vialStrength={activeCompound.vial_strength}
             vialUnit={activeCompound.vial_unit}
           />
-          {fillPct === 0 && (
+          {scheduled ? <p style={{fontSize:'12px',maxWidth:'160px',textAlign:'center'}}>Scheduled to begin {dateLabel(activeProtocol.start_date)}.</p> : fillPct === 0 && (
             <button onClick={() => setConfirmArchive(true)} style={{marginTop:'8px',background:'rgba(76,235,55,0.15)',border:'1px solid rgba(76,235,55,0.3)',borderRadius:'4px',padding:'5px 10px',color:'#4ceb37',fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>Complete</button>
           )}
         </div>
@@ -322,7 +329,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </div>
       )}
 
-      {confirmArchive && (
+      {confirmArchive && !scheduled && (
         <div style={{background:'rgba(0,0,0,0.85)',position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}} onClick={() => setConfirmArchive(false)}>
           <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'16px',padding:'24px',maxWidth:'380px',width:'100%'}} onClick={e => e.stopPropagation()}>
             <h3 style={{fontSize:'20px',fontWeight:'700',marginBottom:'12px',color:'#39ff14'}}>Mark as Complete?</h3>
