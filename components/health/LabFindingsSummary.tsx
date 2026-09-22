@@ -6,7 +6,7 @@ import type { BiomarkerHistory, LabPanel } from '../../lib/health/labs'
 import type { BriefingSupplementalLabUpdate } from '../../lib/health/healthBriefing'
 import { formatTimelineDate } from '../../lib/health/timeline'
 import styles from '../../app/health/health.module.css'
-import { consumerChangeText, consumerSuppliedRange, consumerUncertainty, findingNeedsVerification } from '../../lib/health/labFindingPresentation'
+import { consumerChangeText, consumerSuppliedRange, findingNeedsVerification } from '../../lib/health/labFindingPresentation'
 
 import { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
 export { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
@@ -42,19 +42,15 @@ function DetailsToggle() {
 }
 
 export function ConsumerFindingDetails({ finding }: { finding: LabFinding }) {
-  const { comparison, current } = finding.evidence
-  const range = consumerSuppliedRange(current)
-  const uncertainty = consumerUncertainty(finding)
+  return <ConsumerRangeDetails range={consumerSuppliedRange(finding.evidence.current)} />
+}
+
+function ConsumerRangeDetails({ range }: { range: ReturnType<typeof consumerSuppliedRange> }) {
+  if (!range) return null
   return <details className={`${styles.formDetails} ${styles.consumerDetails}`}>
     <DetailsToggle />
     <div className={styles.consumerExplanation}>
-      <h5>What changed</h5>
-      {comparison ? <>
-        <p>{comparison.previous.value} → {valueText(comparison.current.value, finding.unit)}</p>
-        <p>{consumerChangeText(finding)}</p>
-      </> : current && <><p>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p><p>No earlier comparison is available.</p></>}
-      {range && <><h5>Range</h5><p>{range.text}</p></>}
-      {uncertainty && <p className={styles.caption}>{uncertainty}</p>}
+      <h5>Range</h5><p>{range.text}</p>
     </div>
   </details>
 }
@@ -92,26 +88,18 @@ export function FindingEvidence({ finding }: { finding: LabFinding }) {
 }
 
 function SupplementalEvidence({ item }: { item: BriefingSupplementalLabUpdate }) {
-  const range = consumerSuppliedRange(item)
-
-  return <details className={`${styles.formDetails} ${styles.consumerDetails}`}>
-    <DetailsToggle />
-    <div className={styles.consumerExplanation}>
-      <p>{valueText(item.value, item.unit)} · {formatTimelineDate(item.date)}</p>
-      <p>No earlier comparison is available.</p>
-      {range && <><h5>Range</h5><p>{range.text}</p></>}
-      {item.needsVerification && <p className={styles.caption}>Imported result needs verification</p>}
-    </div>
-  </details>
+  return <ConsumerRangeDetails range={consumerSuppliedRange(item)} />
 }
 
 function ConsumerComparisonPreview({ finding }: { finding: LabFinding }) {
   const rows = finding.evidence.history.slice(-3)
-  return <ol className={styles.consumerHistory} aria-label="Recent recorded values" data-comparison-preview>
-    {rows.map((row, i) => <li key={row.date}>
-      <strong>{i > 0 && <span aria-hidden="true">→ </span>}{row.value}{i === rows.length - 1 && ` ${row.unit}`}</strong>
-      <time dateTime={row.date}>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(rows[0].date.slice(0, 4) !== rows.at(-1)!.date.slice(0, 4) ? { year: 'numeric' } : {}) })}</time>
-    </li>)}
+  return <ol className={styles.consumerHistory} role="list" aria-label="Recent recorded values" data-comparison-preview data-result-count={rows.length}>
+    {rows.flatMap((row, i) => [
+      ...(i > 0 ? [<li key={`arrow-${row.date}`} className={styles.consumerHistoryArrow} aria-hidden="true">→</li>] : []),
+      <li key={row.date} className={styles.consumerHistoryResult}>
+        <strong>{valueText(row.value, i === rows.length - 1 ? row.unit : '')}</strong>
+        <time dateTime={row.date}>{new Date(`${row.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(rows[0].date.slice(0, 4) !== rows.at(-1)!.date.slice(0, 4) ? { year: 'numeric' } : {}) })}</time>
+      </li>])}
   </ol>
 }
 

@@ -159,7 +159,7 @@ function text(node, closed = false) {
   if (closed && node.type === 'details') return ''
   return text(node.props?.children, closed)
 }
-test('Briefing shows four findings, data before a single short label, with accessible closed details', () => {
+test('Briefing shows four findings, data before a single short label, without empty disclosures', () => {
   const p = panels([10, 12, 11, 11])
   for (const panel of p) panel.results = Array.from({ length: 7 }, (_, i) => ({ ...panel.results[0], id: `${panel.id}-${i}`, biomarker_name: `Marker ${i}` }))
   const model = buildLabFindingsSummaryModel(p, biomarkerHistories(p))
@@ -173,11 +173,7 @@ test('Briefing shows four findings, data before a single short label, with acces
     const closed = text(card, true)
     assert.ok(closed.indexOf('11 mg/dL') < closed.indexOf('Unchanged since'))
     assert.doesNotMatch(closed, /median|Prior observed|Limitations|Priority tuple/)
-    const detail = nodes(card, n => n.type === 'details')[0]
-    assert.equal(detail.props.open, undefined)
-    assert.match(text(nodes(detail, n => n.type === 'summary')[0]), /View details.*Hide details/)
-    assert.match(text(detail), /11.*→.*11 mg\/dL/)
-    assert.doesNotMatch(text(detail), /Median|source row|eligible|Category priority/)
+    assert.equal(nodes(card, n => n.type === 'details').length, 0)
     assert.doesNotMatch(text(card), /owner-secret|private-file|raw-secret|result-0/)
   }
   const css = readFileSync(new URL('../app/health/health.module.css', import.meta.url), 'utf8')
@@ -219,11 +215,11 @@ test('human-first testosterone fixture shows the last comparison and verificatio
   const rendered = tree(View({ model, embedded: true })), card = nodes(rendered, n => n.type === 'article')[0]
   const detail = nodes(card, n => n.type === 'details')[0]
   assert.match(text(card, true), /Up 68 \(\+6\.7%\) since June 29/)
-  assert.match(text(detail), /1009.*→.*1077 ng\/dL/)
   assert.match(text(detail), /Within the supplied 250–1100 range/)
   assert.match(text(card, true), /Imported result needs verification/)
-  assert.match(text(detail), /Imported result needs verification/)
-  assert.ok(nodes(detail, n => n.type === 'p').length <= 6)
+  assert.doesNotMatch(text(detail), /59|1009|1077|→|Apr|Jun|Sep|Up 68|6\.7%|verification|What changed/i)
+  assert.deepEqual(nodes(detail, n => n.type === 'p').map(n => text(n)), ['Within the supplied 250–1100 range'])
+  assert.equal((text(card).match(/Imported result needs verification/g) || []).length, 1)
   assert.doesNotMatch(text(card), /New recorded personal high|eligible|Presentation order|Category priority|Ties use|source row|import confidence|Median|fixture\.pdf|reported|manual|parser/i)
   assert.equal(JSON.stringify(p), before)
   const audit = text(tree(FindingEvidence({ finding: f })))
@@ -314,4 +310,85 @@ test('native consumer disclosures start closed with state-dependent labels and a
   assert.match(css, /consumerDetails\[open\] > summary \.detailsOpen[^}]*display: inline/)
   assert.match(css, /consumerDetails > summary[^}]*min-height: 44px/)
   assert.match(css, /briefingUpdateName[^}]*white-space: normal/)
+})
+
+test('IGF-1 without an additional range has no disclosure and one verification warning', () => {
+  const p = panels([234, 204], { biomarker_name: 'IGF-1', unit: 'ng/mL', import_confidence: 'low' })
+  const card = nodes(tree(View({ model: summaryFor(p), embedded: true })), n => n.type === 'article')[0]
+  assert.equal(nodes(card, n => n.type === 'details' || n.type === 'summary').length, 0)
+  assert.equal((text(card).match(/Imported result needs verification/g) || []).length, 1)
+  assert.doesNotMatch(text(card), /View details|Hide details/)
+  assert.match(text(card), /Down 30 \(12\.8%\)/)
+})
+
+test('supplemental verification appears once, with a disclosure only for an additional range', () => {
+  for (const hasRange of [true, false]) {
+    const p = [testosteroneImportHistory()[3]]
+    if (!hasRange) Object.assign(p[0].results[0], { reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })
+    const model = briefingFor(p)
+    const card = nodes(tree(View({ model: model.findings, supplemental: model.supplementalLabUpdates, embedded: true })), n => n.type === 'article')[0]
+    assert.ok(card)
+    assert.equal((text(card).match(/Imported result needs verification/g) || []).length, 1)
+    const details = nodes(card, n => n.type === 'details')
+    assert.equal(details.length, hasRange ? 1 : 0)
+    if (hasRange) {
+      assert.deepEqual(nodes(details[0], n => n.type === 'p').map(n => text(n)), ['Within the supplied 250–1100 range'])
+      assert.doesNotMatch(text(details[0]), /1077|Sep 8|verification|comparison/)
+    }
+  }
+})
+
+test('two and three result trajectories alternate result/date columns with separate hidden arrow cells', () => {
+  for (const count of [2, 3]) for (const unit of ['ng/dL', 'very-long-unit-label/with-additional-unit-description']) {
+    const p = testosteroneImportHistory().slice(-count)
+    p.forEach(panel => { panel.results[0].unit = unit })
+    const rendered = tree(View({ model: summaryFor(p), embedded: true }))
+    const track = nodes(rendered, n => n.props?.className === 'consumerHistory')[0]
+    assert.equal(track.props['data-result-count'], count)
+    assert.equal(track.props.role, 'list')
+    assert.equal(track.props['aria-label'], 'Recent recorded values')
+    const cells = track.props.children
+    assert.equal(cells.length, count * 2 - 1)
+    const values = count === 3 ? [59, 1009, 1077] : [1009, 1077]
+    const dates = count === 3 ? ['Apr 10', 'Jun 29', 'Sep 8'] : ['Jun 29', 'Sep 8']
+    cells.forEach((cell, i) => {
+      assert.equal(cell.type, 'li')
+      if (i % 2) {
+        assert.equal(cell.props.className, 'consumerHistoryArrow')
+        assert.equal(cell.props['aria-hidden'], 'true')
+        assert.equal(text(cell), '→')
+      } else {
+        const index = i / 2
+        assert.equal(cell.props.className, 'consumerHistoryResult')
+        assert.equal(cell.props['aria-hidden'], undefined)
+        const value = nodes(cell, n => n.type === 'strong')[0]
+        assert.equal(text(value).trim(), `${values[index]}${index === count - 1 ? ` ${unit}` : ''}`)
+        const date = nodes(cell, n => n.type === 'time')[0]
+        assert.equal(text(date), dates[index])
+        assert.equal(date.props.dateTime, p[index].test_date)
+        assert.doesNotMatch(text(value), /→/)
+      }
+    })
+  }
+  const css = readFileSync(new URL('../app/health/health.module.css', import.meta.url), 'utf8')
+  assert.match(css, /\.consumerHistory \{[^}]*display: grid;[^}]*align-items: start/)
+  assert.match(css, /\[data-result-count="2"\] \{ grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/)
+  assert.match(css, /\[data-result-count="3"\] \{ grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\) auto minmax\(0, 1fr\);/)
+  assert.match(css, /\.consumerHistoryResult \{[^}]*min-width: 0;[^}]*text-align: center;[^}]*overflow-wrap: anywhere/)
+  assert.match(css, /\.consumerHistoryArrow \{ justify-self: center; \}/)
+})
+
+test('consumer downward percentages use magnitudes while report consumers retain signed technical evidence', () => {
+  const p = panels([234, 204], { import_confidence: 'low' }), model = summaryFor(p), f = model.headlines[0]
+  const before = JSON.stringify(f)
+  assert.match(presentation.consumerChangeText(f), /^Down 30 \(12\.8%\)/)
+  const report = buildReportIntelligence({ panels: p, protocols: [], protocolEvents: [], journal: [] }, p, biomarkerHistories(p), [], null, '2026-09-22')
+  assert.deepEqual(report.headlineChanges[0].evidence, f.evidence)
+  assert.equal(f.evidence.comparison.delta, -30)
+  assert.ok(f.evidence.comparison.percent < 0)
+  const audit = text(tree(FindingEvidence({ finding: report.headlineChanges[0] })))
+  assert.match(audit, /-30 mg\/dL \(-12\.8%\)/)
+  for (const label of ['Current:', 'Previous:', 'Personal baseline:', 'Category priority:', 'Limitations:', 'source row 7', 'import confidence low']) assert.ok(audit.includes(label))
+  assert.equal(JSON.stringify(f), before)
+  assert.match(presentation.consumerChangeText(summaryFor(testosteroneImportHistory()).headlines[0]), /^Up 68 \(\+6\.7%\)/)
 })

@@ -220,11 +220,13 @@ test('zero baseline keeps percentage unavailable in evidence UI', () => {
   assert.doesNotMatch(html(p), /\(\+?[^)]*%\)/)
 })
 
-test('evidence disclosure contains current and previous deterministic values', () => {
+test('collapsed trajectory contains current and previous deterministic values once', () => {
   const p = sameMarkerPanels([['old', '2026-08-01', 10], ['new', '2026-09-01', 12]], { reference_high: 100, status: 'normal' })
   const rendered = html(p)
-  assert.match(rendered, /10 → 12 mg\/dL/)
+  assert.match(rendered, /10Aug 1→12 mg\/dLSep 1/)
   assert.match(rendered, /Up 2 \(\+20%\) since August 1/)
+  assert.equal((rendered.match(/12 mg\/dL/g) || []).length, 1)
+  assert.equal((rendered.match(/Up 2/g) || []).length, 1)
 })
 
 test('rendered summary never exposes raw result or panel ids', () => {

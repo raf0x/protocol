@@ -33,7 +33,7 @@ export function consumerChangeText(finding: LabFinding) {
     month: 'long', day: 'numeric', ...(comparison.previous.date.slice(0, 4) !== comparison.current.date.slice(0, 4) ? { year: 'numeric' } : {}),
   })
   if (comparison.direction === 'unchanged') return `Unchanged since ${since}`
-  const percent = comparison.percent == null ? '' : ` (${comparison.percent > 0 ? '+' : ''}${comparison.percent.toLocaleString('en-US', { maximumFractionDigits: 1 })}%)`
+  const percent = comparison.percent == null ? '' : ` (${comparison.percent > 0 ? '+' : ''}${Math.abs(comparison.percent).toLocaleString('en-US', { maximumFractionDigits: 1 })}%)`
   return `${comparison.direction === 'increased' ? 'Up' : 'Down'} ${comparison.absoluteDelta}${percent} since ${since}`
 }
 

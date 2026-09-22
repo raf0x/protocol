@@ -155,10 +155,10 @@ test('Total Testosterone and Total Testosterone MS can form one same-unit canoni
   assert.ok(finding.limitations.includes('assay_method_unknown'))
   assert.ok(!m.supplementalLabUpdates.some(item => item.biomarkerKey === 'testosterone-total'))
   const content = copy(m)
-  assert.match(content, /1009Jun 29→ 1077 ng\/dLSep 8/)
+  assert.match(content, /1009Jun 29→1077 ng\/dLSep 8/)
   assert.match(content, /Up 68 \(\+6\.7%\) since June 29/)
   assert.doesNotMatch(content, /eligible/)
-  assert.match(content, /Test methods may differ/)
+  assert.equal(nodes(view(m), node => node.type === 'details').length, 0)
 })
 
 test('Total Testosterone alias does not weaken unit or same-day comparison protections', () => {
@@ -225,7 +225,7 @@ test('supplemental results are separate presentation updates, never fabricated L
   assert.doesNotMatch(JSON.stringify(item), /increased|decreased|improved|worsened|percent|delta/i)
 })
 
-test('supplemental cards disclose recorded current facts without fabricating a comparison', () => {
+test('supplemental cards disclose only the additional supplied range', () => {
   const p = [
     panel('older-a', '2026-08-01', [row('Fictional marker', 10)]),
     panel('older-b', '2026-08-01', [row('Another old marker', 9)]),
@@ -233,11 +233,14 @@ test('supplemental cards disclose recorded current facts without fabricating a c
   ]
   const rendered = view(build(p)), content = text(rendered)
   assert.equal(nodes(rendered, node => node.type === 'summary' && text(node).includes('View details')).length, 2)
-  assert.match(content, /1077 ng\/dL · Sep 1, 2026/)
+  assert.match(content, /1077 ng\/dL/)
   assert.doesNotMatch(content, /Panel:|Provider:/)
-  assert.match(content, /No earlier comparison is available\./)
+  assert.doesNotMatch(content, /No earlier comparison is available\./)
   const supplemental = nodes(rendered, node => node.props?.['data-update-kind'] === 'latest_without_comparison')[0]
   const supplementalText = text(supplemental)
+  const details = nodes(supplemental, node => node.type === 'details')[0]
+  assert.match(text(details), /Outside the supplied 1–20 range/)
+  assert.doesNotMatch(text(details), /1077|Sep 1|verification/)
   assert.doesNotMatch(supplementalText, /Previous:|Change:|percent|increased|decreased/i)
 })
 
@@ -325,11 +328,12 @@ test('missing-from-latest biomarkers remain grouped once, outside headlines', ()
   assert.match(copy(m), /2 previously measured biomarkers were not recorded/)
   assert.ok(!m.findings.headlines.some(item => item.type === 'missing_from_latest_panel'))
 })
-test('evidence details retain current/previous/delta facts and trend links', () => {
+test('cards retain current/previous/delta facts and trend links without repeated details', () => {
   const rendered = view(build())
   assert.ok(nodes(rendered, node => node.type === 'details').length)
-  assert.match(text(rendered), /10 → 30 mg\/dL/)
+  assert.match(text(rendered), /10Aug 1→30 mg\/dLSep 1/)
   assert.match(text(rendered), /Up 20 \(\+200%\) since August 1/)
+  assert.doesNotMatch(text(nodes(rendered, node => node.type === 'details')[0]), /→|Up 20|August 1/)
   assert.ok(nodes(rendered, node => node.type === 'a' && node.props.href.startsWith('/health?biomarker=')).length)
 })
 test('only strictly-between events enter context, excluding both boundary dates', () => {
@@ -426,12 +430,9 @@ test('embedded canonical comparison leads with dated values and a concise change
     panel('new-igf', '2026-09-08', [row('IGF 1', 204, { unit: 'ng/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
   ]
   const rendered = view(build(p)), content = text(rendered)
-  const evidence = nodes(rendered, node => node.type === 'summary' && text(node).includes('View details'))[0]
-  assert.match(content, /234Jun 29→ 204 ng\/mLSep 8/)
-  assert.match(content, /Down 30 \(-12\.8%\) since June 29/)
-  assert.ok(content.indexOf('234') < content.indexOf('View details'))
-  assert.ok(evidence)
-  assert.match(content.slice(0, content.indexOf('View details')), /Down 30/)
+  assert.match(content, /234Jun 29→204 ng\/mLSep 8/)
+  assert.match(content, /Down 30 \(12\.8%\) since June 29/)
+  assert.equal(nodes(rendered, node => node.type === 'details').length, 0)
   assert.doesNotMatch(content, /eligible|Change:|Category priority/)
 })
 test('current snapshot, findings, context, gaps and review maintain reading order', () => {
