@@ -5,6 +5,7 @@ import type {
   LabReading,
   LabTrajectory,
 } from './labEvidence'
+import { labPersonalHistory, type LabPersonalHistory } from './labEvidence'
 
 /**
  * Deterministic, derived lab findings built only from Shared Lab Evidence.
@@ -21,6 +22,10 @@ export type LabFindingType =
   | 'unchanged'
   | 'outside_previously_observed_values'
   | 'insufficient_history'
+  | 'repeated_direction'
+  | 'reversal'
+  | 'stable_history'
+  | 'incompatible_comparison'
 
 export type LabFindingPriority = 'attention' | 'context' | 'informational'
 
@@ -30,6 +35,8 @@ export type LabFindingObservationRef = {
   date: string
   value: number
   unit: string
+  reference?: LabReading['reference']
+  provenance?: Pick<LabReading['provenance'], 'sourceType' | 'parser' | 'rowIndex' | 'confidence'>
 }
 
 export type LabFindingComparisonEvidence = {
@@ -59,6 +66,8 @@ export type LabFindingEvidence = {
   comparison: LabFindingComparisonEvidence | null
   priorObservedExtent: LabTrajectory['priorObservedExtent']
   membership: LabFindingMembershipEvidence | null
+  personalHistory: LabPersonalHistory
+  history: LabFindingObservationRef[]
 }
 
 export type LabFinding = {
@@ -86,18 +95,21 @@ export type LabFindingDerivationInput = {
   memberships?: readonly LabPanelMembership[]
 }
 
-const priorityRank: Record<LabFindingPriority, number> = { attention: 0, context: 1, informational: 2 }
 const specificityRank: Record<LabFindingType, number> = {
   newly_outside_range: 0,
   returned_to_range: 1,
   persistently_outside_range: 2,
   outside_previously_observed_values: 3,
-  increased: 4,
-  decreased: 4,
-  unchanged: 5,
-  newly_measured: 6,
+  repeated_direction: 4,
+  reversal: 4,
+  stable_history: 5,
+  increased: 6,
+  decreased: 6,
+  unchanged: 6,
+  newly_measured: 7,
   missing_from_latest_panel: 7,
-  insufficient_history: 8,
+  insufficient_history: 7,
+  incompatible_comparison: 7,
 }
 
 const unique = <T,>(items: readonly T[]) => [...new Set(items)]
@@ -107,6 +119,9 @@ const observationRef = (reading: LabReading | null | undefined): LabFindingObser
   date: reading.date,
   value: reading.value,
   unit: reading.unit,
+  reference: { ...reading.reference },
+  provenance: { sourceType: reading.provenance.sourceType, parser: reading.provenance.parser,
+    rowIndex: reading.provenance.rowIndex, confidence: reading.provenance.confidence },
 } : null
 
 const comparisonEvidence = (comparison: LabComparison | null): LabFindingComparisonEvidence | null => comparison ? {
@@ -163,6 +178,8 @@ function baseFinding(
       comparison: comparisonEvidence(comparison),
       priorObservedExtent: series.trajectory.priorObservedExtent ? { ...series.trajectory.priorObservedExtent } : null,
       membership: membershipEvidence(membership),
+      personalHistory: labPersonalHistory(series.trajectory),
+      history: series.trajectory.ordered.map(row => observationRef(row)!),
     },
   }
 }
@@ -171,14 +188,6 @@ function movingFurtherOutside(comparison: LabComparison) {
   const status = comparison.current.reference.status
   return (status === 'high' && comparison.direction === 'increased')
     || (status === 'low' && comparison.direction === 'decreased')
-}
-
-function outsidePriorObservedExtent(series: LabFindingSeriesInput, comparison: LabComparison) {
-  const extent = series.trajectory.priorObservedExtent
-  // Two or more prior eligible readings prevent every ordinary two-point delta from
-  // being promoted into a personal-history finding.
-  if (!extent || extent.count < 2) return false
-  return comparison.current.value < extent.min || comparison.current.value > extent.max
 }
 
 function trajectoryFinding(series: LabFindingSeriesInput): LabFinding | null {
@@ -195,7 +204,7 @@ function trajectoryFinding(series: LabFindingSeriesInput): LabFinding | null {
     if (!trajectory.dates.length) return null
     return baseFinding(
       series,
-      'insufficient_history',
+      limitations.some(gap => gap === 'incompatible_unit' || gap === 'incompatible_assay') ? 'incompatible_comparison' : 'insufficient_history',
       'informational',
       latestRecorded
         ? 'No eligible prior result is available for a deterministic comparison.'
@@ -221,12 +230,20 @@ function trajectoryFinding(series: LabFindingSeriesInput): LabFinding | null {
         comparison, commonLimitations)
   }
 
-  if (outsidePriorObservedExtent(series, comparison)) {
-    const side = comparison.current.value > series.trajectory.priorObservedExtent!.max ? 'above' : 'below'
+  const personal = labPersonalHistory(trajectory)
+  if (personal.personalExtreme) {
+    const side = personal.personalExtreme === 'high' ? 'above' : 'below'
     return baseFinding(series, 'outside_previously_observed_values', 'context',
       `The current result is ${side} the prior eligible values recorded for this biomarker and unit.`,
       comparison, commonLimitations)
   }
+
+  if (personal.movement === 'stable') return baseFinding(series, 'stable_history', 'context',
+    'The latest value matches the previous recorded value within your prior observed span.', comparison, commonLimitations)
+  if (personal.movement === 'reversal') return baseFinding(series, 'reversal', 'context',
+    'The latest change reversed the direction of the preceding recorded change.', comparison, commonLimitations)
+  if (personal.movement?.startsWith('repeated_')) return baseFinding(series, 'repeated_direction', 'context',
+    `The last three eligible recorded dates show two consecutive ${comparison.direction === 'increased' ? 'increases' : 'decreases'}.`, comparison, commonLimitations)
 
   const directionType: Extract<LabFindingType, 'increased' | 'decreased' | 'unchanged'> = comparison.direction
   return baseFinding(series, directionType, 'informational',
@@ -290,14 +307,35 @@ export function deriveLabFindings(input: LabFindingDerivationInput): LabFinding[
   return rankLabFindings(findings)
 }
 
+/** Ascending tuple: category, newest date first, name, unit, exact identity.
+ * Ordering is presentation priority, never clinical urgency or a risk score. */
+export function labFindingPriorityTuple(finding: LabFinding): readonly [number, number, string, string, string] {
+  return [specificityRank[finding.type], finding.observedAt ? -Number(finding.observedAt.replaceAll('-', '')) : 0,
+    finding.biomarkerName, finding.unit, finding.id]
+}
+
+export function labFindingLabel(finding: LabFinding): string {
+  if (finding.type === 'outside_previously_observed_values') return finding.evidence.personalHistory.personalExtreme === 'low' ? 'New recorded personal low' : 'New recorded personal high'
+  const labels: Record<LabFindingType, string> = {
+    newly_outside_range: 'Newly outside supplied range', returned_to_range: 'Returned to supplied range',
+    persistently_outside_range: 'Persistently outside supplied range', outside_previously_observed_values: 'New recorded personal extreme',
+    repeated_direction: 'Repeated directional movement', reversal: 'Direction reversed', stable_history: 'Stable near prior recorded history',
+    increased: 'Increased from previous eligible result', decreased: 'Decreased from previous eligible result', unchanged: 'Unchanged from previous eligible result',
+    newly_measured: 'Newly measured', missing_from_latest_panel: 'Not measured on latest panel',
+    insufficient_history: 'Insufficient comparable history', incompatible_comparison: 'Incompatible comparison',
+  }
+  return labels[finding.type]
+}
+
 export function rankLabFindings(findings: readonly LabFinding[]) {
-  return [...findings].sort((a, b) =>
-    priorityRank[a.priority] - priorityRank[b.priority]
-    || specificityRank[a.type] - specificityRank[b.type]
-    || (b.observedAt ?? '').localeCompare(a.observedAt ?? '')
-    || a.biomarkerName.localeCompare(b.biomarkerName)
-    || a.unit.localeCompare(b.unit)
-    || a.id.localeCompare(b.id))
+  return [...findings].sort((a, b) => {
+    const left = labFindingPriorityTuple(a), right = labFindingPriorityTuple(b)
+    for (let i = 0; i < left.length; i++) {
+      if (left[i] < right[i]) return -1
+      if (left[i] > right[i]) return 1
+    }
+    return 0
+  })
 }
 
 export function findingsForBiomarker(findings: readonly LabFinding[], biomarkerKey: string) {
@@ -307,8 +345,8 @@ export function findingsForBiomarker(findings: readonly LabFinding[], biomarkerK
 export function highestPriorityFindings(findings: readonly LabFinding[]) {
   const ranked = rankLabFindings(findings)
   if (!ranked.length) return []
-  const priority = ranked[0].priority
-  return ranked.filter(finding => finding.priority === priority)
+  const category = labFindingPriorityTuple(ranked[0])[0]
+  return ranked.filter(finding => labFindingPriorityTuple(finding)[0] === category)
 }
 
 /** Low-signal unchanged/insufficient facts remain auditable in all findings but
@@ -316,6 +354,6 @@ export function highestPriorityFindings(findings: readonly LabFinding[]) {
 export function selectHeadlineFindings(findings: readonly LabFinding[], limit = 5) {
   if (!Number.isInteger(limit) || limit < 0) throw new Error('Headline finding limit must be a non-negative integer.')
   return rankLabFindings(findings)
-    .filter(finding => finding.type !== 'unchanged' && finding.type !== 'insufficient_history')
+    .filter(finding => !['unchanged', 'insufficient_history', 'incompatible_comparison'].includes(finding.type))
     .slice(0, limit)
 }

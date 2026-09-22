@@ -48,7 +48,11 @@ export function deriveCurrentLabFindingSet(
     biomarkerKey: history.key,
     biomarkerName: history.name,
     unit: group.unit,
-    trajectory: buildLabTrajectory(group.observations.map(row => toLabEvidenceObservation(row, history.key))),
+    trajectory: (() => {
+      const trajectory = buildLabTrajectory(group.observations.map(row => toLabEvidenceObservation(row, history.key)))
+      if (history.units.length > 1) trajectory.limitations.push('incompatible_unit')
+      return trajectory
+    })(),
   })))
   const memberships = previousPanel ? labPanelMembership([...histories], currentPanel.id, previousPanel.id) : []
   const findings = deriveLabFindings({ series, memberships }).filter(finding =>

@@ -7,7 +7,7 @@ export type LabGap = 'missing_comparator' | 'missing_unit' | 'incompatible_unit'
   | 'missing_source_identity' | 'different_owners' | 'same_day_records' | 'conflicting_same_day'
   | 'unordered_dates' | 'non_finite_arithmetic' | 'percentage_unavailable' | 'assay_method_unknown'
   | 'reference_range_unavailable' | 'reference_ranges_differ' | 'prior_status_unknown'
-  | 'current_status_unknown' | 'insufficient_history' | 'excluded_history'
+  | 'current_status_unknown' | 'insufficient_history' | 'excluded_history' | 'incompatible_assay'
 
 export const labGapText: Record<LabGap, string> = {
   missing_comparator: 'No eligible comparator is available.',
@@ -33,12 +33,15 @@ export const labGapText: Record<LabGap, string> = {
   current_status_unknown: 'Current range status is unknown; no transition was inferred.',
   insufficient_history: 'Fewer than two eligible measurement dates are available.',
   excluded_history: 'Some recorded dates are excluded; eligible history is not the complete recorded sequence.',
+  incompatible_assay: 'Explicit assay, method, or specimen metadata differ; no numeric comparison was made.',
 }
 export const labLimitations = (gaps: readonly LabGap[]) => [...new Set(gaps)].map(gap => labGapText[gap])
 
 export type LabEvidenceObservation = {
   biomarkerKey: string; name: string; resultId: string; panelId: string; ownerId: string | null
   date: string; value: number | null; unit: string; originalUnit: string
+  // Only explicit source metadata, never inferred from provider or filenames.
+  assay?: { assay: string | null; method: string | null; specimen: string | null }
   reference: { low: number | null; high: number | null; text: string | null; status: LabStatus; statusSource: LabStatusSource }
   provenance: {
     sourceType: string | null; filename: string | null; parser: string | null
@@ -95,6 +98,7 @@ export function toLabEvidenceObservation(row: LabObservation, biomarkerKey: stri
   const status = ['normal', 'high', 'low', 'abnormal'].includes(r.status) && (source === 'reported' || (source === 'derived' && validBounds && (r.reference_low != null || r.reference_high != null))) ? r.status : 'unknown'
   return { biomarkerKey, name: r.biomarker_name, resultId: r.id, panelId, ownerId: text(r.user_id) ?? text(row.source?.user_id), date: row.date,
     value: finite(r.value) ? r.value : null, unit, originalUnit: typeof r.unit === 'string' ? r.unit : '',
+    assay: { assay: text(r.source_raw?.assay), method: text(r.source_raw?.method), specimen: text(r.source_raw?.specimen) },
     reference: { low: validBounds ? r.reference_low ?? null : null, high: validBounds ? r.reference_high ?? null : null,
       text: text(r.reference_text), status, statusSource: source },
     provenance: { sourceType: row.source?.source_type ?? null, filename: row.source?.source_filename ?? null,
@@ -136,6 +140,7 @@ export function compareLabDates(before: LabDateEvidence | null, after: LabDateEv
     if (a.unit !== b.unit) reasons.push('incompatible_unit')
     if (a.biomarkerKey !== b.biomarkerKey) reasons.push('incompatible_biomarker')
     if (a.ownerId && b.ownerId && a.ownerId !== b.ownerId) reasons.push('different_owners')
+    if (assayFields.some(key => a.assay?.[key] && b.assay?.[key] && a.assay[key] !== b.assay[key])) reasons.push('incompatible_assay')
     if (a.date >= b.date) reasons.push('unordered_dates')
   }
   if (reasons.length || !a || !b) return { comparison: null, reasons: unique(reasons.length ? reasons : ['missing_comparator']), observations }
@@ -153,6 +158,8 @@ export function compareLabDates(before: LabDateEvidence | null, after: LabDateEv
     direction: delta > 0 ? 'increased' : delta < 0 ? 'decreased' : 'unchanged', range, limitations } }
 }
 
+const assayFields = ['assay', 'method', 'specimen'] as const
+
 export function buildLabTrajectory(observations: LabEvidenceObservation[]): LabTrajectory {
   const byDate = new Map<string, LabEvidenceObservation[]>()
   for (const row of observations) byDate.set(row.date, [...(byDate.get(row.date) ?? []), row])
@@ -161,6 +168,7 @@ export function buildLabTrajectory(observations: LabEvidenceObservation[]): LabT
   if (new Set(observations.map(row => row.unit)).size > 1) seriesIssues.push('incompatible_unit')
   if (new Set(observations.map(row => row.biomarkerKey)).size > 1) seriesIssues.push('incompatible_biomarker')
   if (new Set(observations.map(row => row.ownerId).filter(Boolean)).size > 1) seriesIssues.push('different_owners')
+  if (assayFields.some(key => new Set(observations.map(row => row.assay?.[key]).filter(Boolean)).size > 1)) seriesIssues.push('incompatible_assay')
   const eligible = seriesIssues.length ? [] : dates.filter(group => group.reading)
   const ordered = eligible.map(group => group.reading!)
   const latest = ordered.at(-1) ?? null, previous = ordered.at(-2) ?? null, earliest = ordered[0] ?? null
@@ -175,6 +183,49 @@ export function buildLabTrajectory(observations: LabEvidenceObservation[]): LabT
     latestRecordedPair: pair(dates.at(-2), dates.at(-1)),
     limitations: unique([...seriesIssues, ...dates.flatMap(group => group.reasons), ...(dates.some(group => !group.reading) ? ['excluded_history' as const] : []),
       ...(ordered.length < 2 ? ['insufficient_history' as const] : []), ...(observations.length ? ['assay_method_unknown' as const] : [])]) }
+}
+
+export type LabPersonalHistory = {
+  version: 1
+  evidenceLevel: 'insufficient' | 'direct_comparison' | 'recorded_history' | 'descriptive_baseline'
+  eligibleDates: number
+  baseline: { median: number; min: number; max: number; count: number; start: string; end: string } | null
+  personalExtreme: 'high' | 'low' | null
+  movement: 'repeated_increase' | 'repeated_decrease' | 'reversal' | 'stable' | null
+}
+
+const median = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle] : sorted[middle - 1] / 2 + sorted[middle] / 2
+}
+
+/** Descriptive history only, using canonical date eligibility and pair arithmetic.
+ * Baseline excludes the latest date and needs three earlier eligible dates.
+ * V1 stability requires an exact repeat; no tolerance or clinical threshold. */
+export function labPersonalHistory(trajectory: LabTrajectory): LabPersonalHistory {
+  const rows = trajectory.ordered, pair = trajectory.latestRecordedPair.comparison
+  const prior = rows.slice(0, -1), extent = trajectory.priorObservedExtent
+  const usable = Boolean(pair && rows.at(-1)?.resultId === pair.current.resultId)
+  const baseline = usable && prior.length >= 3 && extent ? {
+    median: median(prior.map(row => row.value)), min: extent.min, max: extent.max,
+    count: prior.length, start: prior[0].date, end: prior.at(-1)!.date,
+  } : null
+  const result: LabPersonalHistory = {
+    version: 1,
+    evidenceLevel: !usable ? 'insufficient' : baseline ? 'descriptive_baseline' : rows.length >= 3 ? 'recorded_history' : 'direct_comparison',
+    eligibleDates: rows.length, baseline, personalExtreme: null, movement: null,
+  }
+  if (!usable || !pair) return result
+  if (extent && prior.length >= 2) result.personalExtreme = pair.current.value > extent.max ? 'high' : pair.current.value < extent.min ? 'low' : null
+  // Consecutive recorded dates only; never bridge an excluded date for a pattern.
+  const tail = trajectory.dates.slice(-3)
+  const preceding = tail.length === 3 ? compareLabDates(tail[0], tail[1]).comparison : null
+  if (preceding && preceding.current.resultId === pair.previous.resultId) {
+    if (preceding.direction === pair.direction && pair.direction !== 'unchanged') result.movement = pair.direction === 'increased' ? 'repeated_increase' : 'repeated_decrease'
+    else if (preceding.direction !== 'unchanged' && pair.direction !== 'unchanged') result.movement = 'reversal'
+  }
+  if (baseline && trajectory.dates.every(date => date.reading) && pair.current.value === pair.previous.value) result.movement = 'stable'
+  return result
 }
 
 /** Identity-free projection of the same pair, safe for existing AI/report DTOs.

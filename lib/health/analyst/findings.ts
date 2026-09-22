@@ -1,5 +1,5 @@
 import { buildLabTrajectory, toLabEvidenceObservation, type LabComparisonSummary, type LabGap } from '../labEvidence'
-import type { LabFinding, LabFindingPriority, LabFindingType } from '../labFindings'
+import { labFindingPriorityTuple, type LabFinding, type LabFindingPriority, type LabFindingType } from '../labFindings'
 import type { CurrentLabFindingSet } from '../labFindingsSummary'
 import type { BiomarkerHistory } from '../labs'
 import type { AnalystEvidence } from './types'
@@ -15,6 +15,9 @@ export type AnalystDeterministicFinding = {
   previous: { value: number; date: string } | null
   comparison: LabComparisonSummary | null
   priorObservedExtent: LabFinding['evidence']['priorObservedExtent']
+  personalHistory: LabFinding['evidence']['personalHistory']
+  // Identity-free prefix of the canonical ranking tuple; input order retains ties.
+  priorityTuple: readonly [number, number, string, string]
   membership: { currentDate: string; previousDate: string; currentRecorded: boolean; previousRecorded: boolean } | null
   limitations: LabGap[]
   evidenceIds: string[]
@@ -52,11 +55,11 @@ export function findingCandidates(
 ): FindingCandidate[] {
   return current.findings.flatMap(finding => {
     const ids = findingSourceIds(finding)
-    if (finding.type === 'outside_previously_observed_values') {
+    if (finding.evidence.personalHistory.eligibleDates > 2) {
       const group = histories.find(row => row.key === finding.biomarkerKey)?.units.find(row => row.unit === finding.unit)
       if (!group) return []
       const trajectory = buildLabTrajectory(group.observations.map(row => toLabEvidenceObservation(row, finding.biomarkerKey)))
-      ids.push(...trajectory.ordered.slice(0, -1).map(row => `lab:${row.resultId}`))
+      ids.push(...trajectory.ordered.map(row => `lab:${row.resultId}`))
     }
     const unique = [...new Set(ids)]
     // Keep one biomarker from occupying the entire context. No unsupported extent
@@ -78,6 +81,8 @@ export function projectAnalystFinding(
   return {
     type: f.type, presentationPriority: f.priority, biomarkerName: f.biomarkerName,
     unit: f.unit, reason: f.reason, current: point(e.current), previous: point(e.previous),
+    personalHistory: { ...e.personalHistory, baseline: e.personalHistory.baseline ? { ...e.personalHistory.baseline } : null },
+    priorityTuple: labFindingPriorityTuple(f).slice(0, 4) as [number, number, string, string],
     comparison: c ? {
       previous: { value: c.previous.value, date: c.previous.date }, current: { value: c.current.value, date: c.current.date },
       unit: f.unit, delta: c.delta, absoluteDelta: c.absoluteDelta, percent: c.percent,

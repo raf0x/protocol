@@ -2,7 +2,6 @@ import type { HealthAnalysis, HealthAnalystContext, AnalystEvidence, ContextFact
 import type { DoctorReport, ReportAiSummary } from './types'
 
 const number = (value: number) => Number(value.toPrecision(5))
-const signed = (value: number) => `${value > 0 ? '+' : ''}${number(value)}`
 const dose = (value: { value: number; unit: string } | null) => value ? `${number(value.value)} ${value.unit}` : 'dose not confirmed'
 
 /** Build the optional report-AI request from the already-derived report model.
@@ -41,12 +40,15 @@ export function buildReportAiContext(report: DoctorReport): HealthAnalystContext
   for (const finding of report.intelligence.headlineChanges.slice(0, 5)) {
     const comparison = finding.evidence.comparison
     const detail = comparison
-      ? `${number(comparison.previous.value)} ${finding.unit} on ${comparison.previous.date} to ${number(comparison.current.value)} ${finding.unit} on ${comparison.current.date}; ${signed(comparison.delta)} ${finding.unit}${comparison.percent == null ? '' : ` (${signed(comparison.percent)}%)`} over ${comparison.elapsedDays} days.`
+      ? `${comparison.previous.value} ${finding.unit} on ${comparison.previous.date} to ${comparison.current.value} ${finding.unit} on ${comparison.current.date}; ${comparison.delta} ${finding.unit}${comparison.percent == null ? '' : ` (${comparison.percent}%)`} over ${comparison.elapsedDays} days.`
       : finding.evidence.current
-        ? `${number(finding.evidence.current.value)} ${finding.unit} on ${finding.evidence.current.date}. ${finding.reason}`
+        ? `${finding.evidence.current.value} ${finding.unit} on ${finding.evidence.current.date}. ${finding.reason}`
         : finding.reason
+    const personal = finding.evidence.personalHistory
+    const baseline = personal.baseline
+    const history = baseline ? ` Descriptive prior median ${baseline.median} ${finding.unit}, span ${baseline.min} to ${baseline.max}, ${baseline.count} earlier dates (${baseline.start} to ${baseline.end}); latest excluded.` : ' No established personal baseline.'
     add({ type: comparison ? 'lab_comparison' : 'lab_result', date: finding.observedAt,
-      title: finding.biomarkerName, detail, sourceLabel: 'Canonical deterministic lab finding' })
+      title: finding.biomarkerName, detail: `${detail} ${finding.reason}${history} Assay equivalence is unverified.`, sourceLabel: 'Canonical deterministic lab finding' })
   }
 
   for (const item of report.currentProtocols.slice(0, 6)) add({ type: 'protocol_state', date: report.asOfDate,

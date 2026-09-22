@@ -96,7 +96,7 @@ for (const value of [30, 31]) test(`same-day ${value === 30 ? 'equal' : 'conflic
 })
 test('incompatible units remain ineligible, without conversion', () => {
   const finding = projection(pair(10, 30, {}, { unit: 'mmol/L' }))[0]
-  assert.equal(finding.type, 'insufficient_history'); assert.equal(finding.comparison, null)
+  assert.equal(finding.type, 'incompatible_comparison'); assert.equal(finding.comparison, null)
 })
 test('qualitative values stay recorded evidence, not numeric findings', () => {
   const panels = pair(10, null, {}, { value_text: 'Detected', status: 'abnormal' })

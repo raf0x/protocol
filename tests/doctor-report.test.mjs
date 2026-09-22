@@ -313,7 +313,9 @@ test('V2D explicit biomarker aliases improve domain classification without fuzzy
 test('V2D report formatting rounds percentages for display only', () => {
   const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8')
   assert.match(client, /toFixed\(digits\)/)
-  assert.match(client, /signedPercent\(comparison\.percent\)/)
+  assert.match(client, /FindingEvidence finding=\{finding\}/)
+  const shared = readFileSync(new URL('../components/health/LabFindingsSummary.tsx', import.meta.url), 'utf8')
+  assert.match(shared, /formatPercent\(comparison\.percent\)/)
   assert.match(client, /signedPercent\(row\.comparison\.percent\)/)
 })
 

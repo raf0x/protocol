@@ -267,6 +267,18 @@
 .briefingComparison { margin-top: 6px; }
 .briefingComparison .secondary { margin: 2px 0; }
 
+/* Personal history: values and dates before interpretation, details on demand. */
+.personalHistoryTrack { display: flex; flex-wrap: wrap; gap: var(--app-space-sm); list-style: none; padding: 0; margin: var(--app-space-sm) 0; }
+.personalHistoryTrack li { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.personalHistoryTrack li + li { border-left: 2px solid var(--app-border); padding-left: var(--app-space-sm); }
+.personalHistoryTrack strong { color: var(--app-text); font-size: var(--app-font-body); }
+.personalHistoryTrack time { color: var(--app-secondary); font-size: var(--app-font-small); }
+.personalHistorySources { padding-left: var(--app-space-md); overflow-wrap: anywhere; }
+.personalHistorySources li { margin-bottom: var(--app-space-sm); }
+.briefingFinding .briefingUpdateName { white-space: normal; overflow-wrap: anywhere; }
+.briefingFinding .formDetails summary { min-height: 44px; }
+.formDetails { overflow-wrap: anywhere; }
+
 /* Guided Analyst V1: scan-first presentation, not prose dumps. */
 .analystSummaryList, .analystFactList { list-style: none; padding: 0; margin: var(--app-space-xs) 0 0; display: grid; gap: 7px; }
 .analystSummaryList li, .analystFactList li { position: relative; min-width: 0; padding-left: 14px; overflow-wrap: anywhere; }

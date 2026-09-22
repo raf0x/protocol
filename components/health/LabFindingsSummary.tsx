@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { labGapText } from '../../lib/health/labEvidence'
-import { type LabFinding, type LabFindingPriority, type LabFindingType } from '../../lib/health/labFindings'
+import { labFindingLabel, labFindingPriorityTuple, type LabFinding, type LabFindingPriority } from '../../lib/health/labFindings'
+import { labReference } from '../../lib/health/labs'
 import type { BiomarkerHistory, LabPanel } from '../../lib/health/labs'
 import type { BriefingSupplementalLabUpdate } from '../../lib/health/healthBriefing'
 import { formatTimelineDate } from '../../lib/health/timeline'
@@ -8,19 +9,6 @@ import styles from '../../app/health/health.module.css'
 
 import { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
 export { buildLabFindingsSummaryModel, type LabFindingsSummaryModel } from '../../lib/health/labFindingsSummary'
-
-const findingLabels: Record<LabFindingType, string> = {
-  newly_outside_range: 'Newly outside supplied range',
-  returned_to_range: 'Returned to supplied range',
-  persistently_outside_range: 'Outside supplied range on both eligible dates',
-  newly_measured: 'Newly measured',
-  missing_from_latest_panel: 'Not measured on latest panel',
-  increased: 'Increased from previous eligible result',
-  decreased: 'Decreased from previous eligible result',
-  unchanged: 'Unchanged from previous eligible result',
-  outside_previously_observed_values: 'Outside previously observed values',
-  insufficient_history: 'Insufficient comparable history',
-}
 
 const priorityLabels: Record<LabFindingPriority, string> = {
   attention: 'Review',
@@ -44,52 +32,41 @@ function changeText(finding: LabFinding) {
   return `${sign}${String(comparison.delta)}${comparison.current.unit ? ` ${comparison.current.unit}` : ''}${percent}`
 }
 
-const directionOnlyTypes = new Set<LabFindingType>(['increased', 'decreased', 'unchanged'])
-
-function signedNumber(value: number) {
-  if (value > 0) return `+${String(value)}`
-  if (value < 0) return `−${String(Math.abs(value))}`
-  return '0'
+export function ComparisonPreview({ finding }: { finding: LabFinding }) {
+  const rows = finding.evidence.history.slice(-3)
+  if (!rows.length) return null
+  return <ol className={styles.personalHistoryTrack} aria-label="Recent eligible recorded values" data-comparison-preview>
+    {rows.map(row => <li key={row.date}><strong>{valueText(row.value, row.unit)}</strong><time dateTime={row.date}>{formatTimelineDate(row.date)}</time></li>)}
+  </ol>
 }
 
-function signedPercent(value: number) {
-  const formatted = formatPercent(Math.abs(value))
-  if (value > 0) return `+${formatted}%`
-  if (value < 0) return `−${formatted}%`
-  return `${formatted}%`
-}
-
-function ComparisonPreview({ finding }: { finding: LabFinding }) {
-  const comparison = finding.evidence.comparison
-  if (!comparison) return null
-  const percent = comparison.percent == null ? null : signedPercent(comparison.percent)
-  return <div className={styles.briefingComparison} data-comparison-preview>
-    <p className={styles.secondary}>
-      {valueText(comparison.previous.value, comparison.previous.unit)} · {formatTimelineDate(comparison.previous.date)}
-      {' → '}
-      {valueText(comparison.current.value, comparison.current.unit)} · {formatTimelineDate(comparison.current.date)}
-    </p>
-    <p className={styles.secondary}>
-      {signedNumber(comparison.delta)}{comparison.current.unit ? ` ${comparison.current.unit}` : ''}
-      {percent ? ` · ${percent}` : ''} over {comparison.elapsedDays} days
-    </p>
-  </div>
-}
-
-function Evidence({ finding, compact = false }: { finding: LabFinding; compact?: boolean }) {
+export function FindingEvidence({ finding }: { finding: LabFinding }) {
   const current = finding.evidence.current
   const previous = finding.evidence.previous
   const comparison = finding.evidence.comparison
   const extent = finding.evidence.priorObservedExtent
   const limitations = [...new Set(finding.limitations)]
+  const personal = finding.evidence.personalHistory
+  const baseline = personal.baseline
 
   return <details className={styles.formDetails}>
-    <summary>Evidence</summary>
-    {!compact && <p className={styles.secondary}>{finding.reason}</p>}
-    {!compact && current && <p className={styles.secondary}><strong>Current:</strong> {valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
-    {!compact && previous && <p className={styles.secondary}><strong>Previous:</strong> {valueText(previous.value, previous.unit)} · {formatTimelineDate(previous.date)}</p>}
-    {!compact && comparison && <p className={styles.secondary}><strong>Change:</strong> {changeText(finding)} over {comparison.elapsedDays} days</p>}
+    <summary aria-label={`View details for ${finding.biomarkerName}`}>View details</summary>
+    <p className={styles.secondary}>{finding.reason}</p>
+    {current && <p className={styles.secondary}><strong>Current:</strong> {valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
+    {previous && <p className={styles.secondary}><strong>Previous:</strong> {valueText(previous.value, previous.unit)} · {formatTimelineDate(previous.date)}</p>}
+    {comparison && <p className={styles.secondary}><strong>Change:</strong> {changeText(finding)} over {comparison.elapsedDays} days</p>}
     {extent && <p className={styles.secondary}><strong>Prior observed values:</strong> {valueText(extent.min, finding.unit)} to {valueText(extent.max, finding.unit)} across {extent.count} earlier eligible readings</p>}
+    <p className={styles.secondary}><strong>Personal baseline:</strong> {baseline
+      ? `Median ${valueText(baseline.median, finding.unit)} from ${baseline.count} earlier eligible dates (${baseline.start} to ${baseline.end}); the latest result is excluded.`
+      : 'Not established: at least three earlier eligible measurement dates are required.'}</p>
+    {personal.movement === 'stable' && <p className={styles.caption}>History method V1 labels stability only for an exact repeat of the previous value, with at least three earlier eligible dates and no excluded dates.</p>}
+    <p className={styles.caption}>Historical values are descriptive, not a medical reference interval; assay equivalence remains unverified.</p>
+    <p className={styles.caption}>Presentation order: newly outside range, returned to range, persistent abnormality, personal departure, directional movement, stable context, then other comparisons. Ties use newest date, name, unit, and source identity. Category priority: {labFindingPriorityTuple(finding)[0] + 1}; this is not clinical urgency.</p>
+    <ul className={styles.personalHistorySources} aria-label="Source evidence">{finding.evidence.history.map(row => <li key={row.date}>
+      <time dateTime={row.date}>{row.date}</time>: {valueText(row.value, row.unit)}
+      {row.reference && <> · Supplied range: {labReference({ reference_low: row.reference.low, reference_high: row.reference.high, reference_text: row.reference.text })} · {row.reference.status} ({row.reference.statusSource})</>}
+      {row.provenance && <> · {row.provenance.sourceType || 'Source unknown'}{row.provenance.rowIndex != null && `, source row ${row.provenance.rowIndex}`}{row.provenance.confidence && `, import confidence ${row.provenance.confidence}`}</>}
+    </li>)}</ul>
     {limitations.length > 0 && <p className={styles.caption}><strong>Limitations:</strong> {limitations.map(gap => labGapText[gap]).join(' ')}</p>}
     <Link className={styles.textLink} href={`/health?biomarker=${encodeURIComponent(finding.biomarkerKey)}`}>View biomarker trend</Link>
   </details>
@@ -132,13 +109,9 @@ export default function LabFindingsSummary({ panels, histories, model: suppliedM
             return <article className={`${styles.card} ${embedded ? styles.briefingFinding : ''}`} data-finding-type={finding.type} data-priority={finding.priority} key={finding.id}>
               {!embedded && <span className={styles.eyebrow}>{priorityLabels[finding.priority]}</span>}
               <FindingHeading className={embedded ? styles.briefingUpdateName : undefined}>{finding.biomarkerName}</FindingHeading>
-              {current && <p className={`${styles.value} ${embedded ? styles.briefingUpdateValue : ''}`}>{valueText(current.value, current.unit)}</p>}
-              {embedded && finding.evidence.comparison
-                ? <ComparisonPreview finding={finding} />
-                : <p className={styles.summary}><strong>{findingLabels[finding.type]}</strong></p>}
-              {embedded && finding.evidence.comparison && !directionOnlyTypes.has(finding.type)
-                && <p className={styles.summary}><strong>{findingLabels[finding.type]}</strong></p>}
-              <Evidence finding={finding} compact={embedded && Boolean(finding.evidence.comparison)} />
+              {finding.evidence.history.length ? <ComparisonPreview finding={finding} /> : current && <p className={styles.value}>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
+              <p className={styles.summary}><strong>{labFindingLabel(finding)}</strong></p>
+              <FindingEvidence finding={finding} />
             </article>
           })}
           {visibleSupplemental.map(item => <article className={`${styles.card} ${styles.briefingFinding} ${styles.briefingSupplemental}`} data-update-kind={item.kind} key={item.id}>

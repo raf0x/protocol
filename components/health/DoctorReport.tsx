@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import type { DoctorReportResponse, ReportContextNote, ReportRange, ReportReading, ReportProtocolTimelineItem } from '../../lib/health/report/types'
-import type { LabFinding } from '../../lib/health/labFindings'
+import { labFindingLabel, type LabFinding } from '../../lib/health/labFindings'
+import { ComparisonPreview, FindingEvidence } from './LabFindingsSummary'
 import styles from '../../app/health/report/report.module.css'
 import AiConsentDialog from './AiConsentDialog'
 
@@ -33,32 +34,6 @@ function readingStatus(reading: ReportReading) {
   if (reading.reference.status === 'normal') return 'Within supplied range/status'
   if (['high', 'low', 'abnormal'].includes(reading.reference.status)) return 'Outside supplied range/status'
   return 'Range/status unavailable'
-}
-
-function findingLabel(type: LabFinding['type']) {
-  const labels: Record<LabFinding['type'], string> = {
-    newly_outside_range: 'Newly outside supplied range',
-    returned_to_range: 'Returned inside supplied range',
-    persistently_outside_range: 'Outside supplied range on both dates',
-    newly_measured: 'Newly measured',
-    missing_from_latest_panel: 'Missing from latest panel',
-    increased: 'Increased',
-    decreased: 'Decreased',
-    unchanged: 'Unchanged',
-    outside_previously_observed_values: 'Outside previously observed values',
-    insufficient_history: 'Insufficient comparison history',
-  }
-  return labels[type]
-}
-
-function findingFacts(finding: LabFinding) {
-  const comparison = finding.evidence.comparison
-  if (comparison) return {
-    current: `${number(comparison.current.value)} ${finding.unit} · ${formatDate(comparison.current.date)}`,
-    detail: `${number(comparison.previous.value)} ${finding.unit} → ${number(comparison.current.value)} ${finding.unit} · ${signed(comparison.delta)} ${finding.unit}${comparison.percent == null ? '' : ` · ${signedPercent(comparison.percent)}`} over ${comparison.elapsedDays} days`,
-  }
-  const current = finding.evidence.current
-  return { current: current ? `${number(current.value)} ${finding.unit} · ${formatDate(current.date)}` : finding.reason, detail: finding.reason }
 }
 
 function sameMedication(a: ReportProtocolTimelineItem['before'], b: ReportProtocolTimelineItem['after']) {
@@ -211,8 +186,8 @@ export default function DoctorReport() {
 
         <section className={styles.reportSection} aria-labelledby="headline-heading">
           <div className={styles.sectionTitle}><span>04</span><div><h2 id="headline-heading">Top Headline Changes</h2><p>Canonical deterministic findings, ranked by the shared Health findings model.</p></div></div>
-          {intelligence.headlineChanges.length ? <div className={styles.headlineList}>{intelligence.headlineChanges.map(finding => { const facts = findingFacts(finding); return <div className={styles.headline} key={finding.id}>
-            <div><span>{findingLabel(finding.type)}</span><h3>{finding.biomarkerName}</h3></div><strong>{facts.current}</strong><p>{facts.detail}</p>
+          {intelligence.headlineChanges.length ? <div className={styles.headlineList}>{intelligence.headlineChanges.map(finding => { return <div className={styles.headline} key={finding.id}>
+            <h3>{finding.biomarkerName}</h3><ComparisonPreview finding={finding} /><p>{labFindingLabel(finding)}</p><FindingEvidence finding={finding} />
           </div> })}</div> : <p className={styles.empty}>No headline lab changes were derived from the eligible recorded evidence.</p>}
         </section>
 

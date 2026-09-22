@@ -155,9 +155,9 @@ test('Total Testosterone and Total Testosterone MS can form one same-unit canoni
   assert.ok(finding.limitations.includes('assay_method_unknown'))
   assert.ok(!m.supplementalLabUpdates.some(item => item.biomarkerKey === 'testosterone-total'))
   const content = copy(m)
-  assert.match(content, /1009 ng\/dL · Jun 29, 2026 → 1077 ng\/dL · Sep 8, 2026/)
-  assert.match(content, /\+68 ng\/dL · \+6\.7% over 71 days/)
-  assert.doesNotMatch(content, /Increased from previous eligible result/)
+  assert.match(content, /1009 ng\/dLJun 29, 20261077 ng\/dLSep 8, 2026/)
+  assert.match(content, /\+68 ng\/dL \(\+6\.7%\) over 71 days/)
+  assert.match(content, /Increased from previous eligible result/)
   assert.match(content, /Assay\/method compatibility is unverified/)
 })
 
@@ -232,7 +232,7 @@ test('supplemental cards disclose recorded current facts without fabricating a c
     panel('latest', '2026-09-01', [row('Fictional marker', 12), row('TESTOSTERONE, TOTAL, MS', 1077, { unit: 'ng/dL' })]),
   ]
   const rendered = view(build(p)), content = text(rendered)
-  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node) === 'Evidence').length, 2)
+  assert.equal(nodes(rendered, node => node.type === 'summary' && ['Evidence', 'View details'].includes(text(node))).length, 2)
   assert.match(content, /Current: 1077 ng\/dL · Sep 1, 2026/)
   assert.match(content, /Panel: Fictional panel/); assert.match(content, /Provider: Fictional lab/)
   assert.match(content, /Comparison: No eligible prior comparison is recorded\./)
@@ -417,21 +417,22 @@ test('one headline makes evidence review primary while clinician report remains 
 test('there is exactly one Lab updates heading with progressively disclosed evidence', () => {
   const rendered = view(build())
   assert.equal(nodes(rendered, node => /^h[1-6]$/.test(String(node.type)) && text(node) === 'Lab updates').length, 1)
-  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node) === 'Evidence').length, 1)
+  assert.equal(nodes(rendered, node => node.type === 'summary' && text(node) === 'View details').length, 1)
 })
 
-test('embedded canonical comparison tells the before-to-after story before Evidence and keeps percent concise', () => {
+test('embedded canonical comparison leads with dated values and keeps arithmetic in View details', () => {
   const p = [
     panel('old-igf', '2026-06-29', [row('IGF 1', 234, { unit: 'ng/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
     panel('new-igf', '2026-09-08', [row('IGF 1', 204, { unit: 'ng/mL', reference_low: null, reference_high: null, status: 'unknown', status_source: 'unknown' })]),
   ]
   const rendered = view(build(p)), content = text(rendered)
-  const evidence = nodes(rendered, node => node.type === 'summary' && text(node) === 'Evidence')[0]
-  assert.match(content, /234 ng\/mL · Jun 29, 2026 → 204 ng\/mL · Sep 8, 2026/)
-  assert.match(content, /−30 ng\/mL · −12\.8% over 71 days/)
-  assert.ok(content.indexOf('234 ng/mL') < content.indexOf('Evidence'))
+  const evidence = nodes(rendered, node => node.type === 'summary' && text(node) === 'View details')[0]
+  assert.match(content, /234 ng\/mLJun 29, 2026204 ng\/mLSep 8, 2026/)
+  assert.match(content, /-30 ng\/mL \(-12\.8%\) over 71 days/)
+  assert.ok(content.indexOf('234 ng/mL') < content.indexOf('View details'))
   assert.ok(evidence)
-  assert.doesNotMatch(content.slice(0, content.indexOf('Evidence')), /Decreased from previous eligible result/)
+  assert.match(content.slice(0, content.indexOf('View details')), /Decreased from previous eligible result/)
+  assert.doesNotMatch(content.slice(0, content.indexOf('View details')), /-12\.8%|Change:/)
 })
 test('current snapshot, findings, context, gaps and review maintain reading order', () => {
   const content = copy(contextModel([event()]))

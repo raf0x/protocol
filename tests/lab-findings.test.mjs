@@ -99,15 +99,16 @@ test('outside previously observed low', () => {
   const f = deriveOne([reading('a','2025-12-01',8), reading('b','2026-01-01',10), reading('c','2026-02-01',6)])
   assert.equal(f.type, 'outside_previously_observed_values'); assert.match(f.reason, /below the prior eligible values/i)
 })
-test('within previously observed values does not produce personal-history finding', () => {
+test('reversal within previously observed values is distinct from a new personal extreme', () => {
   const f = deriveOne([reading('a','2025-12-01',8), reading('b','2026-01-01',12), reading('c','2026-02-01',10)])
-  assert.equal(f.type, 'decreased')
+  assert.equal(f.type, 'reversal')
+  assert.equal(f.evidence.personalHistory.personalExtreme, null)
 })
 test('one eligible date produces insufficient history', () => assert.equal(deriveOne([reading('new','2026-02-01',10)]).type, 'insufficient_history'))
 test('missing comparator reasons remain limitations', () => assert.ok(deriveOne([reading('new','2026-02-01',10)]).limitations.includes('missing_comparator')))
 test('incompatible unit limitation never fabricates direction', () => {
   const f = deriveOne([reading('new','2026-02-01',10)], { limitations: ['incompatible_unit'], reasons: ['incompatible_unit'] })
-  assert.equal(f.type, 'insufficient_history'); assert.ok(f.limitations.includes('incompatible_unit'))
+  assert.equal(f.type, 'incompatible_comparison'); assert.ok(f.limitations.includes('incompatible_unit'))
 })
 test('missing unit limitation never fabricates direction', () => {
   const f = deriveOne([reading('new','2026-02-01',10)], { unit: '', limitations: ['missing_unit'], reasons: ['missing_unit'] })
@@ -156,7 +157,8 @@ test('finding provenance references current and previous source identities', () 
 })
 test('finding evidence excludes owner identity and parser raw content', () => {
   const f = deriveOne([reading('old','2026-01-01',10), reading('new','2026-02-01',12)])
-  const serialized = JSON.stringify(f); assert.doesNotMatch(serialized, /fictional-owner|fictional\.csv|sourceType|provenance/)
+  const serialized = JSON.stringify(f); assert.doesNotMatch(serialized, /fictional-owner|fictional\.csv|source_raw/)
+  assert.equal(f.evidence.history[0].provenance.sourceType, 'csv')
 })
 test('source trajectories are not mutated', () => {
   const s = series([reading('old','2026-01-01',10), reading('new','2026-02-01',12)])
