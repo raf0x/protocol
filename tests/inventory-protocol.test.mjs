@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -13,7 +13,7 @@ function load(path) {
   const code = ts.transpileModule(read(url), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true, target: ts.ScriptTarget.ES2021 } }).outputText
   new Function('require','module','exports',code)(name => {
     if (name.endsWith('/supabase')) return { createClient() { throw new Error('Tests must not connect to Supabase') } }
-    return name.startsWith('.') ? load(new URL(name + '.ts',url)) : require(name)
+    return name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name + '.tsx',url)) ? '.tsx' : '.ts'),url)) : require(name)
   },compiled,compiled.exports)
   return compiled.exports
 }
@@ -81,12 +81,12 @@ function functionCode(name) {
   return ts.transpileModule(found,{compilerOptions:{target:ts.ScriptTarget.ES2021}}).outputText
 }
 function saveHarness(timing='today') {
-  const initial=new Function(functionCode('newCompound')+'; return newCompound()')()
+  const initial=load('../lib/protocols/form.ts').newCompound()
   const calls=[], errors=[], notices=[]
-  const context={ savePending:{current:false},savedProtocolId:{current:null},compounds:[{...initial,...inventoryProtocolFields(item)}],
-    fromInventory:true,mode:'create',inventoryTiming:timing,startDate:timing==='scheduled'?'2099-01-01':'',planned:timing==='planned',editingId:null,
-    continuedFromId:'',removedCompoundIds:[],inventoryProtocolDates,localCalendarDate,...load('../lib/health/dosingEntry.ts'),...load('../lib/health/phaseLifecycle.ts'),
-    setError(value){errors.push(value)},setSaving(){},setSavedNotice(value){notices.push(value)},setShowForm(){},setEditingId(){},load:async()=>{},
+  const context={ savePending:{current:false},savedProtocolId:{current:null},compounds:[{...initial,...inventoryProtocolFields(item),dose:'5',dose_unit:'mg'}],
+    fromInventory:true,mode:'create',startDate:timing==='scheduled'?'2099-01-01':timing==='today'?localCalendarDate():'',planned:timing==='planned',editingId:null,
+    continuedFromId:'',removedCompoundIds:[],localCalendarDate,...load('../lib/health/dosingEntry.ts'),...load('../lib/protocols/form.ts'),...load('../lib/protocols/quickStart.ts'),
+    setQuickValidationAttempts(){},setError(value){errors.push(value)},setSaving(){},setSavedNotice(value){notices.push(value)},setShowForm(){},setEditingId(){},load:async()=>{},
     saveProtocolWithEvents:async input=>{calls.push(input);return 'created-protocol-id'} }
   const save=new Function('context','with(context) {'+functionCode('save')+'; return save }')(context)
   return {save,context,calls,errors,notices}
@@ -94,7 +94,9 @@ function saveHarness(timing='today') {
 
 test('real editor save sends only canonical protocol creation, with no dose inference or inventory mutation', async () => {
   for (const timing of ['today','scheduled','planned']) {
-    const {save,calls,errors,notices}=saveHarness(timing)
+    const {save,context,calls,errors,notices}=saveHarness(timing)
+    context.compounds[0].dose='';await save();assert.equal(calls.length,0,'Recorded inventory facts alone do not complete dosing')
+    context.compounds[0].dose='5';errors.length=0
     await save()
     assert.deepEqual(errors,['']);assert.equal(calls.length,1)
     const payload=calls[0], compound=payload.compounds[0]
@@ -103,7 +105,7 @@ test('real editor save sends only canonical protocol creation, with no dose infe
     assert.equal(compound.vials_in_stock,null);assert.equal(compound.bac_water_ml,null)
     assert.equal(compound.reconstitution_date,null);assert.equal(compound.phase.route,null)
     assert.equal(compound.phase.frequency,'');assert.equal(compound.phase.end_week,null)
-    assert.equal(compound.phase.dosing_entry.dose,'');assert.equal(compound.phase.dosing_entry.vial_strength,'10')
+    assert.equal(compound.phase.dosing_entry.dose,'5');assert.equal(compound.phase.dosing_entry.vial_strength,'10')
     assert.match(notices[0],/Protocol created\. Your inventory quantity is unchanged\./)
     assert.equal(item.quantity,8)
   }
@@ -122,8 +124,8 @@ test('real editor blocks concurrent and repeated successful submissions, includi
 })
 
 test('invalid dates never reach save; explicit save failures permit correction and retry', async () => {
-  const {save,context,calls,errors}=saveHarness('scheduled')
-  context.startDate='';await save();assert.equal(calls.length,0);assert.match(errors.at(-1),/valid future start date/)
+  const {save,context,calls}=saveHarness('scheduled')
+  context.startDate='2026-02-30';await save();assert.equal(calls.length,0);assert.match(context.quickStartIssue({startDate:context.startDate,compounds:context.compounds}).message,/valid start date/)
   context.startDate='2099-01-01'
   const original=context.saveProtocolWithEvents
   context.saveProtocolWithEvents=async()=>{throw new Error('Rejected')}
@@ -131,18 +133,17 @@ test('invalid dates never reach save; explicit save failures permit correction a
   context.saveProtocolWithEvents=original;await save();assert.equal(calls.length,1)
 })
 
-test('mobile action, accessible timing options, and existing Quick Add fields remain available', () => {
-  const Timing=load('../components/inventory/InventoryProtocolTiming.tsx').default
-  const html=renderToStaticMarkup(React.createElement(Timing,{value:'today',disabled:false,onChange(){}}))
-  for (const label of ['Start today','Schedule for later','Save as Planned']) assert.ok(html.includes(label))
-  assert.equal((html.match(/type="radio"/g)||[]).length,3)
-  assert.match(html,/aria-describedby="inventory-scheduled-help"/)
-  const Quick=load('../components/protocols/QuickProtocolFields.tsx').default
+test('inventory action joins the shared creation surface with human timing and conditional fields', () => {
+  const Timing=load('../components/protocols/ProtocolStartDate.tsx').default
+  const html=renderToStaticMarkup(React.createElement(Timing,{value:localCalendarDate(),today:localCalendarDate(),onChange(){}}))
+  for (const label of ['When will you start?','Today','Choose date','Not sure yet']) assert.ok(html.includes(label))
+  assert.doesNotMatch(html,/Schedule for later|Save as Planned/)
+  const Quick=load('../components/protocols/ProtocolQuickStart.tsx').default
   const fields={...saveHarness().context.compounds[0]}
-  const quick=renderToStaticMarkup(React.createElement(Quick,{value:fields,onChange(){}}))
-  for (const label of ['Medication dose per injection','BAC water (mL)','Vials in stock','Frequency','Schedule','Duration']) assert.ok(quick.includes(label))
-  assert.match(quick,/<option value="" selected="">Choose a unit/)
+  const quick=renderToStaticMarkup(React.createElement(Quick,{value:{startDate:localCalendarDate(),compounds:[{...fields,dose_unit:''}]},today:localCalendarDate(),onChange(){}}))
+  for (const label of ['Dose per injection','BAC water (mL)','Vials in stock','Frequency','How long will you run this protocol?']) assert.ok(quick.includes(label))
+  assert.match(quick,/<option value="" selected="">Choose unit/)
   assert.match(read('../components/inventory/Inventory.tsx'),/Use in a protocol<\/Link>/)
   assert.match(source,/Creating a protocol will not change your inventory quantity\./)
-  assert.match(source,/Add more details/)
+  assert.doesNotMatch(source,/Customize details/);assert.match(quick,/Add preparation, inventory or notes/)
 })

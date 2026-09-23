@@ -9,6 +9,6 @@ export default function EmptyProtocolRings() {
       </svg>
       <span>Add your first protocol</span>
     </Link>
-    <p>Start with what you know. Save it for later or start tracking today.</p>
+    <p>Choose a compound, then confirm when you’ll start.</p>
   </div>
 }

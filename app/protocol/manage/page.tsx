@@ -3,77 +3,24 @@ import ProtocolDialog from '../../../components/protocols/ProtocolDialog'
 import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import EditorSection from '../../../components/protocols/EditorSection'
-import QuickProtocolFields from '../../../components/protocols/QuickProtocolFields'
-import InventoryProtocolTiming from '../../../components/inventory/InventoryProtocolTiming'
+import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
+import { newCompound, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
+import { createQuickStart, quickStartDates, quickStartIssue, requireIdentifier } from '../../../lib/protocols/quickStart'
 import { loadInventoryItem } from '../../../lib/inventory/client'
-import { inventoryProtocolDates, inventoryProtocolFields, type InventoryProtocolTiming as InventoryTiming } from '../../../lib/inventory/protocol'
 import { localCalendarDate, protocolLifecycle, protocolSaveDates } from '../../../lib/health/protocolDates'
 import { useLocalCalendarDate } from '../../../lib/health/useLocalCalendarDate'
 import './protocols.css'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
-import { phaseEndWeek } from '../../../lib/health/phaseLifecycle'
 import { currentPhase } from '../../../lib/health/dosing'
-import { dosingDisplay, entryFromForm, entryFormState, interpretEntry, validDate, type EntryMode } from '../../../lib/health/dosingEntry'
+import { dosingDisplay, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
 import { saveProtocolWithEvents, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
 const TIMES = ['Morning','Afternoon','Evening','Night']
 const UNITS = ['mg','mcg','IU']
-
-type Compound = {
-  id?: string
-  phase_id?: string
-  phase_start_week: string
-  concentration_value: string
-  concentration_unit: string
-  input_mode: EntryMode
-  legacy_value?: string
-  injection_volume: string
-  vial_label: string
-  syringe_markings: string
-  syringe_scale: string
-  route: string
-  reviewed: boolean
-  phase_options?: { id: string; name: string; start_week: number; end_week: number | null }[]
-  name: string
-  isPreMixed: boolean
-  vial_strength: string
-  vial_unit: string
-  bac_water_ml: string
-  reconstitution_date: string
-  dose: string
-  dose_unit: string
-  duration_weeks: string
-  frequency_mode: 'weekly' | 'rolling'
-  days_of_week: number[]
-  cycle_days: string
-  time_of_day: string
-  vials_in_stock: string
-  notes: string
-}
-
-function newCompound(): Compound {
-  return {
-    injection_volume:'',vial_label:'',input_mode: 'medication', syringe_markings: '', name: '', phase_start_week: '1', concentration_value: '', concentration_unit: '', syringe_scale: '', route: '', reviewed: true,
-    isPreMixed: false,
-    vial_strength: '',
-    vial_unit: 'mg',
-    bac_water_ml: '',
-    reconstitution_date: '',
-    dose: '',
-    dose_unit: 'mg',
-    duration_weeks: '',
-    frequency_mode: 'weekly',
-    days_of_week: [],
-    cycle_days: '3',
-    time_of_day: 'Morning',
-    vials_in_stock: '',
-    notes: '',
-  }
-}
 
 export default function ManagePage() {
   const router = useRouter()
@@ -83,11 +30,10 @@ export default function ManagePage() {
   const [savedNotice,setSavedNotice] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [quickAdd, setQuickAdd] = useState(false)
   const savePending = useRef(false)
   const savedProtocolId = useRef<string | null>(null)
+  const handoffInitialized = useRef(false)
   const [fromInventory, setFromInventory] = useState(false)
-  const [inventoryTiming, setInventoryTiming] = useState<InventoryTiming>('today')
   const mode = editingId === null ? 'create' : 'edit'
   const [planned, setPlanned] = useState(false)
   const [startDate, setStartDate] = useState(localCalendarDate())
@@ -112,6 +58,17 @@ export default function ManagePage() {
   const [effectiveDate, setEffectiveDate] = useState('')
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
   const [completionDate, setCompletionDate] = useState(today)
+  const [quickValidationAttempts, setQuickValidationAttempts] = useState(0)
+  const creationIssue = mode === 'create' && quickValidationAttempts ? quickStartIssue({ startDate, compounds }) : null
+
+  useEffect(() => {
+    const message = document.querySelector<HTMLElement>('[data-quick-error], .protocol-editor [role="alert"]')
+    if (!message) return
+    let disclosure = message.closest('details')
+    while (disclosure) { disclosure.open = true; disclosure = disclosure.parentElement?.closest('details') ?? null }
+    message.focus({ preventScroll: true })
+    message.scrollIntoView({ block: 'center' })
+  }, [quickValidationAttempts, error])
 
   function protocolDurationLabel(p: any): string {
     if (!p?.start_date || !p?.completed_date) return ''
@@ -136,23 +93,25 @@ export default function ManagePage() {
       if (loadError) throw new Error('Protocols could not be loaded. Please refresh to try again.')
       setProtocols(data || [])
       const params = new URLSearchParams(window.location.search)
+      if ((params.get('new') === '1' || params.has('dose')) && handoffInitialized.current) return
       const target = params.get('protocol')
       const compoundTarget = params.get('compound')
       const selected = params.get('new') === '1' ? undefined : data?.find(p => p.id === target || p.compounds?.some((c: { id: string }) => c.id === compoundTarget))
       if (selected && !showForm) { startEdit(selected); window.history.replaceState(null,'','/protocol/manage') }
       if (params.has('inventory') && params.get('new') === '1' && !showForm) {
+        handoffInitialized.current = true
         try {
-          const item = await loadInventoryItem(params.get('inventory') || '', supabase)
-          startNew()
+          const item = await loadInventoryItem(requireIdentifier(params.get('inventory') || ''), supabase)
+          startNew(createQuickStart(params, item))
           setFromInventory(true)
-          setCompounds([{ ...newCompound(), ...inventoryProtocolFields(item) }])
           window.history.replaceState(null, '', '/protocol/manage')
         } catch (reason) {
+          handoffInitialized.current = false
           setError(reason instanceof Error ? reason.message : 'Inventory could not be loaded.')
         }
       } else if (!selected && (params.get('new') === '1' || params.has('dose')) && !showForm) {
-        startNew()
-        if (params.has('dose')) setCompounds([{...newCompound(),name:params.get('name') || '',dose:params.get('dose') || '',dose_unit:params.get('dose_unit') || 'mg',vial_strength:params.get('vial') || '',vial_unit:params.get('vial_unit') || 'mg',bac_water_ml:params.get('water') || '',syringe_scale:params.get('syringe_scale') || ''}])
+        handoffInitialized.current = true
+        startNew(createQuickStart(params))
         window.history.replaceState(null,'','/protocol/manage')
       }
     } catch (reason) {
@@ -333,19 +292,18 @@ export default function ManagePage() {
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1_000)
   }
 
-  function startNew() {
+  function startNew(draft = createQuickStart()) {
     savedProtocolId.current = null
     setFromInventory(false)
-    setInventoryTiming('today')
     setSavedNotice('')
     window.scrollTo({ top: 0 })
     setDetailId(null)
     setRemovedCompoundIds([])
     setEditingId(null)
-    setQuickAdd(true)
-    setPlanned(false)
-    setStartDate(localCalendarDate())
-    setCompounds([newCompound()])
+    setQuickValidationAttempts(0)
+    setPlanned(!draft.startDate)
+    setStartDate(draft.startDate)
+    setCompounds(draft.compounds)
     setContinuedFromId('')
     setChangeHappenedEarlier(false)
     setEffectiveDate('')
@@ -361,7 +319,6 @@ export default function ManagePage() {
     setRemovedCompoundIds([])
     const parameters = new URLSearchParams(window.location.search)
     setEditingId(p.id)
-    setQuickAdd(false)
     setChangeHappenedEarlier(false)
     setEffectiveDate('')
     setPlanned(p.status === 'planned')
@@ -389,7 +346,7 @@ export default function ManagePage() {
         frequency_mode: isRolling ? 'rolling' : 'weekly',
         days_of_week: ph?.days_of_week || [],
         cycle_days: cycleDays,
-        time_of_day: ph?.time_of_day || 'Morning',
+        time_of_day: ph?.time_of_day ? ph.time_of_day[0].toUpperCase() + ph.time_of_day.slice(1) : '',
         vials_in_stock: c.vials_in_stock?.toString() || '',
         notes: c.notes || '',
         ...entryFormState(ph),
@@ -407,11 +364,7 @@ export default function ManagePage() {
   }
 
   function updateCompound(i: number, field: string, value: any) {
-    const u = [...compounds]
-    if (field === 'input_mode') u[i] = {...u[i],input_mode:value,reviewed:false, syringe_markings:value==='syringe' && !u[i].syringe_markings ? u[i].legacy_value || '' : u[i].syringe_markings, injection_volume:value==='volume' && !u[i].injection_volume ? u[i].legacy_value || '' : u[i].injection_volume}
-    else u[i] = {...u[i], [field]: value}
-    if (['dose','dose_unit','input_mode','syringe_markings','syringe_scale','vial_strength','vial_unit','bac_water_ml','concentration_value','concentration_unit','injection_volume','vial_label'].includes(field)) u[i].reviewed = false
-    setCompounds(u)
+    setCompounds(current => current.map((c, index) => index === i ? updateCompoundDraft(c, field as keyof Compound, value) : c))
   }
 
   function toggleDay(ci: number, dayNum: number) {
@@ -424,29 +377,17 @@ export default function ManagePage() {
   async function save() {
     if (savePending.current || savedProtocolId.current) return
     setError('')
+    if (mode === 'create') {
+      setQuickValidationAttempts(attempt => attempt + 1)
+      if (quickStartIssue({ startDate, compounds })) return
+    }
     if (!compounds.length || compounds.some(c => !c.name.trim())) { setError('Every compound needs a name.'); return }
     if (compounds.some(c => c.reconstitution_date && !validDate(c.reconstitution_date))) {setError('Enter a valid calendar date.');return}
     savePending.current = true
     setSaving(true)
     try {
-      const dates = fromInventory && mode === 'create' ? inventoryProtocolDates(inventoryTiming, startDate) : protocolSaveDates(mode === 'create'
-        ? { mode, planned, startDate, today: localCalendarDate() }
-        : { mode, planned, startDate, today: localCalendarDate(), originalStartDate: editingProtocol?.status === 'active' ? editingProtocol.start_date : null, useDifferentDate: changeHappenedEarlier, effectiveDate })
-      const payload = compounds.map(c => {
-        const entry = entryFromForm(c)
-        // Incomplete interpretation is guidance, not a save prerequisite.
-        const start = Number(c.phase_start_week)
-        const end = phaseEndWeek(start,c.duration_weeks)
-        return { id: c.id || null, name: c.name.trim(), 
-          vial_strength: c.isPreMixed || !c.vial_strength ? null : Number(c.vial_strength), vial_unit: c.isPreMixed ? null : c.vial_unit,
-          bac_water_ml: c.isPreMixed || !c.bac_water_ml ? null : Number(c.bac_water_ml), reconstitution_date: c.isPreMixed ? null : c.reconstitution_date || null,
-          notes: c.notes.trim(), vials_in_stock: c.vials_in_stock ? Number(c.vials_in_stock) : null,
-          phase: { id: c.phase_id || null, dosing_entry:entry, start_week: start, end_week: end,
-            frequency: c.frequency_mode === 'rolling' ? (c.cycle_days ? `every${c.cycle_days}days` : '') : c.days_of_week.length === 7 ? 'daily' : c.days_of_week.length ? `${c.days_of_week.length}x/week` : '',
-            days_of_week: c.frequency_mode === 'weekly' ? c.days_of_week : [], day_of_week: c.frequency_mode === 'weekly' ? c.days_of_week[0] : null,
-            time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
-        }
-      })
+      const dates = mode === 'create' ? quickStartDates(startDate) : protocolSaveDates({ mode, planned, startDate, today: localCalendarDate(), originalStartDate: editingProtocol?.status === 'active' ? editingProtocol.start_date : null, useDifferentDate: changeHappenedEarlier, effectiveDate })
+      const payload = protocolCompoundPayload(compounds)
       savedProtocolId.current = await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
       })
@@ -464,14 +405,38 @@ export default function ManagePage() {
 
   const is = { width:'100%', background:inp, border:'1px solid '+bd, borderRadius:'8px', padding:'10px 12px', color:'var(--color-text)', fontSize:'15px', boxSizing:'border-box' as const }
 
+  function cancelForm() {
+    if (fromInventory) router.push('/protocol/inventory')
+    else { setShowForm(false); setEditingId(null) }
+  }
+  const creationActions = <div className="quick-save-actions">
+    <button type="button" className="quick-cancel" disabled={saving} onClick={cancelForm}>Cancel</button>
+    <button type="button" className="quick-save-primary" disabled={saving} aria-busy={saving} onClick={save}>{saving ? 'Saving...' : startDate ? 'Start tracking' : 'Save protocol'}</button>
+  </div>
+
+  const continuationField = <>{completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
+              <div style={{marginBottom:'16px'}}>
+                <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>CONTINUING A PREVIOUS PROTOCOL? <span style={{color:mg,fontWeight:'400',textTransform:'none',letterSpacing:0}}>(optional)</span></label>
+                <select aria-label='Continuing a previous protocol' value={continuedFromId} onChange={e => setContinuedFromId(e.target.value)} style={is}>
+                  <option value=''>None</option>
+                  {completedProtocols.filter(cp => cp.id !== editingId).map(cp => (
+                    <option key={cp.id} value={cp.id}>
+                      {cp.name} — {protocolDurationLabel(cp).replace(' protocol','s')}, ended {new Date(cp.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                    </option>
+                  ))}
+                </select>
+                <p style={{fontSize:'11px',color:mg,marginTop:'4px'}}>Links this protocol to a completed one — for resuming after a break, or evolving into a new blend. Your history carries over as a badge on the dashboard.</p>
+              </div>
+            )}</>
+
   if (loading) return <main className="protocols-page"><div className="protocols-container"><header className="protocols-header"><h1>Protocols</h1></header><p role="status">Loading your protocols…</p></div></main>
 
   return (
     <main className="protocols-page">
-      <div className="protocols-container">
+      <div className={`protocols-container${showForm && mode === 'create' ? ' protocols-creation-container' : ''}`}>
         {!detailId && <header className="protocols-header">
-          <div><h1>{showForm ? (editingId ? 'Edit protocol' : 'Add Protocol') : 'Protocols'}</h1><p>{showForm ? 'Save what you know. Details can come later.' : 'Your plans, at a glance.'}</p></div>
-          {!showForm && <button className="protocol-primary" onClick={startNew}>+ Add Protocol</button>}
+          <div><h1>{showForm ? (editingId ? 'Edit protocol' : 'Add Protocol') : 'Protocols'}</h1><p>{showForm ? (editingId ? 'Save what you know. Details can come later.' : 'Choose a compound and confirm the basics.') : 'Your plans, at a glance.'}</p></div>
+          {!showForm && <button className="protocol-primary" onClick={() => startNew()}>+ Add Protocol</button>}
         </header>}
         {!showForm && !detailId && <details className="protocol-library-tools"><summary>Library tools</summary><div className="protocol-action-row">
           <button onClick={exportToCSV}>Export CSV</button>
@@ -494,31 +459,9 @@ export default function ManagePage() {
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
-            {quickAdd && mode === 'create' && <label className="protocol-quick-name">What are you taking?<input aria-label="Compound name" value={compounds[0].name} onChange={event => updateCompound(0,'name',event.target.value)} placeholder="Item or compound name" /></label>}
-            {fromInventory && <>
-              <p>Creating a protocol will not change your inventory quantity.</p>
-              {compounds[0].reconstitution_date && <p>Recorded reconstitution date: {compounds[0].reconstitution_date}</p>}
-              <InventoryProtocolTiming value={inventoryTiming} disabled={saving} onChange={timing => {
-                setInventoryTiming(timing); setPlanned(timing === 'planned')
-                setStartDate(timing === 'today' ? localCalendarDate() : '')
-              }} />
-            </>}
-            {!editingId && !fromInventory && <fieldset className="protocol-use-choice">
-              <legend>When should this protocol begin?</legend>
-              <div className="protocol-use-options">
-                <label className="protocol-use-option">
-                  <input type="radio" name="protocol-state" value="active" checked={!planned} onChange={() => setPlanned(false)} aria-describedby="protocol-active-help" />
-                  <span><strong>Choose a start date</strong><small id="protocol-active-help">Today, a past date, or a future date. Tracking begins automatically on that date.</small></span>
-                </label>
-                <label className="protocol-use-option">
-                  <input type="radio" name="protocol-state" value="planned" checked={planned} onChange={() => setPlanned(true)} aria-describedby="protocol-planned-help" />
-                  <span><strong>Save for later without a start date</strong><small id="protocol-planned-help">Saved as Planned. Activate or schedule it when you are ready.</small></span>
-                </label>
-              </div>
-            </fieldset>}
+            {fromInventory && <p>Creating a protocol will not change your inventory quantity.</p>}
             {editingId && planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
-
-            {quickAdd && mode === 'create' ? <QuickProtocolFields value={compounds[0]} onChange={(field,value) => updateCompound(0,field,value)} /> : <>
+            {mode === 'create' ? <ProtocolQuickStart value={{ startDate, compounds }} issue={creationIssue} actions={creationActions} saveError={error} today={today} onChange={draft => { setStartDate(draft.startDate); setPlanned(!draft.startDate); setCompounds(draft.compounds) }}>{continuationField}</ProtocolQuickStart> : <>
             {compounds.map((c, ci) => (
               <div key={ci} style={{marginBottom:'24px'}}>
                 {compounds.length > 1 && (
@@ -560,7 +503,7 @@ export default function ManagePage() {
                 <section className="protocol-intake-group"><h3>Administration</h3>
                 <div className="protocol-intake-fields">
                   <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
-                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option></select></label>
+                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option>{(!editingId || c.route === 'Oral') && <option>Oral</option>}{(!editingId || c.route === 'Other') && <option>Other</option>}</select></label>
                 </div>
                 </section>
                 <section className="protocol-intake-group"><h3>Preparation</h3>
@@ -781,29 +724,15 @@ export default function ManagePage() {
             <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
             </>}
 
-            {!planned && (!fromInventory || inventoryTiming === 'scheduled') && <div style={{marginBottom:'16px'}}>
+            {editingId && !planned && <div style={{marginBottom:'16px'}}>
               <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>Protocol start date</label>
-              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required min={fromInventory ? today : undefined} value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
               {startDate > today && <p>Scheduled · Starts {startDate}. Tracking begins automatically.</p>}
             </div>}
-            {quickAdd && mode === 'create' && <button type="button" className="protocol-more-details" onClick={() => setQuickAdd(false)}>Add more details</button>}
 
-            {!quickAdd && completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
-              <div style={{marginBottom:'16px'}}>
-                <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>CONTINUING A PREVIOUS PROTOCOL? <span style={{color:mg,fontWeight:'400',textTransform:'none',letterSpacing:0}}>(optional)</span></label>
-                <select aria-label='Continuing a previous protocol' value={continuedFromId} onChange={e => setContinuedFromId(e.target.value)} style={is}>
-                  <option value=''>None</option>
-                  {completedProtocols.filter(cp => cp.id !== editingId).map(cp => (
-                    <option key={cp.id} value={cp.id}>
-                      {cp.name} — {protocolDurationLabel(cp).replace(' protocol','s')}, ended {new Date(cp.completed_date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                    </option>
-                  ))}
-                </select>
-                <p style={{fontSize:'11px',color:mg,marginTop:'4px'}}>Links this protocol to a completed one — for resuming after a break, or evolving into a new blend. Your history carries over as a badge on the dashboard.</p>
-              </div>
-            )}
+            {mode === 'edit' && continuationField}
 
-            {error && <div role="alert" style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
+            {error && mode === 'edit' && <div role="alert" tabIndex={-1} style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
 
             {editingId && !planned && !preStart && <div className="protocol-effective-date">
               <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate('')}}>Use a different effective date</button>
@@ -811,14 +740,14 @@ export default function ManagePage() {
               <p>Changes are effective today unless you choose another date.</p>
             </div>}
 
-            <div className="protocol-save-bar">
-              <button disabled={saving} onClick={() => {if (fromInventory) router.push('/protocol/inventory'); else {setShowForm(false);setEditingId(null)}}} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
-              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':mode === 'edit'?'Save changes':'Create protocol'}</button>
-            </div>
+            {mode === 'edit' && <div className="protocol-save-bar">
+              <button disabled={saving} onClick={cancelForm} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>
+              <button onClick={save} disabled={saving} style={{flex:2,background:saving?'var(--color-green-20)':g,color:saving?mg:'var(--color-green-text)',border:'none',borderRadius:'8px',padding:'12px',fontSize:'14px',fontWeight:'700',cursor:'pointer'}}>{saving?'Saving...':mode === 'edit'?'Save changes':startDate?'Start tracking':'Save protocol'}</button>
+            </div>}
           </div>
         )}
 
-        {!showForm && !detailId && <ProtocolLibrary onReload={load} protocols={protocols} today={new Date().toLocaleDateString('en-CA')} onOpen={id => {setDetailId(id);window.scrollTo({top:0})}} onAdd={startNew} selecting={selectMode} selected={selectedProtocols} onSelect={toggleProtocolSelect} />}
+        {!showForm && !detailId && <ProtocolLibrary onReload={load} protocols={protocols} today={new Date().toLocaleDateString('en-CA')} onOpen={id => {setDetailId(id);window.scrollTo({top:0})}} onAdd={() => startNew()} selecting={selectMode} selected={selectedProtocols} onSelect={toggleProtocolSelect} />}
         {!showForm && detailId && (() => {
           const selected = protocols.find(p => p.id === detailId)
           if (!selected) return <button className="protocol-back" onClick={() => setDetailId(null)}>Return to protocols</button>

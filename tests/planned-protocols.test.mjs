@@ -125,24 +125,18 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
   try{
     function render(){slot=0;refSlot=0;const nodes=[];function visit(node){if(Array.isArray(node))return node.forEach(visit);if(!React.isValidElement(node))return;nodes.push(node);visit(node.props.children)}visit(compiled.exports.default());return nodes}
     render().find(node=>node.props.onAdd).props.onAdd()
-    for (const wording of ['When should this protocol begin?', 'Choose a start date', 'Today, a past date, or a future date. Tracking begins automatically on that date.', 'Save for later without a start date', 'Saved as Planned. Activate or schedule it when you are ready.']) {
-      assert.ok(render().some(node=>node.props.children===wording), wording)
-    }
-    const radio = value => render().find(node=>node.type==='input' && node.props.type==='radio' && node.props.value===value)
-    assert.equal(radio('active').props.checked,true)
-    radio('planned').props.onChange()
-    assert.equal(radio('planned').props.checked,true)
-    assert.ok(!render().some(node=>node.props['aria-label']==='Protocol start date'))
-    if(state==='active') radio('active').props.onChange()
-    render().find(node=>node.props['aria-label']==='Compound name').props.onChange({target:{value:'Saved compound'}})
-    const submit = () => render().find(node=>node.type==='button'&&node.props.children==='Create protocol')
+    const draft = () => render().find(node=>node.type?.name==='ProtocolQuickStart')
+    assert.ok(draft())
+    const initial = draft().props.value
+    assert.equal(initial.startDate, new Date().toLocaleDateString('en-CA'))
+    draft().props.onChange({...initial,startDate:state==='active'?'2026-09-20':'',compounds:[{...initial.compounds[0],name:'Saved compound',dose:'5',dose_unit:'mg'}]})
+    const submit = () => draft().props.actions.props.children.find(node=>node.type==='button'&&node.props.children===(state==='active'?'Start tracking':'Save protocol'))
     if(state==='active') {
-      const date = () => render().find(node=>node.props['aria-label']==='Protocol start date')
-      assert.equal(date().props.required,true)
-      date().props.onChange({target:{value:''}})
+      const current = draft().props.value
+      draft().props.onChange({...current,startDate:'2026-02-30'})
       await submit().props.onClick()
-      assert.equal(calls.length,0,'Active requires a valid start date')
-      date().props.onChange({target:{value:'2026-09-20'}})
+      assert.equal(calls.length,0,'An invalid calendar date is blocked')
+      draft().props.onChange({...current,startDate:'2026-09-20'})
     }
     await submit().props.onClick()
     assert.equal(calls.length,1)

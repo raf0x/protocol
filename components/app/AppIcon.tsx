@@ -1,4 +1,4 @@
-export type IconName = 'today' | 'protocols' | 'timeline' | 'health' | 'more' | 'chevron' | 'check' | 'profile' | 'close'
+export type IconName = 'today' | 'protocols' | 'timeline' | 'health' | 'more' | 'chevron' | 'check' | 'profile' | 'close' | 'search'
 
 const paths: Record<IconName, string> = {
   today: 'm3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
@@ -10,6 +10,7 @@ const paths: Record<IconName, string> = {
   check: 'm5 12 4 4L19 6',
   profile: 'M20 21a8 8 0 0 0-16 0M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
   close: 'm6 6 12 12M6 18 18 6',
+  search: 'M21 21l-5-5m2-6a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
 }
 
 export default function AppIcon({ name, size = 22 }: { name: IconName; size?: number }) {

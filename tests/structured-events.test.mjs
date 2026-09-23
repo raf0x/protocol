@@ -40,7 +40,10 @@ test('failed event transaction is surfaced rather than reported as saved', async
 test('structured dose event stores previous and new dose and unit', () => { for (const field of ['previousDose','previousUnit','newDose','newUnit']) assert.match(migration,new RegExp(`'${field}'`)) })
 test('unchanged dose is compared before an event is inserted', () => assert.match(migration,/doseFingerprint' IS DISTINCT FROM current_state->'doseFingerprint/))
 test('notes-only edits are excluded from the dosing fingerprint', () => { const helper=migration.slice(migration.indexOf("'doseFingerprint'"),migration.indexOf('CREATE OR REPLACE FUNCTION public.save_protocol_with_events_v1')); assert.doesNotMatch(helper,/notes/) })
-test('editor resolves dates through the explicit create/edit policy', () => assert.match(manage,/protocolSaveDates\(mode === 'create'/))
+test('editor resolves dates through the shared create policy and existing edit policy', () => {
+  assert.match(manage, /mode === 'create' \? quickStartDates\(startDate\) : protocolSaveDates\(/)
+  assert.match(readFileSync(new URL('../lib/protocols/quickStart.ts', import.meta.url), 'utf8'), /protocolSaveDates\(\{ mode: 'create', planned: !startDate, startDate, today \}\)/)
+})
 test('editor offers a secondary effective-date option', () => assert.match(manage,/Use a different effective date/))
 test('new phase insertion creates phase_started history', () => assert.match(migration,/previous IS NULL[\s\S]+?'phase_started'/))
 test('pause is a one-tap structured transition', async () => { const c=client(); await mutations.transitionProtocol({protocolId:'p',action:'pause',effectiveDate:'2026-09-10'},c); assert.equal(c.calls[0][1].p_action,'pause'); assert.match(detail,/Pause protocol/) })

@@ -1,26 +1,73 @@
-'use client'
+﻿'use client'
+import { useState } from 'react'
+import AppIcon from '../app/AppIcon'
+import { resolveCompound } from '../../lib/protocols/catalog'
+import { updateCompoundDraft, type Compound } from '../../lib/protocols/form'
+import { setFrequency, setPreparation, toggleQuickWeekday, type QuickStartIssue } from '../../lib/protocols/quickStart'
+import { QuickAmountField, QuickChoices, QuickStartError } from './QuickStartControls'
 
-type Fields = {
-  vial_strength: string; vial_unit: string; isPreMixed: boolean; bac_water_ml: string
-  dose: string; dose_unit: string; vials_in_stock: string; frequency_mode: 'weekly' | 'rolling'
-  days_of_week: number[]; cycle_days: string; time_of_day: string; duration_weeks: string
+export { QuickStartError } from './QuickStartControls'
+type FieldProps = { value: Compound; onChange: (value: Compound) => void; idPrefix?: string; issue?: QuickStartIssue | null }
+function draftControls(c: Compound, onChange: FieldProps['onChange'], idPrefix: string, issue?: QuickStartIssue | null) {
+  const update = <K extends keyof Compound>(key: K, value: Compound[K]) => onChange(updateCompoundDraft(c, key, value))
+  const numeric = (key: keyof Compound, label: string, unit?: string, min = 0, step = 'any', accessibleName = label) => <QuickAmountField id={`${idPrefix}-${key}`} label={label} accessibleName={accessibleName} value={String(c[key] ?? '')} onChange={value => update(key, value)} unit={unit} min={min} step={step} error={issue?.field === key ? issue.message : null} />
+  const amount = (key: keyof Compound, label: string, unitKey: keyof Compound, unitLabel: string, options: readonly string[], accessibleName = label, helper?: string) => <QuickAmountField id={`${idPrefix}-${key}`} label={label} accessibleName={accessibleName} value={String(c[key] ?? '')} onChange={value => update(key, value)} unit={{ value: String(c[unitKey] ?? ''), label: unitLabel, options, onChange: value => update(unitKey, value) }} error={issue && [key, unitKey].includes(issue.field as keyof Compound) ? issue.message : null} invalid={issue?.field === unitKey ? 'unit' : 'value'} helper={helper} />
+  return { update, numeric, amount }
 }
-export default function QuickProtocolFields({ value, onChange }: { value: Fields; onChange: (field: string, value: string | boolean | number[]) => void }) {
-  const number = (field: keyof Fields, label: string, min = 0, step = 'any') => <label>{label}<input aria-label={label} type="number" min={min} step={step} value={String(value[field])} onChange={event => onChange(field, event.target.value)} /></label>
-  const unit = (field: 'vial_unit' | 'dose_unit', label: string) => <label>{label}<select aria-label={label} value={value[field]} onChange={event => onChange(field, event.target.value)}><option value="">Choose a unit</option>{['mg','mcg','IU'].map(unit => <option key={unit}>{unit}</option>)}</select></label>
-  return <div className="protocol-quick-fields">
-    <div className="protocol-quick-grid">{number('vial_strength','Vial strength')}{unit('vial_unit','Vial strength unit')}</div>
-    <label className="protocol-check"><input type="checkbox" checked={value.isPreMixed} onChange={event => onChange('isPreMixed',event.target.checked)} />Pre-mixed: no BAC water needed</label>
-    {!value.isPreMixed && number('bac_water_ml','BAC water (mL)')}
-    <div className="protocol-quick-grid">{number('dose','Medication dose per injection')}{unit('dose_unit','Medication dose unit')}</div>
-    <p>Medication IU is not a syringe marking. Use Add more details for syringe markings or injection volume.</p>
-    {number('vials_in_stock','Vials in stock',0,'1')}
-    <label>Frequency<select aria-label="Frequency" value={value.frequency_mode} onChange={event => onChange('frequency_mode',event.target.value)}><option value="weekly">Weekly schedule</option><option value="rolling">Every N days</option></select></label>
-    {value.frequency_mode === 'weekly' ? <fieldset><legend>Schedule</legend><div className="protocol-day-picker">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day,index) => {
-      const dayNumber = (index + 1) % 7, selected = value.days_of_week.includes(dayNumber)
-      return <button type="button" key={day} aria-pressed={selected} onClick={() => onChange('days_of_week',selected ? value.days_of_week.filter(d => d !== dayNumber) : [...value.days_of_week,dayNumber])}>{day}</button>
-    })}</div></fieldset> : number('cycle_days','Days between doses',1,'1')}
-    <label>Time of day<select aria-label="Time of day" value={value.time_of_day} onChange={event => onChange('time_of_day',event.target.value)}><option value="">Choose a time</option>{['Morning','Afternoon','Evening','Night'].map(time => <option key={time}>{time}</option>)}</select></label>
-    {number('duration_weeks','Duration (weeks, blank for ongoing)',1,'1')}
+
+export default function QuickProtocolFields({ value: c, onChange, issue, idPrefix = 'quick' }: FieldProps) {
+  const { update, numeric, amount } = draftControls(c, onChange, idPrefix, issue)
+  const [alternatives, setAlternatives] = useState(c.input_mode !== 'medication')
+  const units = [...new Set([...(resolveCompound(c.name)?.units ?? ['mg', 'mcg', 'IU']), ...(['mg', 'mcg', 'IU'].includes(c.dose_unit) ? [c.dose_unit] : [])])]
+  const frequency = c.frequencyChoice ?? (c.frequency_mode === 'rolling' ? 'custom' : c.days_of_week.length === 7 ? 'daily' : c.days_of_week.length === 1 ? 'weekly' : c.days_of_week.length === 2 ? '2x' : c.days_of_week.length === 3 ? '3x' : c.days_of_week.length ? 'custom' : '')
+  return <div className="quick-fields">
+    <div className="quick-dose">
+      {c.input_mode === 'medication' && amount('dose', c.route === 'Oral' ? 'Medication dose' : 'Dose per injection', 'dose_unit', 'Medication dose unit', units)}
+      {c.input_mode === 'syringe' && <>
+        <QuickAmountField id={`${idPrefix}-syringe_markings`} label="Syringe markings" value={c.syringe_markings} onChange={value => update('syringe_markings', value)} unit={{ value: c.syringe_scale, label: 'Syringe scale', options: [['100', 'U-100'], ['40', 'U-40']], onChange: value => update('syringe_scale', value), placeholder: 'Choose scale' }} error={issue && ['syringe_markings', 'syringe_scale'].includes(issue.field) ? issue.message : null} invalid={issue?.field === 'syringe_scale' ? 'unit' : 'value'} helper="Syringe markings are not medication IU." />
+      </>}
+      {c.input_mode === 'volume' && numeric('injection_volume', 'Injection volume', 'mL', 0, 'any', 'Injection volume (mL)')}
+      <button className="quick-text-action quick-method-toggle" type="button" aria-expanded={alternatives} aria-controls={`${idPrefix}-methods`} onClick={() => setAlternatives(!alternatives)}>I measure my dose another way<AppIcon name="chevron" size={14} /></button>
+      {alternatives && <div id={`${idPrefix}-methods`} className="quick-methods"><QuickChoices label={c.input_mode === 'unknown' ? 'What measurement is on your instructions or syringe?' : 'Record dose as'} value={c.input_mode} options={[["medication", c.input_mode === 'unknown' ? 'Medication dose (mg, mcg or IU)' : 'Medication dose'], ['syringe', 'Syringe markings'], ['volume', 'Injection volume'], ['unknown', 'I’m not sure']]} onChange={value => update('input_mode', value)} /></div>}
+      <QuickStartError issue={issue?.field === 'input_mode' ? issue : null} />
+    </div>
+    <label className="quick-route">Route<select aria-label="Route" value={c.route} onChange={event => update('route', event.target.value)}><option value="">Not sure</option>{['SubQ', 'IM', 'Oral', 'Other'].map(route => <option key={route}>{route}</option>)}</select></label>
+    <div className="quick-schedule">
+      <QuickChoices label="Frequency" value={frequency} options={[["daily", 'Daily'], ['weekly', 'Weekly'], ['2x', '2x/week'], ['3x', '3x/week'], ['custom', 'Custom']]} onChange={value => onChange(setFrequency(c, value))} />
+      {frequency === 'custom' && <label>Repeat<select aria-label="Repeat" value={c.frequency_mode} onChange={event => update('frequency_mode', event.target.value as Compound['frequency_mode'])}><option value="weekly">Choose days</option><option value="rolling">Every N days</option></select></label>}
+      {frequency && frequency !== 'daily' && c.frequency_mode === 'weekly' && <fieldset className="quick-control"><legend>Which days?</legend><div className="quick-weekdays">{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, number) => <button key={day} type="button" aria-label={day} aria-pressed={c.days_of_week.includes(number)} onClick={() => onChange(toggleQuickWeekday(c, number))}>{day.slice(0, 3)}{c.days_of_week.includes(number) && <AppIcon name="check" size={12} />}</button>)}</div></fieldset>}
+      {frequency === 'custom' && c.frequency_mode === 'rolling' && numeric('cycle_days', 'Days between doses', 'days', 1, '1')}
+    </div>
+    <div className="quick-duration">
+      <QuickChoices label="How long will you run this protocol?" value={c.durationSet || c.duration_weeks ? 'set' : 'ongoing'} options={[["ongoing", 'Ongoing'], ['set', 'Set a length']]} onChange={value => onChange({ ...updateCompoundDraft(c, 'duration_weeks', value === 'ongoing' ? '' : c.duration_weeks), durationSet: value === 'set' })} />
+      {(c.durationSet || c.duration_weeks) && <div className="quick-weeks">{numeric('duration_weeks', 'How many weeks?', 'weeks', 1, '1')}</div>}
+    </div>
+  </div>
+}
+
+export function QuickAdditionalFields({ value: c, today, onChange, idPrefix = 'quick', issue }: FieldProps & { today: string }) {
+  const { update, numeric, amount } = draftControls(c, onChange, idPrefix, issue)
+  const preparation = c.isPreMixed ? 'ready' : c.preparation || (c.vial_strength || c.bac_water_ml ? 'mixing' : 'unknown')
+  const mixed = c.mixDateSet ? 'date' : c.reconstitution_date === today ? 'today' : c.reconstitution_date ? 'date' : 'notyet'
+  const timeQuestion = c.route === 'SubQ' || c.route === 'IM' ? 'When do you inject this dose?' : c.route === 'Oral' ? 'When do you take this dose?' : 'When do you usually take or inject this dose?'
+  return <div className="quick-additional-fields">
+    <QuickChoices label={timeQuestion} value={c.time_of_day} options={[["Morning", 'Morning'], ['Afternoon', 'Afternoon'], ['Evening', 'Evening'], ['Night', 'Night'], ['', 'Not specified']]} onChange={value => update('time_of_day', value)} />
+    {c.route !== 'Oral' && <div className="quick-preparation">
+      <QuickChoices label="Does the vial need mixing?" value={preparation} options={[["ready", 'Ready to use'], ['mixing', 'Needs mixing'], ['unknown', 'Not sure']]} onChange={value => onChange(setPreparation(c, value))} />
+      {preparation === 'ready' && amount('concentration_value', 'What concentration is printed on the label?', 'concentration_unit', 'Concentration unit', ['mg/mL', 'mcg/mL', 'IU/mL'], 'Labeled concentration', 'Example: 5 mg/mL')}
+      {preparation === 'mixing' && <>
+        {amount('vial_strength', 'What is the vial strength?', 'vial_unit', 'Vial strength unit', ['mg', 'mcg', 'IU'], 'Vial strength')}
+        <QuickChoices label="Has the vial already been mixed?" value={mixed} options={[["notyet", 'Not yet'], ['today', 'Mixed today'], ['date', 'Choose date']]} onChange={value => onChange({ ...updateCompoundDraft(c, 'reconstitution_date', value === 'today' ? today : value === 'date' ? c.reconstitution_date : ''), mixDateSet: value === 'date' })} />
+        {mixed === 'date' && <label>Reconstitution date<input aria-label="Reconstitution date" type="date" value={c.reconstitution_date} onChange={event => update('reconstitution_date', event.target.value)} /></label>}
+        <QuickChoices label={mixed === 'notyet' ? 'How much BAC water will you add?' : 'How much BAC water did you add?'} value={['1', '2', '3'].includes(c.bac_water_ml) ? c.bac_water_ml : 'other'} options={[["1", '1 mL'], ['2', '2 mL'], ['3', '3 mL'], ['other', 'Other']]} onChange={value => update('bac_water_ml', value === 'other' ? '' : value)} />
+        {!['1', '2', '3'].includes(c.bac_water_ml) && numeric('bac_water_ml', 'BAC water', 'mL', 0, 'any', 'BAC water (mL)')}
+      </>}
+    </div>}
+    <div><label htmlFor={`${idPrefix}-stock`}>Vials in stock</label><div className="quick-stepper">
+      <button type="button" aria-label="One fewer vial" disabled={!c.vials_in_stock || Number(c.vials_in_stock) <= 0} onClick={() => update('vials_in_stock', String(Math.max(0, Number(c.vials_in_stock) - 1)))}>−</button>
+      <input id={`${idPrefix}-stock`} aria-label="Vials in stock" type="number" min="0" step="1" inputMode="numeric" value={c.vials_in_stock} onChange={event => update('vials_in_stock', event.target.value)} />
+      <button type="button" aria-label="One more vial" onClick={() => update('vials_in_stock', String(Number(c.vials_in_stock || 0) + 1))}>+</button>
+    </div><p>Your inventory quantity stays unchanged.</p></div>
+    <label>Notes<textarea aria-label="Notes" rows={2} value={c.notes} onChange={event => update('notes', event.target.value)} /></label>
   </div>
 }
