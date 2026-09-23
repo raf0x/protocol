@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../lib/supabase'
+import { formatProtocolAmount } from '../../lib/health/dosingEntry'
 
 type Props = {
   compoundId: string
@@ -94,7 +95,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
             <input type='number' step='any' value={newVialStrength} onChange={e => setNewVialStrength(e.target.value)} placeholder='e.g. 10' style={{width:'100%',background:'var(--color-surface)',border:'1px solid '+(strengthChanged ? '#f59e0b' : 'var(--color-border)'),borderRadius:'8px',padding:'10px',color:'var(--color-text)',fontSize:'14px',boxSizing:'border-box',marginBottom:'4px'}} />
             {strengthChanged && (
               <div style={{fontSize:'11px',color:'#f59e0b',marginBottom:'12px',lineHeight:'1.4'}}>
-                ⚠ Changed from {vialStrength}{vialUnit || 'mg'}. Your mL-per-dose may need updating too.
+                ⚠ Changed from {formatProtocolAmount(vialStrength, vialUnit) ?? 'an amount without a recorded unit'}. Your mL-per-dose may need updating too.
               </div>
             )}
             {!strengthChanged && <div style={{marginBottom:'12px'}} />}

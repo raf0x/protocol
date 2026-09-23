@@ -14,7 +14,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { currentPhase } from '../../../lib/health/dosing'
-import { dosingDisplay, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
+import { dosingDisplay, administrationDisplay, formatProtocolAmount, formatProtocolNumber, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
 import { saveProtocolWithEvents, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -707,12 +707,14 @@ export default function ManagePage() {
 
                 <EditorSection title="Review" hint="Calculations are guidance. Incomplete details can still be saved.">
                 {(() => { try {
-                  const result = interpretEntry(entryFromForm(c))
+                  const entry = entryFromForm(c)
+                  const result = interpretEntry(entry)
+                  const administration = administrationDisplay({ dosing_entry: entry })
                   return <div style={{fontSize:13,color:dg}}>
-                    {result.medication && <p style={{color:g}}>Medication dose: {Number(result.medication.value.toPrecision(6))} {result.medication.unit}</p>}
-                    {result.volume!=null && <p>Injection volume: {Number(result.volume.toPrecision(6))} mL</p>}
-                    {result.markings!=null && <p>Syringe markings: {Number(result.markings.toPrecision(6))} {result.scale ? `units on U-${result.scale}`:'units (scale unknown)'}</p>}
-                    {result.candidate && result.concentration && <p>Calculation: {result.markings!=null && result.scale ? `${result.markings} ÷ ${result.scale} = ${result.volume} mL; `:''}{result.volume} mL × {Number(result.concentration.value.toPrecision(6))} {result.concentration.unit}/mL = {Number(result.candidate.value.toPrecision(6))} {result.candidate.unit}{c.input_mode==='unknown' && !c.reviewed ? ' (confirm to use as medication dose)':''}</p>}
+                    {result.medication && <p style={{color:g}}>Medication dose: {formatProtocolAmount(result.medication.value, result.medication.unit)}</p>}
+                    {administration.volume && <p>Injection volume: {administration.volume}</p>}
+                    {administration.syringe && <p>Syringe draw: {administration.syringe}</p>}
+                    {result.candidate && result.concentration && <p>Calculation (rounded): {result.markings!=null && result.scale ? `${formatProtocolNumber(result.markings, 'syringe')} ÷ ${result.scale} ≈ ${administration.volume}; `:''}{administration.volume} × {formatProtocolAmount(result.concentration.value, `${result.concentration.unit}/mL`)} ≈ {formatProtocolAmount(result.candidate.value, result.candidate.unit)}{c.input_mode==='unknown' && !c.reviewed ? ' (confirm to use as medication dose)':''}</p>}
                     {result.warnings.map(w=><p key={w}>{w} You can still save.</p>)}
                   </div>
                 } catch (error) { return <p role="alert" style={{fontSize:12,color:dg}}>{error instanceof Error ? error.message : 'Check numeric inputs.'}</p> } })()}

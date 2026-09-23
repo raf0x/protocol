@@ -119,8 +119,7 @@ export function resolveBaselineDetails(compound: CompoundRow | null, protocol: P
   const phase = phaseForDate(compound, protocol.start_date, today)
   if (phase?.dosing_entry) return [dosingDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week),structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
   if (!phase || baselineDosingIssue(compound, protocol, today)) return []
-  return formatPlanDetails({dose:phase.dose, doseUnit:phase.dose_unit,
-    frequency:structuredFrequency(phase.frequency,phase.days_of_week), route:structuredRoute(phase.route)})
+  return [dosingDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week), structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
 }
 
 export function formatFrequency(frequency: string): string {

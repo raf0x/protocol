@@ -64,16 +64,37 @@ export function entryFormState(phase?: {dosing_entry?:DosingEntry|null;dose?:num
     input_mode:phase && phase.dose_semantics_version!==1 ? 'unknown' as const:'medication' as const,
     dose:phase?.dose?.toString() || '',dose_unit:phase?.dose_unit || '',syringe_markings:'',syringe_scale:phase?.syringe_scale?.toString() || '',injection_volume:'',vial_label:'',reviewed:phase?.dose_semantics_version===1,legacy_value:phase?.dose?.toString() || ''}
 }
+type ProtocolNumberKind = 'dose' | 'syringe' | 'volume' | 'percent' | 'count' | 'fractionalCount'
+const protocolDecimals = [0, 1, 2].map(maximumFractionDigits => new Intl.NumberFormat('en-US', { useGrouping: false, maximumFractionDigits }))
+/** Display only: callers retain the original value for calculations and persistence. */
+export function formatProtocolNumber(value: unknown, kind: ProtocolNumberKind = 'dose'): string | null {
+  if ((typeof value !== 'number' && typeof value !== 'string') || (typeof value === 'string' && !value.trim())) return null
+  const number = Number(value)
+  if (!Number.isFinite(number)) return null
+  const digits = kind === 'count' ? 0 : kind === 'volume' && Math.abs(number) < 1 ? 2 : 1
+  const text = protocolDecimals[digits].format(number)
+  return text === '-0' ? '0' : text
+}
+export function formatProtocolAmount(value: unknown, unit: string | null | undefined, kind: ProtocolNumberKind = 'dose'): string | null {
+  const text = formatProtocolNumber(value, kind), label = unit?.trim()
+  return text !== null && label && !/^(?:undefined|null|NaN|--|—)$/i.test(label) ? `${text} ${label}` : null
+}
+export function formatProtocolPercent(value: unknown): string | null {
+  const text = formatProtocolNumber(value, 'percent')
+  return text === null ? null : `${text}%`
+}
+
 export function dosingDisplay(phase?: {dosing_entry?:DosingEntry|null;dose?:number|string|null;dose_unit?:string|null;dose_semantics_version?:number|null}|null) {
   if(!phase) return {primary:'Dose not entered',secondary:'No current phase',medication:null}
   if(phase.dosing_entry) {
     try {
-      const r=interpretEntry(phase.dosing_entry), fmt=(v:number)=>Number(v.toPrecision(6))
-      const admin=r.markings!=null ? `${fmt(r.markings)} ${r.scale ? `U-${r.scale} units`:'syringe units'}` : r.volume!=null ? `${fmt(r.volume)} mL` : 'Dose not fully calculated yet'
-      return {primary:r.medication ? `${fmt(r.medication.value)} ${r.medication.unit}`:admin,secondary:r.warnings.join(' '),medication:r.medication}
+      const r=interpretEntry(phase.dosing_entry)
+      const admin=formatProtocolAmount(r.markings, r.scale ? `U-${r.scale} units` : 'syringe units', 'syringe') ?? formatProtocolAmount(r.volume, 'mL', 'volume') ?? 'Dose not fully calculated yet'
+      return {primary:r.medication ? formatProtocolAmount(r.medication.value, r.medication.unit)! : admin,secondary:r.warnings.join(' '),medication:r.medication}
     } catch {return {primary:'Unverified dosing entry',secondary:'Check the saved dosing values.',medication:null}}
   }
-  return phase.dose_semantics_version===1 ? {primary:`${phase.dose} ${phase.dose_unit}`,secondary:'',medication:{value:Number(phase.dose),unit:phase.dose_unit || ''}} : {primary:'Unverified dose semantics',secondary:`Stored value: ${phase.dose ?? ''} ${phase.dose_unit ?? ''}`,medication:null}
+  const amount = formatProtocolAmount(phase.dose, phase.dose_unit)
+  return phase.dose_semantics_version===1 ? {primary:amount ?? 'Dose not entered',secondary:'',medication:{value:Number(phase.dose),unit:phase.dose_unit || ''}} : {primary:'Unverified dose semantics',secondary:`Stored value: ${amount ?? 'Not recorded'}`,medication:null}
 }
 export function validDate(value:string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10)===value
@@ -92,4 +113,14 @@ export function quickEntryPayload(body:Record<string,unknown>) {
 export function administrationForPhase(phase?: {dosing_entry?:DosingEntry|null;dose_semantics_version?:number|null;injection_volume_ml?:number|null;syringe_units?:number|null}|null) {
   if(phase?.dosing_entry) {try {const r=interpretEntry(phase.dosing_entry);return {volume:r.volume,markings:r.markings}} catch {return {volume:null,markings:null}}}
   return {volume:phase?.dose_semantics_version===1 ? phase.injection_volume_ml ?? null:null,markings:phase?.dose_semantics_version===1 ? phase.syringe_units ?? null:null}
+}
+
+/** Separate labeled measurements; a syringe draw needs its recorded scale. */
+export function administrationDisplay(phase?: {dosing_entry?:DosingEntry|null;dose_semantics_version?:number|null;injection_volume_ml?:number|null;syringe_units?:number|null;syringe_scale?:number|null}|null) {
+  const administration = administrationForPhase(phase)
+  const scale = Number(phase?.dosing_entry ? phase.dosing_entry.syringe_scale : phase?.syringe_scale)
+  return {
+    volume: formatProtocolAmount(administration.volume, 'mL', 'volume'),
+    syringe: Number.isFinite(scale) && scale > 0 ? formatProtocolAmount(administration.markings, `U-${scale} units`, 'syringe') : null,
+  }
 }

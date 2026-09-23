@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase'
-import { administrationForPhase } from '../../lib/health/dosingEntry'
+import { administrationDisplay, formatProtocolAmount } from '../../lib/health/dosingEntry'
 import { normalizeTimeline, type ProtocolEventRow } from '../../lib/health/timeline'
 import { compoundOverview, dateLabel, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import ActivateProtocol from './ActivateProtocol'
@@ -42,10 +42,13 @@ export default function ProtocolDetail(props: Props) {
     {!protocol.compounds?.length && <div className="protocol-empty">No compounds saved yet. Add the details you know in the editor.</div>}
     {(protocol.compounds ?? []).map(compound => {
       const info = compoundOverview(protocol, compound, today)
-      const admin = administrationForPhase(info.phase)
+      const admin = administrationDisplay(info.phase)
       const entry = info.phase?.dosing_entry
       const preparation = entry ?? compound
-      const scale = entry?.syringe_scale || info.phase?.syringe_scale
+      const vialAmount = formatProtocolAmount(preparation.vial_strength, preparation.vial_unit)
+      const liquid = formatProtocolAmount(preparation.bac_water_ml, 'mL', 'volume')
+      const concentration = formatProtocolAmount(preparation.concentration_value, preparation.concentration_unit)
+      const stock = formatProtocolAmount(compound.vials_in_stock, 'vials in stock', 'count')
       const lastLog = logs.find(log => log.compound_id === compound.id)
       return <section className="protocol-detail-compound" key={compound.id}>
         <h2>{compound.name}</h2>
@@ -59,17 +62,17 @@ export default function ProtocolDetail(props: Props) {
         <PhaseCard protocol={protocol} compound={compound} today={today} onEdit={props.onEdit} onReload={props.onReload} />
         <details className="protocol-advanced"><summary>Administration details</summary><dl>
           {info.phase?.route && <><dt>Route</dt><dd>{info.phase.route}</dd></>}
-          {admin.volume != null && <><dt>Injection volume</dt><dd>{admin.volume} mL</dd></>}
-          {admin.markings != null && <><dt>Syringe markings</dt><dd>{admin.markings} {scale ? `units on U-${scale}` : 'units, scale not recorded'}</dd></>}
-        </dl>{!info.phase?.route && admin.volume == null && admin.markings == null && <p>Administration details can be added later.</p>}</details>
+          {admin.volume && <><dt>Injection volume</dt><dd>{admin.volume}</dd></>}
+          {admin.syringe && <><dt>Syringe draw</dt><dd>{admin.syringe}</dd></>}
+        </dl>{!info.phase?.route && !admin.volume && !admin.syringe && <p>Administration details can be added later.</p>}</details>
         <details className="protocol-advanced"><summary>Reconstitution & concentration</summary><dl>
           {(entry?.vial_label) && <><dt>Vial label</dt><dd>{entry.vial_label}</dd></>}
-          {preparation.vial_strength != null && preparation.vial_strength !== '' && <><dt>Vial amount</dt><dd>{preparation.vial_strength} {preparation.vial_unit}</dd></>}
-          {preparation.bac_water_ml != null && preparation.bac_water_ml !== '' && <><dt>Liquid added</dt><dd>{preparation.bac_water_ml} mL</dd></>}
-          {preparation.concentration_value != null && preparation.concentration_value !== '' && <><dt>Labelled concentration</dt><dd>{preparation.concentration_value} {preparation.concentration_unit}</dd></>}
+          {vialAmount && <><dt>Vial amount</dt><dd>{vialAmount}</dd></>}
+          {liquid && <><dt>Liquid added</dt><dd>{liquid}</dd></>}
+          {concentration && <><dt>Labelled concentration</dt><dd>{concentration}</dd></>}
           {compound.reconstitution_date && <><dt>Reconstituted</dt><dd>{dateLabel(compound.reconstitution_date)}</dd></>}
         </dl><p>These are saved preparation details. Edit to add or review them.</p></details>
-        <details className="protocol-advanced"><summary>Inventory & notes</summary><p>{compound.vials_in_stock != null ? `${compound.vials_in_stock} vials in stock` : 'Inventory not recorded'}</p><p className="protocol-notes">{compound.notes || 'No notes yet.'}</p></details>
+        <details className="protocol-advanced"><summary>Inventory & notes</summary><p>{stock ?? 'Inventory not recorded'}</p><p className="protocol-notes">{compound.notes || 'No notes yet.'}</p></details>
       </section>
     })}
     <details className="protocol-advanced"><summary>History</summary>

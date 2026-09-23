@@ -1,5 +1,5 @@
 'use client'
-import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
+import { dosingDisplay, administrationForPhase, administrationDisplay, formatProtocolAmount, formatProtocolNumber, formatProtocolPercent } from '../../lib/health/dosingEntry'
 import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
 import React, { useState } from 'react'
@@ -37,6 +37,7 @@ function getCompoundColor(name: string): string {
 }
 
 function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: string; color: string; fillPct: number; vialStrength?: number; vialUnit?: string }) {
+  const strengthText = formatProtocolAmount(vialStrength, vialUnit)
   const short = name.split('/')[0].split('-')[0].split(' ')[0].slice(0, 7)
   const fill = Math.max(0, Math.min(1, fillPct))
   const W = 80; const H = 160; const capH = 18; const neckH = 12; const neckW = 28
@@ -78,14 +79,14 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
         <text x={W/2} y={ribbonY + 10} textAnchor='middle' fontSize='7' fontWeight='800' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif' opacity='0.9'>
           {short.toUpperCase()}
         </text>
-        {vialStrength && vialUnit && (
+        {strengthText && (
           <text x={W/2} y={ribbonY + 18} textAnchor='middle' fontSize='8' fontWeight='900' fill={color} fontFamily='Inter,system-ui,sans-serif'>
-            {vialStrength} {vialUnit}
+            {strengthText}
           </text>
         )}
       </g>
       
-      <text x={W/2} y={ribbonY + ribbonH + 24} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{Math.round(fill*100)}%</text>
+      <text x={W/2} y={ribbonY + ribbonH + 24} textAnchor='middle' fontSize='12' fontWeight='900' fill='var(--color-text)' fontFamily='Inter,system-ui,sans-serif'>{formatProtocolPercent(fill*100) ?? 'Not recorded'}</text>
       <rect x={bodyX + 2} y={bodyY + bodyH - 2} width={bodyW - 4} height='4' rx='2' fill={color} opacity='0.15'/>
     </svg>
   )
@@ -204,6 +205,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const entry=currentPhase?.dosing_entry
   const bacWater = entry ? Number(entry.bac_water_ml) || 0 : activeCompound.bac_water_ml || 0
   const administration = administrationForPhase(currentPhase)
+  const administrationText = administrationDisplay(currentPhase)
   let vialDaysLeft: number | null = null
   let mlRemaining: number | null = null
   let fillPct = 1
@@ -222,6 +224,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   }
 
   const vialsInStock = activeCompound.vials_in_stock ?? null
+  const stockText = formatProtocolNumber(vialsInStock, 'count')
   // dosesOverride (declared above for the progress-ring calc) is the same
   // activeCompound.doses_taken_override value the DOSES TAKEN grid cell needs.
   // Same one-line formula VialInventory uses for its own "~Nwk supply" hint --
@@ -229,6 +232,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   // component while VialInventory keeps its own copy of vials_in_stock
   // internally for the new-vial decrement calculation.
   const weeksLeft = vialsInStock !== null && vialsInStock > 0 ? vialsInStock * 4 : null
+  const weeksText = formatProtocolAmount(weeksLeft, 'weeks', 'fractionalCount')
 
   const expired=expiredLatestPhase(activeCompound.phases || [],activeProtocol.status || 'active',activeProtocol.start_date,new Date().toLocaleDateString('en-CA'))
   async function continueLatest() {
@@ -311,16 +315,15 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           {new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'4px'}}>({vialDaysLeft}d left)</span>
         </> : '—'} />
-        <StatCell label="EST. REMAINING" value={mlRemaining != null ? mlRemaining.toFixed(2) + ' mL' : '—'} />
-        <StatCell label="INJECTION VOLUME" value={administration.volume != null
-          ? `${administration.markings != null ? Number(administration.markings.toPrecision(6)) : '—'}u / ${Number(administration.volume.toPrecision(6))}mL`
-          : '—'} />
+        <StatCell label="EST. REMAINING" value={formatProtocolAmount(mlRemaining, 'mL', 'volume') ?? 'Not recorded'} />
+        <StatCell label="INJECTION VOLUME" value={administrationText.volume ?? 'Not recorded'} />
+        {administrationText.syringe && <StatCell label="SYRINGE DRAW" value={administrationText.syringe} />}
         <StatCell label="NEXT DOSE" value={nextDoseText || '—'} valueColor={nextDoseText ? 'var(--color-green)' : undefined} />
-        <StatCell label="VIALS IN STOCK" value={vialsInStock != null ? <>
-          {vialsInStock} vial{vialsInStock !== 1 ? 's' : ''}
-          {weeksLeft != null && <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}> · ~{weeksLeft}wk</span>}
+        <StatCell label="VIALS IN STOCK" value={stockText !== null ? <>
+          {stockText} vial{stockText !== '1' ? 's' : ''}
+          {weeksText && <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}> · ~{weeksText}</span>}
         </> : '—'} />
-        <StatCell label="DOSES TAKEN (VIAL)" value={dosesOverride != null ? String(dosesOverride) : '—'} />
+        <StatCell label="DOSES TAKEN (VIAL)" value={formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded'} />
       </div>
 
       {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
