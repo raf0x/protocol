@@ -100,7 +100,7 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
   const states=[],refs=[]; let slot=0,refSlot=0
   const calls=[]
   const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},
-    from:()=>({select:()=>({order:async()=>({data:[]})})}),
+    from:()=>({select:()=>({eq(){return this},order:async()=>({data:[]})})}),
     rpc:async(name,args)=>{calls.push({name,args});return {data:'saved-id',error:null}}
   }
   const mutations=load('../lib/health/protocolMutations.ts')
@@ -129,8 +129,8 @@ for (const state of ['active', 'planned']) test(`Add Protocol usage choices pres
     assert.ok(draft())
     const initial = draft().props.value
     assert.equal(initial.startDate, new Date().toLocaleDateString('en-CA'))
-    draft().props.onChange({...initial,startDate:state==='active'?'2026-09-20':'',compounds:[{...initial.compounds[0],name:'Saved compound',dose:'5',dose_unit:'mg'}]})
-    const submit = () => draft().props.actions.props.children.find(node=>node.type==='button'&&node.props.children===(state==='active'?'Start tracking':'Save protocol'))
+    draft().props.onChange({...initial,startDate:state==='active'?'2026-09-20':'',compounds:[{...initial.compounds[0],name:'Saved compound',dose:'5',dose_unit:'mg',route:'Other',days_of_week:[1]}]})
+    const submit = () => ({props:{onClick:draft().props.onSave}})
     if(state==='active') {
       const current = draft().props.value
       draft().props.onChange({...current,startDate:'2026-02-30'})

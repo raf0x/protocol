@@ -83,9 +83,12 @@ function functionCode(name) {
 function saveHarness(timing='today') {
   const initial=load('../lib/protocols/form.ts').newCompound()
   const calls=[], errors=[], notices=[]
-  const context={ savePending:{current:false},savedProtocolId:{current:null},compounds:[{...initial,...inventoryProtocolFields(item),dose:'5',dose_unit:'mg'}],
+  const context={ savePending:{current:false},savedProtocolId:{current:null},retryBlocked:false,firstProtocol:true,
+    compounds:[{...initial,...inventoryProtocolFields(item),dose:'5',dose_unit:'mg',route:'SubQ',days_of_week:[1]}],
     fromInventory:true,mode:'create',startDate:timing==='scheduled'?'2099-01-01':timing==='today'?localCalendarDate():'',planned:timing==='planned',editingId:null,
     continuedFromId:'',removedCompoundIds:[],localCalendarDate,...load('../lib/health/dosingEntry.ts'),...load('../lib/protocols/form.ts'),...load('../lib/protocols/quickStart.ts'),
+    ProtocolSaveUncertainError:load('../lib/health/protocolMutations.ts').ProtocolSaveUncertainError,
+    setRetryBlocked(value){context.retryBlocked=value},setSetupSuccess(value){notices.push(value)},
     setQuickValidationAttempts(){},setError(value){errors.push(value)},setSaving(){},setSavedNotice(value){notices.push(value)},setShowForm(){},setEditingId(){},load:async()=>{},
     saveProtocolWithEvents:async input=>{calls.push(input);return 'created-protocol-id'} }
   const save=new Function('context','with(context) {'+functionCode('save')+'; return save }')(context)
@@ -103,10 +106,11 @@ test('real editor save sends only canonical protocol creation, with no dose infe
     assert.equal(payload.protocolId,null)
     assert.equal(payload.startDate,timing==='planned'?null:timing==='today'?localCalendarDate():'2099-01-01')
     assert.equal(compound.vials_in_stock,null);assert.equal(compound.bac_water_ml,null)
-    assert.equal(compound.reconstitution_date,null);assert.equal(compound.phase.route,null)
-    assert.equal(compound.phase.frequency,'');assert.equal(compound.phase.end_week,null)
+    assert.equal(compound.reconstitution_date,null);assert.equal(compound.phase.route,'SubQ')
+    assert.equal(compound.phase.frequency,'1x/week');assert.equal(compound.phase.end_week,null)
     assert.equal(compound.phase.dosing_entry.dose,'5');assert.equal(compound.phase.dosing_entry.vial_strength,'10')
-    assert.match(notices[0],/Protocol created\. Your inventory quantity is unchanged\./)
+    assert.equal(notices[0].id,'created-protocol-id');assert.equal(notices[0].firstProtocol,true)
+    assert.equal(notices[0].draft.compounds[0].dose,'5')
     assert.equal(item.quantity,8)
   }
 })
@@ -136,14 +140,14 @@ test('invalid dates never reach save; explicit save failures permit correction a
 test('inventory action joins the shared creation surface with human timing and conditional fields', () => {
   const Timing=load('../components/protocols/ProtocolStartDate.tsx').default
   const html=renderToStaticMarkup(React.createElement(Timing,{value:localCalendarDate(),today:localCalendarDate(),onChange(){}}))
-  for (const label of ['When will you start?','Today','Choose date','Not sure yet']) assert.ok(html.includes(label))
+  for (const label of ['Start date','Today','Another date','I don’t know yet']) assert.ok(html.includes(label))
   assert.doesNotMatch(html,/Schedule for later|Save as Planned/)
   const Quick=load('../components/protocols/ProtocolQuickStart.tsx').default
   const fields={...saveHarness().context.compounds[0]}
   const quick=renderToStaticMarkup(React.createElement(Quick,{value:{startDate:localCalendarDate(),compounds:[{...fields,dose_unit:''}]},today:localCalendarDate(),onChange(){}}))
-  for (const label of ['Dose per injection','BAC water (mL)','Vials in stock','Frequency','How long will you run this protocol?']) assert.ok(quick.includes(label))
-  assert.match(quick,/<option value="" selected="">Choose unit/)
+  assert.match(quick,/What are you tracking\?/)
+  assert.doesNotMatch(quick,/Dose per injection|Vials in stock|Frequency|How long will you run/)
   assert.match(read('../components/inventory/Inventory.tsx'),/Use in a protocol<\/Link>/)
   assert.match(source,/Creating a protocol will not change your inventory quantity\./)
-  assert.doesNotMatch(source,/Customize details/);assert.match(quick,/Add preparation, inventory or notes/)
+  assert.doesNotMatch(source,/Customize details/);assert.match(quick,/Continue/)
 })

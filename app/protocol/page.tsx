@@ -14,6 +14,9 @@ import StatsBoxes from '../../components/dashboard/StatsBoxes'
 import CompoundRings from '../../components/dashboard/CompoundRings'
 import DailyCheckIn from '../../components/today/DailyCheckIn'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { markOnboardingSeen, onboardingEligible, onboardingSeen } from '../../lib/protocols/onboarding'
+import { orderRingProtocols } from '../../lib/protocols/rings'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
 import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
@@ -29,6 +32,7 @@ type DueCompound = { id: string; name: string; dose: string; dose_unit: string; 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [doseSaveError, setDoseSaveError] = useState<string | null>(null)
   const doseSavePending = useRef(false)
   const [scoreError, setScoreError] = useState<Partial<Record<'mood' | 'energy' | 'hunger', string | null>>>({})
@@ -82,7 +86,7 @@ export default function DashboardPage() {
     if (pending) {
       try {
         const p = JSON.parse(pending)
-        const params = new URLSearchParams({new:'1',name:p.name || '',dose:String(p.dose ?? ''),dose_unit:p.dose_unit || 'mg',vial:String(p.vial ?? ''),vial_unit:p.vial_unit || 'mg',water:String(p.water ?? '')})
+        const params = new URLSearchParams({new:'1',name:p.name || '',dose:String(p.dose ?? ''),dose_unit:p.dose_unit || '',vial:String(p.vial ?? ''),vial_unit:p.vial_unit || '',water:String(p.water ?? '')})
         window.location.assign('/protocol/manage?' + params.toString())
         localStorage.removeItem('pendingProtocol')
       } catch(e) { localStorage.removeItem('pendingProtocol') }
@@ -230,15 +234,23 @@ export default function DashboardPage() {
     // the session, not a value from each other). Run the independent queries
     // concurrently. allSettled (not all) so one failed query never blanks out the
     // setters for the others that already succeeded.
-    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult] = await Promise.allSettled([
+    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult, ownershipResult] = await Promise.allSettled([
       supabase.from('user_profiles').select('weight_unit').eq('id', user.id).single(),
       supabase.from('journal_entries').select('*').order('date', { ascending: false }),
-      supabase.from('protocols').select('id, status, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
+      supabase.from('protocols').select('id, created_at, status, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
       supabase.from('injection_logs').select('*').eq('date', today),
       supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true),
       supabase.from('protocol_events').select('*').order('date', { ascending: true }),
       supabase.from('protocols').select('id,name,status,start_date,compounds(id,name)').eq('status', 'planned'),
+      supabase.from('protocols').select('id').eq('user_id', user.id).limit(1),
     ])
+
+    const owned = ownershipResult.status === 'fulfilled' && !ownershipResult.value.error ? ownershipResult.value.data : null
+    if (onboardingEligible(user.id, owned) && !onboardingSeen(user.id)) {
+      markOnboardingSeen(user.id)
+      router.replace('/protocol/manage?new=1&onboarding=1')
+      return
+    }
 
     setPlannedProtocols(plannedResult.status === 'fulfilled' ? plannedResult.value.data || [] : [])
     const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null
@@ -267,7 +279,7 @@ export default function DashboardPage() {
     setWeight(latestWeight != null ? formatWeight(convertWeight(latestWeight, 'lbs', displayUnit), displayUnit) : '')
 
     const configured = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data || [] : []
-    const protocols = configured.filter((p: {start_date:string}) => p.start_date && p.start_date <= localCalendarDate())
+    const protocols = orderRingProtocols(configured.filter((p: {start_date:string}) => p.start_date && p.start_date <= localCalendarDate()))
     setScheduledProtocols(configured.filter((p: {start_date:string}) => p.start_date > localCalendarDate()))
     const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
 

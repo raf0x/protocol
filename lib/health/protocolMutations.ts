@@ -3,6 +3,9 @@ import { createClient } from '../supabase'
 
 export type ProtocolTransition = 'pause' | 'resume' | 'complete' | 'reactivate' | 'activate'
 
+/** A lost response is not proof of rollback. Never blindly repeat a create RPC. */
+export class ProtocolSaveUncertainError extends Error {}
+
 function message(error: unknown, fallback: string) {
   return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
     ? error.message : fallback
@@ -17,7 +20,7 @@ export async function saveProtocolWithEvents(input: {
   removedCompoundIds?: string[]
   effectiveDate?: string | null
 }, client: SupabaseClient = createClient()) {
-  const { data, error } = await client.rpc('save_protocol_with_events_v2', {
+  const { data, error, status } = await client.rpc('save_protocol_with_events_v2', {
     p_protocol_id: input.protocolId,
     p_name: input.name,
     p_start_date: input.startDate,
@@ -26,8 +29,12 @@ export async function saveProtocolWithEvents(input: {
     p_removed_compound_ids: input.removedCompoundIds ?? [],
     p_effective_date: input.protocolId ? input.effectiveDate ?? null : input.startDate,
     p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  })
-  if (error) throw new Error(message(error, 'Unable to save protocol.'))
+  }).then(result => result, () => { throw new ProtocolSaveUncertainError('Unable to confirm the save. Check your saved protocols.') })
+  if (error) {
+    if (!error.code || status >= 500) throw new ProtocolSaveUncertainError(message(error, 'Unable to confirm the save.'))
+    throw new Error(message(error, 'Unable to save protocol.'))
+  }
+  if (typeof data !== 'string' || !data) throw new ProtocolSaveUncertainError('Unable to confirm the save. Check your saved protocols.')
   return data as string
 }
 

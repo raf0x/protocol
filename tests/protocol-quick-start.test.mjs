@@ -5,15 +5,17 @@ import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import React from 'react'
 import ts from 'typescript'
+import { reactHarness } from './helpers/reactHarness.mjs'
 
 const require = createRequire(import.meta.url), cache = new Map()
-let hooks = [], cursor = 0
+let hooks = [], lastHooks
+const renderer = reactHarness()
 function load(path) {
   const url = new URL(path, import.meta.url)
   if (cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }, code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
-    if (name === 'react') return { ...React, useEffect() {}, useState(initial) { const i = cursor++; if (!(i in hooks)) hooks[i] = initial; return [hooks[i], value => { hooks[i] = value }] }, useRef: value => ({ current: value }) }
+    if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
   }, out, out.exports)
@@ -28,19 +30,13 @@ const Picker = load('../components/protocols/CompoundPicker.tsx').default
 const Timing = load('../components/protocols/ProtocolStartDate.tsx').default
 const item = Object.freeze({ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', item_name: 'Test C', vial_strength: 200, strength_unit: 'mg', quantity: 8, form: 'lyophilized vial', reconstitution_status: 'unknown', reconstitution_date: null })
 const previous = [{ start_date: '2026-08-01', compounds: [{ name: 'Test C', phases: [{ start_week: 1, dose: 5, dose_unit: 'mg', dose_semantics_version: 1, frequency: '1x/week', days_of_week: [0], route: 'SubQ', time_of_day: 'morning' }] }] }]
-function tree(node) {
-  if (Array.isArray(node)) return node.map(tree)
-  if (!React.isValidElement(node)) return node
-  if (typeof node.type === 'function') return tree(node.type(node.props))
-  return { type: node.type, props: { ...node.props, children: tree(node.props.children) } }
-}
 function nodes(node, predicate) {
   if (Array.isArray(node)) return node.flatMap(child => nodes(child, predicate))
   if (!node || typeof node !== 'object') return []
   return [...(predicate(node) ? [node] : []), ...nodes(node.props?.children, predicate)]
 }
 function text(node) { if (Array.isArray(node)) return node.map(text).join(''); return node && typeof node === 'object' ? text(node.props?.children) : typeof node === 'string' || typeof node === 'number' ? String(node) : '' }
-function ui(Component, props) { cursor = 0; return tree(React.createElement(Component, props)) }
+function ui(Component, props) { if (lastHooks !== hooks) { renderer.reset(); lastHooks = hooks } return renderer.render(React.createElement(Component, props)) }
 const button = (view, name) => nodes(view, n => n.type === 'button' && text(n) === name)[0]
 const field = (view, name) => nodes(view, n => n.props?.['aria-label'] === name)[0]
 
@@ -117,7 +113,7 @@ test('accepted historical daily schedules retain all days; unverified old doses 
 
 const Additional = load('../components/protocols/QuickProtocolFields.tsx').QuickAdditionalFields
 const Review = load('../components/protocols/ProtocolQuickStart.tsx').QuickStartReview
-const ready = overrides => ({ ...quick.selectCompound(form.newCompound(), 'Tirzepatide'), dose: '5', dose_unit: 'mg', ...overrides })
+const ready = overrides => ({ ...quick.selectCompound(form.newCompound(), 'Tirzepatide'), dose: '5', dose_unit: 'mg', route: 'SubQ', days_of_week: [0,1,2,3,4,5,6], ...overrides })
 const draft = c => ({ startDate: '2026-09-22', compounds: [c] })
 
 test('picker starts with search, exposes two categories and exactly five neutral quick picks', () => {
@@ -159,12 +155,12 @@ test('live search reaches every catalog identity and alias, caps results at five
 test('start date initially renders only three choices; chosen date alone adds a field without empty wrappers', () => {
   hooks = []; let date = '2026-09-22'
   const render = () => ui(Timing, { value: date, today: '2026-09-22', onChange: next => { date = next } })
-  assert.deepEqual(nodes(render(), n => n.type === 'button').map(text), ['Today', 'Choose date', 'Not sure yet'])
+  assert.deepEqual(nodes(render(), n => n.type === 'button').map(text), ['Today', 'Another date', 'I don’t know yet'])
   assert.equal(nodes(render(), n => n.type === 'label').length, 0)
   assert.equal(nodes(render(), n => n.props.className === 'quick-date-entry').length, 0, 'No hidden date wrapper')
-  button(render(), 'Choose date').props.onClick(); assert.ok(field(render(), 'Protocol start date'))
+  button(render(), 'Another date').props.onClick(); assert.ok(field(render(), 'Protocol start date'))
   field(render(), 'Protocol start date').props.onChange({ target: { value: '2099-01-01' } }); assert.equal(date, '2099-01-01')
-  button(render(), 'Not sure yet').props.onClick(); assert.equal(date, ''); assert.equal(field(render(), 'Protocol start date'), undefined)
+  button(render(), 'I don’t know yet').props.onClick(); assert.equal(date, ''); assert.equal(field(render(), 'Protocol start date'), undefined)
   button(render(), 'Today').props.onClick(); assert.equal(date, '2026-09-22'); assert.equal(nodes(render(), n => n.type === 'label').length, 0)
   hooks = []; assert.ok(field(ui(Timing, { value: '2026-09-01', today: date, onChange() {} }), 'Protocol start date'), 'Handoff retains chosen past date')
 })
@@ -198,7 +194,7 @@ test('creation completeness checks a single next fact and a missing medication u
   for (const dose of ['', '0', '-1', 'NaN', 'Infinity', '1e999']) assert.equal(quick.quickStartIssue(draft(ready({ dose }))).field, 'dose')
   for (const unit of ['', 'mL', 'units']) assert.equal(quick.quickStartIssue(draft(ready({ dose_unit: unit }))).message, 'Choose a unit to continue')
   hooks = []; const value = ready({ dose_unit: '' }), issue = quick.quickStartIssue(draft(value))
-  const view = ui(View, { value: draft(value), issue, today: '2026-09-22', onChange() {} })
+  const view = ui(Fields, { value, issue, onChange() {} })
   assert.equal(nodes(view, n => n.props.role === 'alert').length, 1)
   assert.equal(text(view).split('Choose a unit to continue').length - 1, 1)
   for (const scale of ['', '0', '20', 'Infinity']) assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: scale }))).field, 'syringe_scale')
@@ -227,13 +223,13 @@ test('duration uses a human question, defaults ongoing, conditionally renders we
   hooks = []; let value = ready()
   const render = () => ui(Fields, { value, onChange: next => { value = next } })
   assert.match(text(render()), /How long will you run this protocol\?/)
-  assert.equal(button(render(), 'Ongoing').props['aria-pressed'], true); assert.equal(field(render(), 'How many weeks?'), undefined)
-  assert.match(text(ui(Review, { value: draft(value), today: '2026-09-22' })), /Starts today . Ongoing/)
+  assert.equal(button(render(), 'No end date recorded').props['aria-pressed'], true); assert.equal(field(render(), 'How many weeks?'), undefined)
+  assert.match(text(ui(Review, { value: draft(value), today: '2026-09-22' })), /Starts today . No end date recorded/)
   button(render(), 'Set a length').props.onClick()
   assert.ok(field(render(), 'How many weeks?')); assert.equal(quick.quickStartIssue(draft(value)).field, 'duration_weeks')
   field(render(), 'How many weeks?').props.onChange({ target: { value: '12' } })
   assert.match(text(ui(Review, { value: draft(value), today: '2026-09-22' })), /Starts today . 12 weeks/)
-  button(render(), 'Ongoing').props.onClick(); assert.equal(field(render(), 'How many weeks?'), undefined)
+  button(render(), 'No end date recorded').props.onClick(); assert.equal(field(render(), 'How many weeks?'), undefined)
 })
 
 test('preselection renders only the picker and no review; additional setup is a native state-preserving disclosure', () => {
@@ -244,17 +240,17 @@ test('preselection renders only the picker and no review; additional setup is a 
   assert.equal(ui(Review, { value }), null)
   button(render(), 'Tirzepatide').props.onClick()
   assert.equal(ui(Review, { value }), null)
+  button(render(), 'Continue').props.onClick()
   const disclosure = nodes(render(), n => n.type === 'details')[0]
-  assert.match(text(disclosure), /^Add preparation, inventory or notesOptional/)
+  assert.match(text(disclosure), /^Preparation, inventory and notesOptional/)
   assert.equal(disclosure.props.open, undefined, 'Initially closed using native details')
-  assert.ok(button(disclosure, 'Add another compound'))
+  assert.equal(button(disclosure, 'Add another compound'), undefined)
   assert.equal(field(disclosure, 'Dose per injection'), undefined, 'Required dosing is outside optional setup')
   field(disclosure, 'Notes').props.onChange({ target: { value: 'Keep this note' } })
   const open = nodes(render(), n => n.type === 'details')[0]; open.props.open = true
   const closed = nodes(render(), n => n.type === 'details')[0]; closed.props.open = false
   assert.equal(value.compounds[0].notes, 'Keep this note'); assert.equal(field(closed, 'Notes').props.value, 'Keep this note')
-  button(closed, 'Add another compound').props.onClick(); assert.equal(value.compounds.length, 2)
-  assert.equal(nodes(render(), n => n.type === 'summary').map(text)[0], 'Add preparation, inventory or notes', 'Required extra compound fields are not labeled Optional')
+  assert.equal(nodes(render(), n => n.type === 'summary').map(text)[0], 'Preparation, inventory and notesOptional')
   assert.doesNotMatch(text(render()), /Customize details|Ready to track|\bActive\b|\bScheduled\b|\bPlanned\b/)
 })
 
@@ -267,16 +263,17 @@ test('optional preparation retains conditional inputs, preserves facts and never
   assert.ok(field(render(), 'Labeled concentration')); assert.equal(value.vial_strength, '200'); assert.equal(item.quantity, 8)
 })
 
-test('mobile structure connects value and unit without empty grid tracks, and desktop columns require a useful review', () => {
-  hooks = []; const view = ui(View, { value: draft(ready()), today: '2026-09-22', onChange() {} })
+test('mobile structure connects value and unit and the focused flow stays in one column', () => {
+  hooks = []; const view = ui(Fields, { value: ready(), section: 'dose', onChange() {} })
+  assert.equal(nodes(view, n => n.props.className === 'quick-amount').length, 1)
   for (const amount of nodes(view, n => n.props.className === 'quick-amount')) {
     assert.equal(nodes(amount, n => n.type === 'input').length, 1)
     assert.ok(nodes(amount, n => n.type === 'select' || n.props.className === 'quick-unit').length <= 1)
   }
   const css = readFileSync(new URL('../app/protocol/manage/protocols.css', import.meta.url), 'utf8').split('/* Quick Start:')[1]
   assert.doesNotMatch(css, /quick-setup-grid|quick-date-row|quick-section/)
-  assert.match(css, /quick-has-review \{ grid-template-columns:/)
-  assert.match(css, /min-width: 960px/)
+  assert.doesNotMatch(css, /quick-has-review/)
+  assert.match(css, /guided-creation \{[^}]*flex-direction: column/)
   assert.match(css, /scroll-margin-block: 120px/)
   assert.match(css, /app shell already reserves the bottom navigation and safe area/)
   assert.match(css, /prefers-reduced-motion: reduce/)
@@ -360,6 +357,8 @@ test('a custom compound completes the same intake and canonical display without 
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next } })
   field(render(), 'Search compounds').props.onChange({ target: { value: '  Thymosin Beta Blend  ' } })
   button(render(), 'Use “Thymosin Beta Blend”').props.onClick()
+  button(render(), 'Continue').props.onClick()
+  field(render(), 'How do you take it?').props.onChange({ target: { value: 'SubQ' } })
   assert.ok(field(render(), 'Dose per injection'))
   assert.equal(field(render(), 'Medication dose unit').props.value, '')
   field(render(), 'Dose per injection').props.onChange({ target: { value: '5' } })
@@ -370,15 +369,15 @@ test('a custom compound completes the same intake and canonical display without 
   assert.equal(nodes(render(), n => n.props.id === unit.props['aria-describedby']).length, 1)
   field(render(), 'Medication dose unit').props.onChange({ target: { value: 'mg' } })
   assert.equal(nodes(render(), n => n.props.role === 'alert').length, 0)
-  button(render(), 'Weekly').props.onClick(); field(render(), 'Saturday').props.onClick()
-  button(render(), 'Not sure yet').props.onClick()
+  button(render(), 'Continue').props.onClick(); button(render(), 'Weekly').props.onClick(); field(render(), 'Saturday').props.onClick()
+  button(render(), 'Continue').props.onClick(); button(render(), 'I don’t know yet').props.onClick()
   assert.equal(quick.quickStartIssue(value), null)
   const payload = form.protocolCompoundPayload(value.compounds)[0]
   assert.equal(payload.name, 'Thymosin Beta Blend'); assert.equal(payload.phase.dosing_entry.dose_unit, 'mg')
   assert.deepEqual(payload.phase.days_of_week, [6]); assert.equal(payload.phase.time_of_day, '')
   assert.equal(dosingDisplay(payload.phase).primary, '5 mg')
   assert.equal(quick.quickStartDates(value.startDate).startDate, null)
-  assert.ok(field(render(), 'Review protocol'))
+  button(render(), 'Review protocol').props.onClick(); assert.ok(field(render(), 'Review protocol'))
 })
 
 test('frequency asks Which days and every day has a full accessible name, including weekends', () => {
@@ -397,7 +396,7 @@ test('frequency asks Which days and every day has a full accessible name, includ
 })
 
 test('time questions follow route and compact choices preserve an explicit time or Not specified', () => {
-  for (const [route, question] of [['SubQ', 'When do you inject this dose?'], ['IM', 'When do you inject this dose?'], ['Oral', 'When do you take this dose?'], ['Other', 'When do you usually take or inject this dose?'], ['', 'When do you usually take or inject this dose?']]) {
+  for (const [route, question] of [['SubQ', 'When do you inject this dose?'], ['IM', 'When do you inject this dose?'], ['Oral', 'When do you take this dose?'], ['Other', 'When do you use this dose?'], ['', 'When do you use this dose?']]) {
     hooks = []; let value = ready({ route })
     const render = () => ui(Additional, { value, today: '2026-09-22', onChange: next => { value = next } })
     assert.ok(text(render()).includes(question)); assert.doesNotMatch(text(render()), /Time of day/)
@@ -445,7 +444,7 @@ test('segmented selection, disclosure, validation and amount groups have accessi
   assert.equal(nodes(categories, n => n.type === 'button').length, 2)
   assert.equal(button(categories, 'Peptides').props['aria-pressed'], true)
   assert.equal(nodes(button(categories, 'Peptides'), n => n.type === 'svg').length, 1)
-  button(render(), 'Tirzepatide').props.onClick()
+  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Continue').props.onClick()
   const toggle = button(render(), 'I measure my dose another way')
   assert.equal(toggle.props['aria-expanded'], false)
   assert.equal(nodes(render(), n => n.props.id === toggle.props['aria-controls']).length, 0)

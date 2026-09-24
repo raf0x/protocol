@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { safeAuthReturnPath } from '../../../lib/authRedirect'
+import { postAuthDestination } from '../../../lib/authPostAuth'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -10,6 +11,13 @@ export async function GET(request: NextRequest) {
   const token_hash = requestUrl.searchParams.get('token_hash')
   const type = requestUrl.searchParams.get('type')
   const returnPath = safeAuthReturnPath(requestUrl.searchParams.get('next'))
+  function redirect(path: string) {
+    const response = NextResponse.redirect(new URL(path, request.url))
+    response.headers.set('Cache-Control', 'no-store')
+    response.headers.set('Referrer-Policy', 'no-referrer')
+    return response
+  }
+  const failed = () => redirect(`/auth/login?${new URLSearchParams({ next: returnPath, error: 'link' })}`)
 
   const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
@@ -27,24 +35,27 @@ export async function GET(request: NextRequest) {
   )
 
   const otpTypes = new Set<EmailOtpType>(['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email'])
-  if (token_hash && type && otpTypes.has(type as EmailOtpType)) {
-    await supabase.auth.verifyOtp({ token_hash, type: type as EmailOtpType })
-  } else if (code) {
-    await supabase.auth.exchangeCodeForSession(code)
+  try {
+    let signIn = false
+    if (token_hash && type && otpTypes.has(type as EmailOtpType)) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type: type as EmailOtpType })
+      if (error) return failed()
+      signIn = ['signup', 'magiclink', 'email'].includes(type)
+    } else if (code) {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+      if (error) return failed()
+      // The SDK carries PKCE recovery intent in its cookie-backed verifier.
+      const recovery = 'redirectType' in data && data.redirectType === 'recovery'
+      signIn = !recovery && !['recovery', 'invite', 'email_change'].includes(type ?? '')
+    } else if (token_hash || type) return failed()
+
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return failed()
+
+    // Keep action callbacks on their existing safe destination. Only sign-in
+    // callbacks apply first-protocol routing; no recovery/invite/change flow is replaced.
+    return redirect(signIn ? await postAuthDestination(supabase, user.id, returnPath) : returnPath)
+  } catch {
+    return failed()
   }
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))
-
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('onboarded')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || !profile.onboarded) {
-    return NextResponse.redirect(new URL('/onboarding', request.url))
-  }
-
-  return NextResponse.redirect(new URL(returnPath, request.url))
 }

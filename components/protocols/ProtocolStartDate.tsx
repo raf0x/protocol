@@ -6,7 +6,7 @@ import type { QuickStartIssue } from '../../lib/protocols/quickStart'
 export default function ProtocolStartDate({ value, today, onChange, issue }: { value: string; today: string; onChange: (date: string) => void; issue?: QuickStartIssue | null }) {
   const [choosing, setChoosing] = useState(Boolean(value && value !== today))
   return <div className="quick-start-date">
-    <QuickChoices label="When will you start?" value={choosing ? 'date' : value ? 'today' : 'unknown'} options={[["today", 'Today'], ['date', 'Choose date'], ['unknown', 'Not sure yet']]} onChange={choice => {
+    <QuickChoices label="Start date" value={choosing ? 'date' : value ? 'today' : 'unknown'} options={[["today", 'Today'], ['date', 'Another date'], ['unknown', 'I don’t know yet']]} onChange={choice => {
       setChoosing(choice === 'date')
       onChange(choice === 'today' ? today : choice === 'unknown' ? '' : value || today)
     }} />

@@ -1,0 +1,27 @@
+.screen {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top, 0px)) 24px max(24px, env(safe-area-inset-bottom, 0px));
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.panel { width: 100%; max-width: 400px; min-width: 0; }
+.heading { margin: 0 0 8px; color: var(--color-green); font-size: clamp(26px, 8vw, 36px); font-weight: 700; overflow-wrap: anywhere; }
+.description { margin: 0 0 28px; color: var(--color-dim); line-height: 1.6; overflow-wrap: anywhere; }
+.description strong { color: var(--color-text); }
+.label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--color-dim); }
+.input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; margin-bottom: 16px; border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; background: var(--color-card); color: var(--color-text); font-size: 16px; }
+.code { font-size: 24px; letter-spacing: 0.12em; text-align: center; font-variant-numeric: tabular-nums; }
+.primary, .secondary { width: 100%; min-height: 48px; border-radius: 6px; padding: 12px; font-size: 16px; cursor: pointer; }
+.primary { background: var(--color-green); color: #000; font-weight: 700; border: 1px solid transparent; }
+.secondary { margin-top: 8px; background: transparent; border: 1px solid var(--color-border); color: var(--color-text); }
+.input:focus, .primary:focus-visible, .secondary:focus-visible { outline: 2px solid var(--color-green); outline-offset: 3px; }
+.primary:disabled, .secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+.error { margin: 0 0 16px; padding: 12px; border: 1px solid #b34040; border-radius: 6px; background: #2a1010; color: #ffb4b4; font-size: 14px; line-height: 1.5; }
+.timer, .notice, .footer { color: var(--color-dim); font-size: 14px; text-align: center; line-height: 1.5; overflow-wrap: anywhere; }
+.timer, .notice { margin: 12px 0 0; }
+.notice:empty { margin: 0; }
+.footer { margin: 24px 0 0; }

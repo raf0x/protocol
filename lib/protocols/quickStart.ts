@@ -70,25 +70,43 @@ const positive = (value: string) => value.trim() !== '' && Number.isFinite(Numbe
 
 /** Creation-only completeness policy. Historical editing still uses the shared permissive adapter. */
 export function quickStartIssue({ compounds, startDate }: QuickStartDraft): QuickStartIssue | null {
-  if (!compounds.length) return { index: 0, field: 'name', message: 'Choose a compound to continue' }
+  return quickStartIssues({ compounds, startDate })[0] ?? null
+}
+
+export function quickStartIssues({ compounds, startDate }: QuickStartDraft): QuickStartIssue[] {
+  const issues: QuickStartIssue[] = []
+  if (!compounds.length) issues.push({ index: 0, field: 'name', message: 'Choose a compound to continue' })
   for (const [index, c] of compounds.entries()) {
-    const issue = (field: QuickStartIssue['field'], message: string): QuickStartIssue => ({ index, field, message })
+    const issue = (field: QuickStartIssue['field'], message: string) => { issues.push({ index, field, message }) }
     const nameError = compoundNameError(c.name)
-    if (nameError) return issue('name', nameError)
-    if (c.input_mode === 'medication') {
-      if (!positive(c.dose)) return issue('dose', 'Enter a dose greater than zero')
-      if (!['mg', 'mcg', 'IU'].includes(c.dose_unit)) return issue('dose_unit', 'Choose a unit to continue')
+    if (nameError) issue('name', nameError)
+    if (c.route === 'Oral' && ['syringe', 'volume'].includes(c.input_mode)) {
+      issue('input_mode', 'For an oral entry, record a medication dose')
+    } else if (c.input_mode === 'medication') {
+      if (!positive(c.dose)) issue('dose', 'Enter a dose greater than zero')
+      if (!['mg', 'mcg', 'IU'].includes(c.dose_unit)) issue('dose_unit', 'Choose a unit to continue')
     } else if (c.input_mode === 'syringe') {
-      if (!positive(c.syringe_markings)) return issue('syringe_markings', 'Enter the syringe marking you draw to')
-      if (!['100', '40'].includes(c.syringe_scale)) return issue('syringe_scale', 'Choose the scale printed on your syringe')
+      if (!positive(c.syringe_markings)) issue('syringe_markings', 'Enter the syringe marking you draw to')
+      if (!['100', '40'].includes(c.syringe_scale)) issue('syringe_scale', 'Choose the scale printed on your syringe')
     } else if (c.input_mode === 'volume') {
-      if (!positive(c.injection_volume)) return issue('injection_volume', 'Enter an injection volume greater than zero in mL')
-    } else return issue('input_mode', 'Choose how your dose is measured to continue')
-    try { interpretEntry(entryFromForm(c)) } catch (error) { return issue('input_mode', error instanceof Error ? error.message : 'Check your dosing values') }
-    if ((c.durationSet || c.duration_weeks) && (!positive(c.duration_weeks) || !Number.isSafeInteger(Number(c.duration_weeks)))) return issue('duration_weeks', 'Enter the number of weeks you will run this protocol')
+      if (!positive(c.injection_volume)) issue('injection_volume', 'Enter an injection volume greater than zero in mL')
+    } else issue('input_mode', 'Choose how your dose is measured to continue')
+    try { interpretEntry(entryFromForm(c)) } catch { issue('input_mode', 'Check your entered dose and preparation amounts. Use finite, non-negative numbers.') }
+    if (!['SubQ', 'IM', 'Oral', 'Other'].includes(c.route)) issue('route', 'Choose how you take it')
+    if (c.frequency_mode === 'rolling') {
+      if (!/^[1-7]$/.test(c.cycle_days)) issue('cycle_days', 'Choose an interval from 1 to 7 days')
+    } else {
+      const count = c.frequencyChoice === 'weekly' ? 1 : c.frequencyChoice === '2x' ? 2 : c.frequencyChoice === '3x' ? 3 : c.frequencyChoice === 'daily' ? 7 : null
+      if (!c.days_of_week.length) issue('days_of_week', 'Choose a frequency and the days you use it')
+      else if (new Set(c.days_of_week).size !== c.days_of_week.length || c.days_of_week.some(day => !Number.isInteger(day) || day < 0 || day > 6)) issue('days_of_week', 'Choose valid days')
+      else if (count && c.days_of_week.length !== count) issue('days_of_week', `Choose ${count} ${count === 1 ? 'day' : 'days'}`)
+    }
+    if ((c.durationSet || c.duration_weeks) && (!positive(c.duration_weeks) || !Number.isSafeInteger(Number(c.duration_weeks)))) issue('duration_weeks', 'Enter the number of weeks you will run this protocol')
+    if (c.reconstitution_date && !isCalendarDate(c.reconstitution_date)) issue('reconstitution_date', 'Choose a valid mixing date')
+    if (c.vials_in_stock && (!Number.isSafeInteger(Number(c.vials_in_stock)) || Number(c.vials_in_stock) < 0)) issue('vials_in_stock', 'Enter a whole number of vials, zero or more')
   }
-  if (startDate && !isCalendarDate(startDate)) return { index: 0, field: 'startDate', message: 'Choose a valid start date' }
-  return null
+  if (startDate && !isCalendarDate(startDate)) issues.push({ index: 0, field: 'startDate', message: 'Choose a valid start date' })
+  return issues
 }
 
 type SavedPhase = { start_week: number; end_week?: number | null; frequency?: string; days_of_week?: number[]; time_of_day?: string; route?: string; dosing_entry?: DosingEntry | null; dose?: number | null; dose_unit?: string | null; dose_semantics_version?: number | null }

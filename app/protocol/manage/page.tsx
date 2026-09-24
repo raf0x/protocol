@@ -4,6 +4,8 @@ import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import EditorSection from '../../../components/protocols/EditorSection'
 import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
+import ProtocolSetupSuccess, { type SavedSetup } from '../../../components/protocols/ProtocolSetupSuccess'
+import { markOnboardingSeen, onboardingEligible } from '../../../lib/protocols/onboarding'
 import { newCompound, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
 import { createQuickStart, quickStartDates, quickStartIssue, requireIdentifier } from '../../../lib/protocols/quickStart'
 import { loadInventoryItem } from '../../../lib/inventory/client'
@@ -15,7 +17,7 @@ import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { currentPhase } from '../../../lib/health/dosing'
 import { dosingDisplay, administrationDisplay, formatProtocolAmount, formatProtocolNumber, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
-import { saveProtocolWithEvents, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
+import { saveProtocolWithEvents, ProtocolSaveUncertainError, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
@@ -28,11 +30,15 @@ export default function ManagePage() {
   const [loading, setLoading] = useState(true)
   const [protocols, setProtocols] = useState<any[]>([])
   const [savedNotice,setSavedNotice] = useState('')
+  const [firstProtocol, setFirstProtocol] = useState(false)
+  const [setupSuccess, setSetupSuccess] = useState<SavedSetup | null>(null)
+  const [retryBlocked, setRetryBlocked] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const savePending = useRef(false)
   const savedProtocolId = useRef<string | null>(null)
   const handoffInitialized = useRef(false)
+  const ownerId = useRef<string | null>(null)
   const [fromInventory, setFromInventory] = useState(false)
   const mode = editingId === null ? 'create' : 'edit'
   const [planned, setPlanned] = useState(false)
@@ -59,7 +65,6 @@ export default function ManagePage() {
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
   const [completionDate, setCompletionDate] = useState(today)
   const [quickValidationAttempts, setQuickValidationAttempts] = useState(0)
-  const creationIssue = mode === 'create' && quickValidationAttempts ? quickStartIssue({ startDate, compounds }) : null
 
   useEffect(() => {
     const message = document.querySelector<HTMLElement>('[data-quick-error], .protocol-editor [role="alert"]')
@@ -89,10 +94,15 @@ export default function ManagePage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
-      const { data, error: loadError } = await supabase.from('protocols').select('*, compounds(*, phases(*))').order('created_at', { ascending: false })
+      ownerId.current = user.id
+      const { data, error: loadError } = await supabase.from('protocols').select('*, compounds(*, phases(*))').eq('user_id', user.id).order('created_at', { ascending: false })
       if (loadError) throw new Error('Protocols could not be loaded. Please refresh to try again.')
       setProtocols(data || [])
+      const first = onboardingEligible(user.id, data)
+      setFirstProtocol(first)
       const params = new URLSearchParams(window.location.search)
+      if (first && params.get('new') === '1') markOnboardingSeen(user.id)
+      if (!first && params.get('onboarding') === '1') { router.replace('/protocol'); return }
       if ((params.get('new') === '1' || params.has('dose')) && handoffInitialized.current) return
       const target = params.get('protocol')
       const compoundTarget = params.get('compound')
@@ -294,6 +304,8 @@ export default function ManagePage() {
 
   function startNew(draft = createQuickStart()) {
     savedProtocolId.current = null
+    setSetupSuccess(null)
+    setRetryBlocked(false)
     setFromInventory(false)
     setSavedNotice('')
     window.scrollTo({ top: 0 })
@@ -375,7 +387,7 @@ export default function ManagePage() {
   }
 
   async function save() {
-    if (savePending.current || savedProtocolId.current) return
+    if (savePending.current || savedProtocolId.current || retryBlocked) return
     setError('')
     if (mode === 'create') {
       setQuickValidationAttempts(attempt => attempt + 1)
@@ -391,10 +403,19 @@ export default function ManagePage() {
       savedProtocolId.current = await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
       })
+      if (mode === 'create') {
+        setSetupSuccess({ id: savedProtocolId.current, draft: { startDate, compounds }, payload, firstProtocol })
+        return
+      }
       const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
       const success = fromInventory ? 'Protocol created. Your inventory quantity is unchanged.' : 'Protocol saved.'
       setSavedNotice(guidance.length ? `${success} ${guidance.join(' ')}` : success); setShowForm(false); setEditingId(null); await load()
-    } catch (error) { setError(error instanceof Error ? error.message : (error as { message?: string }).message || 'Unable to save dosing.') }
+    } catch (error) {
+      if (mode === 'create' && error instanceof ProtocolSaveUncertainError) {
+        setRetryBlocked(true)
+        setError('We could not confirm whether this protocol saved. Your entries are kept here. Check your saved protocols before starting another setup.')
+      } else setError(mode === 'create' ? 'Your protocol could not be saved. Your entries are kept. Please try again.' : error instanceof Error ? error.message : 'Unable to save dosing.')
+    }
     finally { savePending.current = false; setSaving(false) }
   }
 
@@ -406,13 +427,10 @@ export default function ManagePage() {
   const is = { width:'100%', background:inp, border:'1px solid '+bd, borderRadius:'8px', padding:'10px 12px', color:'var(--color-text)', fontSize:'15px', boxSizing:'border-box' as const }
 
   function cancelForm() {
-    if (fromInventory) router.push('/protocol/inventory')
+    if (firstProtocol) { if (ownerId.current) markOnboardingSeen(ownerId.current); router.push('/protocol') }
+    else if (fromInventory) router.push('/protocol/inventory')
     else { setShowForm(false); setEditingId(null) }
   }
-  const creationActions = <div className="quick-save-actions">
-    <button type="button" className="quick-cancel" disabled={saving} onClick={cancelForm}>Cancel</button>
-    <button type="button" className="quick-save-primary" disabled={saving} aria-busy={saving} onClick={save}>{saving ? 'Saving...' : startDate ? 'Start tracking' : 'Save protocol'}</button>
-  </div>
 
   const continuationField = <>{completedProtocols.filter(cp => cp.id !== editingId).length > 0 && (
               <div style={{marginBottom:'16px'}}>
@@ -430,11 +448,12 @@ export default function ManagePage() {
             )}</>
 
   if (loading) return <main className="protocols-page"><div className="protocols-container"><header className="protocols-header"><h1>Protocols</h1></header><p role="status">Loading your protocols…</p></div></main>
+  if (setupSuccess) return <ProtocolSetupSuccess saved={setupSuccess} today={today} />
 
   return (
-    <main className="protocols-page">
+    <main className={`protocols-page${showForm && mode === 'create' ? ' protocols-focused' : ''}`}>
       <div className={`protocols-container${showForm && mode === 'create' ? ' protocols-creation-container' : ''}`}>
-        {!detailId && <header className="protocols-header">
+        {!detailId && !(showForm && mode === 'create') && <header className="protocols-header">
           <div><h1>{showForm ? (editingId ? 'Edit protocol' : 'Add Protocol') : 'Protocols'}</h1><p>{showForm ? (editingId ? 'Save what you know. Details can come later.' : 'Choose a compound and confirm the basics.') : 'Your plans, at a glance.'}</p></div>
           {!showForm && <button className="protocol-primary" onClick={() => startNew()}>+ Add Protocol</button>}
         </header>}
@@ -461,7 +480,7 @@ export default function ManagePage() {
           <div className="protocol-editor">
             {fromInventory && <p>Creating a protocol will not change your inventory quantity.</p>}
             {editingId && planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
-            {mode === 'create' ? <ProtocolQuickStart value={{ startDate, compounds }} issue={creationIssue} actions={creationActions} saveError={error} today={today} onChange={draft => { setStartDate(draft.startDate); setPlanned(!draft.startDate); setCompounds(draft.compounds) }}>{continuationField}</ProtocolQuickStart> : <>
+            {mode === 'create' ? <ProtocolQuickStart value={{ startDate, compounds }} firstProtocol={firstProtocol} onSave={save} onClose={cancelForm} saving={saving} retryBlocked={retryBlocked} saveError={error} today={today} onChange={draft => { setStartDate(draft.startDate); setPlanned(!draft.startDate); setCompounds(draft.compounds) }}>{continuationField}</ProtocolQuickStart> : <>
             {compounds.map((c, ci) => (
               <div key={ci} style={{marginBottom:'24px'}}>
                 {compounds.length > 1 && (

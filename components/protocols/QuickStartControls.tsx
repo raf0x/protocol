@@ -2,10 +2,10 @@
 import AppIcon from '../app/AppIcon'
 import type { QuickStartIssue } from '../../lib/protocols/quickStart'
 
-export function QuickChoices<T extends string>({ label, value, options, onChange, className = '' }: {
-  label: string; value: T; options: readonly (readonly [T, string, string?])[]; onChange: (value: T) => void; className?: string
+export function QuickChoices<T extends string>({ label, value, options, onChange, className = '', describedBy }: {
+  label: string; value: T; options: readonly (readonly [T, string, string?])[]; onChange: (value: T) => void; className?: string; describedBy?: string
 }) {
-  return <fieldset className="quick-control"><legend>{label}</legend><div className={`quick-options ${className}`}>
+  return <fieldset className="quick-control" aria-describedby={describedBy}><legend>{label}</legend><div className={`quick-options ${className}`}>
     {options.map(([key, text, accessibleName]) => <button type="button" key={key} aria-label={accessibleName} aria-pressed={value === key} onClick={() => onChange(key)}>
       <span>{text}</span>{value === key && <AppIcon name="check" size={14} />}
     </button>)}

@@ -6,7 +6,7 @@ import { selectCompound } from '../../lib/protocols/quickStart'
 import type { Compound } from '../../lib/protocols/form'
 import { QuickStartError } from './QuickStartControls'
 
-export default function CompoundPicker({ value, onChange, idPrefix = 'quick-compound' }: { value: Compound; onChange: (value: Compound) => void; idPrefix?: string }) {
+export default function CompoundPicker({ value, onChange, onExpand, idPrefix = 'quick-compound' }: { value: Compound; onChange: (value: Compound) => void; onExpand?: () => void; idPrefix?: string }) {
   const [changing, setChanging] = useState(false)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<QuickPickCategory>('Peptides')
@@ -21,7 +21,7 @@ export default function CompoundPicker({ value, onChange, idPrefix = 'quick-comp
   const choose = (name: string) => { selectedByUser.current = true; onChange(selectCompound(value, name)); setChanging(false); setQuery(''); setPage(0) }
   if (value.name && !changing) return <div className="quick-selected">
     <span className="quick-compound-icon"><AppIcon name="protocols" size={20} /></span><strong>{value.name}</strong>
-    <button ref={changeButton} className="quick-text-action" type="button" onClick={() => { setQuery(value.name); setChanging(true); setPage(0) }}>Change</button>
+    <button ref={changeButton} className="quick-text-action" type="button" onClick={() => { setQuery(value.name); setChanging(true); setPage(0); onExpand?.() }}>Change</button>
   </div>
   const searching = Boolean(query.trim())
   const search = compoundSearch(query)

@@ -58,7 +58,7 @@ test('edit bounds use the submitted start, independent of old start or reconstit
 function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null},inventory=[]) {
   const states=[],refs=[],calls=[];let slot=0,refSlot=0
   const deletion={eq(){return this},select:async()=>{calls.push({name:'delete'});return deleteResult}}
-  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select:()=>({order:async()=>({data:protocols})}),delete:()=>deletion}),rpc:async(name,args)=>{calls.push({name,args});return {data:'saved',error:null}}}
+  const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select:()=>({eq(){return this},order:async()=>({data:protocols})}),delete:()=>deletion}),rpc:async(name,args)=>{calls.push({name,args});return {data:'saved',error:null}}}
   const url=new URL('../app/protocol/manage/page.tsx',import.meta.url),out={exports:{}}
   const code=ts.transpileModule(readFileSync(url,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText
   const mutations=load('../lib/health/protocolMutations.ts')
@@ -77,28 +77,25 @@ function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null
   return {calls,render,field:label=>render().find(n=>n.props['aria-label']===label),button:label=>render().find(n=>n.type==='button'&&text(n.props.children)===label),input(label,value){this.field(label).props.onChange({target:{value}})}}
 }
 function text(node) { if(Array.isArray(node))return node.map(text).join('');return React.isValidElement(node)?text(node.props.children):typeof node==='string'||typeof node==='number'?String(node):'' }
+function createView(h) { return h.render().find(n=>n.type?.name==='ProtocolQuickStart') }
+function submit(h) { return createView(h).props.onSave() }
 function configure(h, compound, startDate) {
   const node=h.render().find(n=>n.type?.name==='ProtocolQuickStart'), value=node.props.value
-  node.props.onChange({...value,startDate:startDate ?? value.startDate,compounds:[{...value.compounds[0],...compound}]})
+  node.props.onChange({...value,startDate:startDate ?? value.startDate,compounds:[{...value.compounds[0],route:'SubQ',days_of_week:[0,1,2,3,4,5,6],...compound}]})
 }
 const saved={id:'existing-id',name:'Existing',status:'active',start_date:start,compounds:[{id:'compound-id',name:'Existing',vial_strength:10,vial_unit:'mg',bac_water_ml:2,phases:[{id:'phase-id',start_week:1,end_week:null,dose:2,dose_unit:'mg',dose_semantics_version:1,frequency:'daily',days_of_week:[0,1,2,3,4,5,6]}]}]}
-test('Quick Start keeps preparation and stock in additional setup and saves one canonical payload',async()=>{
+test('Quick Start keeps preparation and stock in the shared draft and saves one canonical payload',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd()
     assert.equal(h.button('Start tracking'),undefined);assert.equal(h.field('Effective date'),undefined)
-    configure(h,{name:'Test'})
-    h.button('Needs mixing').props.onClick();h.button('Set a length').props.onClick();h.button('2x/week').props.onClick()
-    for(const [field,value] of [['Vial strength','10'],['Dose per injection','2'],['Medication dose unit','mg'],['BAC water (mL)','2'],['Vials in stock','3'],['How many weeks?','8']])h.input(field,value)
-    h.button('Mon').props.onClick();h.button('Thu').props.onClick()
-    assert.equal(h.field('Vials in stock').props.value,'3');assert.equal(h.field('Protocol start date'),undefined)
-    const save=h.button('Start tracking').props.onClick;await Promise.all([save(),save()])
+    configure(h,{name:'Test',dose:'2',dose_unit:'mg',vial_strength:'10',vial_unit:'mg',bac_water_ml:'2',vials_in_stock:'3',duration_weeks:'8',days_of_week:[1,4]})
+    await Promise.all([submit(h),submit(h)])
     assert.equal(h.calls.length,1)
     const args=h.calls[0].args;assert.equal(args.p_protocol_id,null);assert.equal(args.p_effective_date,args.p_start_date)
     const c=args.p_compounds[0];assert.equal(c.phase.dosing_entry.mode,'medication');assert.equal(c.phase.dosing_entry.dose,'2');assert.equal(c.phase.dosing_entry.dose_unit,'mg');assert.deepEqual(c.phase.days_of_week,[1,4]);assert.equal(c.vials_in_stock,3);assert.equal(c.phase.end_week,8)
   }finally{globalThis.window=previous}
 })
-
 test('edit UI defaults today, ignores closed overrides and resets edit identity when creating',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
@@ -113,13 +110,13 @@ test('edit UI defaults today, ignores closed overrides and resets edit identity 
     assert.equal(h.calls[0].args.p_compounds[0].id,'compound-id');assert.equal(h.calls[0].args.p_compounds[0].phase.id,'phase-id')
     h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'New',dose:'5',dose_unit:'mg'})
     assert.equal(h.button('Use a different effective date'),undefined)
-    await h.button('Start tracking').props.onClick();assert.equal(h.calls[1].args.p_protocol_id,null)
+    await submit(h);assert.equal(h.calls[1].args.p_protocol_id,null)
   }finally{globalThis.window=previous}
 })
 test('empty rings link directly to Quick Add without suggesting active treatment',()=>{
   const Empty=load('../components/protocols/EmptyProtocolRings.tsx').default
   const html=renderToStaticMarkup(React.createElement(Empty))
-  assert.match(html,/href="\/protocol\/manage\?new=1"/);assert.equal((html.match(/<circle/g)||[]).length,5)
+  assert.match(html,/href="\/protocol\/manage\?new=1"/);assert.equal((html.match(/protocol-ring-empty/g)||[]).length,5)
   assert.match(html,/Add your first protocol/);assert.doesNotMatch(html,/week|dose due/i)
 })
 
@@ -177,13 +174,13 @@ test('explicit new/calculator entry resets edit identity and retains prefilled u
   globalThis.window={scrollTo(){},location:{search:'?new=1&protocol=existing-id&name=Prefilled&dose=200&dose_unit=mcg&vial=10&vial_unit=mg&water=2'},history:{replaceState(){globalThis.window.location.search=''}}}
   try {
     const h=harness([saved]);await h.render().find(n=>n.props.onReload).props.onReload()
-    assert.ok(h.button('Start tracking'));assert.equal(h.button('Save changes'),undefined)
+    assert.ok(createView(h));assert.equal(h.button('Save changes'),undefined)
     assert.equal(h.render().find(n=>n.type?.name==='ProtocolQuickStart').props.value.compounds[0].name,'Prefilled')
-    assert.equal(h.field('Dose per injection').props.value,'200')
-    assert.equal(h.field('Medication dose unit').props.value,'mcg')
-    assert.equal(h.field('Vial strength unit').props.value,'mg')
-    assert.equal(h.button('2 mL').props['aria-pressed'],true)
-    await h.button('Start tracking').props.onClick()
+    assert.equal(createView(h).props.value.compounds[0].dose,'200')
+    assert.equal(createView(h).props.value.compounds[0].dose_unit,'mcg')
+    assert.equal(createView(h).props.value.compounds[0].vial_unit,'mg')
+    assert.equal(createView(h).props.value.compounds[0].bac_water_ml,'2');configure(h,{})
+    await submit(h)
     assert.equal(h.calls[0].args.p_protocol_id,null)
   }finally{globalThis.window=previous}
 })
@@ -199,12 +196,12 @@ test('inventory handoff initializes the shared draft once and saves through the 
     assert.equal(draft.startDate,'2026-09-01');assert.equal(draft.compounds[0].name,'Testosterone cypionate')
     assert.equal(draft.compounds[0].reconstitution_date,'2026-09-01')
     assert.equal(draft.compounds[0].dose,'');assert.equal(draft.compounds[0].vials_in_stock,'')
-    await h.button('Start tracking').props.onClick();assert.equal(h.calls.length,0,'Inventory facts cannot substitute for a dose')
-    h.input('Dose per injection','5');h.input('Medication dose unit','mg')
-    await h.button('Start tracking').props.onClick()
+    await submit(h);assert.equal(h.calls.length,0,'Inventory facts cannot substitute for a dose')
+    configure(h,{dose:'5',dose_unit:'mg'})
+    await submit(h)
     assert.equal(h.calls.length,1);assert.equal(h.calls[0].name,'save_protocol_with_events_v2')
     assert.equal(h.calls[0].args.p_start_date,'2026-09-01');assert.equal(h.calls[0].args.p_effective_date,'2026-09-01')
-    assert.equal(h.calls[0].args.p_compounds[0].phase.frequency,'');assert.equal(item.quantity,8)
+    assert.equal(h.calls[0].args.p_compounds[0].phase.frequency,'daily');assert.equal(item.quantity,8)
   }finally{globalThis.window=previous}
 })
 
@@ -212,10 +209,8 @@ test('additional setup shares values; unknown date, unspecified time and oral ro
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'Recorded tablet'})
-    h.input('Route','Oral');h.button('Not sure yet').props.onClick()
-    h.input('Medication dose','4');h.input('Medication dose unit','mg');h.input('Notes','Retain this note')
-    assert.equal(h.field('Medication dose').props.value,'4');assert.equal(h.field('Route').props.value,'Oral')
-    await h.button('Save protocol').props.onClick()
+    configure(h,{route:'Oral',dose:'4',dose_unit:'mg',notes:'Retain this note'},'')
+    await submit(h)
     assert.equal(h.calls[0].args.p_start_date,null);assert.equal(h.calls[0].args.p_compounds[0].phase.time_of_day,'')
     assert.equal(h.calls[0].args.p_compounds[0].phase.route,'Oral');assert.equal(h.calls[0].args.p_compounds[0].notes,'Retain this note')
     const editing={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],route:'Oral',time_of_day:''}]}]}
@@ -255,10 +250,9 @@ test('creation accepts a future start and preparation today without an effective
   try {
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd()
     configure(h,{name:'Scheduled medication',dose:'5',dose_unit:'mg'},'2099-01-01')
-    assert.equal(h.field('Protocol start date').props.max,undefined)
-    h.button('Needs mixing').props.onClick();h.button('Mixed today').props.onClick()
+    configure(h,{preparation:'mixing',reconstitution_date:localCalendarDate()})
     assert.equal(h.field('Effective date'),undefined)
-    await h.button('Start tracking').props.onClick()
+    await submit(h)
     assert.equal(h.calls.length,1)
     assert.equal(h.calls[0].args.p_protocol_id,null)
     assert.equal(h.calls[0].args.p_start_date,'2099-01-01')
@@ -288,21 +282,17 @@ test('open pages refresh local calendar state at midnight and when returning to 
   assert.equal(execFileSync(process.execPath,['-e',script],{env:{...process.env,TZ:'America/New_York'},encoding:'utf8'}).trim(),'pass')
 })
 
-test('the actual create handler rejects incomplete doses with one inline next step, then saves a display-ready card',async()=>{
+test('the actual create handler rejects incomplete doses, then saves a display-ready card',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'Tirzepatide',dose:'5'})
-    await h.button('Start tracking').props.onClick();assert.equal(h.calls.length,0)
-    const messages=h.render().filter(n=>n.props.role==='alert')
-    assert.equal(messages.length,1);assert.equal(messages[0].props.children,'Choose a unit to continue')
-    h.input('Medication dose unit','mg')
-    assert.equal(h.render().filter(n=>n.props.role==='alert').length,0)
-    await h.button('Start tracking').props.onClick();assert.equal(h.calls.length,1)
+    await submit(h);assert.equal(h.calls.length,0)
+    assert.equal(createView(h).props.value.compounds[0].dose,'5')
+    configure(h,{dose_unit:'mg'});await submit(h);assert.equal(h.calls.length,1)
     const c=h.calls[0].args.p_compounds[0], {compoundOverview}=load('../lib/health/protocolPresentation.ts')
     assert.equal(compoundOverview({status:'active',start_date:localCalendarDate()},{...c,phases:[c.phase]},localCalendarDate()).dose,'5 mg')
   }finally{globalThis.window=previous}
 })
-
 test('legacy editing still permits incomplete historical dosing',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
