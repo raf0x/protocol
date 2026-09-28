@@ -114,12 +114,23 @@ test('baseline selects today’s phase and retains the latest event title', () =
 
 test('baseline omits expired, overlapping, undated, and future dosing context', () => {
   const active = { ...enriched.protocols, compounds: [enriched.compounds] }
-  const derive = (row: unknown, today = '2026-09-09') => deriveBaseline([row], [], [], today).activeProtocols[0]
-  assert.deepEqual(derive(active, '2026-12-01').compounds[0].details, [])
-  assert.equal(derive(active, '2026-08-01').week, null)
-  assert.deepEqual(derive(active, '2026-08-01').compounds[0].details, [])
-  assert.equal(derive({ ...active, start_date: null }).week, null)
-  assert.deepEqual(derive({ ...active, compounds: [{ ...enriched.compounds, phases: [phase, phase] }] }).compounds[0].details, [])
+  const current = deriveBaseline([active], [], [], '2026-09-09')
+  assert.equal(current.activeProtocolCount, 1)
+  assert.equal(current.activeProtocols[0].week, 2)
+  assert.deepEqual(current.activeProtocols[0].compounds[0].details, ['5 mg', 'weekly'])
+  const expired = deriveBaseline([active], [], [], '2026-12-01')
+  assert.equal(expired.activeProtocolCount, 1)
+  assert.deepEqual(expired.activeProtocols[0].compounds[0].details, [])
+  const overlapping = deriveBaseline([{ ...active, compounds: [{ ...enriched.compounds, phases: [phase, phase] }] }], [], [], '2026-09-09')
+  assert.equal(overlapping.activeProtocolCount, 1)
+  assert.deepEqual(overlapping.activeProtocols[0].compounds[0].details, [])
+  for (const excluded of [
+    deriveBaseline([{ ...active, start_date: null }], [], [], '2026-09-09'),
+    deriveBaseline([active], [], [], '2026-08-01'),
+  ]) {
+    assert.equal(excluded.activeProtocolCount, 0)
+    assert.deepEqual(excluded.activeProtocols, [])
+  }
 })
 
 test('baseline sorts newest start then ID and preserves blend compounds', () => {

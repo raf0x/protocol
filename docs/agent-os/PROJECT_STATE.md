@@ -16,7 +16,7 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-A complete committed-HEAD audit previously found 21 failures. QA-001 corrected the two stale required-date fixtures; focused validation passed 12/12, and independent review passed with no findings. Because the complete regression suite has not been rerun, the expected remaining baseline is 19 failures, not a newly verified full-suite total: readiness/privacy (6), Longitudinal/Timeline (3), and UI simplification (10).
+A complete committed-HEAD audit previously found 21 failures. QA-001 corrected two stale required-date fixtures (focused validation 12/12; independent review passed). QA-002 repaired three stale Longitudinal/Timeline test contracts (focused validation 107/107; independent review passed with qualifications). The expected remaining baseline is 16: readiness/privacy (6) and UI simplification (10). Full regression has not yet been rerun, so 16 is not a verified complete-suite total.
 
 AOS-003 introduced no failures. Most remaining failures appear to be stale or implementation-coupled assertions, while changed product-contract intent remains unresolved in several cases. Repair belongs in separately scoped tasks. `validate:release` remains red; the application is not release-green.
 

@@ -65,12 +65,57 @@ test('Timeline URL filters preserve unrelated state and treatment implies Protoc
   assert.equal(cleared.searchParams.has('category'), false); assert.equal(cleared.searchParams.has('treatment'), false)
 })
 test('all five accessible filter controls remain with one selected', () => {
-  const html = render(Filters, { value: 'Weight', treatments: [{ key: 't1:["p","c"]', label: 'Tirzepatide', startedAt: '2026-01-01' }], onChange() {} })
-  assert.equal((html.match(/<button/g) || []).length, 5)
-  assert.equal((html.match(/aria-pressed="true"/g) || []).length, 1)
-  for (const label of ['All', 'Protocols', 'Weight', 'Journal', 'Labs']) assert.ok(html.includes(label))
-  assert.match(html, /<label[^>]*for="timeline-treatment"/); assert.match(html, /<select[^>]*id="timeline-treatment"/)
-  assert.ok(html.includes('All treatments')); assert.ok(html.includes('Tirzepatide'))
+  const hidden = node => node.props.hidden || node.props['aria-hidden'] === true || node.props['aria-hidden'] === 'true'
+    || node.props.style?.display === 'none' || node.props.style?.visibility === 'hidden'
+  const descendants = node => {
+    if (Array.isArray(node)) return node.flatMap(descendants)
+    if (!React.isValidElement(node) || hidden(node)) return []
+    return [node, ...descendants(node.props.children)]
+  }
+  const text = (node, includeHidden = false) => typeof node === 'string' || typeof node === 'number' ? String(node)
+    : Array.isArray(node) ? node.map(child => text(child, includeHidden)).join('')
+      : React.isValidElement(node) && (includeHidden || !hidden(node)) ? text(node.props.children, includeHidden) : ''
+  const accessibleName = (node, root) => {
+    const referenced = node.props['aria-labelledby']?.split(/\s+/).map(id => descendants(root).find(item => item.props.id === id))
+    if (referenced?.length) return referenced.map(item => text(item, true)).join(' ').trim().replace(/\s+/g, ' ')
+    return String(node.props['aria-label'] || text(node)).trim().replace(/\s+/g, ' ')
+  }
+  const role = node => node.props.role || (node.type === 'button' ? 'button' : null)
+  const byRole = (root, targetRole, targetName) => descendants(root).filter(node => role(node) === targetRole
+    && (targetName === undefined || accessibleName(node, root) === targetName))
+  const one = (root, targetRole, targetName) => {
+    const matches = byRole(root, targetRole, targetName)
+    assert.equal(matches.length, 1, `${targetRole} named ${targetName} must occur once`)
+    return matches[0]
+  }
+  const option = { key: 't1:["p","c"]', label: 'Tirzepatide', startedAt: '2026-01-01' }
+  const tree = Filters({ value: 'Weight', treatments: [option], onChange() {} })
+  const eventGroup = one(tree, 'group', 'Filter timeline by event type')
+  const categoryNames = ['All', 'Protocols', 'Weight', 'Journal', 'Labs']
+  assert.equal(byRole(eventGroup, 'button').length, 5)
+  for (const name of categoryNames) {
+    const button = one(eventGroup, 'button', name)
+    assert.equal(button.props.type, 'button')
+    assert.equal(Boolean(button.props.disabled || button.props['aria-disabled'] === true || button.props['aria-disabled'] === 'true'), false)
+    assert.equal(button.props['aria-pressed'], name === 'Weight')
+  }
+  const treatmentGroup = one(tree, 'group', 'Filter protocol history by treatment')
+  assert.equal(byRole(treatmentGroup, 'button').length, 2)
+  for (const name of ['All', 'Tirzepatide']) {
+    const button = one(treatmentGroup, 'button', name)
+    assert.equal(button.props.type, 'button')
+    assert.equal(Boolean(button.props.disabled), false)
+    assert.equal(button.props['aria-pressed'], false)
+  }
+  const selected = Filters({ value: 'Protocols', treatments: [option], treatmentKey: option.key, onChange() {} })
+  assert.equal(one(one(selected, 'group', 'Filter timeline by event type'), 'button', 'Protocols').props['aria-pressed'], true)
+  const selectedChips = one(selected, 'group', 'Filter protocol history by treatment')
+  assert.equal(one(selectedChips, 'button', 'All').props['aria-pressed'], false)
+  assert.equal(one(selectedChips, 'button', 'Tirzepatide').props['aria-pressed'], true)
+  const unavailable = Filters({ value: 'Protocols', treatments: [option], treatmentUnavailable: true, onChange() {} })
+  const unavailableChip = one(one(unavailable, 'group', 'Filter protocol history by treatment'), 'button', 'Unavailable')
+  assert.equal(unavailableChip.props.disabled, true)
+  assert.equal(unavailableChip.props['aria-pressed'], 'true')
 })
 test('Timeline page reads both filters from URL state and uses native History', () => {
   const ui = readFileSync(new URL('../app/timeline/page.tsx', import.meta.url), 'utf8')

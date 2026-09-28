@@ -377,10 +377,98 @@ test('rendered selected change hides other comparison cards', () => {
 })
 test('pagination resets through the URL-keyed list, while the selector and periods stay mounted', () => {
   const ui = readFileSync(new URL('../components/health/LongitudinalChanges.tsx', import.meta.url), 'utf8')
+  const dashboard = readFileSync(new URL('../components/health/HealthDashboard.tsx', import.meta.url), 'utf8')
+  const navigation = readFileSync(new URL('../components/health/HealthNavigation.tsx', import.meta.url), 'utf8')
+  const listIndex = ui.indexOf('<ObservationList key=')
+  const listImplementation = ui.slice(ui.indexOf('export function ObservationList'))
   assert.match(ui, /<ObservationList key=\{`\$\{effectiveTreatmentKey\}:\$\{changeId\}`\}/)
-  assert.equal((ui.match(/window\.history\.pushState/g) || []).length, 2)
-  assert.match(ui, /protocolChangesUrl\(window\.location\.search, selectedTreatment\?\.key \?\? '', event\.target\.value\)/)
+  const React = require('react')
+  const data = twoChanges()
+  const { default: View } = load('../components/health/LongitudinalChanges.tsx', {
+    react: { ...React, useState: initial => [initial === null ? data : initial, () => {}], useEffect: () => {} },
+    'next/navigation': { useSearchParams: () => new URLSearchParams(window.location.search) },
+    'next/link': { default: ({ children, ...props }) => React.createElement('a', props, children) },
+    '../../app/health/health.module.css': { default: {} },
+  })
+  const elements = (node, predicate) => {
+    if (Array.isArray(node)) return node.flatMap(child => elements(child, predicate))
+    if (!React.isValidElement(node)) return []
+    return [...(predicate(node) ? [node] : []), ...elements(node.props.children, predicate)]
+  }
+  const label = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(label).join('') : React.isValidElement(node) ? label(node.props.children) : ''
+  const controls = () => {
+    const tree = View()
+    const treatment = elements(tree, node => node.type === 'fieldset')[0]
+    const buttons = elements(treatment, node => node.type === 'button')
+    const select = elements(tree, node => node.type === 'select' && node.props.id === 'protocol-change')[0]
+    assert.ok(buttons.some(button => label(button) === 'All treatments'))
+    assert.ok(buttons.some(button => label(button) !== 'All treatments' && label(button) !== 'Unavailable treatment'))
+    assert.ok(select)
+    assert.ok(elements(tree, node => node.type === 'details' && label(node.props.children).includes('Derived health periods')).length)
+    return { buttons, select }
+  }
+  const previousWindow = globalThis.window
+  const pushed = []
+  globalThis.window = {
+    location: new URL('https://example.test/health?view=changes&other=kept&change=stale'),
+    history: { pushState(_state, _title, destination) {
+      const next = new URL(destination, globalThis.window.location)
+      pushed.push(next)
+      globalThis.window.location = next
+    } },
+  }
+  try {
+    const initial = controls()
+    const specific = initial.buttons.find(button => label(button) !== 'All treatments' && label(button) !== 'Unavailable treatment')
+    specific.props.onClick()
+    assert.equal(pushed.length, 1)
+    assert.equal(pushed[0].pathname, '/health')
+    assert.equal(pushed[0].searchParams.get('view'), 'changes')
+    assert.equal(pushed[0].searchParams.get('other'), 'kept')
+    assert.equal(pushed[0].searchParams.get('treatment'), specific.key)
+    assert.equal(pushed[0].searchParams.has('change'), false)
+
+    const selected = controls()
+    assert.equal(selected.buttons.find(button => button.key === specific.key).props['aria-pressed'], true)
+    const change = elements(selected.select, node => node.type === 'option' && node.props.value)[0].props.value
+    selected.select.props.onChange({ target: { value: change } })
+    assert.equal(pushed.length, 2)
+    assert.equal(pushed[1].searchParams.get('view'), 'changes')
+    assert.equal(pushed[1].searchParams.get('other'), 'kept')
+    assert.equal(pushed[1].searchParams.get('treatment'), specific.key)
+    assert.equal(pushed[1].searchParams.get('change'), change)
+
+    const refined = controls()
+    assert.equal(refined.select.props.value, change)
+    refined.buttons.find(button => label(button) === 'All treatments').props.onClick()
+    assert.equal(pushed.length, 3)
+    assert.equal(pushed[2].searchParams.get('view'), 'changes')
+    assert.equal(pushed[2].searchParams.get('other'), 'kept')
+    assert.equal(pushed[2].searchParams.has('treatment'), false)
+    assert.equal(pushed[2].searchParams.has('change'), false)
+    assert.equal(controls().buttons.find(button => label(button) === 'All treatments').props['aria-pressed'], true)
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window
+    else globalThis.window = previousWindow
+  }
+  assert.match(navigation, /\['overview', 'Overview', '\/health'\]/)
+  assert.match(navigation, /\['changes', 'Protocol changes', '\/health\?view=changes'\]/)
+  assert.match(navigation, /\['analyst', 'AI Analyst', '\/health\?view=analyst'\]/)
+  assert.match(dashboard, /const overview = !query\.get\('view'\)/)
+  assert.match(dashboard, /const longitudinal = query\.get\('view'\) === 'changes'/)
+  assert.match(dashboard, /\{longitudinal && <LongitudinalChanges \/>\}/)
   assert.ok(!ui.includes('router.push('))
-  assert.match(ui.slice(ui.indexOf('export function ObservationList')), /useState\(8\)/)
-  assert.ok(!ui.slice(ui.indexOf('export function ObservationList')).includes('Derived health periods'))
+  assert.ok(ui.indexOf('<select id="protocol-change"') < listIndex)
+  assert.ok(ui.indexOf('<details className={styles.trend}>') > listIndex)
+  assert.match(listImplementation, /useState\(8\)/)
+  assert.match(listImplementation, /observations\.slice\(0, visible\)/)
+  assert.match(listImplementation, /setVisible\(count => count \+ 8\)/)
+  assert.ok(!listImplementation.includes('Derived health periods'))
+  const comparable = comparableLabObservations(data.observations)[0]
+  assert.ok(comparable)
+  const html = renderedChanges({ ...data, observations: Array.from({ length: 9 }, (_, index) => ({ ...comparable, id: `page-${index}` })) })
+  assert.equal((html.match(/<article/g) ?? []).length, 8)
+  assert.match(html, /<button type="button">Show more recorded comparisons<\/button>/)
+  assert.match(html, /<select[^>]*id="protocol-change"/)
+  assert.match(html, /Derived health periods/)
 })
