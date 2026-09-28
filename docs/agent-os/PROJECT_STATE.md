@@ -16,11 +16,11 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-A complete committed-HEAD audit found 53 standard test files and 1,355 tests: 1,334 passed, 21 failed, 0 skipped, 0 cancelled, and 0 incomplete. All nine PGlite-dependent test files executed. The 21 failures reproduce on committed HEAD and group as readiness/privacy (6), dosing/date fixtures (2), Longitudinal/Timeline (3), and UI simplification (10).
+A complete committed-HEAD audit previously found 21 failures. QA-001 corrected the two stale required-date fixtures; focused validation passed 12/12, and independent review passed with no findings. Because the complete regression suite has not been rerun, the expected remaining baseline is 19 failures, not a newly verified full-suite total: readiness/privacy (6), Longitudinal/Timeline (3), and UI simplification (10).
 
-AOS-003 introduced no failures. Its harness adds one file and 23 passing tests, producing 54 files and 1,378 tests: 1,357 passed and the same 21 failed. Most failures appear to be stale or implementation-coupled assertions, while changed product-contract intent remains unresolved in several cases. Repair belongs in separately scoped tasks. `validate:release` correctly remains red until they are resolved; the application is not release-green.
+AOS-003 introduced no failures. Most remaining failures appear to be stale or implementation-coupled assertions, while changed product-contract intent remains unresolved in several cases. Repair belongs in separately scoped tasks. `validate:release` remains red; the application is not release-green.
 
-On September 28, 2026, `npm run validate:build` correctly returned nonzero because Turbopack could not fetch the Inter font from Google Fonts due to a network connection failure. This is an environmental build blocker, not evidence of an AOS-003 application-code regression; because the build stopped early, it does not prove that later build stages would pass. Rerun the build once in an environment that can reach the required font resource or has it cached. `validate:release` remains red because of both the 21 committed-HEAD test failures and this unresolved build-environment qualification. Neither AOS-003 nor the application is release-green.
+On September 28, 2026, `npm run validate:build` correctly returned nonzero because Turbopack could not fetch the Inter font from Google Fonts due to a network connection failure. This is an environmental build blocker, not evidence of an AOS-003 application-code regression; because the build stopped early, it does not prove that later build stages would pass. Rerun the build once in an environment that can reach the required font resource or has it cached. `validate:release` remains red because of both the expected unresolved baseline failures and this build-environment qualification. Neither AOS-003 nor the application is release-green.
 
 ## Unrelated working-tree items
 

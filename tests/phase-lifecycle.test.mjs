@@ -26,7 +26,7 @@ test('last new phase defaults ongoing; explicit phase lengths and previous bound
  assert.equal(phaseEndWeek(5,''),null)
  assert.equal(phaseEndWeek(5,'12'),16)
  assert.equal(phaseEndWeek(1,'4'),4)
- assert.equal(quickEntryPayload({name:'Any medication'}).compounds[0].phase.end_week,null)
+ assert.equal(quickEntryPayload({name:'Any medication',date:'2026-02-28'}).compounds[0].phase.end_week,null)
  const latest={id:'latest',start_week:5,end_week:8}, phases=[old,latest]
  assert.equal(expiredLatestPhase(phases,'active','2026-04-20','2026-09-09'),latest)
  assert.deepEqual(phases,[{id:'old',start_week:1,end_week:4},{id:'latest',start_week:5,end_week:8}])

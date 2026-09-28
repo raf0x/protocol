@@ -35,7 +35,7 @@ test('mass/IU mismatch and incomplete concentration produce warnings without thr
  const e=entry({input_mode:'medication',dose:'250',dose_unit:'IU'})
  const r=interpretEntry(e);assert.equal(r.medication.unit,'IU');assert.equal(r.volume,null);assert.match(r.warnings.join(' '),/no IU-to-mass/)
  assert.doesNotThrow(()=>interpretEntry(entry({concentration_value:'200',concentration_unit:''})))
- assert.doesNotThrow(()=>quickEntryPayload({name:'Any',dose:250,dose_unit:'IU',vial:5,vial_unit:'mg'}))
+ assert.doesNotThrow(()=>quickEntryPayload({name:'Any',date:'2026-02-28',dose:250,dose_unit:'IU',vial:5,vial_unit:'mg'}))
 })
 test('negative, nonnumeric and zero scale block; incomplete and zero amounts do not',()=>{
  for(const value of ['-1','NaN','Infinity','abc']) assert.throws(()=>entry({syringe_markings:value}))
