@@ -673,7 +673,8 @@
   .exportBar,
   .error,
   .loading,
-  :global(.app-tab-bar) { display: none !important; }
+  :global(.app-tab-bar),
+  :global(.app-more-sheet) { display: none !important; }
   .report {
     width: 100%;
     border: 0;

@@ -12,7 +12,9 @@ September 11 V1 preparation artifacts:
 
 ## Decision
 
-Use the enhanced PWA as the production web foundation and test surface now. Plan a Capacitor iOS wrapper after the blockers in this document are closed. Capacitor is the recommended distribution direction because App Store presence is an explicit goal and the product will benefit from a controlled native lifecycle, universal links, and future native notification integration. Do not begin wrapper work while core privacy, account deletion, monitoring, and device QA remain open.
+Use the enhanced PWA as the production web foundation and a remote-hosted Capacitor iOS wrapper as the accepted native architecture. The checked-in Capacitor configuration must load only the approved production HTTPS origin, `https://www.mypepprotocol.app`, with `cleartext: false`. This configuration choice does not close the privacy, consent, deletion, authentication, push, physical-device QA, or release gates below.
+
+Capacitor package and configuration presence does not establish TestFlight or App Store release readiness. Native-shell generation, signing, entitlements, device validation, reviewer access, metadata, privacy declarations, and submission remain separate verified steps.
 
 Apple can reject a wrapper that is only a repackaged website. The native package must preserve the app-like product experience and be tested against [App Review Guideline 4.2](https://developer.apple.com/app-store/review/guidelines/#minimum-functionality). Capacitor setup guidance is maintained in the [official iOS documentation](https://capacitorjs.com/docs/ios).
 
@@ -33,8 +35,9 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 - Added authenticated in-app deletion, explicit versioned AI processing consent, durable Supabase-backed route throttling, and privacy-scrubbed first-party operational monitoring in Launch Blockers V1.
 - Added opaque 180px Apple touch, 192/512px PWA, dedicated maskable, and 1024px App Store candidate assets based on the existing MyPepProtocol mark.
 - Added a short non-sensitive Vercel release identifier in Profile for QA issue correlation.
-- Clearly labeled the local public demo as fictional and excluded it from the authenticated mobile shell.
+- Retired the temporary public demo route to the landing page; a rebuilt fictional reviewer demo remains future work.
 - Deferred push for App Store V1 behind a visible release policy until timezone, cleanup, and delivery ownership are reliable.
+- Added the accepted remote-hosted Capacitor package and configuration with the production HTTPS origin and cleartext traffic disabled; native-shell and store-release work remain incomplete.
 
 ## Current readiness by area
 
@@ -53,6 +56,7 @@ Apple can reject a wrapper that is only a repackaged website. The native package
 | Monitoring | Implemented, operations needed | Client/server/API events use a scrubbed Supabase table. Establish production retention, dashboard review, and alerts. |
 | Rate limiting | Stabilized | Authenticated protected routes use atomic Supabase counters across production instances and fail closed if unavailable. |
 | Accessibility | Baseline present | Semantic navigation, focus states, 44px targets, text status, labels, and reduced motion exist in primary modern screens. Full VoiceOver audit remains open. |
+| Capacitor wrapper | Configuration accepted, release not ready | Remote-hosted architecture points to the approved production HTTPS origin with cleartext disabled. Native project generation, signing, entitlements, physical-device validation, and store submission remain open. |
 
 ## iPhone QA matrix
 
@@ -168,7 +172,7 @@ The current browser-print implementation is the lowest-risk approach. It exclude
 - API input validation is present for AI, reports, and push, but a complete penetration/security review is outside this pass.
 - File imports are parsed client-side and require user review before persistence. Revalidate size/type behavior on mobile Safari.
 
-## Ready for iOS packaging?
+## Ready for TestFlight or App Store submission?
 
 No.
 
@@ -178,3 +182,4 @@ Blockers:
 2. The 1024px icon candidate still needs final brand-owner approval.
 3. Production monitoring retention/alerts must be operating before native QA issues are triaged.
 4. A dedicated isolated reviewer account with fictional data must be created and verified.
+5. Authentication, explicit AI processing consent and revocation, in-app account deletion, and the deferred push behavior must be verified on the signed native build before TestFlight or App Store submission.

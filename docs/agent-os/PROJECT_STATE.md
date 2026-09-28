@@ -16,9 +16,9 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-A complete committed-HEAD audit previously found 21 failures. QA-001 corrected two stale required-date fixtures (focused validation 12/12; independent review passed). QA-002 repaired three stale Longitudinal/Timeline test contracts (focused validation 107/107; independent review passed with qualifications). The expected remaining baseline is 16: readiness/privacy (6) and UI simplification (10). Full regression has not yet been rerun, so 16 is not a verified complete-suite total.
+A complete committed-HEAD audit previously found 21 failures. QA-001 corrected two stale required-date fixtures (focused validation 12/12; independent review passed). QA-002 repaired three stale Longitudinal/Timeline test contracts (focused validation 107/107; independent review passed with qualifications). QA-003 repaired all six readiness/privacy failures (focused validation 93/93; independent review passed with qualifications). Manual localhost print QA also passed: the open More dialog, bottom navigation, and export controls were hidden, the report remained visible, and the normal screen remained unchanged. The expected unresolved baseline is now 10 failures, all in UI simplification. Full regression has not yet been rerun, so 10 is an expected remaining count rather than a verified complete-suite total.
 
-AOS-003 introduced no failures. Most remaining failures appear to be stale or implementation-coupled assertions, while changed product-contract intent remains unresolved in several cases. Repair belongs in separately scoped tasks. `validate:release` remains red; the application is not release-green.
+AOS-003 introduced no failures. The remaining expected failures are confined to UI simplification and belong in a separately scoped task. `validate:release` remains red; the application is not release-green.
 
 On September 28, 2026, `npm run validate:build` correctly returned nonzero because Turbopack could not fetch the Inter font from Google Fonts due to a network connection failure. This is an environmental build blocker, not evidence of an AOS-003 application-code regression; because the build stopped early, it does not prove that later build stages would pass. Rerun the build once in an environment that can reach the required font resource or has it cached. `validate:release` remains red because of both the expected unresolved baseline failures and this build-environment qualification. Neither AOS-003 nor the application is release-green.
 
@@ -35,4 +35,5 @@ Existing unrelated items:
 - Phase 1 Agent Operating System: final documentation content audit; no blocker to delivery.
 - Follow-up validation gap: Health Command Center browser automation did not complete. A rerun, if required, belongs in a subsequent scoped task.
 - Device coverage beyond the confirmed manual keyboard and production visual QA is unspecified. OTP staging/production delivery and provider-behavior checks are not confirmed here.
+- QA-003 accepts `/demo` redirecting to `/` as the temporary retired-demo contract; rebuilding a fictional demo remains future work. Privacy mailbox operation and native/TestFlight/App Store operational checks remain unverified.
 - Next product implementation priority has not been supplied.

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import ts from 'typescript'
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -23,6 +24,58 @@ const profile = read('../app/profile/page.tsx')
 const errorPage = read('../app/error.tsx')
 const globalError = read('../app/global-error.tsx')
 const allRuntime = [accountRoute,consentRoute,analystRoute,reportRoute,pushRoute,durable,monitoring,monitorRoute,consentDialog,analystUi,reportUi,deletionUi,settingsUi,errorPage,globalError].join('\n')
+
+const normalizeText = value => value.replace(/\s+/g, ' ').trim().toLowerCase()
+
+function materialize(node) {
+  if (node == null || typeof node === 'boolean') return null
+  if (typeof node === 'string' || typeof node === 'number') return node
+  if (Array.isArray(node)) return node.map(materialize).filter(child => child != null)
+  if (typeof node !== 'object' || !('type' in node)) throw new Error('Unsupported rendered child')
+  if (node.type === Fragment) return materialize(node.props.children)
+  if (typeof node.type === 'function') return materialize(node.type(node.props))
+  if (typeof node.type !== 'string') throw new Error('Unsupported rendered element type')
+  return {type:node.type,props:{...node.props,children:materialize(node.props.children)}}
+}
+
+function elementsByTag(tree,tagName) {
+  const matches=[]
+  function visit(node) {
+    if(node==null||typeof node==='boolean'||typeof node==='string'||typeof node==='number')return
+    if(Array.isArray(node)){node.forEach(visit);return}
+    if(node.type===tagName)matches.push(node)
+    visit(node.props.children)
+  }
+  visit(tree)
+  return matches
+}
+
+function renderedText(tree) {
+  if(tree==null||typeof tree==='boolean')return ''
+  if(typeof tree==='string'||typeof tree==='number')return String(tree)
+  if(Array.isArray(tree))return tree.map(renderedText).join(' ')
+  return renderedText(tree.props.children)
+}
+
+function renderedPrivacySections() {
+  const output=ts.transpileModule(privacy,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText
+  const result={exports:{}}
+  const modules={
+    'react/jsx-runtime':{Fragment,jsx,jsxs},
+    'next/link':{default:props=>({type:'a',props:Object.fromEntries(Object.entries(props).filter(([property])=>property!=='key'))})},
+  }
+  new Function('module','exports','require',output)(result,result.exports,specifier=>{
+    if(Object.hasOwn(modules,specifier))return modules[specifier]
+    throw new Error(`Unexpected module import: ${specifier}`)
+  })
+  const tree=materialize(result.exports.default())
+  const sections = new Map()
+  for(const section of elementsByTag(tree,'section')){
+    const heading=elementsByTag(section,'h2')[0]
+    if(heading)sections.set(normalizeText(renderedText(heading)),normalizeText(renderedText(section)))
+  }
+  return sections
+}
 
 async function loadPure(path) {
   const output = ts.transpileModule(read(path), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
@@ -69,7 +122,13 @@ test('monitoring failures cannot break application requests',()=>{assert.match(m
 test('client and root error boundaries submit sanitized error types',()=>{assert.match(errorPage,/reportClientError/);assert.match(globalError,/reportClientError/)})
 test('server AI and report failures are captured without request bodies',()=>{assert.match(analystRoute,/captureAnalystOperationalError/);assert.match(reportRoute,/captureAnalystOperationalError/);assert.doesNotMatch(monitoring,/question|evidence|dose|lab_value|notes/)})
 test('runtime source has no raw console error logging',()=>assert.doesNotMatch(allRuntime,/console\.(error|log|warn)/))
-test('privacy page reflects consent, deletion, monitoring, and durable Supabase counters',()=>{for(const value of ['explicitly allow AI processing','revoke AI processing permission','permanently delete your account','Privacy-scrubbed operational events','rate-limit counters'])assert.ok(privacy.includes(value))})
+test('privacy page reflects consent, deletion, monitoring, and durable Supabase counters',()=>{
+  const sections=renderedPrivacySections()
+  assert.match(sections.get('ai-assisted features')??'',/explicitly allow ai processing.*revoke ai processing permission from profile/)
+  assert.match(sections.get('your choices and requests')??'',/grant or revoke third-party ai processing permission from profile.*permanently delete your account.*account deletion feature in profile/)
+  assert.match(sections.get('information we process')??'',/privacy-scrubbed operational events.*route.*error type.*status.*release.*timestamp.*random request identifier.*exclude health values.*notes.*request payloads.*account identifiers.*error messages or stack traces/)
+  assert.match(sections.get('service providers')??'',/supabase.*rate-limit counters.*privacy-scrubbed operational events/)
+})
 test('destructive confirmation is accessible and mobile sized',()=>{assert.match(deletionUi,/htmlFor="delete-account-confirmation"/);assert.match(deletionUi,/role="alert"/);assert.match(read('../components/profile/ProfileSafety.module.css'),/min-height:44px/)})
 test('service-role and AI secrets never appear in client components',()=>assert.doesNotMatch([consentDialog,analystUi,reportUi,deletionUi,settingsUi].join('\n'),/SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY/))
 test('migration is wrapped, additive, rerunnable, and protects new tables with RLS',()=>{assert.match(migration,/^--[\s\S]*BEGIN;/);assert.match(migration,/COMMIT;\s*$/);assert.match(migration,/IF NOT EXISTS/);for(const table of ['app_rate_limits','app_error_events'])assert.ok(migration.includes(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`))})
