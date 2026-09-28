@@ -84,6 +84,20 @@ report the exact input needed and unfinished criteria, and complete only unaffec
 
 A timeout or skipped check is unverified evidence, never a pass.
 
+## Validation command matrix
+
+| Command | Use and timing |
+| --- | --- |
+| `npm run validate:focused -- tests/<file>.test.mjs` | Run explicit affected tests during implementation; SQL-test dependencies are supplied and skipped or incomplete results fail. Repeat only after relevant changes. |
+| `npm run validate:types` | Standalone TypeScript evidence when a task requires it; keeping it separate avoids treating a build as a substitute for type checking. |
+| `npm run validate:regression` | Run all standard tests once at the agreed release gate. |
+| `npm run validate:build` | Run the production build once at the agreed release gate. |
+| `npm run validate:browser -- tests/<fixture>.browser.cjs` | Run one browser fixture under an owned process-tree supervisor with bounded cleanup after every outcome; browser automation is excluded from `validate:release`. |
+| `npm run validate:git -- <intended-staged-files...>` | Compare the exact intended paths with the staged set and check diffs; the intended path list is mandatory. |
+| `npm run validate:release -- <intended-staged-files...>` | Run types, regression, build, and Git validation in order, stopping on failure; the intended path list is mandatory. |
+
+Use focused checks for implementation feedback and the release command only at the release gate. Do not repeat expensive checks without a relevant change that invalidates their evidence.
+
 ## Long-running Codex Goals
 
 Use a Goal only when explicitly requested for a bounded investigation or multi-step work with

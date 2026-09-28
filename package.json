@@ -7,7 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "validate:focused": "node scripts/validate.mjs focused",
+    "validate:types": "node scripts/validate.mjs types",
+    "validate:build": "node scripts/validate.mjs build",
+    "validate:regression": "node scripts/validate.mjs regression",
+    "validate:browser": "node scripts/validate.mjs browser",
+    "validate:git": "node scripts/validate.mjs git",
+    "validate:release": "node scripts/validate.mjs release"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
@@ -26,6 +33,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
+    "@electric-sql/pglite": "0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

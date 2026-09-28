@@ -16,13 +16,11 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-The owner confirms these three known regression failures remain. No tests were rerun for this audit.
+A complete committed-HEAD audit found 53 standard test files and 1,355 tests: 1,334 passed, 21 failed, 0 skipped, 0 cancelled, and 0 incomplete. All nine PGlite-dependent test files executed. The 21 failures reproduce on committed HEAD and group as readiness/privacy (6), dosing/date fixtures (2), Longitudinal/Timeline (3), and UI simplification (10).
 
-| Failure | Existing evidence from MPP-016 |
-| --- | --- |
-| Longitudinal History-call count | `longitudinal.test.mjs:378`: expected 2 history pushes, found 3. |
-| Timeline filter-button count | `timeline-ui.test.mjs:67`: expected 5 filters, found 7. |
-| Timeline baseline week access | `timeline.test.ts:115` (error at 119): reads `week` from undefined. |
+AOS-003 introduced no failures. Its harness adds one file and 23 passing tests, producing 54 files and 1,378 tests: 1,357 passed and the same 21 failed. Most failures appear to be stale or implementation-coupled assertions, while changed product-contract intent remains unresolved in several cases. Repair belongs in separately scoped tasks. `validate:release` correctly remains red until they are resolved; the application is not release-green.
+
+On September 28, 2026, `npm run validate:build` correctly returned nonzero because Turbopack could not fetch the Inter font from Google Fonts due to a network connection failure. This is an environmental build blocker, not evidence of an AOS-003 application-code regression; because the build stopped early, it does not prove that later build stages would pass. Rerun the build once in an environment that can reach the required font resource or has it cached. `validate:release` remains red because of both the 21 committed-HEAD test failures and this unresolved build-environment qualification. Neither AOS-003 nor the application is release-green.
 
 ## Unrelated working-tree items
 

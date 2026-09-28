@@ -36,6 +36,8 @@ Mark each check Required or Not required with a reason; do not leave applicabili
 | Production build | <Yes/No; reason> | <Command and release gate.> |
 | Manual QA | <Yes/No; reason> | <Scenarios, devices, accessibility, and verifier.> |
 
+Choose validation commands explicitly: use `validate:focused` for affected tests during implementation and reserve `validate:release` for the release gate. The release command requires the complete intended staged-path list and runs standalone TypeScript, standard regression, production build, and Git validation; standalone TypeScript is required because a build is not equivalent type-check evidence. Browser fixtures run separately through `validate:browser` and are excluded from the release command. Do not repeat expensive checks unless relevant changes invalidate prior evidence.
+
 ## Known baseline failures
 
 <List only relevant failures with evidence/reference and comparison method, or state none known. Record new failures separately in results.>
