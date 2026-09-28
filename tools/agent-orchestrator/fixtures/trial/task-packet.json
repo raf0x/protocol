@@ -1,0 +1,18 @@
+{
+  "taskId": "AOS-004A-TRIAL",
+  "approved": true,
+  "risk": "low",
+  "userFacing": false,
+  "riskAreas": [],
+  "requireIndependentReview": true,
+  "allowedPaths": ["README.md"],
+  "productQa": {
+    "required": false,
+    "notRequiredReason": "The trial is a nonfunctional wording-only fixture change."
+  },
+  "validation": [
+    { "id": "trial-focused", "family": "validate:focused", "required": true },
+    { "id": "trial-build", "family": "validate:build", "required": false, "notRequiredReason": "The synthetic wording-only fixture has no build surface." },
+    { "id": "trial-browser", "family": "validate:browser", "required": false, "notRequiredReason": "The synthetic wording-only fixture has no browser behavior." }
+  ]
+}

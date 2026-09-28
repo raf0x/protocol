@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mypepprotocol.local/schemas/agent-orchestrator/release-readiness.schema.json",
+  "title": "Release readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "artifactType", "taskId", "runId", "revision", "packetHash", "baseCommit", "candidateId", "producer", "result", "blockers", "evidenceRefs", "readiness", "acceptedScopeSatisfied", "reviewSatisfied", "validationSatisfied", "artifactsConsistent", "candidateUnstaged", "releaseActions"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" }, "artifactType": { "const": "release_readiness" },
+    "taskId": { "type": "string", "minLength": 1 }, "runId": { "type": "string", "minLength": 1 }, "revision": { "type": "integer", "minimum": 0 },
+    "packetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "baseCommit": { "type": "string", "minLength": 1 },
+    "candidateId": { "anyOf": [{ "type": "string", "pattern": "^[0-9a-f]{64}$" }, { "type": "null" }] },
+    "producer": { "type": "object", "additionalProperties": false, "required": ["role", "identity"], "properties": { "role": { "type": "string", "minLength": 1 }, "identity": { "type": "string", "minLength": 1 } } },
+    "result": { "enum": ["pass", "fail", "blocked", "not_run", "not_required"] },
+    "blockers": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["code", "message"], "properties": { "code": { "type": "string", "minLength": 1 }, "message": { "type": "string", "minLength": 1 } } } },
+    "evidenceRefs": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "type", "candidateId", "result"], "properties": { "id": { "type": "string", "minLength": 1 }, "type": { "type": "string", "minLength": 1 }, "candidateId": { "anyOf": [{ "type": "string" }, { "type": "null" }] }, "result": { "enum": ["pass", "fail", "blocked", "not_run", "not_required"] } } } },
+    "readiness": { "enum": ["ready_for_handoff", "blocked", "cancelled"] },
+    "acceptedScopeSatisfied": { "type": "boolean" }, "reviewSatisfied": { "type": "boolean" }, "validationSatisfied": { "type": "boolean" }, "artifactsConsistent": { "type": "boolean" }, "candidateUnstaged": { "type": "boolean" },
+    "releaseActions": { "type": "object", "additionalProperties": false, "required": ["stage", "commit", "push", "deploy", "supabase"], "properties": { "stage": { "const": "outside_v1" }, "commit": { "const": "outside_v1" }, "push": { "const": "outside_v1" }, "deploy": { "const": "outside_v1" }, "supabase": { "const": "outside_v1" } } }
+  }
+}

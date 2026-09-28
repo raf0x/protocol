@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mypepprotocol.local/schemas/agent-orchestrator/common.schema.json",
+  "title": "AOS-004A shared contract",
+  "$defs": {
+    "result": { "enum": ["pass", "fail", "blocked", "not_run", "not_required"] },
+    "releaseReadiness": { "enum": ["ready_for_handoff", "blocked", "cancelled"] },
+    "releaseAction": { "enum": ["outside_v1"] },
+    "blockReason": {
+      "enum": [
+        "SCOPE_EXPANSION", "UNAUTHORIZED_PATH", "RISK_MISMATCH", "PRODUCT_DECISION_REQUIRED",
+        "MISSING_EVIDENCE", "REVIEW_LIMIT", "VALIDATION_FAILED", "RELEASE_AUTHORIZATION_ABSENT",
+        "DESTRUCTIVE_OR_PRODUCTION_MUTATION", "BUDGET_EXHAUSTED", "RUNTIME_FAILURE",
+        "INTEGRITY_FAILURE", "WORKSPACE_DRIFT"
+      ]
+    }
+  }
+}

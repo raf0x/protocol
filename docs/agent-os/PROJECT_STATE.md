@@ -6,7 +6,7 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Production
 
-- Current behavior-changing production baseline: `9e03e28` — `feat: add executive Health command center (MPP-016)` — deployed and visually verified by Rafael on September 28, 2026.
+- Current production main: `f133336` — `fix: repair UI simplification contracts (QA-004)` — committed, pushed, and successfully deployed through Vercel, as confirmed by Rafael on September 28, 2026.
 - Agent Operating System foundation: `1fb846a` — `docs: add agent operating system foundation`.
 - Documentation-only commits may be newer than the application baseline without changing production behavior. Do not update PROJECT_STATE.md solely to chase the latest documentation-only commit SHA.
 - Protocol-ring correction `9d2af8e` was deployed and passed production QA. Both deployment statements are owner-confirmed; this documentation audit did not inspect production.
@@ -16,9 +16,7 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-No known baseline test failure remains in the final QA-004 validation. Focused validation ran 2 files and 61 tests: 61 passed, 0 failed, 0 skipped, 0 cancelled, and 0 incomplete. `validate:types` passed. Full regression discovered 54 files and ran 1,383 tests: 1,383 passed, 0 failed, 0 skipped, 0 cancelled, and 0 incomplete. `validate:build` passed.
-
-The final regression blocker was corrected by changing the consumer-facing label from `Reported status` to `Lab status`. `tests/personal-baseline.test.mjs` was not modified to bypass the contract. Manual QA previously passed for the QA-004 scope. QA-004 is ready for staging and commit; neither action has been performed.
+No known baseline test failure remains in the recorded AOS-004A2 release-gate validation. `validate:focused` passed 1 file and 48 tests: 48 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo. `validate:types` passed. `validate:regression` passed 1,431 tests: 1,431 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo. `validate:build` passed. These results are recorded from Rafael's verified closeout report; this documentation update did not rerun them.
 
 ## Unrelated working-tree items
 
@@ -30,9 +28,8 @@ Existing unrelated items:
 
 ## Active work, blockers, and next priorities
 
-- Phase 1 Agent Operating System: final documentation content audit; no blocker to delivery.
+- AOS-004A stopped **BLOCKED** after exhausting two correction rounds. Rafael explicitly authorized AOS-004A2 as the bounded successor; it closed the remaining R6 and R7 blockers. Independent Astra review returned **PASS WITH QUALIFICATIONS**, no blocking findings, and **CLEAR FOR RELEASE GATE**. The qualification concerns wording precision in the existing crash-boundary test title, not function. Focused, type, full-regression, and build checks passed; AOS-004A2 is ready for staging and commit. `READY_FOR_HANDOFF` remains an unstaged handoff only. AOS-004A/A2 introduced no live AI runtime or release executor and performed no staging, commit, push, deployment, Vercel mutation, or Supabase mutation. AOS-004B live-runtime integration remains deferred and unauthorized.
 - Follow-up validation gap: Health Command Center browser automation did not complete. A rerun, if required, belongs in a subsequent scoped task.
 - Device coverage beyond the confirmed manual keyboard and production visual QA is unspecified. OTP staging/production delivery and provider-behavior checks are not confirmed here.
 - QA-003 accepts `/demo` redirecting to `/` as the temporary retired-demo contract; rebuilding a fictional demo remains future work. Privacy mailbox operation and native/TestFlight/App Store operational checks remain unverified.
-- QA-004 UI simplification contract repairs have passed focused, type, full-regression, build, and prior manual QA gates and are ready for staging and commit.
 - Next product implementation priority has not been supplied.
