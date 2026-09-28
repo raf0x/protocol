@@ -235,7 +235,7 @@
 .briefingCompounds li[data-accent='3'] .compoundAccent { background: var(--app-secondary); }
 .briefingCompounds li[data-accent='4'] .compoundAccent { background: color-mix(in srgb, var(--app-accent) 42%, var(--app-secondary)); }
 .briefing .findingsList { align-items: start; }
-.briefingFinding { display: flex; flex-direction: column; align-self: start; margin-bottom: 0; padding: var(--app-space-sm); box-shadow: none; background: var(--app-surface); }
+.briefingFinding { display: flex; flex-direction: column; align-self: start; min-width: 0; max-width: 100%; margin-bottom: 0; padding: var(--app-space-sm); box-shadow: none; background: var(--app-surface); overflow-wrap: anywhere; }
 .briefingUpdateName { margin: 0; color: var(--app-text); font-size: var(--app-font-body); font-weight: 650; line-height: 1.25; white-space: nowrap; }
 .briefingFinding .value { font-size: var(--app-font-title); }
 .briefingUpdateValue { margin: 4px 0 2px; line-height: 1.2; }
@@ -254,7 +254,8 @@
   .briefing .findingsList[data-visible-count='2'],
   .briefing .findingsList[data-visible-count='3'],
   .briefing .findingsList[data-visible-count='4'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .briefing .briefingFinding { min-height: 0; }
+  .briefing .findingsList { align-items: stretch; }
+  .briefing .briefingFinding { align-self: stretch; min-height: 0; }
 }
 
 /* Health Briefing QA polish 2: interactive evidence and compact primary review. */
@@ -298,6 +299,7 @@
 .consumerExplanation h5 { margin: 8px 0 2px; font-size: var(--app-font-small); color: var(--app-secondary); }
 .consumerExplanation p { margin: 3px 0; font-size: var(--app-font-small); line-height: 1.45; color: var(--app-text); }
 .verificationNotice { margin: 4px 0 0; color: var(--app-secondary); font-size: var(--app-font-small); }
+.consumerStatus { margin: 4px 0 0; color: var(--app-secondary); font-size: var(--app-font-small); }
 .briefingFinding .consumerDetails { margin-top: 2px; padding-top: 0; }
 
 /* Guided Analyst V1: scan-first presentation, not prose dumps. */

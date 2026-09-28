@@ -32,7 +32,7 @@ export default function TimelineHistory({ months, comparisons }: { months: Retur
     const eventCount = month.days.reduce((count, day) => count + day.events.length, 0)
     return <details className={styles.monthGroup} key={month.key} open={index === 0}>
       <summary className={styles.monthSummary} id={`month-${month.key}`}>
-        <strong>{month.label}</strong><span>{eventCount} {eventCount === 1 ? 'event' : 'events'}</span>
+        <strong>{month.label}</strong><span>{eventCount} {eventCount === 1 ? 'event' : 'events'}<span className={styles.monthChevron} aria-hidden="true" /></span>
       </summary>
       <div className={styles.monthBody}>{month.days.map(day => <section className={styles.day} key={day.date} aria-label={formatTimelineDate(day.date)}>
         <h3 className={styles.date}><time dateTime={day.date}>{formatTimelineDate(day.date)}</time></h3>

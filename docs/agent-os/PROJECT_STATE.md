@@ -16,11 +16,9 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Known baseline failures
 
-A complete committed-HEAD audit previously found 21 failures. QA-001 corrected two stale required-date fixtures (focused validation 12/12; independent review passed). QA-002 repaired three stale Longitudinal/Timeline test contracts (focused validation 107/107; independent review passed with qualifications). QA-003 repaired all six readiness/privacy failures (focused validation 93/93; independent review passed with qualifications). Manual localhost print QA also passed: the open More dialog, bottom navigation, and export controls were hidden, the report remained visible, and the normal screen remained unchanged. The expected unresolved baseline is now 10 failures, all in UI simplification. Full regression has not yet been rerun, so 10 is an expected remaining count rather than a verified complete-suite total.
+No known baseline test failure remains in the final QA-004 validation. Focused validation ran 2 files and 61 tests: 61 passed, 0 failed, 0 skipped, 0 cancelled, and 0 incomplete. `validate:types` passed. Full regression discovered 54 files and ran 1,383 tests: 1,383 passed, 0 failed, 0 skipped, 0 cancelled, and 0 incomplete. `validate:build` passed.
 
-AOS-003 introduced no failures. The remaining expected failures are confined to UI simplification and belong in a separately scoped task. `validate:release` remains red; the application is not release-green.
-
-On September 28, 2026, `npm run validate:build` correctly returned nonzero because Turbopack could not fetch the Inter font from Google Fonts due to a network connection failure. This is an environmental build blocker, not evidence of an AOS-003 application-code regression; because the build stopped early, it does not prove that later build stages would pass. Rerun the build once in an environment that can reach the required font resource or has it cached. `validate:release` remains red because of both the expected unresolved baseline failures and this build-environment qualification. Neither AOS-003 nor the application is release-green.
+The final regression blocker was corrected by changing the consumer-facing label from `Reported status` to `Lab status`. `tests/personal-baseline.test.mjs` was not modified to bypass the contract. Manual QA previously passed for the QA-004 scope. QA-004 is ready for staging and commit; neither action has been performed.
 
 ## Unrelated working-tree items
 
@@ -36,4 +34,5 @@ Existing unrelated items:
 - Follow-up validation gap: Health Command Center browser automation did not complete. A rerun, if required, belongs in a subsequent scoped task.
 - Device coverage beyond the confirmed manual keyboard and production visual QA is unspecified. OTP staging/production delivery and provider-behavior checks are not confirmed here.
 - QA-003 accepts `/demo` redirecting to `/` as the temporary retired-demo contract; rebuilding a fictional demo remains future work. Privacy mailbox operation and native/TestFlight/App Store operational checks remain unverified.
+- QA-004 UI simplification contract repairs have passed focused, type, full-regression, build, and prior manual QA gates and are ready for staging and commit.
 - Next product implementation priority has not been supplied.

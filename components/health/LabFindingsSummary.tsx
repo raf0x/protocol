@@ -38,7 +38,14 @@ export function ComparisonPreview({ finding }: { finding: LabFinding }) {
 /** Native disclosure supplies keyboard interaction and expanded accessibility
  * state. CSS switches the visible/accessibility label with its actual open state. */
 function DetailsToggle() {
-  return <summary><span className={styles.detailsClosed}>View details</span><span className={styles.detailsOpen}>Hide details</span></summary>
+  return <summary aria-label="View details"><span className={styles.detailsClosed}>View details</span><span className={styles.detailsOpen}>Hide details</span></summary>
+}
+
+type ConsumerReference = NonNullable<LabFinding['evidence']['current']>['reference']
+
+function ConsumerStatus({ reference }: { reference: ConsumerReference }) {
+  if (!reference || reference.status === 'unknown') return null
+  return <p className={styles.consumerStatus}>Lab status: {reference.status[0].toUpperCase() + reference.status.slice(1)}</p>
 }
 
 export function ConsumerFindingDetails({ finding }: { finding: LabFinding }) {
@@ -125,16 +132,18 @@ export default function LabFindingsSummary({ panels, histories, model: suppliedM
             return <article className={`${styles.card} ${embedded ? styles.briefingFinding : ''}`} data-finding-type={finding.type} data-priority={finding.priority} key={finding.id}>
               <FindingHeading className={embedded ? styles.briefingUpdateName : undefined}>{finding.biomarkerName}</FindingHeading>
               {finding.evidence.history.length ? <ConsumerComparisonPreview finding={finding} /> : current && <p className={styles.value}>{valueText(current.value, current.unit)} · {formatTimelineDate(current.date)}</p>}
-              <p className={styles.summary}><strong>{consumerChangeText(finding)}</strong></p>
+              <ConsumerStatus reference={current?.reference} />
               {findingNeedsVerification(finding) && <p className={styles.verificationNotice}>Imported result needs verification</p>}
+              <p className={styles.summary}><strong>{consumerChangeText(finding)}</strong></p>
               <ConsumerFindingDetails finding={finding} />
             </article>
           })}
           {visibleSupplemental.map(item => <article className={`${styles.card} ${styles.briefingFinding} ${styles.briefingSupplemental}`} data-update-kind={item.kind} key={item.id}>
             <FindingHeading className={styles.briefingUpdateName}>{item.biomarkerName}</FindingHeading>
-            <p className={`${styles.value} ${styles.briefingUpdateValue}`}>{valueText(item.value, item.unit)}</p>
-            <p className={styles.summary}><strong>{consumerSuppliedRange(item)?.outside && 'Outside supplied range · '}{item.label}</strong></p>
+            <p className={`${styles.value} ${styles.briefingUpdateValue}`}><strong>{valueText(item.value, item.unit)}</strong> · <time dateTime={item.date}>{formatTimelineDate(item.date)}</time></p>
+            <ConsumerStatus reference={item.reference} />
             {item.needsVerification && <p className={styles.verificationNotice}>Imported result needs verification</p>}
+            <p className={styles.summary}><strong>No eligible prior comparison is recorded.</strong></p>
             <SupplementalEvidence item={item} />
           </article>)}
         </div>
