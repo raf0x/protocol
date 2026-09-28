@@ -6,7 +6,9 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Production
 
-- Production commit `9e03e28` — `feat: add executive Health command center (MPP-016)` — was deployed and visually verified by Rafael on September 28, 2026.
+- Current behavior-changing production baseline: `9e03e28` — `feat: add executive Health command center (MPP-016)` — deployed and visually verified by Rafael on September 28, 2026.
+- Agent Operating System foundation: `1fb846a` — `docs: add agent operating system foundation`.
+- Documentation-only commits may be newer than the application baseline without changing production behavior. Do not update PROJECT_STATE.md solely to chase the latest documentation-only commit SHA.
 - Protocol-ring correction `9d2af8e` was deployed and passed production QA. Both deployment statements are owner-confirmed; this documentation audit did not inspect production.
 - Major capabilities reported in README and MPP-015/015A/016: protocol creation and management, scheduling and inventory; Today actions/check-ins and persistent protocol rings; guided first-protocol setup; unified email OTP signup/login; Health Command Center, labs/imports, longitudinal views, Timeline, AI Health Analyst, and doctor-ready reports.
 - Health Command Center browser automation timed out; manual keyboard QA and production visual QA passed, as confirmed by the owner. The timeout is not a passing browser-automation result.
