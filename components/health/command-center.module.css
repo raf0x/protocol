@@ -1,0 +1,67 @@
+.center { --health-sleep: #06b6d4; display: grid; gap: var(--app-space-md); min-width: 0; color: var(--app-text); }
+.center *, .center *::before, .center *::after { box-sizing: border-box; }
+.ranges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius-button); }
+.center .ranges button { min-width: 0; min-height: 44px; padding: 8px 4px; border: 0; background: transparent; color: var(--app-secondary); transition: background-color 320ms ease, color 320ms ease; }
+.center .ranges button[aria-pressed='true'] { background: var(--app-accent); color: var(--app-bg); font-weight: 750; box-shadow: 0 2px 8px #0002; }
+.summary { position: relative; overflow: hidden; border: 1px solid var(--app-accent); border-radius: var(--app-radius-card); padding: var(--app-space-md); background: linear-gradient(125deg, var(--app-accent-soft), var(--app-surface)); }
+.summaryTop { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; color: var(--app-secondary); font-size: 12px; }
+.overline { display: block; color: var(--app-accent); font-size: 11px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; line-height: 1.5; }
+.center h2 { color: var(--app-text); font-size: var(--app-font-title); line-height: 1.4; font-weight: 700; margin: 8px 0; }
+.summary p { color: var(--app-text); font-size: var(--app-font-body); line-height: 1.65; margin: 8px 0 0; }
+.summary[data-animate='true']::after { content: ''; pointer-events: none; position: absolute; inset: 0; background: linear-gradient(110deg, transparent, var(--app-highlight), transparent); animation: summary-settle 320ms ease-out both; }
+@keyframes summary-settle { from { opacity: .8; transform: translateX(-60%); } to { opacity: 0; transform: translateX(60%); } }
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--app-space-sm); }
+.metric, .card { min-width: 0; border: 1px solid var(--app-border); border-radius: var(--app-radius-card); background: var(--app-surface); padding: var(--app-space-md); box-shadow: var(--app-shadow); }
+.metric { display: flex; flex-direction: column; gap: 10px; }
+.metric h3 { color: var(--app-secondary); font-size: var(--app-font-small); font-weight: 500; margin: 0; }
+.value { color: var(--app-text); font-size: clamp(23px, 6vw, 30px); font-weight: 750; line-height: 1.25; font-variant-numeric: tabular-nums; margin: 0; }
+.value[data-empty='true'] { font-size: 16px; line-height: 1.5; }
+.center small { color: var(--app-secondary); font-weight: 500; font-size: 12px; }
+.secondary, .chartCaption { color: var(--app-secondary); line-height: 1.55; font-size: var(--app-font-small); margin: 0; }
+.empty { color: var(--app-secondary); font-size: var(--app-font-body); line-height: 1.6; padding-block: 16px; margin: 0; }
+.card > h2 small { color: var(--app-secondary); font-size: var(--app-font-small); }
+.figure { margin: 8px 0 0; min-width: 0; }
+.plot { min-width: 0; width: 100%; border-radius: var(--app-radius-button); }
+/* Recharts' tab-focusable SVG keeps its semantics and arrow-key interaction.
+   Move its outline to the rounded frame, only for keyboard-visible focus. */
+.plot :global(.recharts-surface):focus { outline: none; }
+.plot:has(:global(.recharts-surface):focus-visible) { box-shadow: 0 0 0 2px var(--app-accent); }
+.tooltip { padding: 6px 8px; border: 1px solid var(--app-border); border-radius: 8px; background: var(--app-surface-raised); color: var(--app-text); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.chartCaption { font-size: 12px; margin: 8px 0; }
+.inspector summary { display: flex; align-items: center; min-height: 44px; color: var(--app-accent); font-size: var(--app-font-small); cursor: pointer; }
+.inspector summary::before { content: '+'; margin-right: 8px; }
+.inspector[open] summary::before { content: '−'; }
+.inspector label { display: block; color: var(--app-secondary); font-size: 13px; margin: 6px 0; }
+.inspector select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; color: var(--app-text); background: var(--app-surface-secondary); font-size: 16px; padding: 8px; border: 1px solid var(--app-border); border-radius: 8px; }
+.inspector output { display: block; color: var(--app-text); font-size: 14px; line-height: 1.6; margin-top: 8px; }
+.signal { border-top: 1px solid var(--app-border); padding-top: 14px; margin-top: 16px; }
+.signalHeading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.signalHeading h3 { color: var(--app-text); font-size: 14px; margin: 0; }
+.signalHeading h3 small { display: block; margin-top: 3px; }
+.signalHeading strong { color: var(--app-text); font-size: 17px; font-variant-numeric: tabular-nums; }
+.sectionHeading { display: flex; justify-content: space-between; gap: 12px; align-items: start; flex-wrap: wrap; }
+.sectionHeading > div { flex: 1 1 150px; }
+.center a { color: var(--app-accent); min-height: 44px; display: inline-flex; align-items: center; text-decoration: none; font-size: 13px; }
+.events { list-style: none; padding: 0; margin: 6px 0 0; }
+.events li + li { border-top: 1px solid var(--app-border); }
+.events a, .eventRow { display: flex; align-items: center; width: 100%; min-width: 0; gap: 10px; padding: 14px 0; min-height: 60px; }
+.events a > span:nth-child(2), .eventRow > span:nth-child(2) { min-width: 0; flex: 1; }
+.events strong { display: block; color: var(--app-text); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.events small { display: block; margin-top: 4px; line-height: 1.5; }
+.eventMarker { width: 7px; height: 7px; border-radius: 50%; background: var(--app-accent); flex-shrink: 0; }
+.loading { min-height: 480px; color: var(--app-secondary); }
+.loadingSummary { height: 132px; background: var(--app-surface); border-radius: var(--app-radius-card); }
+.loadingMetrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.loadingMetrics span { height: 112px; border-radius: var(--app-radius-card); background: var(--app-surface); }
+.center :is(button, a, summary, select):focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
+.signalsPanel { box-sizing: border-box; }
+.signal[data-state='none'] strong { font-size: 14px; color: var(--app-secondary); }
+.signal[data-state='sparse'], .signal[data-state='single'], .signal[data-state='none'] { padding-top: 12px; margin-top: 12px; }
+.reviewValues { margin-top: 12px; }
+.briefing { list-style: none; padding: 0; margin: 0; }
+.briefing li + li { border-top: 1px solid var(--app-border); }
+.briefing li { padding-block: 12px; }
+.briefing p { margin: 0; color: var(--app-text); font-size: var(--app-font-body); line-height: 1.6; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (min-width: 680px) { .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .center .ranges button { transition: none; } .summary[data-animate='true']::after { animation: none; opacity: 0; } }

@@ -255,7 +255,7 @@ test('a dose-changing phase transition is not its own duplicate confounder', () 
 })
 test('navigating from changes to Analyst does not depend on a skipped lab request', () => {
   const ui = readFileSync(new URL('../components/health/HealthDashboard.tsx', import.meta.url), 'utf8')
-  assert.ok(ui.includes("(analyst || status === 'ready')")); assert.ok(ui.includes('if (analyst || longitudinal) return'))
+  assert.ok(ui.includes("(analyst || status === 'ready')")); assert.ok(ui.includes('if (analyst || longitudinal || overview) return'))
 })
 test('successful deterministic endpoint returns only the requested owner result', async () => {
   const route = load('../app/api/health-longitudinal/route.ts', {

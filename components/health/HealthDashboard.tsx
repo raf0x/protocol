@@ -17,12 +17,17 @@ import ImportLabForm from './ImportLabForm'
 import DeleteLabPanel from './DeleteLabPanel'
 import HealthAnalyst from './HealthAnalyst'
 import LongitudinalChanges from './LongitudinalChanges'
+import HealthCommandCenter from './HealthCommandCenter'
+import HealthNavigation from './HealthNavigation'
+import type { HealthRange } from '../../lib/health/commandCenter'
 import styles from '../../app/health/health.module.css'
 
 export default function HealthDashboard() {
   const router = useRouter()
   const query = useSearchParams()
   const analyst = query.get('view') === 'analyst'
+  const overview = !query.get('view') && !['action', 'panel', 'biomarker', 'overlay'].some(key => query.has(key))
+  const [overviewRange, setOverviewRange] = useState<HealthRange>('7D')
   const longitudinal = query.get('view') === 'changes'
   const [panels, setPanels] = useState<LabPanel[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(() => analyst ? 'ready' : 'loading')
@@ -43,7 +48,7 @@ export default function HealthDashboard() {
   const visiblePanels = showAllPanels ? panels : panels.slice(0, 4)
 
   useEffect(() => {
-    if (analyst || longitudinal) return
+    if (analyst || longitudinal || overview) return
     let cancelled = false
     loadLabs().then(data => {
       if (!cancelled) {
@@ -60,49 +65,39 @@ export default function HealthDashboard() {
       setStatus('error')
     })
     return () => { cancelled = true }
-  }, [router, attempt, analyst, longitudinal])
+  }, [router, attempt, analyst, longitudinal, overview])
 
   function retry() {
     setStatus('loading')
     setAttempt(value => value + 1)
   }
-
   return <main className={styles.page}>
     <header className={styles.header}>
+      <h1 style={{ color: 'var(--app-text)' }}>Health</h1>
       <span className={styles.eyebrow}>Your health, over time</span>
-      <h1>{analyst ? 'AI Health Analyst' : importing ? 'Import lab results' : editing ? 'Edit lab panel' : adding ? 'Add lab results' : panelId ? 'Lab panel' : protocolOverlay ? 'Protocol overlay' : biomarkerId ? 'Biomarker trend' : 'Health'}</h1>
-      <p>{analyst ? 'Grounded answers from the health data you have already recorded.' : 'Lab results and check-ins, in one place.'}</p>
-      <div className={styles.headerLinks}>
-        <Link aria-current={!analyst && !longitudinal ? 'page' : undefined} href="/health">Labs</Link>
-        <Link aria-current={longitudinal ? 'page' : undefined} href="/health?view=changes">Protocol changes</Link>
-        <Link aria-current={analyst ? 'page' : undefined} href="/health?view=analyst">AI Analyst</Link>
-        <Link href="/health/report">Create report</Link>
-        {!analyst && !longitudinal && !adding && !importing && !editing && <details className={styles.importMenu}>
-          <summary>Add / Import</summary>
-          <Link href="/health?action=add">Add manually</Link>
-          <Link href="/health?action=csv">Import CSV</Link>
-          <Link href="/health?action=pdf">Import PDF</Link>
-        </details>}
-      </div>
+      <p>{overview ? 'Your trends, without the noise.' : analyst ? 'Grounded answers from the health data you have already recorded.' : 'Lab results and check-ins, in one place.'}</p>
+      <HealthNavigation key={adding || importing ? 'import' : analyst ? 'analyst' : longitudinal ? 'changes' : overview ? 'overview' : 'labs'} active={adding || importing ? 'import' : analyst ? 'analyst' : longitudinal ? 'changes' : overview ? 'overview' : 'labs'} />
     </header>
+    {!overview && <h2 style={{ color: 'var(--app-text)', fontSize: 'var(--app-font-title)' }}>{analyst ? 'AI Health Analyst' : longitudinal ? 'Protocol changes' : importing ? 'Import lab results' : editing ? 'Edit lab panel' : adding ? 'Add lab results' : panelId ? 'Lab panel' : protocolOverlay ? 'Protocol overlay' : biomarkerId ? 'Biomarker trend' : 'Labs'}</h2>}
+    {overview && <HealthCommandCenter range={overviewRange} onRangeChange={setOverviewRange} />}
 
-    {!longitudinal && saved && <p role="status" className={styles.notice}>Lab results saved.</p>}
-    {!longitudinal && !analyst && status === 'loading' && <p role="status">Loading your lab history…</p>}
-    {!longitudinal && !analyst && status === 'error' && <div className={styles.card} role="alert"><h2>Labs are temporarily unavailable</h2><p>{message}</p><button onClick={retry} type="button">Try again</button></div>}
+    {!overview && !longitudinal && saved && <p role="status" className={styles.notice}>Lab results saved.</p>}
+    {!overview && !longitudinal && !analyst && status === 'loading' && <p role="status">Loading your lab history…</p>}
+    {!overview && !longitudinal && !analyst && status === 'error' && <div className={styles.card} role="alert"><h2>Labs are temporarily unavailable</h2><p>{message}</p><button onClick={retry} type="button">Try again</button></div>}
     {longitudinal && <LongitudinalChanges />}
 
-    {!longitudinal && (analyst || status === 'ready') && (analyst ? <HealthAnalyst /> : (
+    {!overview && !longitudinal && (analyst || status === 'ready') && (analyst ? <HealthAnalyst /> : (
       (adding || (editing && panel)) ? <AddLabForm
         key={editing ? panelId : 'new'}
         original={editing ? panel : null}
         panels={panels}
-        onCancel={() => router.push(editing ? `/health?panel=${panelId}` : '/health')}
+        onCancel={() => router.push(editing ? `/health?panel=${panelId}` : '/health?view=labs')}
         onSaved={id => { setSaved(true); retry(); router.push(`/health?panel=${encodeURIComponent(id)}`) }}
       /> : importing ? <ImportLabForm
         key={importing}
         kind={importing}
         panels={panels}
-        onCancel={() => router.push('/health')}
+        onCancel={() => router.push('/health?view=labs')}
         onSaved={id => { setSaved(true); retry(); router.push(`/health?panel=${encodeURIComponent(id)}`) }}
       /> : panelId ? panel ? <>
         <section className={styles.card}>
@@ -116,14 +111,14 @@ export default function HealthDashboard() {
           {panel.source_filename && <details className={styles.formDetails}><summary>Import provenance</summary><p>{panel.source_filename}</p><pre className={styles.raw}>{JSON.stringify(panel.source_metadata, null, 2)}</pre></details>}
         </section>
         <section className={styles.card} aria-label="Biomarker results"><h2>Results</h2><p className={styles.caption}>Status reflects the supplied lab interpretation or numeric reference bounds. It is not a diagnosis.</p><PanelResultGroups results={panel.results} /></section>
-        <Link className={styles.textLink} href="/health">Back to all panels & trends</Link>
-      </> : <section className={styles.card}><h2>Panel unavailable</h2><p>This panel is not available in your account.</p><Link href="/health">View your panels</Link></section> : biomarkerId ? biomarker ? protocolOverlay ? <>
+        <Link className={styles.textLink} href="/health?view=labs">Back to all panels & trends</Link>
+      </> : <section className={styles.card}><h2>Panel unavailable</h2><p>This panel is not available in your account.</p><Link href="/health?view=labs">View your panels</Link></section> : biomarkerId ? biomarker ? protocolOverlay ? <>
         <ProtocolOverlayView history={biomarker} />
         <Link className={styles.textLink} href={`/health?biomarker=${encodeURIComponent(biomarker.key)}`}>Back to biomarker trend</Link>
       </> : <>
         <BiomarkerTrend history={biomarker} />
-        <Link className={styles.textLink} href="/health">Back to lab insights</Link>
-      </> : <section className={styles.card}><h2>Biomarker unavailable</h2><p>This biomarker is not available in your lab history.</p><Link href="/health">View lab insights</Link></section> : <>
+        <Link className={styles.textLink} href="/health?view=labs">Back to lab insights</Link>
+      </> : <section className={styles.card}><h2>Biomarker unavailable</h2><p>This biomarker is not available in your lab history.</p><Link href="/health?view=labs">View lab insights</Link></section> : <>
         <HealthBriefing panels={panels} histories={histories} />
         <LabHistorySummary panels={panels} histories={histories} />
         <section aria-labelledby="panels-heading" className={styles.recentPanels}>
@@ -137,6 +132,6 @@ export default function HealthDashboard() {
       </>
     ))}
 
-    {deleting && <DeleteLabPanel panel={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); setSaved(false); retry(); router.push('/health') }} />}
+    {deleting && <DeleteLabPanel panel={deleting} onClose={() => setDeleting(null)} onDeleted={() => { setDeleting(null); setSaved(false); retry(); router.push('/health?view=labs') }} />}
   </main>
 }

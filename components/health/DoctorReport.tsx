@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import HealthNavigation from './HealthNavigation'
 import { useState } from 'react'
 import type { DoctorReportResponse, ReportContextNote, ReportRange, ReportReading, ReportProtocolTimelineItem } from '../../lib/health/report/types'
 import { labFindingLabel, type LabFinding } from '../../lib/health/labFindings'
@@ -126,10 +126,10 @@ export default function DoctorReport() {
     <AiConsentDialog open={consentOpen} onCancel={() => setConsentOpen(false)} onGranted={() => { setConsentOpen(false); void generate(true) }} />
 
     <header className={styles.appHeader}>
-      <span>Clinician-ready summary</span>
-      <h1>Create health report</h1>
+      <h1>Health</h1>
+      <span>Your health, over time</span>
       <p>Turn your recorded labs and protocol history into a concise longitudinal report.</p>
-      <Link href="/health">Back to Health</Link>
+      <HealthNavigation active="report" />
     </header>
 
     <section className={styles.controls} aria-labelledby="report-settings">

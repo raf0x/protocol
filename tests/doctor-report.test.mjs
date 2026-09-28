@@ -19,6 +19,20 @@ function load(path) {
   cache.set(url.href, out.exports); return out.exports
 }
 
+function loadClientContract(path) {
+  const url = new URL(path, import.meta.url)
+  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  const out = { exports: {} }
+  new Function('require', 'module', 'exports', code)(name => {
+    if (name === 'react') return { useEffect() {}, useId() {}, useRef() {}, useState() {} }
+    if (name === 'next/link') return { __esModule: true, default() {} }
+    if (name === 'react/jsx-runtime') return { jsx() {}, jsxs() {} }
+    if (name.endsWith('.module.css')) return {}
+    throw new Error(`Unexpected client dependency ${name}`)
+  }, out, out.exports)
+  return out.exports
+}
+
 const model = load('../lib/health/report/model.ts')
 const service = load('../lib/health/report/service.ts')
 const labResult = (id, name, value, unit = 'mg/dL', status = 'normal', extra = {}) => ({ id, lab_panel_id: 'panel', user_id: 'owner', biomarker_name: name, canonical_name: null, value, value_text: null, unit, reference_low: 5, reference_high: 20, reference_text: null, status, status_source: 'reported', category: null, ...extra })
@@ -98,7 +112,7 @@ test('owner scoping remains centralized in analyst context loading', () => { con
 test('legacy report display fields contain no database ID fields', () => { const { intelligence, ...legacy } = report(); assert.ok(intelligence); const value = JSON.stringify(legacy); assert.ok(!/"(?:id|user_id|protocol_id|compound_id|lab_panel_id)"/.test(value)) })
 test('model API key remains server-only', () => { const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8'); assert.ok(!client.includes('OPENAI_API_KEY')); assert.ok(!client.includes('NEXT_PUBLIC_OPENAI')) })
 test('preview exposes report period controls and the locked intelligence hierarchy', () => { const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8'); for (const label of ['3 months', '6 months', '12 months', 'All history', 'Key Context Notes', 'Longitudinal Biomarker Domains', 'Recorded Protocol Timeline', 'Top Headline Changes', 'Items to Review', 'Data Verification &amp; Limitations']) assert.ok(client.includes(label)) })
-test('V2 report removes legacy section checkboxes and renders intelligence instead', () => { const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8'); assert.doesNotMatch(client, /setSections|sectionLabels|Current protocols.*checkbox|Journal summary/); assert.match(client, /report\.intelligence/) })
+test('V2 report removes legacy section checkboxes and renders intelligence instead', () => { const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8'); assert.doesNotMatch(client, /setSections|sectionLabels|Current protocols.*checkbox|Journal summary/); assert.match(client, /const intelligence = report\?\.intelligence/); assert.match(client, /\{report && intelligence && <>/) })
 test('PDF export uses a deterministic report model and native print', () => { const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8'); assert.match(client, /window\.print\(\)/); assert.match(client, /response\?\.report/) })
 test('V2 report does not render legacy confidence badges, journal averages, weight chart, or generic Analyst findings', () => {
   const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8')
@@ -108,15 +122,32 @@ test('V2 report does not render legacy confidence badges, journal averages, weig
 test('V2 report presentation is scan-first and bounded', () => {
   const client = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8')
   assert.match(client, /protocolTimeline\.slice\(0, 16\)/)
+  assert.match(client, /specificReviews[\s\S]*?\.slice\(0, 5\)/)
+  assert.match(client, /reviewItems = \[\.\.\.specificReviews, \.\.\.qualitativeReviews\]\.slice\(0, 5\)/)
+  assert.match(client, /verificationItems = verification[\s\S]*?\.slice\(0, 6\)/)
+  assert.match(client, /timeline\.map/)
   assert.match(client, /headlineChanges\.map/)
   assert.match(client, /reviewItems\.map/)
-  assert.match(client, /verification\.map/)
+  assert.match(client, /verificationItems\.map/)
   assert.match(client, /Same-day ambiguity is never averaged/)
 })
 test('print CSS uses a light paper surface and hides app controls', () => { const css = readFileSync(new URL('../app/health/report/report.module.css', import.meta.url), 'utf8'); assert.match(css, /@media print/); assert.match(css, /background: #fff/); assert.match(css, /\.app-tab-bar/) })
 test('mobile preview has a focused narrow-screen layout', () => { const css = readFileSync(new URL('../app/health/report/report.module.css', import.meta.url), 'utf8'); assert.match(css, /@media \(max-width: 520px\)/); assert.match(css, /min-height: 44px/) })
 test('export route handles failure without exposing database details', () => { const route = readFileSync(new URL('../app/api/health-report/route.ts', import.meta.url), 'utf8'); assert.match(route, /Your health data was not changed/); assert.ok(!route.includes('error.message')) })
-test('health entry point links to the report without changing Labs routing', () => { const dashboard = readFileSync(new URL('../components/health/HealthDashboard.tsx', import.meta.url), 'utf8'); assert.match(dashboard, /href="\/health\/report"/); assert.match(dashboard, /href="\/health"/) })
+test('health entry point links to the report without changing Labs routing', () => {
+  const { healthNavigationDestinations } = loadClientContract('../components/health/HealthNavigation.tsx')
+  assert.deepEqual(healthNavigationDestinations, [
+    ['overview', 'Overview', '/health'],
+    ['labs', 'Labs', '/health?view=labs'],
+    ['changes', 'Protocol changes', '/health?view=changes'],
+    ['analyst', 'AI Analyst', '/health?view=analyst'],
+    ['report', 'Create report', '/health/report'],
+  ])
+  const reportClient = readFileSync(new URL('../components/health/DoctorReport.tsx', import.meta.url), 'utf8')
+  const dashboard = readFileSync(new URL('../components/health/HealthDashboard.tsx', import.meta.url), 'utf8')
+  assert.match(reportClient, /<HealthNavigation active="report" \/>/)
+  assert.match(dashboard, /<HealthNavigation\b/)
+})
 
 const labs = load('../lib/health/labs.ts')
 const canonicalFindings = load('../lib/health/labFindings.ts')

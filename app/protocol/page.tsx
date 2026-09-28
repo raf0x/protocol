@@ -20,10 +20,8 @@ import { orderRingProtocols } from '../../lib/protocols/rings'
 import { createClient } from '../../lib/supabase'
 import StatsBar from '../../components/dashboard/StatsBar'
 import WeeklySchedule from '../../components/dashboard/WeeklySchedule'
-import WeeklySummary from '../../components/dashboard/WeeklySummary'
 import HeroProtocolCard from '../../components/dashboard/HeroProtocolCard'
-import { isDueToday, getDaysIn, getCurrentWeek, eventColor } from '../../lib/utils'
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { isDueToday, getDaysIn } from '../../lib/utils'
 import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
 import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
@@ -47,9 +45,6 @@ export default function DashboardPage() {
   const [dueCompounds, setDueCompounds] = useState<DueCompound[]>([])
   const [logs, setLogs] = useState<Record<string, LogEntry>>({})
   const [allLogs, setAllLogs] = useState<any[]>([])
-  const [currentWeek, setCurrentWeek] = useState(0)
-  const [showChart, setShowChart] = useState(false)
-  const [showSummary, setShowSummary] = useState(new Date().getDay() === 0)
   const [showProtocols, setShowProtocols] = useState(false)
   const [activeCompoundTab, setActiveCompoundTab] = useState<string | null>(null)
   const tabRowRef = useRef<HTMLDivElement>(null)
@@ -57,7 +52,6 @@ export default function DashboardPage() {
   const dragStartX = useRef(0)
   const scrollStartX = useRef(0)
   const [protocolEvents, setProtocolEvents] = useState<any[]>([])
-  const [selectedEvent, setSelectedEvent] = useState<any>(null)
   // Local calendar day, not UTC — toISOString() drifts a day off in the evening
   // (US timezones) or at any hour (positive-UTC-offset timezones). This value
   // keys every injection_logs/journal_entries read and write on this page, so
@@ -76,7 +70,6 @@ export default function DashboardPage() {
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
   const g = 'var(--color-green)'
   const dg = 'var(--color-dim)'
-  const mg = 'var(--color-muted)'
   const cb = 'var(--color-card)'
   const bd = 'var(--color-border)'
 
@@ -284,7 +277,6 @@ export default function DashboardPage() {
     const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
 
     setActiveProtocols(protocols || [])
-    if (protocols && protocols.length > 0) { const earliest = protocols.reduce((m: string, p: any) => p.start_date < m ? p.start_date : m, protocols[0].start_date); setCurrentWeek(Math.max(1, Math.floor((Date.now() - new Date(earliest+'T00:00:00').getTime()) / 86400000 / 7) + 1)) }
     const due: DueCompound[] = []
     ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
           const volumeMl = administrationForPhase(phase).volume ?? 0
@@ -398,60 +390,10 @@ export default function DashboardPage() {
   
   function ScoreBtn({ value, current, onChange, reverse }: { value: number; current: number | null; onChange: (v: number) => void; reverse?: boolean }) { const a = current === value; const scoreColors = ['#ef4444','#f97316','#eab308','#84cc16','#22c55e']; const reverseColors = ['#22c55e','#84cc16','#eab308','#f97316','#ef4444']; const sc = (reverse ? reverseColors : scoreColors)[value-1]; return <button onClick={() => onChange(value)} style={{width:'36px',height:'36px',borderRadius:'50%',border:a?'none':'1px solid '+bd,background:a?sc:cb,color:a?'#fff':dg,fontSize:'13px',fontWeight:'700',cursor:'pointer',opacity:a?1:0.5}}>{value}</button> }
   function DiscomfortBtn({ value, current, onChange }: { value: number; current: number; onChange: (v: number) => void }) { const a = current === value; const c = value === 0 ? g : '#ff6b6b'; return <button onClick={() => onChange(value)} style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid '+(a?c:bd),background:a?(value===0?'var(--color-green-15)':'rgba(255,107,107,0.15)'):'transparent',color:a?c:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>{value}</button> }
-
-  function eventColor(type: string) { return type==='started'?g:type==='dose_change'?'#f59e0b':type==='compound_added'?'#06b6d4':type==='compound_removed'?'#ff6b6b':'#6c63ff' }
-
   const hasDemoCompounds = activeProtocols.some((p: any) => p.name.startsWith('Demo:'))
   const we = entries.filter((e: any) => e.weight).sort((a: any, b: any) => a.date.localeCompare(b.date))
   const sw = we[0]?.weight; const lw = we[we.length-1]?.weight
   const tl = (sw && lw) ? (sw - lw).toFixed(1) : null
-  const cd = entries.slice().sort((a: any, b: any) => a.date.localeCompare(b.date)).map((e: any) => ({ date: new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}), mood: e.mood, energy: e.energy, sleep: e.sleep, weight: e.weight }))
-  const ts = { contentStyle: { background: cb, border: '1px solid '+bd, borderRadius: '6px', fontSize: '12px' } }
-  const mk: { date: string; label: string }[] = []
-  activeProtocols.forEach((p: any) => { const sl = new Date(p.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); (p.compounds||[]).forEach((c: any) => { mk.push({ date: sl, label: c.name }) }) })
-  protocolEvents.forEach((ev: any) => { const evDate = new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); mk.push({ date: evDate, label: ev.description }) })
-
-  const ins: { text: string; accent: string }[] = []
-  
-  if (we.length >= 2) {
-    const diff = sw! - lw!
-    const db = Math.max(1, Math.floor((new Date(we[we.length-1].date).getTime() - new Date(we[0].date).getTime()) / 86400000))
-    const wb = Math.max(1, db/7)
-    if (diff > 0) {
-      ins.push({ text: `Weight change: down ${diff.toFixed(1)} lbs since you started`, accent: g })
-      if (wb >= 2) {
-        const wr = diff/wb
-        ins.push({ text: `Average: ${wr.toFixed(1)} lbs per week over ${wb.toFixed(0)} weeks`, accent: g })
-      }
-    }
-  }
-  
-  if (entries.length >= 5) {
-    const me = entries.filter((e: any) => e.mood !== null)
-    if (me.length >= 3) {
-      const am = me.reduce((s: number, e: any) => s+e.mood, 0)/me.length
-      ins.push({ text: `Mood: averaging ${am.toFixed(1)}/5 over ${me.length} entries`, accent: g })
-    }
-    
-    const rw = entries.slice(0,7).filter((e: any) => e.sleep !== null)
-    if (rw.length >= 3) {
-      const as2 = rw.reduce((s: number, e: any) => s+e.sleep, 0)/rw.length
-      ins.push({ text: `Sleep: ${as2.toFixed(1)} hours average this week`, accent: '#06b6d4' })
-    }
-  }
-  
-  const he = entries.filter((e: any) => e.hunger !== null && e.hunger !== undefined)
-  if (he.length >= 3) {
-    const ah = he.reduce((s: number, e: any) => s+e.hunger, 0)/he.length
-    ins.push({ text: `Appetite: ${ah.toFixed(1)}/5 average over ${he.length} entries`, accent: '#8b5cf6' })
-  }
-  
-  if (currentWeek > 0) {
-    ins.push({ text: `Week ${currentWeek} · ${entries.length} total journal entries logged`, accent: '#6c63ff' })
-  }
-  
-  const vi = ins.slice(0, 3)
-
   function selectCompound(id: string) {
     setActiveCompoundTab(id)
   }
@@ -520,104 +462,6 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-
-        <details className="today-dashboard-tools">
-          <summary>Charts & weekly recap <span>Optional — see trends over time</span></summary>
-          <WeeklySummary entries={entries} currentWeek={currentWeek} show={showSummary} />
-          {entries.length > 1 ? (
-            <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
-              <button onClick={() => setShowChart(!showChart)} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>{showChart ? 'Hide charts' : 'Show charts'}</button>
-              <button onClick={() => setShowSummary(!showSummary)} style={{flex:1,background:showSummary?'var(--color-green-10)':cb,color:showSummary?'var(--color-green)':dg,border:'1px solid '+(showSummary?'var(--color-green-30)':bd),borderRadius:'8px',padding:'10px',fontSize:'13px',cursor:'pointer',fontWeight:'600'}}>Week recap</button>
-            </div>
-          ) : (
-            <p style={{fontSize:'12px',color:dg,marginBottom:'16px'}}>Charts and your weekly recap will appear here once you've logged a few more days.</p>
-          )}
-
-        {showChart && cd.length > 1 && (
-          <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
-            <p style={{fontSize:'11px',color:mg,marginBottom:'8px',letterSpacing:'1px',fontWeight:'600'}}>MOOD, ENERGY & SLEEP</p>
-            <ResponsiveContainer width='100%' height={140}>
-              <LineChart data={cd}>
-                <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
-                <YAxis tick={{fontSize:10,fill:mg}} width={20} />
-                <Tooltip {...ts} />
-                {mk.map((m, i) => (
-                  <ReferenceLine 
-                    key={'m1_'+i} 
-                    x={m.date} 
-                    stroke='#6c63ff' 
-                    strokeDasharray='4 4' 
-                    strokeOpacity={0.5} 
-                    label={{
-                      value: m.label, 
-                      position: i % 2 === 0 ? 'insideTopRight' : 'insideBottomRight', 
-                      fontSize: 10, 
-                      fill: '#a78bfa', 
-                      fontWeight: 700, 
-                      offset: 8
-                    }} 
-                  />
-                ))}
-                <Line type='monotone' dataKey='mood' stroke={g} strokeWidth={2} dot={false} name='Mood' />
-                <Line type='monotone' dataKey='energy' stroke='#f97316' strokeWidth={2} dot={false} name='Energy' />
-                <Line type='monotone' dataKey='sleep' stroke='#06b6d4' strokeWidth={2} dot={false} name='Sleep' />
-              </LineChart>
-            </ResponsiveContainer>
-            {protocolEvents.length > 0 && (
-              <div style={{marginTop:'8px',marginBottom:'8px',padding:'8px 0',borderTop:'1px solid '+bd}}>
-                <div style={{display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
-                  <span style={{fontSize:'9px',color:mg,fontWeight:'600',marginRight:'4px'}}>EVENTS</span>
-                  {protocolEvents.map((ev: any, i: number) => (
-                    <button 
-                      key={ev.id||i} 
-                      onClick={() => setSelectedEvent(selectedEvent?.id===ev.id?null:ev)} 
-                      title={ev.description} 
-                      style={{
-                        width:'16px',
-                        height:'16px',
-                        borderRadius:'50%',
-                        background:selectedEvent?.id===ev.id?eventColor(ev.event_type):'transparent',
-                        border:'2px solid '+eventColor(ev.event_type),
-                        cursor:'pointer',
-                        padding:0
-                      }}
-                    />
-                  ))}
-                </div>
-                {selectedEvent && (
-                  <div style={{marginTop:'8px',background:'var(--color-bg)',border:'1px solid '+bd,borderRadius:'6px',padding:'8px 10px',display:'flex',alignItems:'flex-start',gap:'8px'}}>
-                    <div style={{width:'8px',height:'8px',borderRadius:'50%',background:eventColor(selectedEvent.event_type),marginTop:'4px',flexShrink:0}} />
-                    <div style={{flex:1}}>
-                      <span style={{fontSize:'10px',color:eventColor(selectedEvent.event_type),fontWeight:'700',textTransform:'uppercase'}}>{selectedEvent.event_type.replace(/_/g,' ')}</span>
-                      <span style={{fontSize:'12px',color:'var(--color-text)',fontWeight:'600',display:'block',marginTop:'2px'}}>{selectedEvent.description}</span>
-                      <span style={{fontSize:'10px',color:dg,display:'block',marginTop:'2px'}}>{new Date(selectedEvent.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>
-                    </div>
-                    <button onClick={() => setSelectedEvent(null)} style={{background:'none',border:'none',color:mg,cursor:'pointer',fontSize:'12px'}}>✕</button>
-                  </div>
-                )}
-              </div>
-            )}
-            {we.length > 1 && (
-              <>
-                <p style={{fontSize:'11px',color:mg,marginBottom:'8px',marginTop:'16px',letterSpacing:'1px',fontWeight:'600'}}>WEIGHT</p>
-                <ResponsiveContainer width='100%' height={100}>
-                  <LineChart data={cd.filter((d: any) => d.weight)}>
-                    <XAxis dataKey='date' tick={{fontSize:10,fill:mg}} />
-                    <YAxis tick={{fontSize:10,fill:mg}} width={30} domain={['auto','auto']} />
-                    <Tooltip {...ts} />
-                    {mk.map((m, i) => (
-                      <ReferenceLine key={'m2_'+i} x={m.date} stroke='#6c63ff' strokeDasharray='4 4' strokeOpacity={0.5} />
-                    ))}
-                    <Line type='monotone' dataKey='weight' stroke='#8b5cf6' strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} name='Weight' />
-                  </LineChart>
-                </ResponsiveContainer>
-              </>
-            )}
-          </div>
-        )}
-
-        </details>
-
       </div>
     </main>
   )

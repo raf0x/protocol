@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '../supabase'
 import { normalizeTimeline, deriveBaseline, type ProtocolRow, type JournalEntryRow, type ProtocolEventRow } from './timeline'
 import { readLabPanels } from './loadLabs'
@@ -17,20 +18,29 @@ async function readAll<T>(query: (from: number, to: number) => PromiseLike<{ dat
   }
 }
 
+/** Shared, paginated source reads for Timeline and the Health overview. */
+export async function readTimelineEntries(supabase: SupabaseClient, userId: string) {
+  if (!userId) throw new TimelineAuthError('Sign in to view health history')
+  const [protocolEvents, journalEntries] = await Promise.all([
+    readAll<ProtocolEventRow>((from, to) => supabase.from('protocol_events')
+      .select('id, date, event_type, description, protocol_id, compound_id, metadata, protocols(id, name, start_date, status, compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))), compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))')
+      .eq('user_id', userId).order('date', { ascending: false }).order('id').range(from, to)
+      .returns<ProtocolEventRow[]>()),
+    readAll<JournalEntryRow>((from, to) => supabase.from('journal_entries')
+      .select('id, date, notes, weight, mood, energy, sleep, hunger')
+      .eq('user_id', userId).order('date', { ascending: false }).order('id').range(from, to)
+      .returns<JournalEntryRow[]>()),
+  ])
+  return { protocolEvents, journalEntries }
+}
+
 export async function loadTimeline() {
   const supabase = createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (!user) throw new TimelineAuthError('Sign in to view your timeline')
   if (error) throw error
-  const [protocolEvents, journalEntries, protocols, labs] = await Promise.all([
-    readAll<ProtocolEventRow>((from, to) => supabase.from('protocol_events')
-      .select('id, date, event_type, description, protocol_id, compound_id, metadata, protocols(id, name, start_date, status, compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))), compounds(id, name, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, dose_semantics_version, route))')
-      .eq('user_id', user.id).order('date', { ascending: false }).order('id').range(from, to)
-      .returns<ProtocolEventRow[]>()),
-    readAll<JournalEntryRow>((from, to) => supabase.from('journal_entries')
-      .select('id, date, notes, weight, mood, energy, sleep, hunger')
-      .eq('user_id', user.id).order('date', { ascending: false }).order('id').range(from, to)
-      .returns<JournalEntryRow[]>()),
+  const [{ protocolEvents, journalEntries }, protocols, labs] = await Promise.all([
+    readTimelineEntries(supabase, user.id),
     readAll<ProtocolRow>((from, to) => supabase.from('protocols')
       // Whole rows allow optional structured dose/route fields without querying nonexistent columns.
       .select('*, compounds(*, phases(*))')
