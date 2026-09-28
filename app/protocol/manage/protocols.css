@@ -260,7 +260,7 @@
 .guided-eyebrow { color: var(--app-secondary); margin: 24px 0 0; }
 .guided-next { color: var(--app-secondary); font-size: 15px; }
 .guided-success .quick-review p { color: var(--app-secondary); }
-.protocol-ring-composition { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); width: min(100%, 320px); margin-inline: auto; isolation: isolate; padding-block: 8px; }
+.protocol-ring-composition { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: auto; width: min(100%, 320px); margin-inline: auto; isolation: isolate; padding-block: 8px; }
 .protocol-ring { box-sizing: border-box; width: 100%; aspect-ratio: 1; min-width: 0; border-radius: 50% !important; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
 .protocol-ring:nth-child(n+4) { margin-top: -22%; }
 .protocol-ring-empty { border: 2px solid var(--ring-color); opacity: .38; pointer-events: none; z-index: 0; }

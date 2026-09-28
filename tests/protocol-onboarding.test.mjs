@@ -91,17 +91,30 @@ test('guided back/forward preserves entries; incomplete steps cannot advance; re
   assert.equal(value.compounds[0].dose, '5'); assert.deepEqual(value.compounds[0].days_of_week, [6, 0])
   button('Save protocol').props.onClick(); assert.equal(saved, 2)
 })
-test('zero through overflow always render five positions, with accessible named buttons only', () => {
-  for (let count = 0; count <= 8; count++) {
+test('rings use ordered rows of three and center incomplete final rows', () => {
+  for (const count of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15]) {
     const protocols = Array.from({ length: count }, (_, i) => ({ id: String(i), created_at: `2026-09-${10 + i}`, status: 'active', start_date: '2026-09-01', compounds: [{ id: `c${i}`, name: `Compound ${i}` }] }))
     const items = activeRingItems(protocols, today)
     assert.deepEqual(activeRingItems([...protocols].reverse(), today), items)
     const html = renderToStaticMarkup(React.createElement(Rings, { items, selected: 'c0', onSelect() {} }))
-    assert.equal((html.match(/class="protocol-ring protocol-ring-/g) || []).length, 5)
-    assert.equal((html.match(/<button /g) || []).length, Math.min(count, 5))
-    assert.equal((html.match(/aria-hidden="true"/g) || []).length, Math.max(5 - count, 0))
+    assert.equal((html.match(/class="protocol-ring protocol-ring-/g) || []).length, count || 5)
+    assert.equal((html.match(/<button /g) || []).length, count)
+    assert.equal((html.match(/aria-hidden="true"/g) || []).length, count ? 0 : 5)
     if (count) assert.match(html, /Compound 0, week 4. Select protocol/)
-    assert.doesNotMatch(html, /required|slot|of 5|\+/i)
+    for (let index = 0; index < count; index++) assert.match(html, new RegExp(`Compound ${index}, week 4\\. Select protocol`))
+    assert.equal(new Set([...html.matchAll(/aria-label="Compound (\d+), week 4\. Select protocol"/g)].map(match => match[1])).size, count)
+    assert.doesNotMatch(html, /required|slot|of 5|\+\d+ more/i)
+    if (count) {
+      const positions = [...html.matchAll(/grid-column:([^;]+);grid-row:(\d+)/g)].map(match => [match[1], Number(match[2])])
+      const expected = Array.from({ length: count }, (_, index) => {
+        const row = Math.floor(index / 3)
+        const indexInRow = index % 3
+        const rowSize = Math.min(3, count - row * 3)
+        const column = rowSize === 1 ? 3 : rowSize === 2 ? 2 + indexInRow * 2 : 1 + indexInRow * 2
+        return [`${column} / span 2`, row + 1]
+      })
+      assert.deepEqual(positions, expected)
+    }
   }
 })
 test('non-active lifecycles never occupy active rings', () => {
@@ -109,12 +122,12 @@ test('non-active lifecycles never occupy active rings', () => {
   for (const status of ['planned', 'scheduled', 'completed', 'paused', 'stopped']) assert.equal(activeRingItems([{ ...base, status }], today).length, 0)
   assert.equal(activeRingItems([{ ...base, status: 'active', start_date: '2099-01-01' }], today).length, 0)
 })
-test('success distinguishes lifecycle, shows recorded next occurrence and uses the same five rings', () => {
+test('success distinguishes lifecycle, shows recorded next occurrence and centers its named ring', () => {
   for (const startDate of [today, '2099-01-01', '']) {
     renderer.reset(); const draft = { ...ready(), startDate }, payload = protocolCompoundPayload(draft.compounds)
     const view = renderer.render(React.createElement(Success, { saved: { id: 'saved', draft, payload, firstProtocol: true }, today }))
     assert.match(text(view), /Your protocol is ready/)
-    assert.equal(nodes(view, n => /^protocol-ring protocol-ring-/.test(n.props.className || '')).length, 5)
+    assert.equal(nodes(view, n => /^protocol-ring protocol-ring-/.test(n.props.className || '')).length, 1)
     if (!startDate) { assert.match(text(view), /Planned/); assert.doesNotMatch(text(view), /Next scheduled:/) }
     else if (startDate > today) { assert.match(text(view), /Scheduled/); assert.match(text(view), /Jan 1, 2099|Jan 3, 2099|Jan 4, 2099/) }
     else assert.match(text(view), /Next scheduled: Sep 26, 2026/)

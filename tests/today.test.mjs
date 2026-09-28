@@ -160,8 +160,10 @@ test('rings select a single summary without scrolling or opening details; all co
   assert.doesNotMatch(select, /scrollIntoView|setHeroOpen/)
   const Rings = component('../components/dashboard/CompoundRings.tsx').default
   const html = renderToStaticMarkup(React.createElement(Rings, { activeProtocols: [{ ...protocol, compounds: Array.from({ length: 10 }, (_, index) => ({ id: String(index), name: 'Compound ' + index })) }], activeCompoundTab: '9', setActiveCompoundTab() {} }))
-  assert.equal((html.match(/aria-pressed=/g) || []).length, 5)
-  assert.match(html, /\+5 more/)
-  assert.match(html, /href="\/protocol\/manage"/)
+  assert.equal((html.match(/aria-pressed=/g) || []).length, 10)
+  assert.doesNotMatch(html, /\+\d+ more|View all protocols/)
+  assert.match(html, /href="\/protocol\/manage\?new=1"/)
+  for (let index = 0; index < 10; index++) assert.match(html, new RegExp(`aria-label="Compound ${index}, week`))
+  assert.match(html, /aria-pressed="true"[^>]*aria-label="Compound 9, week/)
   assert.match(html, /Select protocol/)
 })
