@@ -6,7 +6,7 @@ Maintain this as a current snapshot: replace stale entries when verified, remove
 
 ## Production
 
-- Current production main: `f133336` — `fix: repair UI simplification contracts (QA-004)` — committed, pushed, and successfully deployed through Vercel, as confirmed by Rafael on September 28, 2026.
+- Current production main: `40ae1c6` - `feat: add deterministic agent orchestration core` - committed, pushed, and successfully deployed through Vercel on September 28, 2026.
 - Agent Operating System foundation: `1fb846a` — `docs: add agent operating system foundation`.
 - Documentation-only commits may be newer than the application baseline without changing production behavior. Do not update PROJECT_STATE.md solely to chase the latest documentation-only commit SHA.
 - Protocol-ring correction `9d2af8e` was deployed and passed production QA. Both deployment statements are owner-confirmed; this documentation audit did not inspect production.
@@ -28,7 +28,7 @@ Existing unrelated items:
 
 ## Active work, blockers, and next priorities
 
-- AOS-004A stopped **BLOCKED** after exhausting two correction rounds. Rafael explicitly authorized AOS-004A2 as the bounded successor; it closed the remaining R6 and R7 blockers. Independent Astra review returned **PASS WITH QUALIFICATIONS**, no blocking findings, and **CLEAR FOR RELEASE GATE**. The qualification concerns wording precision in the existing crash-boundary test title, not function. Focused, type, full-regression, and build checks passed; AOS-004A2 is ready for staging and commit. `READY_FOR_HANDOFF` remains an unstaged handoff only. AOS-004A/A2 introduced no live AI runtime or release executor and performed no staging, commit, push, deployment, Vercel mutation, or Supabase mutation. AOS-004B live-runtime integration remains deferred and unauthorized.
+- AOS-004A/A2 deterministic orchestration is deployed in `40ae1c6`. AOS-004B live-runtime integration is deferred because the isolation, credential-broker, and runtime-enforcement complexity is disproportionate to the current product need. `READY_FOR_HANDOFF` remains an unstaged handoff only; no live AI runtime or release executor is authorized.
 - Follow-up validation gap: Health Command Center browser automation did not complete. A rerun, if required, belongs in a subsequent scoped task.
 - Device coverage beyond the confirmed manual keyboard and production visual QA is unspecified. OTP staging/production delivery and provider-behavior checks are not confirmed here.
 - QA-003 accepts `/demo` redirecting to `/` as the temporary retired-demo contract; rebuilding a fictional demo remains future work. Privacy mailbox operation and native/TestFlight/App Store operational checks remain unverified.
