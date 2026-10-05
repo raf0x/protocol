@@ -1,4 +1,4 @@
-// Targeted F5/F6 checks only: actual New Vial component and app theme tokens.
+// Targeted persistent-action/F5/F6 checks: actual New Vial component and app theme tokens.
 // Synthetic Supabase transport; no account, network or persistence writes.
 // Run: npm run validate:browser -- tests/new-vial-accessibility.browser.cjs
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os')
@@ -15,8 +15,11 @@ import VialInventory from ${JSON.stringify(path.join(root, 'components/dashboard
 import theme from ${JSON.stringify(path.join(root, 'components/app/design-system-v2.module.css'))};
 window.qaWrites=[];window.qaEvents=[];window.qaFail=false;window.qaStock=2;window.qaBackground=0;
 window.addEventListener('doses_updated',()=>qaEvents.push('doses_updated'));
-function Fixture(){return <div className={'mobile-app-shell today-surface '+theme.theme}><button id="background" onClick={()=>qaBackground++}>Background action</button><VialInventory compoundId="qa-compound" compoundName="Medication" reconstitutionDate="2026-09-01" bacWaterMl={2} vialStrength={10} vialUnit="mg"/></div>}
-createRoot(document.getElementById('root')).render(<Fixture/>);
+window.qaDefaults={reconstitutionDate:'2026-09-01',bacWaterMl:2,vialStrength:10,vialUnit:'mg'};
+function Fixture({props}){return <div className={'mobile-app-shell today-surface '+theme.theme}><button id="background" onClick={()=>qaBackground++}>Background action</button><VialInventory compoundId="qa-compound" compoundName="Medication" {...props}/></div>}
+const fixtureRoot=createRoot(document.getElementById('root'));let revision=0;
+window.qaRender=(props,stock)=>{window.qaStock=stock;fixtureRoot.render(<Fixture key={++revision} props={props}/>)};
+qaRender(qaDefaults,2);
 `)
 require.extensions['.ts'] = () => {}; require.extensions['.tsx'] = () => {}
 const modules = [], ids = new Map(), styles = []
@@ -112,7 +115,38 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
   await screen('new-vial-dark-390')
   await tap('#cancel-touch')
   await run(`await tick();check(!dialog(),'390 touch Cancel closes');check(document.activeElement===trigger(),'390 touch Cancel restores focus');check(errors.length===0,'No New Vial runtime errors')`)
-  const report = { scope: 'F5/F6 New Vial only, including frozen F3 preservation', passed: (await run('return checks')).length, checks: await run('return checks'), contrast: await run('return contrast'), screenshots, errors: await run('return errors'), fixture: 'Actual VialInventory with app/theme CSS and synthetic compounds transport; no real backend writes.' }
+  await viewport(1440)
+  await cdp('Emulation.setTouchEmulationEnabled', { enabled: false })
+  for (const theme of ['light', 'dark']) for (const scenario of [
+    { name: 'missing date', props: { reconstitutionDate: null }, stock: 2 },
+    { name: 'invalid date', props: { reconstitutionDate: 'invalid' }, stock: 2 },
+    { name: 'missing BAC water', props: { bacWaterMl: null }, stock: 2, lifecycle: true },
+    { name: 'missing strength', props: { vialStrength: null }, stock: 2, lifecycle: true },
+    { name: 'missing strength and water', props: { vialStrength: null, bacWaterMl: null }, stock: 2, lifecycle: true },
+    { name: 'zero stock', props: {}, stock: 0, lifecycle: true },
+    { name: 'unknown stock', props: {}, stock: null, lifecycle: true },
+    { name: 'missing metadata and zero stock', props: { reconstitutionDate: null, vialStrength: null, bacWaterMl: null }, stock: 0 },
+    { name: 'missing metadata and unknown stock', props: { reconstitutionDate: null, vialStrength: null, bacWaterMl: null }, stock: null },
+  ]) {
+    const label = theme + ' ' + scenario.name
+    await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};qaRender({...qaDefaults,...${JSON.stringify(scenario.props)}},${JSON.stringify(scenario.stock)});await tick();check(trigger()!==null,${JSON.stringify(label + ' trigger stays available')});check(document.querySelector('.vial-lifecycle-title')?.textContent==='VIAL LIFECYCLE',${JSON.stringify(label + ' lifecycle label stays available')});const status=document.querySelector('.vial-lifecycle-status'),track=document.querySelector('.vial-lifecycle-track');check(Boolean(status)===${Boolean(scenario.lifecycle)}&&Boolean(track)===${Boolean(scenario.lifecycle)},${JSON.stringify(label + ' lifecycle details depend only on calculable date')});${scenario.lifecycle ? `check(new RegExp('^Day [0-9]+/28').test(status.textContent)&&!status.textContent.includes('NaN'),${JSON.stringify(label + ' real day status preserved')});check(Number.isFinite(parseFloat(track.firstElementChild.style.width)),${JSON.stringify(label + ' real progress preserved')});` : `check(document.querySelector('.vial-lifecycle-toolbar').children.length===2,${JSON.stringify(label + ' compact row contains label and action')});check(getComputedStyle(document.querySelector('.vial-lifecycle-toolbar')).marginBottom==='0px',${JSON.stringify(label + ' compact spacing')});check(!/Day |d left|EXPIRED|NaN/.test(document.querySelector('.vial-lifecycle').textContent),${JSON.stringify(label + ' no fabricated lifecycle details')});`}window.writesBefore=qaWrites.length;window.eventsBefore=qaEvents.length;trigger().focus();`)
+    await press('Enter', 'Enter', 13)
+    await run(`await tick();const d=dialog();check(d?.open&&d.matches(':modal'),${JSON.stringify(label + ' opens existing native modal')});check(d.getAttribute('aria-modal')==='true',${JSON.stringify(label + ' modal semantics preserved')});const heading=document.getElementById(d.getAttribute('aria-labelledby'));check(heading===d.querySelector('h3')&&heading.textContent==='Starting a new Medication vial?',${JSON.stringify(label + ' dialog name preserved')});check(document.activeElement===d.querySelector('input'),${JSON.stringify(label + ' focus enters first field')});for(const input of d.querySelectorAll('input'))check([...d.querySelectorAll('label')].some(field=>field.htmlFor===input.id),${JSON.stringify(label + ' field labels preserved')});readable(heading,${JSON.stringify(scenario.name + ' title')},${JSON.stringify(theme)});readable(d.querySelector('p'),${JSON.stringify(scenario.name + ' helper')},${JSON.stringify(theme)});for(const field of d.querySelectorAll('label'))readable(field,${JSON.stringify(scenario.name + ' ')}+field.textContent,${JSON.stringify(theme)});${Object.hasOwn(scenario.props, 'vialStrength') ? `check(d.querySelector('input').value==='',${JSON.stringify(label + ' strength remains blank')});` : ''}${Object.hasOwn(scenario.props, 'bacWaterMl') ? `check(d.querySelector('input:last-of-type').value==='',${JSON.stringify(label + ' water remains blank')});` : ''}document.getElementById('background').focus();check(d.contains(document.activeElement),${JSON.stringify(label + ' background cannot take focus')});d.querySelector('input').focus();`)
+    await press('Tab', 'Tab', 9, 8)
+    await run(`check(document.activeElement===button('Log New Vial'),${JSON.stringify(label + ' Shift+Tab wraps to last control')})`)
+    await press('Tab', 'Tab', 9)
+    await run(`check(document.activeElement===dialog().querySelector('input'),${JSON.stringify(label + ' Tab wraps to first field')})`)
+    await press('Escape', 'Escape', 27)
+    await run(`await tick();check(!dialog(),${JSON.stringify(label + ' Escape closes')});check(document.activeElement===trigger(),${JSON.stringify(label + ' Escape restores trigger focus')});check(qaWrites.length===writesBefore&&qaEvents.length===eventsBefore,${JSON.stringify(label + ' opening and dismissing does not save')});check(errors.length===0,${JSON.stringify(label + ' no runtime errors')})`)
+    if (scenario.name === 'missing metadata and unknown stock') {
+      await screen('new-vial-' + theme + '-missing-metadata-header-1440')
+      await viewport(390)
+      await run(`const box=trigger().getBoundingClientRect();check(box.left>=0&&box.right<=innerWidth,${JSON.stringify(label + ' mobile trigger stays in viewport')})`)
+      await screen('new-vial-' + theme + '-missing-metadata-header-390')
+      await viewport(1440)
+    }
+  }
+  const report = { scope: 'Persistent New Vial action and F5/F6, including frozen F3 preservation', passed: (await run('return checks')).length, checks: await run('return checks'), contrast: await run('return contrast'), screenshots, errors: await run('return errors'), fixture: 'Actual VialInventory with app/theme CSS and synthetic compounds transport; no real backend writes.' }
   const reportPath = path.join(dir, 'browser-report.json')
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
   console.log(JSON.stringify({ passed: report.passed, contrast: report.contrast, screenshots, report: reportPath }, null, 2))

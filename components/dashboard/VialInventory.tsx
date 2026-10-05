@@ -103,6 +103,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const daysElapsed = reconstitutionDate
     ? Math.floor((Date.now() - new Date(reconstitutionDate + 'T00:00:00').getTime()) / 86400000)
     : null
+  const hasLifecycle = daysElapsed !== null && Number.isFinite(daysElapsed)
   const expiryDays = 28
   const daysLeft = daysElapsed !== null ? Math.max(0, expiryDays - daysElapsed) : null
   const progress = daysElapsed !== null ? Math.min(100, (daysElapsed / expiryDays) * 100) : 0
@@ -150,22 +151,20 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
       )}
 
       {/* Vial lifecycle: label, day badge, and the new-vial trigger on one row; bar underneath */}
-      {reconstitutionDate && daysElapsed !== null && (
-        <div className="vial-lifecycle">
-          <div className="vial-lifecycle-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px',gap:'8px',flexWrap:'wrap'}}>
-            <span className="vial-lifecycle-title" style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px'}}>VIAL LIFECYCLE</span>
-            <span className="vial-lifecycle-status" style={{fontSize:'13px',fontWeight:'700',color:barColor}}>
-              Day {daysElapsed}/{expiryDays}
-              {daysLeft !== null && daysLeft > 0 && <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'6px'}}>({daysLeft}d left)</span>}
-              {daysLeft === 0 && <span style={{fontSize:'11px',fontWeight:'700',color:'#ef4444',marginLeft:'6px'}}>(EXPIRED)</span>}
-            </span>
-            <button ref={triggerRef} className="vial-new-button" onClick={handleNewVial} aria-haspopup="dialog" aria-controls={showNewVial ? dialogId : undefined} style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'6px',padding:'5px 10px',color:'#39ff14',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>+ New Vial</button>
-          </div>
-          <div className="vial-lifecycle-track" style={{width:'100%',height:'6px',background:'var(--color-surface)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--color-border)'}}>
-            <div style={{width:`${progress}%`,height:'100%',background:barColor,transition:'width 0.3s ease, background 0.3s ease'}} />
-          </div>
+      <div className="vial-lifecycle">
+        <div className="vial-lifecycle-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:hasLifecycle ? '6px' : '0',gap:'8px',flexWrap:'wrap'}}>
+          <span className="vial-lifecycle-title" style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px'}}>VIAL LIFECYCLE</span>
+          {hasLifecycle && <span className="vial-lifecycle-status" style={{fontSize:'13px',fontWeight:'700',color:barColor}}>
+            Day {daysElapsed}/{expiryDays}
+            {daysLeft !== null && daysLeft > 0 && <span style={{fontSize:'11px',fontWeight:'600',color:'var(--color-dim)',marginLeft:'6px'}}>({daysLeft}d left)</span>}
+            {daysLeft === 0 && <span style={{fontSize:'11px',fontWeight:'700',color:'#ef4444',marginLeft:'6px'}}>(EXPIRED)</span>}
+          </span>}
+          <button ref={triggerRef} className="vial-new-button" onClick={handleNewVial} aria-haspopup="dialog" aria-controls={showNewVial ? dialogId : undefined} style={{background:'var(--color-green-10)',border:'1px solid var(--color-green-30)',borderRadius:'6px',padding:'5px 10px',color:'#39ff14',fontSize:'12px',cursor:'pointer',fontWeight:'700'}}>+ New Vial</button>
         </div>
-      )}
+        {hasLifecycle && <div className="vial-lifecycle-track" style={{width:'100%',height:'6px',background:'var(--color-surface)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--color-border)'}}>
+          <div style={{width:`${progress}%`,height:'100%',background:barColor,transition:'width 0.3s ease, background 0.3s ease'}} />
+        </div>}
+      </div>
     </div>
   )
 }

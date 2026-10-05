@@ -111,9 +111,9 @@ for (const timezone of ['America/New_York', 'Pacific/Kiritimati']) {
 }
 
 const nodes = tree => Array.isArray(tree) ? tree.flatMap(nodes) : tree && typeof tree === 'object' ? [tree, ...nodes(tree.props?.children)] : []
-function vialFixture(t) {
+function vialFixture(t, { props = {}, stock: initialStock = 2 } = {}) {
   const slots = [], effects = [], writes = [], events = [], listeners = new Map()
-  let slot, stock = 2, outcome = 'success', release
+  let slot, stock = initialStock, outcome = 'success', release
   const previousWindow = globalThis.window
   globalThis.window = { location: {}, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name),
     dispatchEvent(event) { events.push(event.type); listeners.get(event.type)?.() } }
@@ -141,7 +141,7 @@ function vialFixture(t) {
     } }) }
     return name.startsWith('.') ? load(new URL(name + '.ts', new URL('../components/dashboard/VialInventory.tsx', import.meta.url))) : require(name)
   }, output, output.exports)
-  const draw = () => { slot = 0; effects.length = 0; return output.exports.default({ compoundId: 'compound', compoundName: 'Medication', reconstitutionDate: '2026-09-01', bacWaterMl: 2, vialStrength: 10, vialUnit: 'mg' }) }
+  const draw = () => { slot = 0; effects.length = 0; return output.exports.default({ compoundId: 'compound', compoundName: 'Medication', reconstitutionDate: '2026-09-01', bacWaterMl: 2, vialStrength: 10, vialUnit: 'mg', ...props }) }
   let tree = draw()
   for (const effect of [...effects]) effect()
   const button = label => nodes(draw()).find(node => node.type === 'button' && node.props.children === label)
@@ -152,6 +152,52 @@ function vialFixture(t) {
     alert: () => nodes(draw()).find(node => node.props?.role === 'alert'),
   }
 }
+const textContent = tree => Array.isArray(tree) ? tree.map(textContent).join('') : tree && typeof tree === 'object' ? textContent(tree.props?.children) : tree == null || typeof tree === 'boolean' ? '' : String(tree)
+for (const scenario of [
+  { name: 'recorded date', props: { reconstitutionDate: '2026-09-30' }, lifecycle: true },
+  { name: 'expired date', lifecycle: true, expired: true },
+  { name: 'missing date', props: { reconstitutionDate: undefined } },
+  { name: 'empty date', props: { reconstitutionDate: '' } },
+  { name: 'invalid date', props: { reconstitutionDate: 'invalid' } },
+  { name: 'missing BAC water', props: { bacWaterMl: undefined }, lifecycle: true },
+  { name: 'missing strength', props: { vialStrength: undefined }, lifecycle: true },
+  { name: 'missing strength and water', props: { bacWaterMl: undefined, vialStrength: undefined }, lifecycle: true },
+  { name: 'zero stock', stock: 0, lifecycle: true },
+  { name: 'unknown stock', stock: null, lifecycle: true },
+  { name: 'missing metadata and zero stock', props: { reconstitutionDate: undefined, bacWaterMl: undefined, vialStrength: undefined }, stock: 0 },
+  { name: 'missing metadata and unknown stock', props: { reconstitutionDate: undefined, bacWaterMl: undefined, vialStrength: undefined }, stock: null },
+]) test(`New Vial stays available with ${scenario.name} and only shows calculable lifecycle data`, async t => {
+  t.mock.method(Date, 'now', () => new Date('2026-10-05T12:00:00').getTime())
+  const f = vialFixture(t, scenario)
+  assert.equal(f.button('+ New Vial'), undefined, 'Inventory loading behavior is retained')
+  await f.ready()
+  const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
+  assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL LIFECYCLE')
+  assert.equal(f.button('+ New Vial').props['aria-haspopup'], 'dialog')
+  assert.equal(Boolean(find('vial-lifecycle-status')), Boolean(scenario.lifecycle))
+  assert.equal(Boolean(find('vial-lifecycle-track')), Boolean(scenario.lifecycle))
+  assert.equal(find('vial-lifecycle-toolbar').props.style.marginBottom, scenario.lifecycle ? '6px' : '0')
+  if (scenario.name === 'recorded date') {
+    assert.match(textContent(find('vial-lifecycle-status')), /Day 5\/28.*23d left/)
+    assert.ok(Math.abs(parseFloat(find('vial-lifecycle-track').props.children.props.style.width) - 17.857142857142858) < .001)
+  }
+  if (scenario.expired) {
+    assert.match(textContent(find('vial-lifecycle-status')), /Day 34\/28.*EXPIRED/)
+    assert.equal(find('vial-lifecycle-track').props.children.props.style.width, '100%')
+  }
+  if (!scenario.lifecycle) assert.doesNotMatch(textContent(tree), /Day |d left|EXPIRED|NaN/)
+  await f.open()
+  const dialog = nodes(f.draw()).find(node => node.type === 'dialog')
+  assert.ok(dialog, 'Existing confirmation opens regardless of metadata or stock')
+  assert.equal(dialog.props['aria-modal'], 'true')
+  assert.equal(textContent(nodes(dialog).find(node => node.props?.id === dialog.props['aria-labelledby'])), 'Starting a new Medication vial?')
+  for (const field of f.inputs()) assert.ok(nodes(dialog).some(node => node.type === 'label' && node.props.htmlFor === field.props.id))
+  if (Object.hasOwn(scenario.props ?? {}, 'vialStrength')) assert.equal(f.inputs()[0].props.value, '')
+  if (Object.hasOwn(scenario.props ?? {}, 'bacWaterMl')) assert.equal(f.inputs()[2].props.value, '')
+  assert.deepEqual(f.writes, [], 'Opening the dialog does not save inventory')
+  assert.deepEqual(f.events, [])
+})
+
 test('New Vial success retains its payload, closes confirmation and dispatches doses_updated', async t => {
   const f = vialFixture(t); await f.ready(); await f.open()
   f.inputs().find(input => input.props.type === 'date').props.onChange({ target: { value: '2026-10-03' } })
