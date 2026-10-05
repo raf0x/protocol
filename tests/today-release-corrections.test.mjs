@@ -8,11 +8,12 @@ import ts from 'typescript'
 const require = createRequire(import.meta.url)
 const read = file => readFileSync(new URL(file, import.meta.url), 'utf8')
 const options = { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true }
-function load(file) {
+function load(file, mocks = {}) {
   const url = new URL(file, import.meta.url), output = { exports: {} }
   new Function('require', 'module', 'exports', ts.transpileModule(read(url), { compilerOptions: options }).outputText)(name => {
+    if (Object.hasOwn(mocks, name)) return mocks[name]
     if (name.endsWith('/supabase')) throw Error('No real backend in correction tests')
-    return name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url)) : require(name)
+    return name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url), mocks) : require(name)
   }, output, output.exports)
   return output.exports
 }
@@ -111,6 +112,58 @@ for (const timezone of ['America/New_York', 'Pacific/Kiritimati']) {
 }
 
 const nodes = tree => Array.isArray(tree) ? tree.flatMap(nodes) : tree && typeof tree === 'object' ? [tree, ...nodes(tree.props?.children)] : []
+function heroFixture() {
+  function InventoryBoundary() { throw Error('Parent unit fixture must not render the inventory boundary') }
+  const backend = { createClient() { throw Error('No real backend in parent correction tests') } }
+  const Hero = load('../components/dashboard/HeroProtocolCard.tsx', {
+    react: { ...React, useState: initial => [initial, () => {}], useEffect() {} },
+    '../../lib/health/useLocalCalendarDate': { useLocalCalendarDate: () => '2026-10-05' },
+    '../../lib/supabase': backend, '../supabase': backend,
+    './VialInventory': { default: InventoryBoundary, __esModule: true },
+  }).default
+  const compounds = [
+    { id: 'compound-1', name: 'Medication One', reconstitution_date: '2026-09-30', bac_water_ml: 2, vial_strength: 10, vials_in_stock: 2 },
+    { id: 'compound-2', name: 'Medication Two', reconstitution_date: null, bac_water_ml: null, vial_strength: null, vials_in_stock: 0 },
+    { id: 'compound-3', name: 'Medication Three', reconstitution_date: null, bac_water_ml: null, vial_strength: null, vials_in_stock: null },
+    { id: 'compound-4', name: 'Medication Four', reconstitution_date: '2026-09-30', bac_water_ml: null, vial_strength: null, vials_in_stock: null },
+  ].map(compound => ({ ...compound, vial_unit: 'mg', phases: [] }))
+  const protocols = [
+    { id: 'protocol-1', name: 'Plan One', start_date: '2026-09-01', status: 'active', compounds: compounds.slice(0, 2) },
+    { id: 'protocol-2', name: 'Plan Two', start_date: '2026-09-01', status: 'active', compounds: compounds.slice(2) },
+  ]
+  const draw = (snapshot, selected, activeProtocols = protocols) => Hero({ activeProtocols, activeCompoundTab: selected, logs: {}, allLogs: [], totalLost: null, compoundIndex: 0, snapshot })
+  return { draw, compounds, InventoryBoundary }
+}
+for (const snapshot of [true, false]) test(`${snapshot ? 'Today snapshot' : 'Legacy Hero card'} passes inventory for each selected compound regardless of metadata`, () => {
+  const f = heroFixture()
+  for (const compound of [f.compounds[0], f.compounds[1], f.compounds[2], f.compounds[3], f.compounds[0]]) {
+    const tree = f.draw(snapshot, compound.id)
+    const selectedSnapshot = nodes(tree).find(node => node.type?.name === 'SelectedProtocolSnapshot')
+    const inventory = snapshot ? selectedSnapshot?.props.lifecycle : nodes(tree).find(node => node.type === f.InventoryBoundary)
+    assert.ok(inventory, 'The actual Hero parent must pass the inventory boundary without a metadata gate')
+    assert.equal(inventory.type, f.InventoryBoundary)
+    assert.equal(inventory.props.compoundId, compound.id)
+    assert.equal(inventory.props.compoundName, compound.name)
+    assert.equal(inventory.props.reconstitutionDate, compound.reconstitution_date)
+    assert.equal(inventory.props.bacWaterMl, compound.bac_water_ml ?? 0)
+    assert.equal(inventory.props.vialStrength, compound.vial_strength)
+    if (snapshot) {
+      assert.equal(selectedSnapshot.props.name, compound.name)
+      assert.equal(selectedSnapshot.props.protocolName, compound.id === 'compound-1' || compound.id === 'compound-2' ? 'Plan One' : 'Plan Two')
+      const renderedSnapshot = selectedSnapshot.type(selectedSnapshot.props)
+      assert.ok(nodes(renderedSnapshot).some(node => node.props?.className === 'today-snapshot-lifecycle'), 'The real snapshot renders its lifecycle slot')
+      assert.ok(nodes(renderedSnapshot).some(node => node.type === f.InventoryBoundary), 'The real snapshot retains the inventory child')
+    }
+  }
+})
+test('Hero inventory requires an actual compound and retains fallback selection', () => {
+  const f = heroFixture()
+  assert.equal(f.draw(true, null, []), null)
+  assert.equal(f.draw(true, null, [{ id: 'empty', compounds: [] }]), null)
+  const fallback = nodes(f.draw(true, null)).find(node => node.type?.name === 'SelectedProtocolSnapshot')
+  assert.equal(fallback.props.lifecycle.props.compoundId, 'compound-1')
+})
+
 function vialFixture(t, { props = {}, stock: initialStock = 2 } = {}) {
   const slots = [], effects = [], writes = [], events = [], listeners = new Map()
   let slot, stock = initialStock, outcome = 'success', release

@@ -12,13 +12,31 @@ fs.writeFileSync(entry, `
 import React from ${JSON.stringify(path.join(root, 'node_modules/react'))};
 import {createRoot} from ${JSON.stringify(path.join(root, 'node_modules/react-dom/client'))};
 import VialInventory from ${JSON.stringify(path.join(root, 'components/dashboard/VialInventory.tsx'))};
+import HeroProtocolCard from ${JSON.stringify(path.join(root, 'components/dashboard/HeroProtocolCard.tsx'))};
+import {SectionCard} from ${JSON.stringify(path.join(root, 'components/app/DesignSystem.tsx'))};
 import theme from ${JSON.stringify(path.join(root, 'components/app/design-system-v2.module.css'))};
-window.qaWrites=[];window.qaEvents=[];window.qaFail=false;window.qaStock=2;window.qaBackground=0;
+import todayStyles from ${JSON.stringify(path.join(root, 'app/protocol/today-v2.module.css'))};
+window.qaWrites=[];window.qaEvents=[];window.qaReads=[];window.qaFail=false;window.qaStock=2;window.qaBackground=0;
 window.addEventListener('doses_updated',()=>qaEvents.push('doses_updated'));
 window.qaDefaults={reconstitutionDate:'2026-09-01',bacWaterMl:2,vialStrength:10,vialUnit:'mg'};
 function Fixture({props}){return <div className={'mobile-app-shell today-surface '+theme.theme}><button id="background" onClick={()=>qaBackground++}>Background action</button><VialInventory compoundId="qa-compound" compoundName="Medication" {...props}/></div>}
 const fixtureRoot=createRoot(document.getElementById('root'));let revision=0;
 window.qaRender=(props,stock)=>{window.qaStock=stock;fixtureRoot.render(<Fixture key={++revision} props={props}/>)};
+window.qaHeroCompounds=[
+  {id:'qa-compound-1',name:'Medication One',reconstitution_date:'2026-09-01',bac_water_ml:2,vial_strength:10,vials_in_stock:2},
+  {id:'qa-compound-2',name:'Medication Two',reconstitution_date:null,bac_water_ml:null,vial_strength:null,vials_in_stock:0},
+  {id:'qa-compound-3',name:'Medication Three',reconstitution_date:null,bac_water_ml:null,vial_strength:null,vials_in_stock:null},
+  {id:'qa-compound-4',name:'Medication Four',reconstitution_date:'2026-09-01',bac_water_ml:null,vial_strength:null,vials_in_stock:null},
+].map(compound=>({...compound,vial_unit:'mg',phases:[]}));
+window.qaHeroProtocols=[
+  {id:'qa-protocol-1',name:'Plan One',start_date:'2026-09-01',status:'active',compounds:qaHeroCompounds.slice(0,2)},
+  {id:'qa-protocol-2',name:'Plan Two',start_date:'2026-09-01',status:'active',compounds:qaHeroCompounds.slice(2)},
+];
+function HeroFixture({snapshot}){
+  const [selected,setSelected]=React.useState('qa-compound-1');
+  return <div className={'mobile-app-shell today-surface '+theme.theme}><button id="background" onClick={()=>qaBackground++}>Background action</button><main className={'today-main '+todayStyles.page}><div className={todayStyles.container}><nav style={{display:'flex',flexWrap:'wrap',gap:8}}>{qaHeroCompounds.map(compound=><button key={compound.id} data-qa-select={compound.id} aria-pressed={selected===compound.id} onClick={()=>setSelected(compound.id)}>{compound.name}</button>)}</nav><SectionCard className={todayStyles.activeProtocols}><div className={snapshot?todayStyles.selectedSnapshot:undefined}><HeroProtocolCard snapshot={snapshot} activeProtocols={qaHeroProtocols} activeCompoundTab={selected} logs={{}} allLogs={[]} totalLost={null} compoundIndex={qaHeroCompounds.findIndex(compound=>compound.id===selected)}/></div></SectionCard></div></main></div>
+}
+window.qaRenderHero=snapshot=>fixtureRoot.render(<HeroFixture key={++revision} snapshot={snapshot}/>);
 qaRender(qaDefaults,2);
 `)
 require.extensions['.ts'] = () => {}; require.extensions['.tsx'] = () => {}
@@ -29,8 +47,8 @@ function bundle(file) {
   const id = modules.length; ids.set(file, id); modules.push(null)
   let code = fs.readFileSync(file, 'utf8')
   if (file === path.join(root, 'lib/supabase.ts')) code = `exports.createClient=()=>({from:table=>{
-    if(table!=='compounds')throw Error('Unexpected table '+table);let write;
-    return {select(){return this},update(value){write=value;return this},eq(key,id){if(key!=='id'||id!=='qa-compound')throw Error('Unexpected owner/compound filter');return this},single:async()=>({data:{vials_in_stock:qaStock}}),then(resolve,reject){return Promise.resolve().then(()=>{qaWrites.push(write);if(qaFail)return {error:{message:'Mock rejected update'}};qaStock=write.vials_in_stock;return {error:null}}).then(resolve,reject)}}
+    if(!['compounds','protocols'].includes(table))throw Error('Unexpected table '+table);let write,selected;
+    return {select(columns){if(table==='protocols'&&columns!=='continued_from_protocol_id')throw Error('Unexpected protocol read');return this},update(value){if(table!=='compounds')throw Error('Protocol writes forbidden');write=value;return this},eq(key,id){if(key!=='id'||!(table==='protocols'?qaHeroProtocols.some(protocol=>protocol.id===id):id==='qa-compound'||qaHeroCompounds.some(compound=>compound.id===id)))throw Error('Unexpected owner/compound filter');selected=id;return this},single:async()=>{qaReads.push({table,id:selected});return {data:table==='protocols'?{continued_from_protocol_id:null}:{vials_in_stock:selected==='qa-compound'?qaStock:qaHeroCompounds.find(compound=>compound.id===selected).vials_in_stock}}},then(resolve,reject){return Promise.resolve().then(()=>{if(selected!=='qa-compound')throw Error('Hero integration writes forbidden');qaWrites.push(write);if(qaFail)return {error:{message:'Mock rejected update'}};qaStock=write.vials_in_stock;return {error:null}}).then(resolve,reject)}}
   }});`
   if (file.endsWith('.module.css')) {
     const names = {}, globals = []
@@ -146,7 +164,31 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
       await viewport(1440)
     }
   }
-  const report = { scope: 'Persistent New Vial action and F5/F6, including frozen F3 preservation', passed: (await run('return checks')).length, checks: await run('return checks'), contrast: await run('return contrast'), screenshots, errors: await run('return errors'), fixture: 'Actual VialInventory with app/theme CSS and synthetic compounds transport; no real backend writes.' }
+  for (const snapshot of [true, false]) for (const theme of ['light', 'dark']) for (const width of [1440, 390]) {
+    const mode = snapshot ? 'Today snapshot' : 'legacy Hero'
+    await viewport(width)
+    await cdp('Emulation.setTouchEmulationEnabled', { enabled: width === 390 })
+    await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};qaRenderHero(${snapshot});await tick();window.integrationWritesBefore=qaWrites.length;window.integrationEventsBefore=qaEvents.length;`)
+    for (const number of [1, 2, 3, 4, 1]) {
+      const compoundId = 'qa-compound-' + number
+      const label = mode + ' ' + theme + ' ' + width + ' compound ' + number
+      const point = await run(`window.integrationReadsBefore=qaReads.length;document.querySelector('[data-qa-select="${compoundId}"]').click();await tick();const compound=qaHeroCompounds.find(item=>item.id==='${compoundId}');const expectedPlan=${number <= 2 ? "'Plan One'" : "'Plan Two'"};const card=document.querySelector(${JSON.stringify(snapshot ? '.today-selected-protocol' : 'main section>div>div')});check(card!==null,${JSON.stringify(label + ' real parent card renders')});check(document.querySelector('[data-qa-select="${compoundId}"]').getAttribute('aria-pressed')==='true',${JSON.stringify(label + ' selection changes on the same mounted card')});check(card.querySelector(${JSON.stringify(snapshot ? '#selected-protocol-name' : 'h2')})?.textContent===compound.name,${JSON.stringify(label + ' selected compound is displayed')});check(document.querySelectorAll('.vial-new-button').length===1,${JSON.stringify(label + ' parent renders one New Vial action')});const b=trigger();check(b?.textContent==='+ New Vial',${JSON.stringify(label + ' parent action persists without metadata')});check(b.closest(${JSON.stringify(snapshot ? '.today-snapshot-lifecycle' : '.vial-inventory')})!==null,${JSON.stringify(label + ' action uses the real lifecycle slot')});check(Boolean(card.querySelector('.vial-lifecycle-status'))===${number === 1 || number === 4}&&Boolean(card.querySelector('.vial-lifecycle-track'))===${number === 1 || number === 4},${JSON.stringify(label + ' parent lifecycle details depend on date only')});${snapshot ? `check(card.querySelector('.today-snapshot-plan')?.textContent===expectedPlan,${JSON.stringify(label + ' selected protocol is displayed')});check(getComputedStyle(card.querySelector('.vial-lifecycle-title')).display==='none',${JSON.stringify(label + ' actual Today CSS hides duplicate title')});const track=card.querySelector('.vial-lifecycle-track');if(track)check(getComputedStyle(track).display==='none',${JSON.stringify(label + ' actual Today CSS hides legacy progress bar')});const stock=[...card.querySelectorAll('.today-snapshot-fact')].find(fact=>fact.querySelector('dt').textContent==='Vials in stock');check(stock.querySelector('dd').textContent===(compound.vials_in_stock===null?'Not recorded':String(compound.vials_in_stock)),${JSON.stringify(label + ' zero and unknown stock remain distinct')});if(!compound.reconstitution_date)for(const name of ['Vial reconstituted','Vial expiration'])check([...card.querySelectorAll('.today-snapshot-fact')].find(fact=>fact.querySelector('dt').textContent===name).querySelector('dd').textContent==='Not recorded',${JSON.stringify(label + ' no invented reconstitution or expiration date')});` : ''}if(${number !== 1})check(qaReads.slice(integrationReadsBefore).some(read=>read.table==='compounds'&&read.id==='${compoundId}'),${JSON.stringify(label + ' selection loads the selected inventory')});check(qaReads.some(read=>read.table==='protocols'&&read.id===${number <= 2 ? "'qa-protocol-1'" : "'qa-protocol-2'"}),${JSON.stringify(label + ' synthetic continuity read uses selected protocol')});b.scrollIntoView({block:'center'});const box=b.getBoundingClientRect(),parent=card.getBoundingClientRect(),style=getComputedStyle(b);check(style.display!=='none'&&style.visibility==='visible'&&Number(style.opacity)>0&&box.width>0&&box.height>0,${JSON.stringify(label + ' action is visibly rendered')});check(box.left>=0&&box.right<=innerWidth&&box.top>=0&&box.bottom<=innerHeight,${JSON.stringify(label + ' action stays inside desktop or mobile viewport')});check(box.left>=parent.left&&box.right<=parent.right&&box.top>=parent.top&&box.bottom<=parent.bottom,${JSON.stringify(label + ' action is not clipped by Hero overflow')});const point={x:(box.left+box.right)/2,y:(box.top+box.bottom)/2};check(document.elementFromPoint(point.x,point.y)===b,${JSON.stringify(label + ' action can receive pointer input')});return point;`)
+      if (width === 390) await tap('.vial-new-button')
+      else {
+        await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', clickCount: 1 })
+        await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 })
+      }
+      await run(`await tick();const d=dialog(),compound=qaHeroCompounds.find(item=>item.id==='${compoundId}');check(d?.open&&d.matches(':modal'),${JSON.stringify(label + ' pointer opens native confirmation')});check(document.getElementById(d.getAttribute('aria-labelledby'))?.textContent==='Starting a new '+compound.name+' vial?',${JSON.stringify(label + ' modal is named for the selected compound')});check(document.activeElement===d.querySelector('input'),${JSON.stringify(label + ' focus enters first labelled field')});for(const input of d.querySelectorAll('input'))check([...d.querySelectorAll('label')].some(field=>field.htmlFor===input.id),${JSON.stringify(label + ' modal labels preserved')});if(compound.vial_strength===null)check(d.querySelector('input').value==='',${JSON.stringify(label + ' missing strength remains blank')});if(compound.bac_water_ml===null)check(d.querySelector('input:last-of-type').value==='',${JSON.stringify(label + ' missing water remains blank')});readable(d.querySelector('h3'),${JSON.stringify(mode + ' compound ' + number + ' title')},${JSON.stringify(theme)});readable(d.querySelector('p'),${JSON.stringify(mode + ' compound ' + number + ' helper')},${JSON.stringify(theme)});document.getElementById('background').focus();check(d.contains(document.activeElement),${JSON.stringify(label + ' modal prevents background focus')});d.querySelector('input').focus();`)
+      await press('Tab', 'Tab', 9, 8)
+      await run(`check(document.activeElement===button('Log New Vial'),${JSON.stringify(label + ' Shift+Tab wraps inside confirmation')})`)
+      await press('Tab', 'Tab', 9)
+      await run(`check(document.activeElement===dialog().querySelector('input'),${JSON.stringify(label + ' Tab wraps to first field')})`)
+      await press('Escape', 'Escape', 27)
+      await run(`await tick();check(!dialog(),${JSON.stringify(label + ' Escape closes confirmation')});check(document.activeElement===trigger(),${JSON.stringify(label + ' Escape restores selected trigger focus')});check(qaWrites.length===integrationWritesBefore&&qaEvents.length===integrationEventsBefore,${JSON.stringify(label + ' integration opens without backend writes or dose events')});check(errors.length===0,${JSON.stringify(label + ' no integration runtime errors')})`)
+      if (snapshot && number === 2) await screen('new-vial-today-' + theme + '-' + width + '-missing-metadata')
+    }
+  }
+  const report = { scope: 'Persistent New Vial action through actual Hero/Today snapshot and legacy card, plus F5/F6 and frozen F3 preservation', passed: (await run('return checks')).length, checks: await run('return checks'), contrast: await run('return contrast'), screenshots, errors: await run('return errors'), fixture: 'Actual HeroProtocolCard → SelectedProtocolSnapshot → VialInventory with Today/app/theme CSS and synthetic compounds/protocols SELECT transport; no real backend writes.' }
   const reportPath = path.join(dir, 'browser-report.json')
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
   console.log(JSON.stringify({ passed: report.passed, contrast: report.contrast, screenshots, report: reportPath }, null, 2))
