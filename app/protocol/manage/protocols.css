@@ -278,3 +278,288 @@ button.protocol-ring-named { cursor: pointer; }
 @keyframes protocol-setup-ready { from { background: transparent; box-shadow: none; } to { box-shadow: 0 0 18px color-mix(in srgb, var(--ring-color) 25%, transparent); } }
 @media (max-width: 360px) { .protocols-focused .protocols-container { padding-inline: 16px; } }
 @media (prefers-reduced-motion: reduce) { .protocol-ring-success .protocol-ring-named { animation: none; } }
+
+/* MPP-018A: scoped visual system for the measurement-first editor. */
+.dosing-editor-v2 {
+  --dose-radius: 24px;
+  --dose-control-radius: 14px;
+  --dose-space: 24px;
+  padding-block: 32px;
+}
+.dosing-editor-v2 .protocols-container { max-width: 640px; }
+.dosing-editor-v2 .protocols-header { margin-bottom: 36px; }
+.dosing-editor-v2 .protocols-header h1 { font-size: clamp(30px, 5vw, 38px); letter-spacing: -1px; }
+.dosing-editor-v2 .protocols-header p { max-width: 38ch; font-size: 16px; line-height: 1.6; }
+.dosing-editor-v2 .protocol-editor { gap: 24px; }
+.dosing-compound { min-width: 0; }
+.dosing-compound + .dosing-compound { margin-top: 20px; }
+.dosing-compound-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 20px; }
+.dosing-compound-heading h2 { flex: 1; margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.4px; overflow-wrap: anywhere; }
+.dosing-rename { color: var(--app-secondary); font-size: 14px; }
+.dosing-rename[open] { flex-basis: 100%; }
+.dosing-rename label { display: grid; gap: 8px; }
+.dosing-primary { padding: var(--dose-space); background: var(--app-surface); border-radius: var(--dose-radius); }
+.dosing-primary .quick-control { margin: 0; padding: 0; min-width: 0; border: 0; }
+.dosing-primary .quick-control legend { padding: 0; margin: 0 0 18px; color: var(--app-text); font-size: 20px; font-weight: 650; letter-spacing: -.3px; }
+.dosing-primary .dosing-methods { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.dosing-primary .dosing-methods button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 56px; padding: 14px 16px; border: 1px solid var(--app-border); border-radius: var(--dose-control-radius); background: transparent; color: var(--app-secondary); text-align: left; font: inherit; transition: background-color 140ms ease, border-color 140ms ease; }
+.dosing-primary .dosing-methods button[aria-pressed=true] { color: var(--app-text); background: var(--app-accent-soft); border-color: var(--app-accent); }
+.dosing-methods button svg { flex-shrink: 0; color: var(--app-accent); }
+.dosing-mode-fields { display: grid; gap: 20px; margin-top: 28px; }
+.dosing-mode-fields > label, .dosing-secondary .protocol-fields > label { display: grid; gap: 8px; font-size: 15px; color: var(--app-secondary); }
+.dosing-editor-v2 :is(input:not([type=checkbox]), select, textarea) { box-sizing: border-box; min-height: 52px; border-radius: var(--dose-control-radius) !important; font-size: 16px !important; line-height: 1.5; }
+.dosing-editor-v2 label { letter-spacing: 0 !important; font-weight: 500 !important; }
+.dosing-editor-v2 .protocol-fields label { font-size: 15px !important; }
+.dosing-editor-v2 .protocol-fields { gap: 20px; }
+.dosing-editor-v2 .protocol-fields p { font-size: 14px !important; color: var(--app-secondary); }
+.dosing-editor-v2 .protocol-intake-fields { gap: 20px; }
+.dosing-editor-v2 .dosing-amount-row { display: flex; align-items: center; gap: 12px; }
+.dosing-editor-v2 .dosing-amount-row input { flex: 1; width: 100%; min-width: 0; }
+.dosing-editor-v2 .dosing-amount-row select { flex: 0 0 112px !important; width: 112px !important; }
+.dosing-mode-fields input:not([type=checkbox]) { min-height: 64px; font-size: 26px !important; font-weight: 600; }
+.dosing-reassurance { color: var(--app-secondary); margin: 0; line-height: 1.6; }
+.dosing-live-summary { margin-top: 24px; }
+.dose-summary { display: grid; gap: 6px; color: var(--app-secondary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.dose-summary > strong { color: var(--app-text); font-size: 22px; font-weight: 650; letter-spacing: -.3px; }
+.dose-summary[data-review] { border-inline-start: 3px solid var(--app-warning, #d9a65b); padding-inline-start: 14px; }
+.dose-summary .dose-attention { color: var(--app-text); }
+.dose-summary .dose-guidance { font-size: 14px; }
+.dose-summary .dose-equivalent { color: var(--app-text); font-size: 18px; }
+.protocols-page .dose-review-link { justify-self: start; padding: 8px 0; background: transparent; color: var(--app-accent); border: 0; text-align: left; text-decoration: underline; text-underline-offset: 4px; font: inherit; }
+.protocol-dose-overview:has(.dose-summary) { background: var(--app-surface-secondary); border-radius: 20px; padding: 24px; }
+.protocol-dose-overview > .dose-summary { font-size: 15px; }
+.protocol-dose-overview .dose-summary > strong { font-size: 28px; }
+.protocol-card .dose-summary > strong, .protocol-history-row .dose-summary > strong { font-size: 16px; letter-spacing: 0; }
+.dosing-unit-help { margin-top: 20px; font-size: 14px; color: var(--app-secondary); }
+.dosing-unit-help summary { font-weight: 400; }
+.dosing-secondary { margin-top: 24px; }
+.dosing-disclosure, .dosing-editor-v2 .protocol-editor-section { border: 0; border-bottom: 1px solid var(--app-border); border-radius: 0; background: transparent; margin: 0; padding: 0; }
+.dosing-disclosure > summary, .dosing-editor-v2 .protocol-editor-section > summary { padding: 20px 0; font-size: 16px; font-weight: 600; color: var(--app-text); min-height: 56px; }
+.dosing-disclosure > summary span, .dosing-editor-v2 .protocol-editor-section > summary span { display: block; margin: 4px 0 0; color: var(--app-secondary); font-size: 14px; font-weight: 400; }
+.dosing-disclosure > .protocol-fields, .dosing-editor-v2 .protocol-editor-section > .protocol-fields { padding: 4px 0 28px; }
+.dosing-editor-v2 .protocol-fields .dosing-confirmation { display: flex; align-items: center; gap: 12px; min-height: 48px; margin-top: 16px; }
+.dosing-editor-v2 .protocol-save-bar { gap: 16px; padding: 12px; border: 0; border-radius: 20px; background: var(--app-bg); }
+.dosing-editor-v2 .protocol-save-bar button { min-height: 54px; border-radius: var(--dose-control-radius) !important; }
+.dosing-editor-v2 .protocol-save-bar button:first-child { flex: 0 0 auto !important; background: transparent !important; border: 0 !important; }
+.dosing-editor-v2 .protocol-save-bar button:last-child { background: var(--app-accent) !important; color: var(--app-bg) !important; }
+.dosing-editor-v2 .protocol-effective-date { background: transparent; border: 0; padding: 0; }
+.dosing-editor-v2 .protocol-effective-date button { justify-self: start; border: 0; padding: 0; background: transparent; color: var(--app-secondary); text-decoration: underline; text-underline-offset: 4px; }
+.dosing-editor-v2 :is(input, select, textarea, summary, button) { scroll-margin-block: 120px; }
+.dosing-editor-v2 :is(input, select, textarea, summary, button):focus-visible { outline: 3px solid var(--app-accent); outline-offset: 4px; }
+@media (min-width: 480px) { .dosing-primary .dosing-methods { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 479px) {
+  .dosing-editor-v2 { --dose-space: 20px; padding-inline: 16px; padding-top: 24px; }
+  .dosing-editor-v2 .protocols-header { margin-bottom: 28px; }
+  .dosing-editor-v2 .protocol-fields .protocol-day-picker { gap: 8px !important; }
+}
+@media (prefers-reduced-motion: reduce) { .dosing-primary .dosing-methods button { transition: none; } }
+
+/* MPP-018B: one dose surface, with supporting controls hidden until requested. */
+.protocol-saved-notice { white-space: pre-line; color: var(--app-secondary); font-size: 14px; margin: 0 0 16px; }
+.protocol-detail-v2 { max-width: 640px; margin-inline: auto; }
+.protocol-detail-v2 .protocol-detail-header { margin-bottom: 16px; }
+.protocol-detail-v2 .protocol-detail-header h1 { font-size: 22px; margin: 0 0 4px; }
+.protocol-detail-v2 .protocol-detail-compound { background: var(--app-surface); border: 0; border-radius: 24px; padding: 28px; box-shadow: none; margin-bottom: 12px; }
+.protocol-detail-v2 .protocol-detail-compound h1,
+.protocol-detail-v2 .protocol-detail-compound h2 { font-size: clamp(24px, 5vw, 30px); font-weight: 650; line-height: 1.2; margin: 0 0 20px; letter-spacing: -.5px; }
+.protocol-detail-v2 .protocol-dose-overview:has(.dose-summary) { background: transparent; border-radius: 0; padding: 0; }
+.protocol-detail-v2 .protocol-dose-overview > .dose-summary > strong { font-size: clamp(30px, 7vw, 38px); }
+.protocol-detail-v2 .protocol-dose-overview > p { margin-top: 4px; font-size: 15px; }
+.protocol-next-dose, .protocol-compact-administration { margin-top: 26px; display: grid; gap: 2px; }
+.protocol-next-dose > span, .protocol-compact-administration > span { color: var(--app-secondary); font-size: 13px; }
+.protocol-next-dose > strong { font-size: 18px; font-weight: 600; }
+.protocol-next-dose > small { color: var(--app-secondary); }
+.protocol-compact-administration > p { margin: 0; color: var(--app-text); font-size: 15px; }
+.protocol-dose-issue { display: grid; gap: 5px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--app-border); }
+.protocol-dose-issue strong, .dose-issue b { color: var(--app-text); font-size: 15px; font-weight: 600; }
+.protocol-dose-issue p { margin: 0; color: var(--app-secondary); font-size: 14px; }
+.protocols-page .protocol-dose-issue button { justify-self: start; border: 0; padding: 8px 0; background: transparent; color: var(--app-accent); text-decoration: underline; text-underline-offset: 4px; font: inherit; }
+.protocol-more-details { margin-top: 4px; border-bottom: 1px solid var(--app-border); }
+.protocol-more-details > summary { color: var(--app-secondary); font-size: 15px; font-weight: 500; }
+.protocol-more-compound { padding-block: 10px; }
+.protocol-more-compound + .protocol-more-compound { border-top: 1px solid var(--app-border); }
+.protocol-more-section, .protocol-more-compound .protocol-phase { padding-block: 12px; border-bottom: 1px solid var(--app-border); }
+.protocol-more-section h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.protocol-more-section p { margin: 4px 0; font-size: 14px; color: var(--app-secondary); }
+.protocol-more-section dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px; margin: 0; font-size: 14px; }
+.protocol-more-section dt { color: var(--app-secondary); }
+.protocol-more-section dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.protocol-detail-v2 > .protocol-advanced { margin-top: 20px; padding: 0; background: transparent; border: 0; border-bottom: 1px solid var(--app-border); border-radius: 0; }
+.dose-issue { display: grid; gap: 3px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--app-border); color: var(--app-secondary); }
+.dose-issue-title { color: var(--app-secondary); font-size: 13px; }
+.dosing-editor-v2 .protocols-header { margin-bottom: 24px; }
+.dosing-editor-v2 .protocols-header p { font-size: 14px; }
+.dosing-editor-v2 .dosing-live-summary:empty { display: none; }
+.dosing-editor-v2 .dosing-live-summary .dose-summary { gap: 4px; }
+.dosing-more-options { margin-top: 8px; border-bottom: 1px solid var(--app-border); }
+.dosing-more-options > summary { min-height: 52px; padding: 14px 0; color: var(--app-secondary); font-size: 15px; font-weight: 500; }
+.dosing-more-options .dosing-secondary { margin-top: 0; padding-bottom: 12px; }
+.dosing-more-options .dosing-rename,
+.dosing-more-options .dosing-unit-help { margin: 0; border-bottom: 1px solid var(--app-border); font-size: 15px; }
+.dosing-more-options .dosing-rename summary,
+.dosing-more-options .dosing-unit-help summary { padding: 16px 0; }
+.dosing-more-options .dosing-rename label { padding-bottom: 16px; }
+.dosing-editor-v2 .dosing-disclosure > summary,
+.dosing-editor-v2 .protocol-editor-section > summary { padding: 16px 0; min-height: 52px; }
+.dosing-editor-v2 .dosing-disclosure > summary span,
+.dosing-editor-v2 .protocol-editor-section > summary span { display: none; }
+.dosing-editor-v2 .dosing-protocol-dates { padding-block: 14px; }
+.dosing-editor-v2 .dosing-protocol-dates h3 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
+.dosing-editor-v2 .dosing-primary { padding: 24px; }
+@media (max-width: 479px) {
+  .protocol-detail-v2 .protocol-detail-compound { padding: 22px; }
+  .dosing-editor-v2 .dosing-primary { padding: 20px; }
+  .dosing-editor-v2 .protocol-save-bar { bottom: calc(var(--app-nav-height) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* MPP-018C: compact detail groups keep current facts prominent. */
+.protocol-detail-v2 .protocol-detail-header { margin-bottom: 10px; }
+.protocol-detail-v2 .protocol-detail-compound { padding: 20px 22px; margin-bottom: 8px; }
+.protocol-detail-v2 .protocol-detail-compound h1,
+.protocol-detail-v2 .protocol-detail-compound h2 { margin-bottom: 12px; }
+.protocol-detail-v2 .protocol-dose-overview > .dose-summary > strong { font-size: clamp(28px, 6vw, 34px); line-height: 1.1; }
+.protocol-detail-v2 .protocol-dose-overview > p { margin-top: 2px; }
+.protocol-primary-facts { display: grid; gap: 10px 18px; margin-top: 14px; }
+.protocol-next-dose, .protocol-compact-administration { margin-top: 0; gap: 1px; align-content: start; }
+.protocol-next-dose > strong { font-size: 16px; }
+.protocol-compact-administration > p { font-size: 14px; line-height: 1.35; }
+.protocol-dose-issue { margin-top: 14px; padding-top: 12px; gap: 3px; }
+.protocol-more-details { margin-top: 0; }
+.protocol-more-details > summary { padding-block: 9px; }
+.protocol-more-compound { padding-block: 4px; }
+.protocol-more-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 18px; }
+.protocol-more-grid > :is(.protocol-more-section, .protocol-phase) { min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--app-border); }
+.protocol-more-grid h3 { margin: 0 0 5px; font-size: 14px; }
+.protocol-more-grid dl { gap: 4px 10px; line-height: 1.4; }
+.protocol-more-grid dd { min-width: 0; }
+.protocol-more-grid .protocol-phase { margin: 0; }
+.protocol-phase-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.protocol-phase-meta h3 { margin: 0; flex: 0 0 auto; }
+.protocol-phase-meta p { margin: 0; text-align: right; }
+.protocol-phase-history > summary, .protocol-history-disclosure > summary { min-height: 44px; padding: 8px 0; color: var(--app-accent); font-size: 14px; font-weight: 500; }
+.protocol-phase-history small { color: var(--app-secondary); font-weight: 400; }
+.protocol-history-disclosure { padding: 2px 0 10px; border-bottom: 1px solid var(--app-border); }
+.protocol-history-disclosure h3 { margin: 10px 0 3px; font-size: 14px; font-weight: 600; }
+.protocol-history-disclosure p { margin: 4px 0; color: var(--app-secondary); font-size: 13px; }
+.protocol-history-disclosure .protocol-history-row,
+.protocol-phase-history .protocol-history-row { gap: 2px; padding: 7px 0; font-size: 13px; }
+.protocol-history-disclosure .protocol-history-row strong { font-size: 13px; }
+.protocols-page .protocol-history-more { min-height: 44px; border: 0; background: transparent; padding: 8px 0; color: var(--app-accent); text-decoration: underline; text-underline-offset: 3px; font: inherit; }
+.protocol-card .protocol-card-button { padding: 14px 16px; }
+.protocol-card .protocol-card-copy { gap: 3px; }
+.protocol-card .protocol-compound-summary { gap: 2px; }
+.protocol-card .dose-summary { gap: 2px; }
+.protocol-card .dose-summary > strong { line-height: 1.25; }
+@media (min-width: 420px) { .protocol-primary-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 640px) { .protocol-more-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 419px) { .protocol-detail-v2 .protocol-detail-compound { padding: 18px; } }
+
+/* MPP-018D: three calm groups in the expanded detail view. */
+.protocol-detail-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.protocols-page .protocol-detail-edit { min-height: 44px; padding: 8px 0 8px 12px; border: 0; background: transparent; color: var(--app-accent); font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.protocol-more-grid { gap: 12px 22px; }
+.protocol-more-grid > .protocol-more-section { padding: 8px 0 10px; border: 0; }
+.protocol-more-grid .protocol-more-section h3 { margin-bottom: 6px; }
+.protocol-more-grid .protocol-more-section dl { gap: 5px 10px; }
+.protocol-more-grid .protocol-more-section > p { margin: 0; }
+.protocol-plan .protocol-phase { margin: 4px 0 0; padding: 0; border: 0; }
+.protocol-plan .protocol-phase-meta { font-size: 14px; line-height: 1.4; }
+.protocol-plan .protocol-phase-meta h3 { color: var(--app-secondary); font-weight: 400; }
+.protocol-plan .protocol-phase-meta p { color: var(--app-text); }
+.protocol-plan .protocol-phase-history { margin-top: 12px; }
+.protocol-more-compound > .protocol-dose-change { margin-top: 8px; }
+.protocol-history-disclosure { border: 0; }
+@media (min-width: 640px) { .protocol-plan { grid-column: 1 / -1; } }
+
+/* The inline amount and its fixed unit read as one field. */
+.protocol-dose-change-body { gap: 8px; padding: 4px 0 12px; }
+.protocol-dose-change-body > p:first-child { font-size: 13px; line-height: 1.4; }
+.protocol-dose-change-body > label:not(.protocol-check) { gap: 5px; }
+.protocol-dose-change-body .protocol-dose-input { display: flex; align-items: stretch; gap: 0; width: 100%; max-width: 320px; min-height: 50px; overflow: hidden; border: 1px solid var(--app-border); border-radius: 14px; background: var(--app-bg); }
+.protocol-dose-change-body .protocol-dose-input:focus-within { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+.protocol-dose-change-body .protocol-dose-input input { box-sizing: border-box; flex: 1 1 0; width: auto; min-width: 0; min-height: 50px; border: 0; border-radius: 0; background: transparent; }
+.protocol-dose-change-body .protocol-dose-input input:focus { outline: none; }
+.protocol-dose-change-body .protocol-dose-input span { box-sizing: border-box; display: grid; flex: 0 0 72px; place-items: center; min-height: 50px; padding: 0 8px; border-left: 1px solid var(--app-border); background: var(--app-surface-secondary); font-size: 15px; }
+.protocol-dose-change-body .protocol-guidance { max-width: 48ch; font-size: 13px; line-height: 1.4; }
+.protocol-dose-change-body .protocol-action-row { gap: 8px; padding: 2px 0 0; }
+@media (max-width: 639px) { .protocol-dose-change-body .protocol-dose-input { max-width: none; } }
+
+/* MPP-018F: the edit screen keeps one primary task and one compact options chooser. */
+.dosing-editor-v2 { padding-top: 18px; }
+.dosing-editor-v2 .protocols-header { margin-bottom: 12px; }
+.dosing-editor-v2 .protocols-header p { display: none; }
+.dosing-editor-v2 .protocol-editor { gap: 10px; }
+.dosing-editor-v2 .dosing-primary { padding: 18px; border-radius: 18px; }
+.dosing-editor-v2 .dosing-primary .quick-control legend { margin-bottom: 12px; font-size: 18px; }
+.dosing-editor-v2 .dosing-primary .dosing-methods { gap: 8px; }
+.dosing-editor-v2 .dosing-primary .dosing-methods button { min-height: 48px; padding: 10px 12px; border-radius: 14px; font-size: 14px; }
+.dosing-editor-v2 .dosing-mode-fields { gap: 10px; margin-top: 16px; }
+.dosing-editor-v2 .dosing-mode-fields input:not([type=checkbox]) { min-height: 52px; font-size: 22px !important; }
+.dosing-editor-v2 .dosing-mode-fields > label { font-weight: 600 !important; color: var(--app-text); }
+.dosing-editor-v2 .dosing-mode-fields > .dosing-amount-row { max-width: 360px; }
+.dosing-editor-v2 .dosing-live-summary { margin-top: 14px; }
+.dosing-editor-v2 .dosing-more-options { margin-top: 4px; border: 0; }
+.dosing-editor-v2 .dosing-more-options > summary { min-height: 44px; padding: 10px 0; }
+.dosing-editor-v2 .dosing-secondary { padding: 4px 0 10px; }
+.dosing-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.protocols-page .dosing-option-card { display: grid; align-content: start; gap: 3px; min-width: 0; min-height: 72px; padding: 11px 12px; border: 1px solid var(--app-border); border-radius: 14px; background: var(--app-surface); color: var(--app-text); text-align: left; font: inherit; }
+.dosing-option-card[aria-expanded=true] { border-color: var(--app-accent); background: var(--app-accent-soft); }
+.dosing-option-card strong { font-size: 14px; font-weight: 650; }
+.dosing-option-card small { overflow: hidden; color: var(--app-secondary); font-size: 12px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.dosing-option-panel { margin-top: 10px; padding: 16px; border: 1px solid var(--app-border); border-radius: 16px; background: var(--app-surface); }
+.dosing-option-panel[hidden] { display: none !important; }
+.dosing-editor-v2 .dosing-option-panel .protocol-fields { gap: 12px; }
+.dosing-editor-v2 .dosing-option-panel .protocol-fields label { font-weight: 600 !important; color: var(--app-text); }
+.dosing-editor-v2 .dosing-option-panel .protocol-intake-fields { gap: 12px; }
+.dosing-editor-v2 .dosing-option-panel .protocol-fields > div[style] { margin-bottom: 0 !important; }
+.dosing-editor-v2 .dosing-option-panel .protocol-fields > p { margin: 0; }
+.dosing-editor-v2 .dosing-option-panel .dosing-unit-help { border: 0; color: var(--app-secondary); font-size: 13px; line-height: 1.5; }
+.dosing-review-panel { display: grid; gap: 7px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--app-border); font-size: 13px; }
+.dosing-review-panel[hidden] { display: none !important; }
+.dosing-review-panel[data-has-issue=false] { margin: 4px 0 0; padding: 0; border: 0; }
+.dosing-review-panel[data-has-issue=false] .dosing-calculation-details { display: none; }
+.dosing-review-panel > p, .dosing-calculation-details p { margin: 0; }
+.dosing-calculation-details { display: grid; gap: 4px; color: var(--app-secondary); }
+.dosing-editor-v2 .dosing-review-panel .dosing-confirmation { margin-top: 5px; }
+.dosing-editor-v2 .dosing-protocol-dates { padding: 0; border: 0; }
+.dosing-editor-v2 .dosing-protocol-dates h3 { margin: 0 0 10px; }
+.dosing-editor-v2 .protocol-effective-date { margin: 10px 0 0; }
+.protocols-page .dosing-add-compound { min-height: 44px; margin-top: 12px; padding: 8px 0; border: 0; background: transparent; color: var(--app-accent); font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.dosing-editor-v2 .protocol-save-bar { margin-top: 4px; padding: 8px; border-radius: 16px; }
+@media (min-width: 350px) { .dosing-editor-v2 .dosing-primary .dosing-methods { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 349px) { .dosing-option-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 560px) {
+  .dosing-option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dosing-editor-v2 .dosing-option-panel .protocol-fields, .dosing-editor-v2 .dosing-option-panel .protocol-intake-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dosing-editor-v2 .dosing-option-panel[aria-label="Schedule"] .protocol-fields > * { grid-column: 1 / -1; }
+}
+
+/* MPP-018G: secondary panels show fields first, with technical review on request. */
+.dosing-editor-v2 .dosing-option-panel { padding: 14px 16px; }
+.dosing-editor-v2 .dosing-option-panel .protocol-fields { align-items: start; gap: 12px 16px; }
+.dosing-editor-v2 .dosing-option-panel :is(input:not([type=checkbox]), select, textarea) { width: 100%; max-width: 100%; }
+.dosing-editor-v2 .dosing-option-panel .protocol-intake-fields { grid-column: 1 / -1; }
+.dosing-editor-v2 .dosing-option-panel[aria-label="Vial"] .protocol-fields > div:first-child { grid-column: 1 / -1; }
+.dosing-panel-issue { display: grid; gap: 4px; margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--app-accent-soft); font-size: 14px; }
+.dosing-panel-issue strong { font-weight: 650; }
+.dosing-panel-issue p { margin: 0; color: var(--app-secondary); line-height: 1.4; }
+.dosing-editor-v2 .dosing-review-panel { display: block; margin-top: 6px; padding: 0; border: 0; }
+.dosing-review-panel:not([open]) > :not(summary) { display: none !important; }
+.dosing-review-panel .dosing-confirmation[hidden] { display: none !important; }
+.dosing-editor-v2 .dosing-review-panel > summary { min-height: 44px; padding: 10px 0; color: var(--app-accent); font-size: 14px; font-weight: 600; }
+.dosing-editor-v2 .dosing-review-panel[open] .dosing-calculation-details { padding: 5px 0 8px; line-height: 1.45; }
+.dosing-editor-v2 .dosing-review-panel .dosing-confirmation { margin: 8px 0 0; }
+.protocols-page .dosing-set-ongoing { justify-self: start; min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: var(--app-accent); font: inherit; text-decoration: underline; }
+
+/* MPP-018H: readable detail cards and a quiet, closed calculation review. */
+.protocol-more-grid { gap: 10px; }
+.protocol-more-grid > .protocol-more-section { min-width: 0; padding: 14px 16px; border: 0; border-radius: 14px; background: var(--app-surface-secondary); }
+.protocol-more-grid .protocol-more-section h3 { margin: 0 0 8px; font-size: 14px; }
+.protocol-more-grid .protocol-more-section dl { gap: 5px 12px; }
+.protocol-more-grid .protocol-more-section dd { max-width: 100%; }
+.protocol-plan .protocol-phase { background: transparent; }
+.dosing-editor-v2 .dosing-review-panel[open] .dosing-calculation-details { padding: 6px 0; }
+.dosing-calculation-details dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; margin: 0; font-size: 13px; }
+.dosing-calculation-details dt { color: var(--app-secondary); }
+.dosing-calculation-details dd { margin: 0; color: var(--app-text); text-align: right; overflow-wrap: anywhere; }
+.dosing-review-explanation { margin: 8px 0 0; color: var(--app-secondary); font-size: 13px; line-height: 1.45; }

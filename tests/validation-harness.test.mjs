@@ -218,22 +218,47 @@ test('runProcess escalates an ignored graceful request to forced termination aft
 test('runProcess treats timeout followed by exit zero as failure', async () => {
   const root = temporaryProject()
   const marker = join(root, 'timeout-exit-zero')
+  let child
+  let readyOutput = ''
+  let ready = false
+  let gracefulRequests = 0
   try {
-    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5)`
+    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5);process.stdout.write('ready\\n')`
     const result = await runProcess(process.execPath, ['-e', source], {
-      stdout: sink,
+      stdout: {
+        write(chunk) {
+          readyOutput += chunk.toString()
+          if (!ready && readyOutput.includes('ready\n')) {
+            ready = true
+            if (gracefulRequests > 0) writeFileSync(marker, 'stop')
+          }
+          return true
+        },
+      },
       stderr: sink,
+      // Keep a real timeout; deliver its stop request after fixture readiness.
       timeoutMs: 30,
-      terminationGraceMs: 100,
-      forcedCloseMs: 50,
-      requestGracefulTermination() { writeFileSync(marker, 'stop') },
+      terminationGraceMs: 2_000,
+      forcedCloseMs: 2_000,
+      requestGracefulTermination(processChild) {
+        child = processChild
+        gracefulRequests += 1
+        if (ready) writeFileSync(marker, 'stop')
+      },
     })
+    assert.equal(ready, true)
+    assert.equal(gracefulRequests, 1)
     assert.equal(result.exitCode, 0)
+    assert.equal(result.signal, null)
     assert.equal(result.code, 1)
     assert.equal(result.terminalReason, 'timeout')
     assert.equal(result.forced, false)
+    assert.equal(result.forceCloseExpired, false)
     assert.equal(evaluateRegressionResult({ ...result, stdout: cleanTap(), stderr: '' }, 1).code, 1)
+    assert.equal(await waitForPidExit(child.pid), true)
   } finally {
+    stopChild(child)
+    if (child?.pid) await waitForPidExit(child.pid)
     removeTemporaryProject(root)
   }
 })
@@ -242,24 +267,49 @@ test('runProcess treats abort followed by exit zero as failure', async () => {
   const root = temporaryProject()
   const marker = join(root, 'abort-exit-zero')
   const controller = new AbortController()
+  let child
+  let readyOutput = ''
+  let ready = false
+  let gracefulRequests = 0
   try {
-    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5)`
+    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5);process.stdout.write('ready\\n')`
     const pending = runProcess(process.execPath, ['-e', source], {
-      stdout: sink,
+      stdout: {
+        write(chunk) {
+          readyOutput += chunk.toString()
+          if (!ready && readyOutput.includes('ready\n')) {
+            ready = true
+            controller.abort()
+          }
+          return true
+        },
+      },
       stderr: sink,
       signal: controller.signal,
-      terminationGraceMs: 100,
-      forcedCloseMs: 50,
-      requestGracefulTermination() { writeFileSync(marker, 'stop') },
+      timeoutMs: 5_000,
+      terminationGraceMs: 2_000,
+      forcedCloseMs: 2_000,
+      requestGracefulTermination(processChild) {
+        child = processChild
+        gracefulRequests += 1
+        writeFileSync(marker, 'stop')
+      },
     })
-    setTimeout(() => controller.abort(), 30)
     const result = await pending
+    assert.equal(ready, true)
+    assert.equal(gracefulRequests, 1)
     assert.equal(result.exitCode, 0)
+    assert.equal(result.signal, null)
     assert.equal(result.code, 1)
     assert.equal(result.terminalReason, 'aborted')
     assert.equal(result.cancelled, true)
+    assert.equal(result.forced, false)
+    assert.equal(result.forceCloseExpired, false)
     assert.equal(evaluateRegressionResult({ ...result, stdout: cleanTap(), stderr: '' }, 1).code, 1)
+    assert.equal(await waitForPidExit(child.pid), true)
   } finally {
+    stopChild(child)
+    if (child?.pid) await waitForPidExit(child.pid)
     removeTemporaryProject(root)
   }
 })
@@ -296,30 +346,60 @@ test('runProcess detaches live output pipes after the forced-close deadline', { 
 test('runProcess close during escalation completes once and clears escalation timers', async () => {
   const root = temporaryProject()
   const marker = join(root, 'forced-exit-zero')
+  const controller = new AbortController()
+  const forcedCloseMs = 2000
+  let child
+  let readyOutput = ''
+  let ready = false
+  let completions = 0
   let gracefulRequests = 0
   let forcedRequests = 0
   try {
-    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5)`
+    const source = `const fs=require('node:fs');const marker=${JSON.stringify(marker)};const timer=setInterval(()=>{if(fs.existsSync(marker)){clearInterval(timer);process.exit(0)}},5);process.stdout.write('ready\\n')`
     const result = await runProcess(process.execPath, ['-e', source], {
-      stdout: sink,
+      stdout: {
+        write(chunk) {
+          readyOutput += chunk.toString()
+          // Start escalation only after the child has installed its exit poller.
+          if (!ready && readyOutput.includes('ready\n')) {
+            ready = true
+            controller.abort()
+          }
+          return true
+        },
+      },
       stderr: sink,
-      timeoutMs: 20,
+      signal: controller.signal,
+      timeoutMs: 5000,
       terminationGraceMs: 25,
-      forcedCloseMs: 80,
-      requestGracefulTermination() { gracefulRequests += 1 },
+      forcedCloseMs,
+      requestGracefulTermination(processChild) {
+        child = processChild
+        gracefulRequests += 1
+      },
       requestForcedTermination() {
         forcedRequests += 1
         writeFileSync(marker, 'stop')
       },
+    }).then(result => {
+      completions += 1
+      return result
     })
+    assert.equal(ready, true)
+    assert.equal(result.terminalReason, 'aborted')
     assert.equal(result.code, 1)
     assert.equal(result.exitCode, 0)
     assert.equal(result.forced, true)
     assert.equal(result.forceCloseExpired, false)
-    await new Promise(resolveWait => setTimeout(resolveWait, 120))
+    assert.equal(await waitForPidExit(child.pid), true)
+    // Observe beyond the fallback deadline, retaining the timer-cleanup checks.
+    await new Promise(resolveWait => setTimeout(resolveWait, forcedCloseMs + 50))
+    assert.equal(completions, 1)
     assert.equal(gracefulRequests, 1)
     assert.equal(forcedRequests, 1)
   } finally {
+    stopChild(child)
+    if (child?.pid) await waitForPidExit(child.pid)
     removeTemporaryProject(root)
   }
 })

@@ -1,6 +1,6 @@
 import { canonicalCompoundName, compoundNameError, normalizeCompoundName, resolveCompound } from './catalog'
 import { newCompound, type Compound, type DefaultSource, type QuickStartDraft } from './form'
-import { dosingDisplay, entryFormState, entryFromForm, interpretEntry, type DosingEntry } from '../health/dosingEntry'
+import { dosingDisplay, entryFormState, entryFromForm, type DosingEntry } from '../health/dosingEntry'
 import { isCalendarDate, localCalendarDate, protocolSaveDates } from '../health/protocolDates'
 import { inventoryProtocolFields } from '../inventory/protocol'
 import type { InventoryItem } from '../inventory/model'
@@ -67,6 +67,7 @@ export function quickStartDates(startDate: string, today = localCalendarDate()) 
 
 export type QuickStartIssue = { index: number; field: keyof Compound | 'startDate'; message: string }
 const positive = (value: string) => value.trim() !== '' && Number.isFinite(Number(value)) && Number(value) > 0
+const invalidRawNumber = (value: string) => value.trim() !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)
 
 /** Creation-only completeness policy. Historical editing still uses the shared permissive adapter. */
 export function quickStartIssue({ compounds, startDate }: QuickStartDraft): QuickStartIssue | null {
@@ -83,15 +84,19 @@ export function quickStartIssues({ compounds, startDate }: QuickStartDraft): Qui
     if (c.route === 'Oral' && ['syringe', 'volume'].includes(c.input_mode)) {
       issue('input_mode', 'For an oral entry, record a medication dose')
     } else if (c.input_mode === 'medication') {
-      if (!positive(c.dose)) issue('dose', 'Enter a dose greater than zero')
-      if (!['mg', 'mcg', 'IU'].includes(c.dose_unit)) issue('dose_unit', 'Choose a unit to continue')
+      if (invalidRawNumber(c.dose)) issue('dose', 'Enter a finite, non-negative medication dose or leave it blank')
+      if (c.dose_unit && !['mg', 'mcg', 'IU'].includes(c.dose_unit)) issue('dose_unit', 'Choose mg, mcg or medication IU')
     } else if (c.input_mode === 'syringe') {
-      if (!positive(c.syringe_markings)) issue('syringe_markings', 'Enter the syringe marking you draw to')
-      if (!['100', '40'].includes(c.syringe_scale)) issue('syringe_scale', 'Choose the scale printed on your syringe')
+      if (invalidRawNumber(c.syringe_markings)) issue('syringe_markings', 'Enter finite, non-negative syringe markings or leave them blank')
+      if (c.syringe_scale && !['100', '40'].includes(c.syringe_scale)) issue('syringe_scale', 'Choose U-100 or U-40')
     } else if (c.input_mode === 'volume') {
-      if (!positive(c.injection_volume)) issue('injection_volume', 'Enter an injection volume greater than zero in mL')
-    } else issue('input_mode', 'Choose how your dose is measured to continue')
-    try { interpretEntry(entryFromForm(c)) } catch { issue('input_mode', 'Check your entered dose and preparation amounts. Use finite, non-negative numbers.') }
+      if (invalidRawNumber(c.injection_volume)) issue('injection_volume', 'Enter a finite, non-negative injection volume or leave it blank')
+    } else if (c.input_mode === 'unknown') {
+      if (invalidRawNumber(c.syringe_markings)) issue('syringe_markings', 'Enter finite, non-negative syringe markings or leave them blank')
+      if (invalidRawNumber(c.injection_volume)) issue('injection_volume', 'Enter a finite, non-negative injection volume or leave it blank')
+      if (c.syringe_scale && !['100', '40'].includes(c.syringe_scale) && !c.preserveSyringeScale) issue('syringe_scale', 'Choose U-100 or U-40')
+    } else issue('input_mode', 'Choose how your dose is measured')
+    try { entryFromForm(c) } catch { issue('input_mode', 'Check your entered dose and preparation amounts. Use finite, non-negative numbers.') }
     if (!['SubQ', 'IM', 'Oral', 'Other'].includes(c.route)) issue('route', 'Choose how you take it')
     if (c.frequency_mode === 'rolling') {
       if (!/^[1-7]$/.test(c.cycle_days)) issue('cycle_days', 'Choose an interval from 1 to 7 days')
@@ -109,7 +114,7 @@ export function quickStartIssues({ compounds, startDate }: QuickStartDraft): Qui
   return issues
 }
 
-type SavedPhase = { start_week: number; end_week?: number | null; frequency?: string; days_of_week?: number[]; time_of_day?: string; route?: string; dosing_entry?: DosingEntry | null; dose?: number | null; dose_unit?: string | null; dose_semantics_version?: number | null }
+type SavedPhase = { start_week: number; end_week?: number | null; frequency?: string; days_of_week?: number[]; time_of_day?: string; route?: string; dosing_entry?: DosingEntry | null; dose?: number | null; dose_unit?: string | null; dose_semantics_version?: number | null; injection_volume_ml?: number | null; syringe_units?: number | null; syringe_scale?: number | null }
 export type PreviousProtocol = { start_date?: string | null; created_at?: string; compounds?: { name: string; phases?: SavedPhase[] }[] }
 export type PreviousSetup = { name: string; lastUsed: string; values: Partial<Compound> }
 export function recentSetups(protocols: PreviousProtocol[]): PreviousSetup[] {
@@ -135,7 +140,7 @@ export function acceptPreviousSetup(current: Compound, setup: PreviousSetup) {
   const values = { ...setup.values }
   // A dose and its unit/meaning travel together. Never combine an old dose with
   // a newly entered unit or turn an explicit medication dose into syringe markings.
-  const dosing = ['dose', 'dose_unit', 'input_mode', 'injection_volume', 'syringe_markings', 'syringe_scale', 'reviewed', 'legacy_value'] as const
+  const dosing = ['dose', 'dose_unit', 'input_mode', 'injection_volume', 'syringe_markings', 'syringe_scale', 'reviewed', 'legacy_value', 'preserveSyringeScale', 'preservedSyringeScale'] as const
   const preparation = ['isPreMixed', 'vial_strength', 'vial_unit', 'bac_water_ml', 'concentration_value', 'concentration_unit', 'vial_label'] as const
   const schedule = ['frequency_mode', 'cycle_days', 'days_of_week', 'time_of_day'] as const
   for (const group of [dosing, preparation, schedule]) if (group.some(key => current.origins?.[key] && current.origins[key] !== 'previous')) for (const key of group) delete values[key]

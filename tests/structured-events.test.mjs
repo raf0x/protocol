@@ -28,6 +28,7 @@ const doseAction = readFileSync(new URL('../components/protocols/DoseChangeActio
 const mutations = load('../lib/health/protocolMutations.ts')
 const timeline = load('../lib/health/timeline.ts')
 const overlay = load('../lib/health/protocolOverlay.ts')
+const dosing = load('../lib/health/dosingEntry.ts')
 const client = (response = { data: 'saved-id', error: null }) => ({ calls: [], rpc(name, payload) { this.calls.push([name, payload]); return Promise.resolve(response) } })
 const eventRow = (overrides = {}) => ({ id: 'e1', date: '2026-09-10', event_type: 'dose_change', description: 'Dosing updated', protocol_id: 'p1', compound_id: 'c1',
   metadata: { previousDose: 5, previousUnit: 'mg', newDose: 7.5, newUnit: 'mg', effectiveDate: '2026-09-10' },
@@ -53,6 +54,11 @@ test('completion updates state and emits history in one function', () => assert.
 test('completion confirmation supports local today or an explicit date', () => { assert.match(manage,/This protocol ended earlier/); assert.match(manage,/completionHappenedEarlier \? completionDate \|\| null : null/) })
 test('later dose changes preserve the prior phase boundary and values', () => { assert.match(migration,/UPDATE phases SET end_week=wk-1/); assert.match(migration,/existing\.frequency,existing\.days_of_week/) })
 test('incomplete dosing can still be represented in event state', () => assert.match(migration,/'doseConfirmed'.+CASE/s))
+test('raw dosing snapshots retain exact entry and confirmation state',()=>{
+ const raw=dosing.entryFromForm({input_mode:'unknown',injection_volume:'0.1250',vial_label:'Keep',reviewed:false})
+ assert.equal(raw.injection_volume,'0.1250');assert.equal(raw.review_status,'unverified')
+ assert.match(migration,/'dosingEntry',p\.dosing_entry/);assert.match(migration,/'reviewStatus'/)
+})
 test('medication IU and syringe markings remain separate keys', () => { assert.match(migration,/'medicationUnit'/); assert.match(migration,/'syringeMarkings'/); assert.doesNotMatch(doseAction,/IU.*syringe|syringe.*IU/i) })
 test('Timeline consumes structured dose metadata automatically', () => { const item=timeline.normalizeTimeline([eventRow()],[])[0]; assert.equal(item.description,'5 mg → 7.5 mg'); assert.equal(item.metadata.newDose,7.5) })
 test('overlay consumes structured dose metadata without inventing a delta', () => { const p={id:'p1',name:'Plan',start_date:'2026-01-01',status:'active',compounds:[{id:'c1',name:'Compound',phases:[]}]}; const marker=overlay.overlayMarkers([p],[eventRow()]).find(row=>row.id==='event:e1'); assert.equal(marker.description,'5 mg → 7.5 mg') })
@@ -60,6 +66,6 @@ test('repeated delivery of the same source row is suppressed', () => assert.equa
 test('mutation functions are owner scoped and security invoker', () => { assert.match(migration,/SECURITY INVOKER/g); assert.match(migration,/auth\.uid\(\)/); assert.match(migration,/user_id=uid/) })
 test('quick dose form asks only for the changed value and date', () => { assert.match(doseAction,/New medication dose/); assert.doesNotMatch(doseAction,/Compound name|Frequency mode|Route/) })
 test('all supported writes share the reusable mutation module', () => { for (const fn of ['saveProtocolWithEvents','changeProtocolDose','transitionProtocol','continueLatestPhase']) assert.equal(typeof mutations[fn],'function') })
-test('quick create automatically uses structured event capture', () => assert.match(quick,/save_protocol_with_events_v1/))
+test('quick create uses the current structured event wrapper and canonical raw entry adapter', () => { assert.match(quick,/save_protocol_with_events_v2/);assert.match(quick,/quickEntryPayload/) })
 test('migration is additive and does not backfill historical rows', () => { const beforeFunctions=migration.slice(0,migration.indexOf('CREATE OR REPLACE FUNCTION')); assert.doesNotMatch(beforeFunctions,/\bUPDATE\b|\bDELETE\b/); assert.match(beforeFunctions,/ADD COLUMN IF NOT EXISTS metadata/) })
 test('completed protocol reactivation uses the structured transition path', async () => { const c=client(); await mutations.transitionProtocol({protocolId:'p',action:'reactivate',effectiveDate:'2026-09-10'},c); assert.equal(c.calls[0][1].p_action,'reactivate'); assert.match(manage,/action: 'reactivate'/); assert.doesNotMatch(manage,/status:\s*'active'[\s\S]{0,120}completed_date:\s*null/); assert.match(historyMigration,/p_action='reactivate'/); assert.match(historyMigration,/'reactivated'/) })

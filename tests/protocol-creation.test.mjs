@@ -22,6 +22,7 @@ function load(path, hooks) {
   if(!hooks)cache.set(url.href,out.exports);return out.exports
 }
 const {protocolSaveDates,localCalendarDate,isCalendarDate}=load('../lib/health/protocolDates.ts')
+const form=load('../lib/protocols/form.ts')
 const today='2026-09-22',start='2026-09-01'
 test('Active creation uses its single start date; Planned ignores all date state',()=>{
   for(const date of [start,today]) assert.deepEqual(protocolSaveDates({mode:'create',planned:false,startDate:date,today,effectiveDate:'garbage',useDifferentDate:true}),{startDate:date,effectiveDate:date})
@@ -55,6 +56,16 @@ test('edit bounds use the submitted start, independent of old start or reconstit
   assert.deepEqual(protocolSaveDates({...input,planned:true,startDate:''}),{startDate:null,effectiveDate:null})
 })
 
+test('canonical create payload preserves GHK-Cu-like, Tirzepatide-like and arbitrary raw dosing exactly',()=>{
+ const base={...form.newCompound(),route:'SubQ',days_of_week:[1],name:'GHK-Cu',input_mode:'syringe',syringe_markings:'18.2500',syringe_scale:'100',vial_strength:'50',vial_unit:'mg',bac_water_ml:'3'}
+ const ghk=form.protocolCompoundPayload([base])[0].phase.dosing_entry
+ assert.equal(ghk.syringe_markings,'18.2500');assert.equal(ghk.syringe_scale,'100');assert.equal(ghk.dose,'')
+ const tirzepatide=form.protocolCompoundPayload([{...base,name:'Tirzepatide',input_mode:'volume',injection_volume:'0.1250',isPreMixed:true,preparation:'ready',concentration_value:'20',concentration_unit:'mg/mL'}])[0].phase.dosing_entry
+ assert.equal(tirzepatide.mode,'volume');assert.equal(tirzepatide.injection_volume,'0.1250')
+ const arbitrary=form.protocolCompoundPayload([{...base,name:'Arbitrary compound',input_mode:'unknown',injection_volume:'0.2',vial_label:'Unknown vial'}])[0].phase.dosing_entry
+ assert.equal(arbitrary.mode,'unknown');assert.equal(arbitrary.vial_label,'Unknown vial')
+})
+
 function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null},inventory=[]) {
   const states=[],refs=[],calls=[];let slot=0,refSlot=0
   const deletion={eq(){return this},select:async()=>{calls.push({name:'delete'});return deleteResult}}
@@ -79,9 +90,15 @@ function harness(protocols=[],deleteResult={data:[{id:'existing-id'}],error:null
 function text(node) { if(Array.isArray(node))return node.map(text).join('');return React.isValidElement(node)?text(node.props.children):typeof node==='string'||typeof node==='number'?String(node):'' }
 function createView(h) { return h.render().find(n=>n.type?.name==='ProtocolQuickStart') }
 function submit(h) { return createView(h).props.onSave() }
+function reviewCheckbox(h) { return h.render().find(n=>n.props.className==='dosing-confirmation').props.children.find(n=>React.isValidElement(n)&&n.type==='input') }
+function editMeasurementMode(h) { return h.render().find(n=>n.type?.name==='QuickChoices'&&n.props.label==='How do you measure it?').props.value }
 function configure(h, compound, startDate) {
   const node=h.render().find(n=>n.type?.name==='ProtocolQuickStart'), value=node.props.value
   node.props.onChange({...value,startDate:startDate ?? value.startDate,compounds:[{...value.compounds[0],route:'SubQ',days_of_week:[0,1,2,3,4,5,6],...compound}]})
+}
+function protocolFromSave(call, template=saved) {
+  const payload=call.args.p_compounds[0], phase=payload.phase
+  return {...template,name:call.args.p_name,start_date:call.args.p_start_date||template.start_date,compounds:[{...template.compounds[0],...payload,id:payload.id||template.compounds[0].id,phases:[{...template.compounds[0].phases[0],...phase,id:phase.id||template.compounds[0].phases[0].id}]}]}
 }
 const saved={id:'existing-id',name:'Existing',status:'active',start_date:start,compounds:[{id:'compound-id',name:'Existing',vial_strength:10,vial_unit:'mg',bac_water_ml:2,phases:[{id:'phase-id',start_week:1,end_week:null,dose:2,dose_unit:'mg',dose_semantics_version:1,frequency:'daily',days_of_week:[0,1,2,3,4,5,6]}]}]}
 test('Quick Start keeps preparation and stock in the shared draft and saves one canonical payload',async()=>{
@@ -111,6 +128,40 @@ test('edit UI defaults today, ignores closed overrides and resets edit identity 
     h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'New',dose:'5',dose_unit:'mg'})
     assert.equal(h.button('Use a different effective date'),undefined)
     await submit(h);assert.equal(h.calls[1].args.p_protocol_id,null)
+  }finally{globalThis.window=previous}
+})
+test('edit options start closed and reveal one mounted secondary panel at a time',()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const h=harness([saved]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+    const option=name=>h.render().find(n=>n.props.className==='dosing-option-card'&&n.props['aria-controls']===`dosing-panel-0-${name}`)
+    const panel=name=>h.render().find(n=>n.props.id===`dosing-panel-0-${name}`)
+    const more=()=>h.render().find(n=>n.type==='details'&&n.props.className==='dosing-more-options')
+    assert.equal(more().props.open,false)
+    assert.equal(h.render().filter(n=>n.props.className==='dosing-option-card').length,6)
+    for(const name of ['administration','vial','schedule','inventory','phases','other'])assert.equal(panel(name).props.hidden,true)
+    more().props.onToggle({currentTarget:{open:true}})
+    option('vial').props.onClick()
+    assert.equal(panel('vial').props.hidden,false)
+    option('schedule').props.onClick()
+    assert.equal(panel('vial').props.hidden,true)
+    assert.equal(panel('schedule').props.hidden,false)
+    assert.ok(h.button('Save changes'))
+  }finally{globalThis.window=previous}
+})
+test('Vial panel keeps one human issue and closes calculation details initially',()=>{
+  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+  try {
+    const entry=load('../lib/health/dosingEntry.ts').entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'})
+    const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+    const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+    h.render().find(n=>n.type==='details'&&n.props.className==='dosing-more-options').props.onToggle({currentTarget:{open:true}})
+    h.render().find(n=>n.props.className==='dosing-option-card'&&n.props['aria-controls']==='dosing-panel-0-vial').props.onClick()
+    const nodes=h.render(), review=nodes.find(n=>n.props['data-dose-review']!==undefined)
+    assert.equal(nodes.filter(n=>n.props.className==='dosing-panel-issue').length,1)
+    assert.equal(nodes.find(n=>n.type?.name==='DoseSummary'),undefined)
+    assert.equal(review.props.open,undefined);assert.equal(review.props.hidden,false)
+    assert.equal(text(review.props.children[0]),'Review calculation')
   }finally{globalThis.window=previous}
 })
 test('empty rings link directly to Quick Add without suggesting active treatment',()=>{
@@ -196,8 +247,7 @@ test('inventory handoff initializes the shared draft once and saves through the 
     assert.equal(draft.startDate,'2026-09-01');assert.equal(draft.compounds[0].name,'Testosterone cypionate')
     assert.equal(draft.compounds[0].reconstitution_date,'2026-09-01')
     assert.equal(draft.compounds[0].dose,'');assert.equal(draft.compounds[0].vials_in_stock,'')
-    await submit(h);assert.equal(h.calls.length,0,'Inventory facts cannot substitute for a dose')
-    configure(h,{dose:'5',dose_unit:'mg'})
+    configure(h,{})
     await submit(h)
     assert.equal(h.calls.length,1);assert.equal(h.calls[0].name,'save_protocol_with_events_v2')
     assert.equal(h.calls[0].args.p_start_date,'2026-09-01');assert.equal(h.calls[0].args.p_effective_date,'2026-09-01')
@@ -282,16 +332,260 @@ test('open pages refresh local calendar state at midnight and when returning to 
   assert.equal(execFileSync(process.execPath,['-e',script],{env:{...process.env,TZ:'America/New_York'},encoding:'utf8'}).trim(),'pass')
 })
 
-test('the actual create handler rejects incomplete doses, then saves a display-ready card',async()=>{
+test('the actual create handler saves incomplete and unknown dosing through the canonical payload',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'Tirzepatide',dose:'5'})
-    await submit(h);assert.equal(h.calls.length,0)
-    assert.equal(createView(h).props.value.compounds[0].dose,'5')
-    configure(h,{dose_unit:'mg'});await submit(h);assert.equal(h.calls.length,1)
+    const entered=createView(h).props.value.compounds[0].dose
+    await submit(h);assert.equal(h.calls.length,1)
+    assert.equal(entered,'5')
     const c=h.calls[0].args.p_compounds[0], {compoundOverview}=load('../lib/health/protocolPresentation.ts')
-    assert.equal(compoundOverview({status:'active',start_date:localCalendarDate()},{...c,phases:[c.phase]},localCalendarDate()).dose,'5 mg')
+    assert.match(compoundOverview({status:'active',start_date:localCalendarDate()},{...c,phases:[c.phase]},localCalendarDate()).dose,/Medication dose not calculated/)
   }finally{globalThis.window=previous}
+})
+
+test('actual create submission preserves all four dosing modes',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ try {
+  const cases=[
+   ['medication',{dose:'2.500',dose_unit:'mg'},'dose','2.500'],
+   ['syringe',{syringe_markings:'18.250',syringe_scale:'100'},'syringe_markings','18.250'],
+   ['volume',{injection_volume:'0.1250'},'injection_volume','0.1250'],
+   ['unknown',{injection_volume:'0.2',vial_label:'Unknown label'},'vial_label','Unknown label'],
+  ]
+  for(const [mode,fields,key,expected] of cases) {
+   const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:`${mode} case`,input_mode:mode,...fields})
+   await submit(h);assert.equal(h.calls.length,1);const entry=h.calls[0].args.p_compounds[0].phase.dosing_entry
+   assert.equal(entry.mode,mode);assert.equal(entry[key],expected)
+  }
+ }finally{globalThis.window=previous}
+})
+
+test('edit submission and reopen preserve all four dosing modes',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ try {
+  const cases=[
+   ['medication',{dose:'2.5',dose_unit:'mg'},'Medication dose','2.5'],
+   ['syringe',{syringe_markings:'18',syringe_scale:'100'},'Syringe markings','18'],
+   ['volume',{injection_volume:'0.125'},'Injection volume (mL)','0.125'],
+   ['unknown',{injection_volume:'0.2',vial_label:'Unknown label'},'Injection volume (mL)','0.2'],
+  ]
+  for(const [mode,fields,label,expected] of cases) {
+   const entry=entryFromForm({input_mode:mode,reviewed:mode==='unknown',...fields})
+   const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+   const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit();await h.button('Save changes').props.onClick()
+   assert.equal(h.calls[0].args.p_compounds[0].phase.dosing_entry.mode,mode)
+   const reopened=protocolFromSave(h.calls[0],protocol), again=harness([reopened]);again.render().find(n=>n.props.onOpen).props.onOpen(saved.id);again.render().find(n=>n.props.onEdit).props.onEdit()
+   assert.equal(editMeasurementMode(again),mode);assert.equal(again.field(label).props.value,expected)
+  }
+ }finally{globalThis.window=previous}
+})
+
+test('confirmed unknown edits use only the current checkbox and dose-defining changes reset it',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm,interpretEntry}=load('../lib/health/dosingEntry.ts')
+ try {
+  const confirmed=entryFromForm({input_mode:'unknown',injection_volume:'0.2',concentration_value:'10',concentration_unit:'mg/mL',preparation:'ready',reviewed:true})
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:confirmed}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+  assert.equal(reviewCheckbox(h).props.checked,true);reviewCheckbox(h).props.onChange({target:{checked:false}});await h.button('Save changes').props.onClick()
+  assert.equal(h.calls[0].args.p_compounds[0].phase.dosing_entry.review_status,'unverified');assert.equal(interpretEntry(h.calls[0].args.p_compounds[0].phase.dosing_entry).medication,null)
+  const reopened=harness([protocolFromSave(h.calls[0],protocol)]);reopened.render().find(n=>n.props.onOpen).props.onOpen(saved.id);reopened.render().find(n=>n.props.onEdit).props.onEdit();assert.equal(reviewCheckbox(reopened).props.checked,false)
+
+  const changed=harness([protocol]);changed.render().find(n=>n.props.onOpen).props.onOpen(saved.id);changed.render().find(n=>n.props.onEdit).props.onEdit();changed.input('Injection volume (mL)','0.25')
+  assert.equal(reviewCheckbox(changed).props.checked,false);await changed.button('Save changes').props.onClick();assert.equal(changed.calls[0].args.p_compounds[0].phase.dosing_entry.review_status,'unverified')
+
+  const untouched=harness([protocol]);untouched.render().find(n=>n.props.onOpen).props.onOpen(saved.id);untouched.render().find(n=>n.props.onEdit).props.onEdit();await untouched.button('Save changes').props.onClick()
+  assert.equal(untouched.calls[0].args.p_compounds[0].phase.dosing_entry.review_status,'confirmed');assert.deepEqual(interpretEntry(untouched.calls[0].args.p_compounds[0].phase.dosing_entry).medication,{value:2,unit:'mg'})
+ }finally{globalThis.window=previous}
+})
+
+test('reconstitution handoff keeps authoritative phase units before narrow compound fallback',async()=>{
+ const previous=globalThis.window,{entryFromForm,interpretEntry}=load('../lib/health/dosingEntry.ts')
+ try {
+  const cases=[
+   ['ready','IU','mg','IU'],
+   ['unknown','mg','','mg'],
+   ['ready','','mg','mg'],
+  ]
+  for(const [preparation,phaseUnit,compoundUnit,expectedUnit] of cases) {
+   const entry=entryFromForm({input_mode:'volume',injection_volume:'0.2',preparation,vial_unit:phaseUnit,concentration_value:'99',concentration_unit:'IU/mL',reviewed:true})
+   const protocol={...saved,compounds:[{...saved.compounds[0],vial_unit:compoundUnit,phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+   globalThis.window={scrollTo(){},location:{search:'?protocol=existing-id&compound=compound-id&reconstitution_vial=10&reconstitution_water=2'},history:{replaceState(){globalThis.window.location.search=''}}}
+   const h=harness([protocol]);await h.render().find(n=>n.props.onReload).props.onReload()
+   assert.equal(h.field('Vial amount').props.value,'10');assert.equal(h.field('BAC water in mL').props.value,'2');assert.equal(reviewCheckbox(h).props.checked,false)
+   await h.button('Save changes').props.onClick();const savedEntry=h.calls[0].args.p_compounds[0].phase.dosing_entry
+   assert.equal(savedEntry.preparation,'mixing');assert.equal(savedEntry.is_premixed,false);assert.equal(savedEntry.vial_unit,expectedUnit);assert.equal(savedEntry.concentration_value,'');assert.deepEqual(interpretEntry(savedEntry).medication,{value:1,unit:expectedUnit})
+  }
+  globalThis.window={scrollTo(){},location:{search:'?protocol=existing-id&compound=compound-id&reconstitution_vial=10'},history:{replaceState(){globalThis.window.location.search=''}}}
+  const incompleteEntry=entryFromForm({input_mode:'volume',injection_volume:'0.2',preparation:'ready',concentration_value:'20',concentration_unit:'mg/mL'})
+  const incompleteProtocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:incompleteEntry}]}]}
+  const incomplete=harness([incompleteProtocol]);await incomplete.render().find(n=>n.props.onReload).props.onReload();await incomplete.button('Save changes').props.onClick()
+  const raw=incomplete.calls[0].args.p_compounds[0].phase.dosing_entry,result=interpretEntry(raw)
+  assert.equal(raw.preparation,'mixing');assert.equal(raw.vial_strength,'10');assert.equal(raw.bac_water_ml,'');assert.equal(result.medication,null);assert.match(result.warnings.join(' '),/reconstitution volume/i)
+ }finally{globalThis.window=previous}
+})
+
+test('review calculation stays closed and shows compact facts without raw arithmetic',()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ try {
+  const renderReview=entry=>{
+   const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+   const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+   const nodes=h.render(),review=nodes.find(n=>n.props['data-dose-review']!==undefined)
+   return {all:nodes.map(text).join(' '),review,html:renderToStaticMarkup(React.createElement('div',null,review.props.children))}
+  }
+  const conflict=renderReview(entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
+  assert.match(conflict.html,/<dt>Medication amount<\/dt><dd>10 mg<\/dd>/);assert.match(conflict.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/)
+  assert.match(conflict.html,/different medication amount/);assert.doesNotMatch(conflict.html,/Calculation \(rounded\)|Unverified dose semantics|Saved mixing details conflict/)
+  assert.equal(conflict.review.props.open,undefined);assert.equal(conflict.review.props.hidden,false);assert.doesNotMatch(conflict.all,/Unverified dose semantics|You can still save/)
+  const valid=renderReview(entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
+  assert.match(valid.html,/<dt>Medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(valid.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.match(valid.html,/<dt>Concentration<\/dt><dd>10 mg\/mL<\/dd>/)
+  assert.doesNotMatch(valid.html,/Calculation \(rounded\)|different medication amount/)
+  for(const [scale,markings] of [['100','20'],['40','8']]) {
+   const syringeEntry=entryFromForm({input_mode:'syringe',syringe_scale:scale,syringe_markings:markings,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL'})
+   assert.match(renderReview(syringeEntry).html,new RegExp(`<dt>Syringe draw</dt><dd>${markings} U-${scale} units</dd>`))
+   const entered=renderReview({...syringeEntry,injection_volume:'0.2'})
+   assert.match(entered.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.doesNotMatch(entered.html,/Calculation \(rounded\)/)
+  }
+ }finally{globalThis.window=previous}
+})
+
+test('review distinguishes ambiguous recorded values from confirmable calculated medication',()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ try {
+  const reviewFor=entry=>{
+   const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+   const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+   const nodes=h.render(),review=nodes.find(n=>n.props['data-dose-review']!==undefined)
+   return {review,html:renderToStaticMarkup(React.createElement('div',null,review.props.children)),confirmation:nodes.find(n=>n.props.className==='dosing-confirmation')}
+  }
+  const ambiguous=reviewFor(entryFromForm({input_mode:'unknown',dose:'50',dose_unit:'IU'}))
+  assert.match(ambiguous.html,/<dt>Recorded value<\/dt><dd>50 IU<\/dd>/)
+  assert.doesNotMatch(ambiguous.html,/<dt>Medication amount<\/dt>|<dt>Calculated medication amount<\/dt>/)
+  assert.equal(ambiguous.confirmation.props.hidden,true)
+  const candidate=reviewFor(entryFromForm({input_mode:'unknown',dose:'50',dose_unit:'IU',injection_volume:'0.2',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL'}))
+  assert.match(candidate.html,/<dt>Recorded value<\/dt><dd>50 IU<\/dd>/)
+  assert.match(candidate.html,/<dt>Calculated medication amount<\/dt><dd>2 mg<\/dd>/)
+  assert.equal(candidate.review.props.open,undefined);assert.equal(candidate.review.props.hidden,false)
+  assert.equal(candidate.confirmation.props.hidden,false)
+ }finally{globalThis.window=previous}
+})
+
+test('medication confirmation remains reachable after editing and survives save and reopen',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ try {
+  const confirmed=entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',reviewed:true})
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:confirmed}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+  assert.equal(reviewCheckbox(h).props.checked,true)
+  h.input('Medication dose','3')
+  const review=h.render().find(n=>n.props['data-dose-review']!==undefined)
+  const label=h.render().find(n=>n.props.className==='dosing-confirmation')
+  assert.equal(review.props.hidden,false);assert.equal(review.props.open,undefined);assert.equal(label.props.hidden,false)
+  assert.equal(reviewCheckbox(h).props.checked,false)
+  assert.match(renderToStaticMarkup(React.createElement('div',null,review.props.children)),/<dt>Medication amount<\/dt><dd>3 mg<\/dd>/)
+  reviewCheckbox(h).props.onChange({target:{checked:true}})
+  assert.equal(reviewCheckbox(h).props.checked,true)
+  await h.button('Save changes').props.onClick()
+  const savedEntry=h.calls[0].args.p_compounds[0].phase.dosing_entry
+  assert.equal(savedEntry.review_status,'confirmed');assert.equal(savedEntry.dose,'3')
+  const reopenedProtocol=protocolFromSave(h.calls[0],protocol),reopened=harness([reopenedProtocol]);reopened.render().find(n=>n.props.onOpen).props.onOpen(saved.id);reopened.render().find(n=>n.props.onEdit).props.onEdit()
+  assert.equal(reviewCheckbox(reopened).props.checked,true)
+  const Detail=load('../components/protocols/ProtocolDetail.tsx').default
+  const detail=renderToStaticMarkup(React.createElement(Detail,{protocol:reopenedProtocol,today,onBack(){},onEdit(){},onComplete(){},onPause(){},onResume(){},onReactivate(){},onDelete(){},onReload(){}}))
+  assert.match(detail,/>Change dose<\/summary>/)
+ }finally{globalThis.window=previous}
+})
+
+test('review vial action focuses the revealed calculation summary',()=>{
+ const previousWindow=globalThis.window,previousDocument=globalThis.document,previousFrame=globalThis.requestAnimationFrame
+ globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ let focused=false,scrolled=false
+ globalThis.document={getElementById:id=>id==='dosing-panel-0-vial'?{scrollIntoView(){scrolled=true},querySelector:selector=>selector==='.dosing-review-panel > summary'?{focus(){focused=true}}:null}:null}
+ globalThis.requestAnimationFrame=callback=>callback()
+ try {
+  const entry=entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'})
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+  h.render().find(n=>n.type?.name==='DoseSummary').props.onReview('vial')
+  assert.equal(h.render().find(n=>n.props.id==='dosing-panel-0-vial').props.hidden,false)
+  assert.equal(scrolled,true);assert.equal(focused,true)
+ }finally{globalThis.window=previousWindow;globalThis.document=previousDocument;globalThis.requestAnimationFrame=previousFrame}
+})
+
+test('review preserves historical U-50 facts without rendering unsupported syringe arithmetic',()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm}=load('../lib/health/dosingEntry.ts')
+ try {
+  const entry={...entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',reviewed:true,injection_volume:'0.2',syringe_markings:'18',syringe_scale:'100',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL'}),syringe_scale:'50'}
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+  const review=h.render().find(n=>n.props['data-dose-review']!==undefined)
+  const html=renderToStaticMarkup(React.createElement('div',null,review.props.children))
+  assert.doesNotMatch(html,/18 ÷ 50|÷/)
+  assert.match(html,/<dt>Syringe draw<\/dt><dd>18 U-50 units<\/dd>/);assert.equal(h.field('Syringe scale').props.value,'50')
+  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.match(html,/<dt>Medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(html,/10 mg\/mL/)
+  assert.doesNotMatch(html,/Unverified dose semantics|You can still save|Unsupported syringe scale U-50/);assert.match(html,/saved U-50 scale cannot be used to calculate volume/)
+ }finally{globalThis.window=previous}
+})
+
+test('overflow submits, persists raw input and reopens unchanged',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ try {
+  const h=harness();h.render().find(n=>n.props.onAdd).props.onAdd();configure(h,{name:'Overflow',input_mode:'volume',injection_volume:'1e308',isPreMixed:true,preparation:'ready',concentration_value:'1e308',concentration_unit:'mg/mL'})
+  await submit(h);assert.equal(h.calls.length,1);assert.equal(h.calls[0].args.p_compounds[0].phase.dosing_entry.injection_volume,'1e308')
+  const protocol=protocolFromSave(h.calls[0]),reopened=harness([protocol]);reopened.render().find(n=>n.props.onOpen).props.onOpen(saved.id);reopened.render().find(n=>n.props.onEdit).props.onEdit()
+  assert.equal(reopened.field('Injection volume (mL)').props.value,'1e308')
+ }finally{globalThis.window=previous}
+})
+
+test('unsupported historical scale survives open, unchanged save and reopen without calculation',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm,interpretEntry}=load('../lib/health/dosingEntry.ts')
+ try {
+  const stored={...entryFromForm({input_mode:'syringe',syringe_markings:'18',syringe_scale:'100'}),syringe_scale:'50'}
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:stored}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit();assert.equal(h.field('Syringe scale').props.value,'50');await h.button('Save changes').props.onClick()
+  const savedEntry=h.calls[0].args.p_compounds[0].phase.dosing_entry;assert.equal(savedEntry.syringe_scale,'50');assert.equal(interpretEntry(savedEntry).volume,null);assert.equal(interpretEntry(savedEntry).status,'unverified')
+  const reopened=harness([protocolFromSave(h.calls[0],protocol)]);reopened.render().find(n=>n.props.onOpen).props.onOpen(saved.id);reopened.render().find(n=>n.props.onEdit).props.onEdit();assert.equal(reopened.field('Syringe scale').props.value,'50')
+ }finally{globalThis.window=previous}
+})
+
+test('medication V2 save and reopen keeps administration visible without changing the primary dose',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ const {entryFromForm,dosingDisplay,administrationDisplay}=load('../lib/health/dosingEntry.ts')
+ try {
+  const entry=entryFromForm({input_mode:'medication',dose:'3',dose_unit:'mg',reviewed:true,preparation:'mixing',vial_strength:'',vial_unit:'mg',bac_water_ml:'',injection_volume:'0.18',syringe_markings:'18',syringe_scale:'100'})
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:entry}]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit();await h.button('Save changes').props.onClick()
+  const reopenedProtocol=protocolFromSave(h.calls[0],protocol),reopened=harness([reopenedProtocol]);reopened.render().find(n=>n.props.onOpen).props.onOpen(saved.id);reopened.render().find(n=>n.props.onEdit).props.onEdit()
+  const phase=reopenedProtocol.compounds[0].phases[0]
+  assert.match(dosingDisplay(phase).primary,/^3 mg/);assert.deepEqual(administrationDisplay(phase),{volume:'0.18 mL',syringe:'18 U-100 units'})
+  const review=reopened.render().find(n=>n.props['data-dose-review']!==undefined)
+  const html=renderToStaticMarkup(React.createElement('div',null,review.props.children))
+  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.18 mL<\/dd>/);assert.match(html,/<dt>Syringe draw<\/dt><dd>18 U-100 units<\/dd>/)
+ }finally{globalThis.window=previous}
+})
+
+test('phase selection and new phase hydrate preparation and confirmation without bleed',async()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
+ try {
+  const first={...saved.compounds[0].phases[0],id:'phase-a',dosing_entry:load('../lib/health/dosingEntry.ts').entryFromForm({input_mode:'syringe',syringe_markings:'18',syringe_scale:'100',vial_strength:'10',vial_unit:'mg',bac_water_ml:'2',reviewed:true})}
+  const second={...saved.compounds[0].phases[0],id:'phase-b',start_week:5,dosing_entry:load('../lib/health/dosingEntry.ts').entryFromForm({input_mode:'volume',injection_volume:'0.25',isPreMixed:true,concentration_value:'20',concentration_unit:'mg/mL',reviewed:false})}
+  const legacy={...saved.compounds[0].phases[0],id:'phase-c',start_week:9,dose:18,dose_unit:'IU',dose_semantics_version:null,dosing_entry:null}
+  const protocol={...saved,compounds:[{...saved.compounds[0],phases:[first,second,legacy]}]}
+  const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit()
+  h.field('Select phase').props.onChange({target:{value:'phase-a'}});assert.equal(h.field('Vial amount').props.value,'10');assert.equal(reviewCheckbox(h).props.checked,true)
+  h.field('Select phase').props.onChange({target:{value:'phase-b'}});assert.equal(h.field('Concentration value').props.value,'20');assert.equal(h.field('Injection volume (mL)').props.value,'0.25');assert.equal(reviewCheckbox(h).props.checked,false)
+  h.field('Select phase').props.onChange({target:{value:'phase-c'}});assert.equal(editMeasurementMode(h),'unknown');assert.equal(reviewCheckbox(h).props.checked,false)
+  h.button('Add phase').props.onClick();assert.equal(editMeasurementMode(h),'medication');assert.equal(reviewCheckbox(h).props.checked,false);assert.equal(h.field('Vial amount').props.value,'')
+ }finally{globalThis.window=previous}
 })
 test('legacy editing still permits incomplete historical dosing',async()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}

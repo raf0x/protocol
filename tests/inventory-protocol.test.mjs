@@ -97,9 +97,19 @@ function saveHarness(timing='today') {
 
 test('real editor save sends only canonical protocol creation, with no dose inference or inventory mutation', async () => {
   for (const timing of ['today','scheduled','planned']) {
+    const partial=saveHarness(timing)
+    partial.context.compounds[0].dose=''
+    await partial.save()
+    assert.deepEqual(partial.errors,['']);assert.equal(partial.calls.length,1,'Structurally valid partial medication entries can save')
+    const incomplete=partial.calls[0].compounds[0]
+    assert.equal(incomplete.phase.dosing_entry.dose,'')
+    assert.equal(partial.context.interpretEntry(incomplete.phase.dosing_entry).medication,null,'No medication dose is fabricated')
+    assert.equal(partial.context.interpretEntry(incomplete.phase.dosing_entry).status,'incomplete')
+    for (const key of ['dose','injection_volume_ml','syringe_units']) assert.equal(incomplete.phase[key],undefined,key)
+    assert.equal(incomplete.vials_in_stock,null);assert.equal(incomplete.bac_water_ml,null);assert.equal(incomplete.reconstitution_date,null)
+    assert.equal(partial.notices[0].draft.compounds[0].dose,'','The saved draft remains partial')
+    assert.equal(item.quantity,8)
     const {save,context,calls,errors,notices}=saveHarness(timing)
-    context.compounds[0].dose='';await save();assert.equal(calls.length,0,'Recorded inventory facts alone do not complete dosing')
-    context.compounds[0].dose='5';errors.length=0
     await save()
     assert.deepEqual(errors,['']);assert.equal(calls.length,1)
     const payload=calls[0], compound=payload.compounds[0]
@@ -112,6 +122,16 @@ test('real editor save sends only canonical protocol creation, with no dose infe
     assert.equal(notices[0].id,'created-protocol-id');assert.equal(notices[0].firstProtocol,true)
     assert.equal(notices[0].draft.compounds[0].dose,'5')
     assert.equal(item.quantity,8)
+  }
+})
+
+test('real editor still blocks invalid raw medication amounts and structurally invalid partial entries', async () => {
+  for (const patch of [{dose:'not a number'},{dose:'-1'},{dose:'Infinity'},{dose:'',route:''},{dose:'',days_of_week:[]}]) {
+    const {save,context,calls}=saveHarness()
+    Object.assign(context.compounds[0],patch)
+    await save()
+    assert.equal(calls.length,0,JSON.stringify(patch))
+    assert.equal(context.savePending.current,false)
   }
 })
 

@@ -18,8 +18,7 @@ export function dateLabel(value?: string | null) {
 }
 export function doseLabel(phase: PhaseRow | null) {
   const display = dosingDisplay(phase)
-  if (display.primary === 'Unverified dosing entry') return 'Dose not fully calculated'
-  return phase?.dosing_entry || display.medication ? display.primary : 'Dose not fully calculated'
+  return phase ? display.primary : 'Dose not fully calculated'
 }
 export function phaseLabel(phase: PhaseRow) {
   return phase.end_week === null ? `Started Week ${phase.start_week ?? 'unknown'} · Ongoing` : `Weeks ${phase.start_week ?? '?'}–${phase.end_week}`

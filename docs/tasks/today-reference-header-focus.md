@@ -1,0 +1,21 @@
+# Today - reference header and Focus layout
+
+Owner rejected the uneven status-card row and supplied a new visual reference. Implement the reference's greeting/compact tile row followed by a full-width Focus card. Replace its sun/slogan tile with the existing recorded Current Weight value. This supersedes the three-card strip and earlier centered Focus presentation.
+
+Acceptance: greeting/date left and one compact Current Weight tile right; value and near-matching unit, visible kg/lbs switch hint and native toggle; full-width Focus below with purple target icon, real active-protocol count, green dose icon/row and right-side Mark taken; retain all pending-dose browsing, progress, saving, errors, unknown medication/review guidance and empty/completed states. Weight change remains in the unchanged Health Trends card. No hardcoded owner name, weight, time or protocol. Responsive text wraps instead of clipping.
+
+Low-risk presentation work. Scope: `TodayHeader.tsx`, `TodayStatusStrip.tsx`, `TodayOverview.tsx`, `TodaysFocusCard.tsx`, their Today CSS, superseded layout expectations in the two affected focused suites and future browser fixture, and this packet. Preserve all 70 existing dirty/untracked files captured at intake. Rings, selected protocol, check-in/form/3-second animation, schedule, Health Trends, page data/wiring, helpers, editor and backend stay unchanged. Budget unspecified. Independent review optional, not requested; one implementation thread with the React skill checklist.
+
+Validation: affected Today, dose-order and check-in focused suites; standalone TypeScript because TSX changes; CSS parsing/scope comparison; diff check and preservation hashes. No browser, build or full regression under the current Today gate. Exact visual similarity, 320px/390px/mobile/desktop fit, zoom and dark/light themes remain owner preview QA. Test changes replace superseded hierarchy expectations while retaining recorded/missing/zero weight, conversion, signed change/date and toggle coverage through the current tile and unchanged Health Trends.
+
+No staging, commit, push, deployment or Supabase authorization. Stop dependent work if unrelated changes would be required; report remaining acceptance/evidence gaps without treating focused tests as visual QA.
+
+Implemented: header slot for one recorded-weight button, 26px value/24px unit and visible switch hint; compact greeting/date/tagline left. Focus is now the next full-width section, with an accent target icon, linked real protocol count and green tinted next-dose row containing the syringe icon, dose copy and right-side action. Previous/next browsing and progress share its compact footer; errors and longer/unknown/review copy can wrap. Header no longer repeats Weight Change; the unchanged Health Trends presenter retains signed change and start date. No sun or slogan tile.
+
+Validation:
+
+- `npm run validate:focused -- tests/today.test.mjs tests/today-v2.test.mjs tests/today-dose-order.test.mjs tests/today-checkin-prompt.test.mjs`: **45 passed, 0 failed, 0 skipped**; no baseline failures in these checks.
+- `npm run validate:types`: **PASS**. `git diff --check`: **PASS**. PostCSS parsing and comparison against intake: **PASS**, all styles outside header/status/Focus unchanged. Future browser fixture syntax check passed; fixture was not executed.
+- Preservation: **62/70** intake dirty/untracked files byte-identical. Exactly the eight existing files in scope changed, plus this new packet. Check-in/animation, rings, snapshot, schedule, Health Trends, page/wiring, helpers, editor/backend and earlier task packets remain byte-identical. No staging, commit, push, deployment or Supabase action.
+- React skill checklist: presentation components retain native buttons/links, labeled unit switching, hidden decorative icons and existing live announcements. No added hooks/effects, requests, subscriptions or dependencies; existing Focus state/order/handlers and date key remain unchanged. This is an implementation self-check, not independent review.
+- No browser/build/broad regression. Owner preview remains pending for screenshot similarity, mobile and desktop layout, longer doses/review/errors, light theme, text zoom and keyboard focus. Automated behavior checks do not establish visual parity.

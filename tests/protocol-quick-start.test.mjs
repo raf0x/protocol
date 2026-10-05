@@ -23,7 +23,7 @@ function load(path) {
 }
 const catalog = load('../lib/protocols/catalog.ts'), form = load('../lib/protocols/form.ts'), quick = load('../lib/protocols/quickStart.ts')
 const { protocolLifecycle } = load('../lib/health/protocolDates.ts')
-const { interpretEntry, entryFromForm, dosingDisplay } = load('../lib/health/dosingEntry.ts')
+const { interpretEntry, entryFromForm, entryFormState, dosingDisplay } = load('../lib/health/dosingEntry.ts')
 const View = load('../components/protocols/ProtocolQuickStart.tsx').default
 const Fields = load('../components/protocols/QuickProtocolFields.tsx').default
 const Picker = load('../components/protocols/CompoundPicker.tsx').default
@@ -172,14 +172,16 @@ test('default dose is simple; alternatives reveal guided paths and preserve thei
   assert.equal(field(render(), 'Syringe scale'), undefined)
   button(render(), 'I measure my dose another way').props.onClick()
   button(render(), 'Syringe markings').props.onClick()
+  assert.equal(field(render(), 'Syringe scale').props.value, '100')
   field(render(), 'Syringe markings').props.onChange({ target: { value: '20' } })
   field(render(), 'Syringe scale').props.onChange({ target: { value: '100' } })
   assert.equal(value.dose, '5', 'Switching methods preserves entered values')
   assert.equal(interpretEntry(entryFromForm(value)).medication, null); assert.equal(interpretEntry(entryFromForm(value)).volume, .2)
   button(render(), 'Injection volume').props.onClick(); assert.ok(field(render(), 'Injection volume (mL)'))
   button(render(), 'I\u2019m not sure').props.onClick(); assert.match(text(render()), /What measurement is on your instructions or syringe/)
-  assert.equal(quick.quickStartIssue(draft(value)).field, 'input_mode')
-  assert.doesNotMatch(text(render()), /save and add details later|can save/)
+  assert.ok(field(render(), 'Syringe markings'));assert.ok(field(render(), 'Injection volume (mL)'))
+  assert.equal(quick.quickStartIssue(draft(value)), null)
+  assert.match(text(render()), /save.*clarify later/i)
 })
 
 test('single reliable unit is preselected; multiple units and explicit handoff unit choices are preserved', () => {
@@ -190,22 +192,20 @@ test('single reliable unit is preselected; multiple units and explicit handoff u
   assert.equal(quick.selectCompound(form.updateCompoundDraft(ready(), 'dose_unit', 'mcg'), 'Tirzepatide').dose_unit, 'mcg')
 })
 
-test('creation completeness checks a single next fact and a missing medication unit has one inline message', () => {
-  for (const dose of ['', '0', '-1', 'NaN', 'Infinity', '1e999']) assert.equal(quick.quickStartIssue(draft(ready({ dose }))).field, 'dose')
-  for (const unit of ['', 'mL', 'units']) assert.equal(quick.quickStartIssue(draft(ready({ dose_unit: unit }))).message, 'Choose a unit to continue')
-  hooks = []; const value = ready({ dose_unit: '' }), issue = quick.quickStartIssue(draft(value))
-  const view = ui(Fields, { value, issue, onChange() {} })
-  assert.equal(nodes(view, n => n.props.role === 'alert').length, 1)
-  assert.equal(text(view).split('Choose a unit to continue').length - 1, 1)
-  for (const scale of ['', '0', '20', 'Infinity']) assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: scale }))).field, 'syringe_scale')
-  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '0', syringe_scale: '100' }))).field, 'syringe_markings')
-  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'volume', injection_volume: '0' }))).field, 'injection_volume')
-  assert.ok(quick.quickStartIssue(draft(ready({ input_mode: 'unknown' }))))
+test('creation blocks invalid raw dosing but permits partial and unknown entries', () => {
+  for (const dose of ['', '0']) assert.equal(quick.quickStartIssue(draft(ready({ dose, dose_unit: '' }))), null)
+  for (const dose of ['-1', 'NaN', 'Infinity', '1e999']) assert.equal(quick.quickStartIssue(draft(ready({ dose }))).field, 'dose')
+  for (const unit of ['mL', 'units']) assert.equal(quick.quickStartIssue(draft(ready({ dose_unit: unit }))).field, 'dose_unit')
+  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '', syringe_scale: '' }))), null)
+  for (const scale of ['0', '20', '50', 'Infinity']) assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: scale }))).field, 'syringe_scale')
+  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'syringe', syringe_markings: '0', syringe_scale: '100' }))), null)
+  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'volume', injection_volume: '0' }))), null)
+  assert.equal(quick.quickStartIssue(draft(ready({ input_mode: 'unknown' }))), null)
 })
 
-test('accepted Quick Start drafts run through the canonical payload and real card presentation with a useful primary dose', () => {
+test('accepted Quick Start drafts run through the canonical payload and real card presentation with complete dosing state', () => {
   const { compoundOverview } = load('../lib/health/protocolPresentation.ts')
-  for (const [overrides, primary] of [[{}, '5 mg'], [{ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' }, '20 U-100 units'], [{ input_mode: 'syringe', syringe_markings: '8', syringe_scale: '40' }, '8 U-40 units'], [{ input_mode: 'volume', injection_volume: '0.2' }, '0.2 mL']]) {
+  for (const [overrides, primary] of [[{}, '5 mg'], [{ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' }, '20 U-100 units · 0.2 mL · Medication dose not calculated.'], [{ input_mode: 'syringe', syringe_markings: '8', syringe_scale: '40' }, '8 U-40 units · 0.2 mL · Medication dose not calculated.'], [{ input_mode: 'volume', injection_volume: '0.2' }, '0.2 mL · Medication dose not calculated.']]) {
     const value = ready(overrides)
     assert.equal(quick.quickStartIssue(draft(value)), null)
     const payload = form.protocolCompoundPayload([value])[0]
@@ -281,13 +281,20 @@ test('mobile structure connects value and unit and the focused flow stays in one
   assert.match(css, /:focus-visible/)
 })
 
-test('legacy canonical adapter remains permissive while Quick Start rejects incomplete drafts', () => {
+test('canonical adapter and Quick Start both permit incomplete drafts while rejecting invalid raw input', () => {
   const c = quick.selectInventory(form.newCompound(), item)
   const payload = form.protocolCompoundPayload([c])[0]
   assert.equal(payload.phase.dosing_entry.dose, ''); assert.equal(payload.vials_in_stock, null)
   assert.equal(interpretEntry(payload.phase.dosing_entry).medication, null)
-  assert.ok(quick.quickStartIssue(draft(c)))
-  for (const [key, value] of [['dose', '-1'], ['dose', 'no'], ['vials_in_stock', '-2'], ['vials_in_stock', '.5'], ['syringe_scale', '0'], ['reconstitution_date', '2026-02-30'], ['duration_weeks', '-1']]) assert.throws(() => form.protocolCompoundPayload([{ ...c, [key]: value }]))
+  assert.equal(quick.quickStartIssue(draft({...c,route:'SubQ',days_of_week:[0]})),null)
+  for (const [key, value] of [['dose', '-1'], ['dose', 'no'], ['vials_in_stock', '-2'], ['vials_in_stock', '.5'], ['syringe_scale', '0'], ['syringe_scale', '50'], ['reconstitution_date', '2026-02-30'], ['duration_weeks', '-1']]) assert.throws(() => form.protocolCompoundPayload([{ ...c, [key]: value }]))
+})
+
+test('existing U-40 and unresolved scales survive mode changes without a U-100 rewrite',()=>{
+ const existing40={...form.newCompound(),...entryFormState({dosing_entry:entryFromForm({input_mode:'syringe',syringe_markings:'10',syringe_scale:'40'})})}
+ assert.equal(form.updateCompoundDraft(existing40,'input_mode','syringe').syringe_scale,'40')
+ const unresolved={...form.newCompound(),...entryFormState({dose:18,dose_unit:'IU',dose_semantics_version:null,syringe_scale:null})}
+ assert.equal(form.updateCompoundDraft(unresolved,'input_mode','syringe').syringe_scale,'')
 })
 
 test('new catalog identities and Greek, hyphen, abbreviation and whitespace aliases resolve exactly', () => {
@@ -362,11 +369,8 @@ test('a custom compound completes the same intake and canonical display without 
   assert.ok(field(render(), 'Dose per injection'))
   assert.equal(field(render(), 'Medication dose unit').props.value, '')
   field(render(), 'Dose per injection').props.onChange({ target: { value: '5' } })
-  assert.equal(nodes(render(), n => n.props.role === 'alert').length, 1)
-  assert.equal(text(nodes(render(), n => n.props.role === 'alert')[0]), 'Choose a unit to continue')
   const unit = field(render(), 'Medication dose unit')
-  assert.equal(unit.props['aria-invalid'], true)
-  assert.equal(nodes(render(), n => n.props.id === unit.props['aria-describedby']).length, 1)
+  assert.equal(nodes(render(), n => n.props.role === 'alert').length, 0)
   field(render(), 'Medication dose unit').props.onChange({ target: { value: 'mg' } })
   assert.equal(nodes(render(), n => n.props.role === 'alert').length, 0)
   button(render(), 'Continue').props.onClick(); button(render(), 'Weekly').props.onClick(); field(render(), 'Saturday').props.onClick()

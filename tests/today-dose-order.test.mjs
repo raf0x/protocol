@@ -11,6 +11,7 @@ function load(path, hooks) {
   const url=new URL(path,import.meta.url), compiled={exports:{}}
   const code=ts.transpileModule(read(url),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText
   new Function('require','module','exports',code)(name=>{
+    if(name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if(name==='react' && hooks) return {...React,...hooks}
     if(name.startsWith('.')) {
       for(const ext of ['.ts','.tsx']) {const file=new URL(name+ext,url);try{read(file)}catch(error){if(error.code==='ENOENT')continue;throw error}return load(file,hooks)}
@@ -45,14 +46,43 @@ test('next is earliest untaken, advances after logging, never selects completed 
 })
 function harness() {
   let selected=null
-  const Focus=load('../components/today/TodaysFocusCard.tsx',{useState:()=>[selected,value=>{selected=value}]}).default
+  const swipe={current:null}
+  const Focus=load('../components/today/TodaysFocusCard.tsx',{useState:()=>[selected,value=>{selected=value}],useRef:()=>swipe}).default
   const calls=[],props={activeCount:1,due:[dose('n','Night'),dose('m',' Morning '),dose('a','afternoon')],logs:{},saving:false,error:null,onTaken:id=>calls.push(id)}
   let tree
   const render=()=>{tree=Focus(props);return renderToStaticMarkup(tree)}
-  const nodes=node=>!node||typeof node!=='object'?[]:[node,...React.Children.toArray(node.props?.children).flatMap(nodes)]
+  const nodes=node=>!node||typeof node!=='object'?[]:typeof node.type==='function'?nodes(node.type(node.props)):[node,...React.Children.toArray(node.props?.children).flatMap(nodes)]
   const click=label=>{render();const button=nodes(tree).find(node=>node.type==='button'&&(node.props['aria-label']===label||node.props.children===label));assert.ok(button);assert.ok(!button.props.disabled);button.props.onClick()}
-  return {props,calls,render,click}
+  const pointer=(handler,values={})=>{render();const card=nodes(tree).find(node=>node.props.className==='nextDose');assert.ok(card);card.props[handler]({pointerId:1,pointerType:'touch',isPrimary:true,clientX:120,clientY:20,target:{closest:()=>null},currentTarget:{setPointerCapture(){}},...values})}
+  return {props,calls,render,click,pointer}
 }
+
+test('touch swipe browses pending dose IDs in both directions without logging and stops at boundaries',()=>{
+  const h=harness(),left=()=>{h.pointer('onPointerDown');h.pointer('onPointerUp',{clientX:40})},right=()=>{h.pointer('onPointerDown',{clientX:40});h.pointer('onPointerUp')}
+  left();assert.match(h.render(),/<h3>a<\/h3>/)
+  left();assert.match(h.render(),/<h3>n<\/h3>/)
+  left();assert.match(h.render(),/<h3>n<\/h3>/)
+  right();right();right();assert.match(h.render(),/<h3>m<\/h3>/)
+  assert.deepEqual(h.calls,[]);assert.deepEqual(h.props.logs,{})
+})
+
+test('touch navigation ignores vertical scrolling, short moves, controls, mouse and cancelled gestures',()=>{
+  const h=harness()
+  for(const [start,end] of [[{}, {clientX:40,clientY:120}],[{}, {clientX:100}],[{pointerType:'mouse'}, {clientX:40}],[{target:{closest:()=>({})}}, {clientX:40}],[{isPrimary:false}, {clientX:40}]]){
+    h.pointer('onPointerDown',start);h.pointer('onPointerUp',end);assert.match(h.render(),/<h3>m<\/h3>/)
+  }
+  h.pointer('onPointerDown');h.pointer('onPointerCancel');h.pointer('onPointerUp',{clientX:40});assert.match(h.render(),/<h3>m<\/h3>/)
+  assert.deepEqual(h.calls,[])
+})
+
+test('touch navigation blocks saving and stale or mismatched pointer completions',()=>{
+  const h=harness()
+  h.props.saving=true;h.pointer('onPointerDown');h.pointer('onPointerUp',{clientX:40});assert.match(h.render(),/<h3>m<\/h3>/)
+  h.props.saving=false;h.pointer('onPointerDown');h.props.saving=true;h.pointer('onPointerUp',{clientX:40});assert.match(h.render(),/<h3>m<\/h3>/)
+  h.props.saving=false;h.pointer('onPointerDown');h.pointer('onPointerUp',{clientX:40,pointerId:2});assert.match(h.render(),/<h3>m<\/h3>/)
+  h.pointer('onPointerDown');h.props.logs.m={taken:true};h.pointer('onPointerUp',{clientX:40});assert.match(h.render(),/<h3>a<\/h3>/)
+  assert.deepEqual(h.calls,[])
+})
 test('navigation views every untaken dose and returns earlier without invoking logging',()=>{
   const h=harness()
   assert.match(h.render(),/<h3>m<\/h3>/);assert.match(h.render(),/1 of 3 remaining doses today/)

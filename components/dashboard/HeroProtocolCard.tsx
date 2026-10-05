@@ -10,6 +10,8 @@ import VialInventory from './VialInventory'
 import { localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
 import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { dateLabel } from '../../lib/health/protocolPresentation'
+import { dosingIssue } from '../protocols/DoseSummary'
+import SelectedProtocolSnapshot from '../today/SelectedProtocolSnapshot'
 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
@@ -20,6 +22,7 @@ type Props = {
   allLogs: { compound_id: string; taken: boolean; date: string }[]
   totalLost: string | null
   compoundIndex: number
+  snapshot?: boolean
 }
 
 const COMPOUND_COLORS: Record<string, string> = {
@@ -103,7 +106,7 @@ function StatCell({ label, value, valueColor }: { label: string; value: React.Re
   )
 }
 
-export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex }: Props) {
+export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, logs, allLogs, totalLost, compoundIndex, snapshot = false }: Props) {
   const today = useLocalCalendarDate()
   const [continuing,setContinuing]=useState(false)
   const [phaseError,setPhaseError]=useState('')
@@ -244,7 +247,10 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     } catch(error) {setPhaseError((error as {message?:string}).message || 'Unable to continue the phase. Please retry.');setContinuing(false)}
 
   }
-  const badgeDoseText = dosingDisplay(currentPhase).primary
+  const dosePresentation = dosingDisplay(currentPhase)
+  const doseIssue = entry ? (() => { try { return dosingIssue(entry) } catch { return null } })() : null
+  const badgeDoseText = dosePresentation.medication ? formatProtocolAmount(dosePresentation.medication.value, dosePresentation.medication.unit) : 'Medication amount unknown'
+  const doseNotice = doseIssue?.title ?? (dosePresentation.secondary ? 'Dose details need review' : null)
 
   async function archiveProtocol() {
     const completionDate = localCalendarDate()
@@ -253,8 +259,34 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     window.location.reload()
   }
 
+  const vialInventory = activeCompound.reconstitution_date && activeCompound.bac_water_ml ? <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} /> : null
+
   return (
-    <div style={{position:'relative',overflow:'hidden'}}>
+    <div className={snapshot ? 'today-selected-protocol' : undefined} style={{position:'relative',overflow:'hidden'}}>
+      {snapshot ? <SelectedProtocolSnapshot
+        name={activeCompound.name} protocolName={activeProtocol.name} medication={badgeDoseText || 'Medication amount unknown'} frequency={currentPhase?.frequency}
+        medicationKnown={Boolean(dosePresentation.medication)} week={compoundWeek} started={dateLabel(activeProtocol.start_date)} color={color}
+        facts={[
+          { label: 'Protocol start', value: dateLabel(activeProtocol.start_date) || 'Not recorded' },
+          { label: 'Current week', value: `Week ${compoundWeek}` },
+          { label: 'Vial reconstituted', value: dateLabel(reconDate) || 'Not recorded' },
+          { label: 'Vial expiration', value: reconDate ? new Date(new Date(reconDate + 'T00:00:00').getTime() + 28 * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Not recorded' },
+          { label: 'Injection volume', value: administrationText.volume ?? 'Not recorded' },
+          { label: 'Syringe draw', value: administrationText.syringe ?? 'Not recorded' },
+          { label: 'Vials in stock', value: stockText ?? 'Not recorded' },
+          { label: 'Doses taken (vial)', value: formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded' },
+          { label: 'Next dose', value: nextDoseText || 'Not recorded' },
+        ]}
+        visual={<DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />}
+        notice={doseNotice}
+        lifecycle={vialInventory}
+        actions={<>
+          {expired && <><button disabled={continuing} onClick={continueLatest}>{continuing ? 'Continuing…' : 'Continue latest phase'}</button><a href={`/protocol/manage?compound=${activeCompound.id}&action=add-phase`}>Add new phase</a>{phaseError && <p role="alert">{phaseError}</p>}</>}
+          {!scheduled && fillPct === 0 && <button onClick={() => setConfirmArchive(true)}>Complete</button>}
+          <a href={`/protocol/manage?protocol=${activeProtocol.id}`}>{doseNotice ? doseIssue?.action ?? 'Review dose' : 'Manage protocol'}</a>
+          <a href="/protocol/inventory">Inventory</a>
+        </>}
+      /> : <>
       <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.08)',filter:'blur(40px)',pointerEvents:'none'}} />
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -280,18 +312,18 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           </div>
 
           {expired && <div style={{fontSize:13,color:'var(--color-dim)'}}><p>Your latest dose phase ended. Continue it as ongoing or add a new phase.</p><button disabled={continuing} onClick={continueLatest} style={{color:'var(--color-green)',background:'none',border:'1px solid var(--color-border)',borderRadius:6,padding:'6px 10px'}}>{continuing ? 'Continuing…':'Continue latest phase'}</button>{' '}<a href={`/protocol/manage?compound=${activeCompound.id}&action=add-phase`} style={{color:'var(--color-green)'}}>Add new phase</a>{phaseError && <p role="alert">{phaseError}</p>}</div>}
-          {!expired && (!currentPhase || dosingDisplay(currentPhase).secondary) && <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>{dosingDisplay(currentPhase).secondary || 'Add or extend a phase.'}</a>}
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',flexWrap:'wrap'}}>
             {currentPhase && (
               <span style={{fontSize:'13px',fontWeight:'800',color:'#0a0a0f',background:'linear-gradient(135deg,'+color+', '+color+'cc)',padding:'4px 10px',borderRadius:'20px',boxShadow:'0 2px 8px '+color+'40',whiteSpace:'nowrap'}}>
                 {badgeDoseText}
-                {'/dose'}
+                {dosePresentation.medication && '/dose'}
               </span>
             )}
             {currentPhase && (
               <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
             )}
           </div>
+          {!expired && (!currentPhase ? <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>Add or extend a phase.</a> : doseNotice && <div style={{display:'grid',gap:4,marginBottom:12,fontSize:13}}><strong>{doseNotice}</strong><a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)'}}>{doseIssue?.action ?? 'Review dose'}</a></div>)}
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
@@ -325,10 +357,11 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </> : '—'} />
         <StatCell label="DOSES TAKEN (VIAL)" value={formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded'} />
       </div>
+      </>}
 
-      {activeCompound.reconstitution_date && activeCompound.bac_water_ml && (
+      {!snapshot && vialInventory && (
         <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>
-          <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} />
+          {vialInventory}
         </div>
       )}
 

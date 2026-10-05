@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
-import { compoundOverview, doseLabel, phaseLabel, type LibraryCompound, type LibraryProtocol } from '../../lib/health/protocolPresentation'
+import { compoundOverview, phaseLabel, type LibraryCompound, type LibraryProtocol } from '../../lib/health/protocolPresentation'
+import DoseSummary from './DoseSummary'
 import { continueLatestPhase } from '../../lib/health/protocolMutations'
 import { protocolLifecycle } from '../../lib/health/protocolDates'
 
@@ -21,11 +22,11 @@ export default function PhaseCard({ protocol, compound, today, onEdit, onReload 
     } catch { setError('This phase could not be continued. Please try again.') }
     finally { setBusy(false) }
   }
-  return <section className="protocol-phase"><h3>{protocol.status === 'completed' ? 'Final phase' : scheduled ? 'Scheduled phase' : protocol.status === 'planned' ? 'Planned phase' : 'Current phase'}</h3>
-    {info.phase ? <><strong>{info.dose}</strong><p>{scheduled ? phaseLabel(info.phase).replace('Started Week','From Week') : phaseLabel(info.phase)}</p></> : <p>{expired ? 'Latest phase ended' : 'No current phase saved'}</p>}
+  return <section className="protocol-phase"><div className="protocol-phase-meta"><h3>{protocol.status === 'completed' ? 'Final phase' : scheduled ? 'Scheduled phase' : protocol.status === 'planned' ? 'Planned phase' : 'Current phase'}</h3>
+    <p>{info.phase ? scheduled ? phaseLabel(info.phase).replace('Started Week','From Week') : phaseLabel(info.phase) : expired ? 'Latest phase ended' : 'No current phase saved'}</p></div>
     {expired && <div className="protocol-action-row"><button disabled={busy} onClick={continueLatest}>{busy ? 'Continuing…' : 'Continue latest phase'}</button><button onClick={() => onEdit(compound.id, true)}>Add new phase</button></div>}
     {!compound.phases?.length && protocol.status !== 'completed' && <button onClick={() => onEdit(compound.id, true)}>Add a phase</button>}
     {error && <p role="alert">{error}</p>}
-    {!!compound.phases?.length && <details><summary>Phase history · {compound.phases.length}</summary>{[...compound.phases].sort((a, b) => (b.start_week ?? 0) - (a.start_week ?? 0)).map(phase => <div className="protocol-history-row" key={phase.id}><strong>{doseLabel(phase)}</strong><span>{phaseLabel(phase)}</span></div>)}</details>}
+    {!!compound.phases?.length && <details className="protocol-phase-history"><summary>Show phases <small>({compound.phases.length})</small></summary>{[...compound.phases].sort((a, b) => (b.start_week ?? 0) - (a.start_week ?? 0)).map(phase => <div className="protocol-history-row" key={phase.id}><DoseSummary phase={phase} compact /><span>{phaseLabel(phase)}</span></div>)}</details>}
   </section>
 }

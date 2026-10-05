@@ -142,7 +142,7 @@ function changeWeekOffset(newOffset: number) {
           : `${weekOffset} Weeks Ahead`
 
   return (
-    <div style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',marginBottom:'16px',overflow:'hidden'}}>
+    <div className="today-weekly-schedule" style={{background:cb,border:'1px solid '+bd,borderRadius:'12px',marginBottom:'16px',overflow:'hidden'}}>
       {/* NEW: Week navigation header */}
       <div style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid '+bd}}>
         <button 
@@ -178,7 +178,7 @@ function changeWeekOffset(newOffset: number) {
         </div>
       )}
 
-      <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch',position:'relative'}}>
+      <div className="today-weekly-schedule-scroll" style={{overflowX:'auto',WebkitOverflowScrolling:'touch',position:'relative'}}>
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:'340px'}}>
           <thead>
             <tr>

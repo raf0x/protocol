@@ -2,11 +2,12 @@
 import ProtocolDialog from '../../../components/protocols/ProtocolDialog'
 import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
-import EditorSection from '../../../components/protocols/EditorSection'
+import DoseSummary, { dosingIssue } from '../../../components/protocols/DoseSummary'
+import { QuickChoices } from '../../../components/protocols/QuickStartControls'
 import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
 import ProtocolSetupSuccess, { type SavedSetup } from '../../../components/protocols/ProtocolSetupSuccess'
 import { markOnboardingSeen, onboardingEligible } from '../../../lib/protocols/onboarding'
-import { newCompound, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
+import { newCompound, newPhaseCompoundDraft, phaseCompoundDraft, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
 import { createQuickStart, quickStartDates, quickStartIssue, requireIdentifier } from '../../../lib/protocols/quickStart'
 import { loadInventoryItem } from '../../../lib/inventory/client'
 import { localCalendarDate, protocolLifecycle, protocolSaveDates } from '../../../lib/health/protocolDates'
@@ -16,7 +17,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { currentPhase } from '../../../lib/health/dosing'
-import { dosingDisplay, administrationDisplay, formatProtocolAmount, formatProtocolNumber, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
+import { dosingDisplay, administrationDisplay, formatProtocolAmount, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
 import { saveProtocolWithEvents, ProtocolSaveUncertainError, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -65,14 +66,18 @@ export default function ManagePage() {
   const [completionHappenedEarlier, setCompletionHappenedEarlier] = useState(false)
   const [completionDate, setCompletionDate] = useState(today)
   const [quickValidationAttempts, setQuickValidationAttempts] = useState(0)
+  const [openEditorPanel, setOpenEditorPanel] = useState<string | null>(null)
+  const [openMoreOptions, setOpenMoreOptions] = useState<number | null>(null)
 
   useEffect(() => {
     const message = document.querySelector<HTMLElement>('[data-quick-error], .protocol-editor [role="alert"]')
     if (!message) return
+    const panel = message.closest<HTMLElement>('.dosing-option-panel')
+    const panelIndex = panel?.id.match(/^dosing-panel-(\d+)-/)
+    if (panel && panelIndex) { setOpenMoreOptions(Number(panelIndex[1])); setOpenEditorPanel(panel.id.replace('dosing-panel-', '').replace(/-(?=[^-]+$)/, ':')) }
     let disclosure = message.closest('details')
     while (disclosure) { disclosure.open = true; disclosure = disclosure.parentElement?.closest('details') ?? null }
-    message.focus({ preventScroll: true })
-    message.scrollIntoView({ block: 'center' })
+    requestAnimationFrame(() => { message.focus({ preventScroll: true }); message.scrollIntoView({ block: 'center' }) })
   }, [quickValidationAttempts, error])
 
   function protocolDurationLabel(p: any): string {
@@ -312,6 +317,8 @@ export default function ManagePage() {
     setDetailId(null)
     setRemovedCompoundIds([])
     setEditingId(null)
+    setOpenEditorPanel(null)
+    setOpenMoreOptions(null)
     setQuickValidationAttempts(0)
     setPlanned(!draft.startDate)
     setStartDate(draft.startDate)
@@ -342,17 +349,19 @@ export default function ManagePage() {
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
       const incomingMix = parameters.get('compound') === c.id && parameters.has('reconstitution_vial')
       const isPreMixed = !incomingMix && !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
+      const preparationFacts = {
+        isPreMixed, preparation: isPreMixed ? 'ready' as const : 'mixing' as const,
+        vial_strength: c.vial_strength?.toString() || '', vial_unit: c.vial_unit || '', bac_water_ml: c.bac_water_ml?.toString() || '',
+        concentration_value: c.concentration_value?.toString() || '', concentration_unit: c.concentration_unit || '',
+      }
+      const dosing = entryFormState(ph, preparationFacts)
+      const handoffVialUnit = dosing.vial_unit || c.vial_unit || ''
       
       return {
         name: c.name, id: c.id, phase_id: ph?.id,
         phase_start_week: String(ph?.start_week || 1),
-        concentration_value: c.concentration_value?.toString() || '', concentration_unit: c.concentration_unit || '',
         route: ph?.route || '',
         phase_options: c.phases || [],
-        isPreMixed,
-        vial_strength: incomingMix ? parameters.get('reconstitution_vial') || '' : c.vial_strength?.toString() || '',
-        vial_unit: c.vial_unit || '',
-        bac_water_ml: incomingMix ? parameters.get('reconstitution_water') || '' : c.bac_water_ml?.toString() || '',
         reconstitution_date: incomingMix ? parameters.get('reconstitution_date') || '' : c.reconstitution_date || '',
         duration_weeks: ph?.end_week == null ? '' : String(ph.end_week - (ph.start_week || 1) + 1),
         frequency_mode: isRolling ? 'rolling' : 'weekly',
@@ -361,15 +370,17 @@ export default function ManagePage() {
         time_of_day: ph?.time_of_day ? ph.time_of_day[0].toUpperCase() + ph.time_of_day.slice(1) : '',
         vials_in_stock: c.vials_in_stock?.toString() || '',
         notes: c.notes || '',
-        ...entryFormState(ph),
-        ...(incomingMix ? {isPreMixed:false,vial_strength:parameters.get('reconstitution_vial') || '',bac_water_ml:parameters.get('reconstitution_water') || '',concentration_value:'',concentration_unit:'',reviewed:false} : {}),
+        ...dosing,
+        ...(incomingMix ? {isPreMixed:false,preparation:'mixing' as const,vial_strength:parameters.get('reconstitution_vial') || '',vial_unit:handoffVialUnit,bac_water_ml:parameters.get('reconstitution_water') || '',concentration_value:'',concentration_unit:'',reviewed:false} : {}),
       }
     })
     if(parameters.get('action')==='add-phase') {
       const target=cs.find((c: Compound)=>c.id===parameters.get('compound'))
-      if(target) {target.phase_id=undefined;target.phase_start_week=String(Math.max(1,...(target.phase_options || []).map((p: {end_week:number|null;start_week:number})=>(p.end_week ?? p.start_week)+1)));target.duration_weeks='';target.reviewed=false}
+      if(target) Object.assign(target, newPhaseCompoundDraft(target))
     }
     setCompounds(cs.length ? cs : [newCompound()])
+    setOpenEditorPanel(parameters.get('action') === 'add-phase' ? `${Math.max(0, cs.findIndex((c: Compound) => c.id === parameters.get('compound')))}:phases` : null)
+    setOpenMoreOptions(parameters.get('action') === 'add-phase' ? Math.max(0, cs.findIndex((c: Compound) => c.id === parameters.get('compound'))) : null)
     setContinuedFromId(p.continued_from_protocol_id || '')
     setShowForm(true)
     setError('')
@@ -407,9 +418,7 @@ export default function ManagePage() {
         setSetupSuccess({ id: savedProtocolId.current, draft: { startDate, compounds }, payload, firstProtocol })
         return
       }
-      const guidance=compounds.flatMap(c => {try {return interpretEntry(entryFromForm(c)).warnings.map(w => `${c.name}: ${w}`)} catch {return [`${c.name}: Dose not fully calculated yet.`]}})
-      const success = fromInventory ? 'Protocol created. Your inventory quantity is unchanged.' : 'Protocol saved.'
-      setSavedNotice(guidance.length ? `${success} ${guidance.join(' ')}` : success); setShowForm(false); setEditingId(null); await load()
+      setSavedNotice('Saved'); setShowForm(false); setEditingId(null); await load()
     } catch (error) {
       if (mode === 'create' && error instanceof ProtocolSaveUncertainError) {
         setRetryBlocked(true)
@@ -451,10 +460,10 @@ export default function ManagePage() {
   if (setupSuccess) return <ProtocolSetupSuccess saved={setupSuccess} today={today} />
 
   return (
-    <main className={`protocols-page${showForm && mode === 'create' ? ' protocols-focused' : ''}`}>
+    <main className={`protocols-page${showForm && mode === 'create' ? ' protocols-focused' : showForm ? ' dosing-editor-v2' : ''}`}>
       <div className={`protocols-container${showForm && mode === 'create' ? ' protocols-creation-container' : ''}`}>
         {!detailId && !(showForm && mode === 'create') && <header className="protocols-header">
-          <div><h1>{showForm ? (editingId ? 'Edit protocol' : 'Add Protocol') : 'Protocols'}</h1><p>{showForm ? (editingId ? 'Save what you know. Details can come later.' : 'Choose a compound and confirm the basics.') : 'Your plans, at a glance.'}</p></div>
+          <div><h1>{showForm ? (editingId ? `Edit ${compounds.length === 1 ? compounds[0].name || 'protocol' : 'protocol'}` : 'Add Protocol') : 'Protocols'}</h1><p>{showForm ? (editingId ? 'Update what you know. You can add details later.' : 'Choose a compound and confirm the basics.') : 'Your plans, at a glance.'}</p></div>
           {!showForm && <button className="protocol-primary" onClick={() => startNew()}>+ Add Protocol</button>}
         </header>}
         {!showForm && !detailId && <details className="protocol-library-tools"><summary>Library tools</summary><div className="protocol-action-row">
@@ -474,15 +483,26 @@ export default function ManagePage() {
           </div>
         )}
 
-        {savedNotice && <p role="status" style={{color:dg,fontSize:13}}>{savedNotice}</p>}
+        {savedNotice && <p role="status" className="protocol-saved-notice">{savedNotice}</p>}
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
           <div className="protocol-editor">
             {fromInventory && <p>Creating a protocol will not change your inventory quantity.</p>}
             {editingId && planned && <p>Planned protocols stay off your schedule until you activate them. No start date is needed yet.</p>}
             {mode === 'create' ? <ProtocolQuickStart value={{ startDate, compounds }} firstProtocol={firstProtocol} onSave={save} onClose={cancelForm} saving={saving} retryBlocked={retryBlocked} saveError={error} today={today} onChange={draft => { setStartDate(draft.startDate); setPlanned(!draft.startDate); setCompounds(draft.compounds) }}>{continuationField}</ProtocolQuickStart> : <>
-            {compounds.map((c, ci) => (
-              <div key={ci} style={{marginBottom:'24px'}}>
+            {compounds.map((c, ci) => {
+              const reviewEntry = (() => { try { return entryFromForm(c) } catch { return null } })()
+              const reviewResult = (() => { try { return reviewEntry ? interpretEntry(reviewEntry) : null } catch { return null } })()
+              const reviewIssue = (() => { try { return reviewEntry ? dosingIssue(reviewEntry) : null } catch { return null } })()
+              const showConfirmation = Boolean((reviewResult?.medication || reviewResult?.candidate) && (c.input_mode === 'unknown' || c.input_mode === 'medication' || c.reviewed))
+              const panelId = (name: string) => `${ci}:${name}`
+              const selectedPanel = (name: string) => openEditorPanel === panelId(name)
+              const administrationSummary = [c.route, c.syringe_markings && `${c.syringe_markings} units`, c.injection_volume && `${c.injection_volume} mL`].filter(Boolean).join(' · ') || 'Route and measurements'
+              const vialSummary = [c.vial_strength && `${c.vial_strength} ${c.vial_unit}`.trim(), c.bac_water_ml && `${c.bac_water_ml} mL`, c.concentration_value && `${c.concentration_value} ${c.concentration_unit}`.trim()].filter(Boolean).join(' · ') || 'Vial preparation'
+              const scheduleSummary = [c.frequency_mode === 'rolling' ? `Every ${c.cycle_days || '?'} days` : c.days_of_week.length === 7 ? 'Daily' : c.days_of_week.length === 1 ? 'Weekly' : c.days_of_week.length ? `${c.days_of_week.length}x/week` : 'Schedule', c.frequency_mode === 'weekly' && c.days_of_week.length < 3 ? c.days_of_week.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(' · ') : '', c.time_of_day].filter(Boolean).join(' · ')
+              const phaseSummary = c.phase_options?.find(phase => phase.id === c.phase_id)
+              return (
+              <div key={ci} className="dosing-compound">
                 {compounds.length > 1 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}>
                     <span style={{fontSize:'11px',color:mg,fontWeight:'700',letterSpacing:'1px'}}>COMPOUND {ci+1}</span>
@@ -490,21 +510,21 @@ export default function ManagePage() {
                   </div>
                 )}
 
-                <EditorSection title="Medication" hint="What are you taking, and how much?">
-                <div className="protocol-medication-grid">
-                <section className="protocol-intake-group"><h3>Medication dose</h3>
-                <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>COMPOUND NAME</label>
-                  <input aria-label='Compound name' value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} />
-                </div>
+                {compounds.length > 1 && <header className="dosing-compound-heading"><h2>{c.name || 'Your compound'}</h2></header>}
 
-                <div style={{marginBottom:'12px'}}>
-                  <label>This value represents:<select aria-label="This value represents" style={is} value={c.input_mode} onChange={e => updateCompound(ci,'input_mode',e.target.value)}><option value="medication">Medication dose</option><option value="syringe">Syringe markings</option><option value="volume">Injection volume</option><option value="unknown">I’m not sure</option></select></label>
-                  {c.input_mode === 'unknown' && <p style={{fontSize:12,color:dg}}>Dose not fully calculated yet. Existing entry: {c.dose} {c.dose_unit}. You can save now and clarify later.</p>}
-                  {(c.input_mode === 'syringe' || c.input_mode === 'unknown') ? <label>Syringe markings (not medication IU)<input aria-label="Syringe markings" type="number" min="0" step="any" value={c.syringe_markings} onChange={e => updateCompound(ci,'syringe_markings',e.target.value)} style={is} /></label> : c.input_mode === 'volume' ? <label>Injection volume (mL)<input aria-label="Injection volume" type="number" step="any" min="0" style={is} value={c.injection_volume} onChange={e => updateCompound(ci,'injection_volume',e.target.value)} /></label> : c.input_mode === 'medication' ? <>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>MEDICATION DOSE PER ADMINISTRATION</label>
-                  <div style={{display:'flex',gap:'6px'}}>
-                    <input aria-label='Medication dose' type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 60' style={{...is,flex:1}} />
+                <section className="dosing-primary" aria-label={`Dosing for ${c.name || 'your compound'}`}>
+                <QuickChoices label="How do you measure it?" className="dosing-methods" value={c.input_mode} options={[["medication", 'Medication dose'], ['syringe', 'Syringe units'], ['volume', 'Volume'], ['unknown', 'I’m not sure']]} onChange={value => updateCompound(ci,'input_mode',value)} />
+                <div className="dosing-mode-fields">
+                  {c.input_mode === 'unknown' && <p className="dosing-reassurance">That’s okay. Add what you know. You can save now and add details later.</p>}
+                  {(c.input_mode === 'syringe' || c.input_mode === 'unknown') && <>
+                    <label>{c.input_mode === 'syringe' ? 'How much do you draw?' : 'Syringe units (optional)'}<input aria-label="Syringe markings" inputMode="decimal" type="number" min="0" step="any" value={c.syringe_markings} onChange={e => updateCompound(ci,'syringe_markings',e.target.value)} style={is} /></label>
+                    <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option>{c.syringe_scale && !['100','40'].includes(c.syringe_scale) && <option value={c.syringe_scale} disabled>Stored U-{c.syringe_scale} (unsupported; preserved)</option>}<option value="100">U-100</option><option value="40">U-40</option></select></label>
+                  </>}
+                  {(c.input_mode === 'volume' || c.input_mode === 'unknown') && <label>{c.input_mode === 'volume' ? 'Injection volume' : 'Injection volume (optional)'}<div className="dosing-amount-row"><input aria-label="Injection volume (mL)" inputMode="decimal" type="number" step="any" min="0" style={is} value={c.injection_volume} onChange={e => updateCompound(ci,'injection_volume',e.target.value)} /><span>mL</span></div></label>}
+                  {c.input_mode === 'medication' ? <>
+                  <label htmlFor={`edit-dose-${ci}`}>Medication amount</label>
+                  <div className="dosing-amount-row">
+                    <input id={`edit-dose-${ci}`} aria-label='Medication dose' inputMode="decimal" type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 5' style={{...is,flex:1}} />
                     <select aria-label='Medication dose unit' value={c.dose_unit} onChange={e => updateCompound(ci,'dose_unit',e.target.value)} style={{...is,width:'75px',flex:'none'}}>
                       <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
@@ -512,20 +532,42 @@ export default function ManagePage() {
                   </> : null}
                 </div>
 
-                <details style={{fontSize:12,color:dg,marginBottom:12}}><summary>Not sure what unit you have?</summary><p>mg / mcg = medication mass. mL = liquid volume. U-100 units = syringe markings. IU = medication International Units.</p><p>18 units on a U-100 syringe = 0.18 mL. The actual medication dose depends on the vial strength and concentration.</p></details>
-                {c.input_mode==='unknown' && <div style={{fontSize:13,color:dg}}><label>What does the vial label say?<input style={is} value={c.vial_label} onChange={e=>updateCompound(ci,'vial_label',e.target.value)} /></label><p>How much liquid/BAC water was added? Use Preparation. What number do you draw to? Use the syringe markings field. Select your syringe scale in Administration; leave it blank if unknown.</p></div>}
-                <p style={{fontSize:12,color:dg}}>IU means medication International Units, never syringe markings.</p>
-                <label style={{display:'block',marginBottom:12,fontSize:13}}>
-                  <input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm the calculated medication dose below (optional).
-                </label>
-                </section>
-                <section className="protocol-intake-group"><h3>Administration</h3>
-                <div className="protocol-intake-fields">
-                  <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option><option value="100">U-100</option><option value="40">U-40</option></select></label>
-                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option>{(!editingId || c.route === 'Oral') && <option>Oral</option>}{(!editingId || c.route === 'Other') && <option>Other</option>}</select></label>
+                <div className="dosing-live-summary" aria-live="polite" aria-atomic="true">
+                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={{ dosing_entry: entryFromForm(c) }} editing onReview={target => {
+                    setOpenMoreOptions(ci)
+                    const panel = target === 'syringe' ? 'administration' : 'vial'
+                    setOpenEditorPanel(panelId(panel))
+                    requestAnimationFrame(() => {
+                      const openedPanel = document.getElementById(`dosing-panel-${ci}-${panel}`)
+                      openedPanel?.scrollIntoView({ block: 'nearest' })
+                      if (panel === 'vial') openedPanel?.querySelector<HTMLElement>('.dosing-review-panel > summary')?.focus()
+                    })
+                  }} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
                 </div>
                 </section>
-                <section className="protocol-intake-group"><h3>Preparation</h3>
+                <details className="dosing-more-options" id={`dosing-options-${ci}`} open={openMoreOptions === ci} onToggle={event => { if (event.currentTarget.open) setOpenMoreOptions(ci); else if (openMoreOptions === ci) { setOpenMoreOptions(null); setOpenEditorPanel(null) } }}><summary>More options</summary>
+                <div className="dosing-secondary" id={`dosing-details-${ci}`}>
+                <div className="dosing-option-grid" role="group" aria-label="More protocol options">
+                  {([
+                    ['administration', 'Administration', administrationSummary],
+                    ['vial', 'Vial', vialSummary],
+                    ['schedule', 'Schedule', scheduleSummary],
+                    ['inventory', 'Inventory', c.vials_in_stock ? `${c.vials_in_stock} vials` : 'Stock and notes'],
+                    ['phases', 'Phases', phaseSummary ? `Weeks ${phaseSummary.start_week}–${phaseSummary.end_week ?? 'ongoing'}` : `Week ${c.phase_start_week || '1'}`],
+                    ['other', 'Other', 'Name · dates · help'],
+                  ] as const).map(([name, title, summary]) => <button type="button" className="dosing-option-card" key={name} aria-expanded={selectedPanel(name)} aria-controls={`dosing-panel-${ci}-${name}`} onClick={() => setOpenEditorPanel(selectedPanel(name) ? null : panelId(name))}><strong>{title}</strong><small>{summary}</small></button>)}
+                </div>
+                <section className="dosing-option-panel" id={`dosing-panel-${ci}-administration`} aria-label="Administration" hidden={!selectedPanel('administration')}>
+                <div className="protocol-fields">
+                  <label>Route<select aria-label="Route" style={is} value={c.route} onChange={e => updateCompound(ci,'route',e.target.value)}><option value="">Not recorded</option><option>IM</option><option>SubQ</option>{(!editingId || c.route === 'Oral') && <option>Oral</option>}{(!editingId || c.route === 'Other') && <option>Other</option>}</select></label>
+                  {(c.input_mode === 'medication' || c.input_mode === 'volume') && <>
+                    <label>Syringe units<input aria-label="Syringe markings" inputMode="decimal" type="number" min="0" step="any" value={c.syringe_markings} onChange={e => updateCompound(ci,'syringe_markings',e.target.value)} style={is} /></label>
+                    <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option>{c.syringe_scale && !['100','40'].includes(c.syringe_scale) && <option value={c.syringe_scale} disabled>Saved U-{c.syringe_scale}</option>}<option value="100">U-100</option><option value="40">U-40</option></select></label>
+                  </>}
+                  {(c.input_mode === 'medication' || c.input_mode === 'syringe') && <label>Entered injection volume<div className="dosing-amount-row"><input aria-label="Injection volume (mL)" inputMode="decimal" type="number" step="any" min="0" style={is} value={c.injection_volume} onChange={e => updateCompound(ci,'injection_volume',e.target.value)} /><span>mL</span></div></label>}
+                </div>
+                </section>
+                <section className="dosing-option-panel" id={`dosing-panel-${ci}-vial`} aria-label="Vial" hidden={!selectedPanel('vial')}><div className="protocol-fields">
                 <div style={{marginBottom:'16px'}}>
                   <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
                     <input
@@ -535,19 +577,16 @@ export default function ManagePage() {
                       style={{width:'18px',height:'18px',cursor:'pointer'}}
                     />
                     <span style={{fontSize:'13px',color:'var(--color-text)',fontWeight:'600'}}>
-                      Pre-mixed compound (no reconstitution needed)
+                      Ready to use
                     </span>
                   </label>
-                  <p style={{fontSize:'11px',color:mg,marginTop:'4px',marginLeft:'28px'}}>
-                    Choose this when your medication arrives ready to use, without adding liquid.
-                  </p>
                 </div>
 
                 {!c.isPreMixed && (
                   <>
                     <div className="protocol-intake-fields">
                       <div>
-                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIAL STRENGTH</label>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Vial amount</label>
                         <div style={{display:'flex',gap:'6px'}}>
                           <input aria-label='Vial amount' type='number' value={c.vial_strength} onChange={e => updateCompound(ci,'vial_strength',e.target.value)} placeholder='10' style={{...is,flex:1}} />
                           <select aria-label='Vial unit' value={c.vial_unit} onChange={e => updateCompound(ci,'vial_unit',e.target.value)} style={{...is,width:'65px',flex:'none'}}>
@@ -556,7 +595,7 @@ export default function ManagePage() {
                         </div>
                       </div>
                       <div>
-                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>BAC WATER</label>
+                        <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Liquid added</label>
                         <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
                           <input aria-label='BAC water in mL' type='number' step='0.5' value={c.bac_water_ml} onChange={e => updateCompound(ci,'bac_water_ml',e.target.value)} placeholder='3' style={{...is,flex:1}} />
                           <span style={{fontSize:'13px',color:dg,fontWeight:'600',whiteSpace:'nowrap'}}>mL</span>
@@ -564,10 +603,6 @@ export default function ManagePage() {
                       </div>
                     </div>
 
-                    <div style={{marginBottom:'12px'}}>
-                      <label style={{display:'block',fontSize:'11px',color:'#ff6b6b',fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>RECONSTITUTION DATE (optional)</label>
-                      <input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} />
-                    </div>
                   </>
                 )}
 
@@ -580,10 +615,34 @@ export default function ManagePage() {
                     </select>
                   </div>
                 </div>}
+                </div>
+                {reviewIssue && <div className="dosing-panel-issue" role="status"><strong>{reviewIssue.title}</strong></div>}
+                <details className="dosing-review-panel" data-dose-review hidden={!reviewIssue && !showConfirmation}><summary>Review calculation</summary>
+                  {(() => { try {
+                    if (!reviewEntry || !reviewResult) return null
+                    const result = reviewResult
+                    const administration = administrationDisplay({ dosing_entry: reviewEntry })
+                    const recordedAmount = c.input_mode === 'unknown' ? formatProtocolAmount(reviewEntry.dose, reviewEntry.dose_unit) : null
+                    const medicationAmount = result.medication && formatProtocolAmount(result.medication.value, result.medication.unit)
+                    const candidateAmount = !medicationAmount && result.candidate && formatProtocolAmount(result.candidate.value, result.candidate.unit)
+                    return <div className="dosing-calculation-details">
+                      <dl>
+                        {recordedAmount && <><dt>Recorded value</dt><dd>{recordedAmount}</dd></>}
+                        {medicationAmount && <><dt>Medication amount</dt><dd>{medicationAmount}</dd></>}
+                        {candidateAmount && <><dt>Calculated medication amount</dt><dd>{candidateAmount}</dd></>}
+                        {administration.volume && <><dt>Injection volume</dt><dd>{administration.volume}</dd></>}
+                        {administration.syringe && <><dt>Syringe draw</dt><dd>{administration.syringe}</dd></>}
+                        {result.concentration && <><dt>Concentration</dt><dd>{formatProtocolAmount(result.concentration.value, `${result.concentration.unit}/mL`)}</dd></>}
+                      </dl>
+                      {reviewIssue && <p className="dosing-review-explanation">{reviewIssue.explanation}</p>}
+                    </div>
+                  } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check numeric inputs.'}</p> } })()}
+                  <label className="dosing-confirmation" hidden={!showConfirmation}><input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm this medication amount (optional).</label>
+                </details>
                 </section>
-                <section className="protocol-intake-group"><h3>Inventory & notes</h3>
+                <section className="dosing-option-panel" id={`dosing-panel-${ci}-inventory`} aria-label="Inventory" hidden={!selectedPanel('inventory')}><div className="protocol-fields">
                 <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>VIALS IN STOCK</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Vials in stock</label>
                   <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
                     <input aria-label='Vials in stock' type='number' min='0' value={c.vials_in_stock} onChange={e => updateCompound(ci,'vials_in_stock',e.target.value)} placeholder='0' style={{...is,width:'80px',flex:'none'}} />
                     <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>vials</span>
@@ -591,16 +650,14 @@ export default function ManagePage() {
                 </div>
 
                 <div style={{marginBottom:'12px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>NOTES (optional)</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Notes (optional)</label>
                   <textarea aria-label='Notes' value={c.notes} onChange={e => updateCompound(ci,'notes',e.target.value)} placeholder='Goals, context, side effects...' rows={2} style={{...is,resize:'none'}} />
                 </div>
 
-                </section>
-                </div>
-                </EditorSection>
-                <EditorSection title="Schedule" hint="Choose your pattern and preferred time.">
+                </div></section>
+                <section className="dosing-option-panel" id={`dosing-panel-${ci}-schedule`} aria-label="Schedule" hidden={!selectedPanel('schedule')}><div className="protocol-fields">
                 <div style={{marginBottom:'16px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>FREQUENCY MODE</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>Schedule pattern</label>
                   <div style={{display:'flex',gap:'8px'}}>
                     <button
                       onClick={() => updateCompound(ci, 'frequency_mode', 'weekly')}
@@ -616,7 +673,7 @@ export default function ManagePage() {
                         cursor:'pointer'
                       }}
                     >
-                      Weekly Pattern
+                      Weekly pattern
                     </button>
                     <button
                       onClick={() => updateCompound(ci, 'frequency_mode', 'rolling')}
@@ -632,14 +689,14 @@ export default function ManagePage() {
                         cursor:'pointer'
                       }}
                     >
-                      Rolling Cycle
+                      Every few days
                     </button>
                   </div>
                 </div>
 
                 {c.frequency_mode === 'weekly' && (
                   <div style={{marginBottom:'16px'}}>
-                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>MY SCHEDULE</label>
+                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'10px'}}>Days and time</label>
                     <div style={{background:'var(--color-surface)',borderRadius:'10px',padding:'14px'}}>
                       <div className="protocol-day-picker" style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'12px'}}>
                         {DAYS.map((day, di) => {
@@ -653,9 +710,6 @@ export default function ManagePage() {
                           )
                         })}
                       </div>
-                      {c.days_of_week.length > 0 && (
-                        <p style={{fontSize:'12px',color:dg,margin:'0 0 10px',textAlign:'center'}}>{c.days_of_week.length}x per week</p>
-                      )}
                       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px'}}>
                         {TIMES.map(t => (
                           <button aria-pressed={c.time_of_day===t} key={t} onClick={() => updateCompound(ci,'time_of_day',t)} style={{padding:'8px 4px',borderRadius:'8px',border:'1px solid '+(c.time_of_day===t?g:bd),background:c.time_of_day===t?'var(--color-green-10)':'transparent',color:c.time_of_day===t?g:dg,fontSize:'11px',fontWeight:'700',cursor:'pointer'}}>
@@ -669,7 +723,7 @@ export default function ManagePage() {
 
                 {c.frequency_mode === 'rolling' && (
                   <div style={{marginBottom:'16px'}}>
-                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>INJECT EVERY</label>
+                    <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Repeat every</label>
                     <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
                       <input
                         aria-label='Days between doses'
@@ -682,9 +736,6 @@ export default function ManagePage() {
                       />
                       <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>days</span>
                     </div>
-                    <p style={{fontSize:'11px',color:mg,marginTop:'6px'}}>
-                      Pattern will shift naturally across weeks. {planned ? 'Calendar dates will be set when you activate.' : <>Example: every 3 days from {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})} = {new Date(startDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short'})}, {new Date(new Date(startDate).getTime()+6*86400000).toLocaleDateString('en-US',{weekday:'short'})}...</>}
-                    </p>
                   </div>
                 )}
 
@@ -699,67 +750,67 @@ export default function ManagePage() {
                   </div>
                 )}
 
-                </EditorSection>
+                </div></section>
 
-                {editingId && <EditorSection title="Dose phases" hint="Choose a phase to edit or add a later dose phase.">
+                {editingId && <section className="dosing-option-panel" id={`dosing-panel-${ci}-phases`} aria-label="Phases" hidden={!selectedPanel('phases')}><div className="protocol-fields">
                 {c.id && <div style={{marginBottom:12}}>
-                  <p style={{fontSize:12,color:dg}}>Editing only the selected phase. Other phases and recorded injections are preserved.</p>
                   <select aria-label="Select phase" value={c.phase_id || ''} style={is} onChange={e => {
-                    const raw = protocols.flatMap(p => p.compounds || []).find(x => x.id === c.id)?.phases?.find((p: { id: string }) => p.id === e.target.value)
-                    if (!raw) return
-                    const updated = [...compounds]; updated[ci] = {...c, phase_id:raw.id, phase_start_week:String(raw.start_week),duration_weeks:raw.end_week == null ? '' : String(raw.end_week-raw.start_week+1),
-                      route:raw.route || '',days_of_week:raw.days_of_week || [], frequency_mode:raw.frequency?.startsWith('every') ? 'rolling':'weekly',cycle_days:raw.frequency?.replace('every','').replace('days','') || '3',...entryFormState(raw)};setCompounds(updated)
+                    const rawCompound = protocols.flatMap(p => p.compounds || []).find(x => x.id === c.id)
+                    const raw = rawCompound?.phases?.find((p: { id: string }) => p.id === e.target.value)
+                    if (!rawCompound || !raw) return
+                    const phaseIsPreMixed = !rawCompound.vial_strength && !rawCompound.bac_water_ml && !rawCompound.reconstitution_date
+                    const preparation = { isPreMixed: phaseIsPreMixed, preparation: phaseIsPreMixed ? 'ready' as const : 'mixing' as const,
+                      vial_strength: rawCompound.vial_strength?.toString() || '', vial_unit: rawCompound.vial_unit || '', bac_water_ml: rawCompound.bac_water_ml?.toString() || '',
+                      concentration_value: rawCompound.concentration_value?.toString() || '', concentration_unit: rawCompound.concentration_unit || '' }
+                    const updated = [...compounds]; updated[ci] = phaseCompoundDraft(c, raw, preparation); setCompounds(updated)
                   }}><option value="">New phase</option>{c.phase_options?.map(p => <option key={p.id} value={p.id}>{p.name}: weeks {p.start_week}–{p.end_week || 'ongoing'}</option>)}</select>
-                  <button type="button" onClick={() => { const updated=[...compounds]; updated[ci]={...c,phase_id:undefined,phase_start_week:String(Math.max(1,...(c.phase_options || []).map(p => (p.end_week || p.start_week)+1))),duration_weeks:'',reviewed:false};setCompounds(updated) }}>Add phase</button>
+                  <button type="button" onClick={() => { const updated=[...compounds]; updated[ci]=newPhaseCompoundDraft(c);setCompounds(updated) }}>Add phase</button>
                 </div>}
                 <label>Phase start week<input aria-label="Phase start week" type="number" min="1" style={is} value={c.phase_start_week} onChange={e => updateCompound(ci,'phase_start_week',e.target.value)} /></label>
-                {editingId && protocols.find(p=>p.id===editingId)?.status==='active' && c.phase_id && c.phase_options?.every(p=>p.id===c.phase_id || p.start_week<Number(c.phase_start_week)) && <p style={{fontSize:12,color:dg}}>The latest phase can stay ongoing. Existing end dates are preserved until you change them. {c.duration_weeks && <button type="button" onClick={()=>updateCompound(ci,'duration_weeks','')} style={{color:g,background:'none',border:'1px solid var(--color-border)'}}>Set ongoing</button>}</p>}
+                {editingId && protocols.find(p=>p.id===editingId)?.status==='active' && c.phase_id && c.phase_options?.every(p=>p.id===c.phase_id || p.start_week<Number(c.phase_start_week)) && c.duration_weeks && <button type="button" className="dosing-set-ongoing" onClick={()=>updateCompound(ci,'duration_weeks','')}>Set ongoing</button>}
                 <div style={{marginBottom:'16px'}}>
-                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>PHASE DURATION (optional; blank means ongoing)</label>
+                  <label style={{display:'block',fontSize:'11px',color:dg,fontWeight:'700',letterSpacing:'1px',marginBottom:'6px'}}>Phase length (optional)</label>
                   <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
                     <input aria-label='Phase duration weeks' type='number' min='1' max='52' placeholder='Ongoing' value={c.duration_weeks} onChange={e => updateCompound(ci,'duration_weeks',e.target.value)} style={{...is,width:'80px',flex:'none'}} />
                     <span style={{fontSize:'13px',color:dg,fontWeight:'600'}}>weeks</span>
                   </div>
                 </div>
 
-                </EditorSection>}
+                </div></section>}
 
-                <EditorSection title="Review" hint="Calculations are guidance. Incomplete details can still be saved.">
-                {(() => { try {
-                  const entry = entryFromForm(c)
-                  const result = interpretEntry(entry)
-                  const administration = administrationDisplay({ dosing_entry: entry })
-                  return <div style={{fontSize:13,color:dg}}>
-                    {result.medication && <p style={{color:g}}>Medication dose: {formatProtocolAmount(result.medication.value, result.medication.unit)}</p>}
-                    {administration.volume && <p>Injection volume: {administration.volume}</p>}
-                    {administration.syringe && <p>Syringe draw: {administration.syringe}</p>}
-                    {result.candidate && result.concentration && <p>Calculation (rounded): {result.markings!=null && result.scale ? `${formatProtocolNumber(result.markings, 'syringe')} ÷ ${result.scale} ≈ ${administration.volume}; `:''}{administration.volume} × {formatProtocolAmount(result.concentration.value, `${result.concentration.unit}/mL`)} ≈ {formatProtocolAmount(result.candidate.value, result.candidate.unit)}{c.input_mode==='unknown' && !c.reviewed ? ' (confirm to use as medication dose)':''}</p>}
-                    {result.warnings.map(w=><p key={w}>{w} You can still save.</p>)}
-                  </div>
-                } catch (error) { return <p role="alert" style={{fontSize:12,color:dg}}>{error instanceof Error ? error.message : 'Check numeric inputs.'}</p> } })()}
-                </EditorSection>
+                <section className="dosing-option-panel" id={`dosing-panel-${ci}-other`} aria-label="Other options" hidden={!selectedPanel('other')}>
+                <div className="protocol-fields">
+                  <label>Compound name<input aria-label='Compound name' value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} /></label>
+                  <label>Vial label (optional)<input aria-label="Vial label" style={is} value={c.vial_label} onChange={e => updateCompound(ci,'vial_label',e.target.value)} /></label>
+                  {!c.isPreMixed && <label>Date mixed (optional)<input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} /></label>}
+                  <p className="dosing-unit-help"><strong>Help with units</strong><br />mg, mcg and IU describe medication; mL describes liquid; syringe units are syringe markings.</p>
+                </div>
+                {ci === 0 && <>
+                <section className="dosing-disclosure dosing-protocol-dates"><h3>Protocol dates &amp; links</h3>
+                {editingId && !planned && <div style={{marginBottom:'16px'}}>
+                  <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>Protocol start date</label>
+                  <input id="protocol-start-date" aria-label="Protocol start date" type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
+                  {startDate > today && <p>Scheduled · Starts {startDate}. Tracking begins automatically.</p>}
+                </div>}
+                {continuationField}
+                </section>
+                {editingId && !planned && !preStart && <div className="protocol-effective-date">
+                  <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate('')}}>Use a different effective date</button>
+                  {changeHappenedEarlier && <label>Effective date<input aria-label="Effective date" type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
+                  <p>Changes are effective today unless you choose another date.</p>
+                </div>}
+                </>}
+                {ci === compounds.length - 1 && <button type="button" className="dosing-add-compound" onClick={() => setCompounds([...compounds, newCompound()])}>+ Add another compound</button>}
+                </section>
+                </div>
+                </details>
                 {ci < compounds.length - 1 && <div style={{height:'1px',background:bd,margin:'20px 0'}} />}
               </div>
-            ))}
+            )})}
 
-            <button onClick={() => setCompounds([...compounds, newCompound()])} style={{background:'none',border:'1px dashed '+mg,borderRadius:'8px',padding:'10px',width:'100%',color:dg,fontSize:'13px',cursor:'pointer',marginBottom:'16px'}}>+ Add another compound</button>
             </>}
 
-            {editingId && !planned && <div style={{marginBottom:'16px'}}>
-              <label htmlFor="protocol-start-date" style={{display:'block',fontSize:'13px',color:dg,marginBottom:'6px'}}>Protocol start date</label>
-              <input id="protocol-start-date" aria-label="Protocol start date" type='date' required value={startDate} onChange={e => setStartDate(e.target.value)} style={is} />
-              {startDate > today && <p>Scheduled · Starts {startDate}. Tracking begins automatically.</p>}
-            </div>}
-
-            {mode === 'edit' && continuationField}
-
             {error && mode === 'edit' && <div role="alert" tabIndex={-1} style={{background:'rgba(255,107,107,0.1)',border:'1px solid rgba(255,107,107,0.3)',borderRadius:'8px',padding:'12px',fontSize:'13px',color:'#ff6b6b',marginBottom:'16px'}}>{error}</div>}
-
-            {editingId && !planned && !preStart && <div className="protocol-effective-date">
-              <button type="button" aria-expanded={changeHappenedEarlier} onClick={() => {setChangeHappenedEarlier(!changeHappenedEarlier);setEffectiveDate('')}}>Use a different effective date</button>
-              {changeHappenedEarlier && <label>Effective date<input aria-label="Effective date" type="date" min={startDate} max={today} value={effectiveDate} onChange={event => setEffectiveDate(event.target.value)} style={is} /></label>}
-              <p>Changes are effective today unless you choose another date.</p>
-            </div>}
 
             {mode === 'edit' && <div className="protocol-save-bar">
               <button disabled={saving} onClick={cancelForm} style={{flex:1,background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'12px',fontSize:'14px',cursor:'pointer'}}>Cancel</button>

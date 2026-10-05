@@ -92,6 +92,7 @@ function component(file) {
   } }).outputText
   const compiledModule = { exports: {} }
   const localRequire = name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (name === 'next/navigation') return { usePathname: () => '/protocol' }
     if (name.startsWith('.')) {
       const base = new URL(name, url)
@@ -111,11 +112,11 @@ test('rendered Today has the requested section order and honest empty states', (
     date: '2026-09-09', protocols: [], events: [], entries: [], due: [], logs: {}, saving: false,
     onTaken() {}, error: null, selected: null, onViewDetails() {}, detailsOpen: false, rings: null, detail: null, weightUnit: 'lbs', onToggleUnit() {},
   }))
-  const positions = ['Active protocols', 'Today’s focus', 'Recent changes', 'Health trends'].map(text => html.indexOf(text))
+  const positions = ['Current weight', 'Health trends', 'Today’s Focus', 'Active protocols'].map(text => html.indexOf(text))
   assert.ok(positions.every((position, index) => position >= 0 && (!index || position > positions[index - 1])))
   assert.match(html, /No doses scheduled today/)
   assert.match(html, /Create your first protocol/)
-  assert.doesNotMatch(html, /Mark taken|NaN|undefined/)
+  assert.doesNotMatch(html, /Mark taken|NaN|undefined|WEIGHT CHANGE|Better Protocols|A Healthier You|Recent changes|Selected protocol tools|All doses today/)
 })
 test('ring selection renders native keyboard-operable buttons with full names', () => {
   const Rings = component('../components/dashboard/CompoundRings.tsx').default
@@ -133,32 +134,35 @@ test('new focus action is accessible and cannot be clicked while saving', () => 
   assert.match(html, /<progress value="0" max="1" aria-label="Today’s scheduled doses logged"/)
 })
 
-test('completed focus shows real progress and active rows expose textual status', () => {
+test('completed focus shows real progress and the active hero exposes its visible snapshot', () => {
   const Focus = component('../components/today/TodaysFocusCard.tsx').default
   const html = renderToStaticMarkup(React.createElement(Focus, { activeCount: 1, due: [{ id: 'c', name: 'Sample', dose: '2 mg', dose_unit: '', time_of_day: '' }], logs: { c: { taken: true } }, saving: false, onTaken() {}, error: null }))
   assert.match(html, /Today’s doses are logged/)
   assert.match(html, /<progress value="1" max="1"/)
   assert.doesNotMatch(html, /Mark taken/)
   const List = component('../components/today/ActiveProtocolList.tsx').default
-  const rows = renderToStaticMarkup(React.createElement(List, { items: [{ id: 'c', name: 'Sample', details: '2 mg · daily', week: 6, hasPhase: true }], selected: 'c', detail: React.createElement('div', null, 'Sample · Week 6') }, null))
+  const rows = renderToStaticMarkup(React.createElement(List, { protocols: [protocol], date: '2026-09-09', onSelect() {}, selected: 'c', detail: React.createElement('div', null, 'Sample · Week 6') }, null))
   assert.match(rows, /Active/)
   assert.match(rows, /Week 6/)
-  assert.match(rows, /today-merged-detail/)
+  assert.match(rows, /class="selectedSnapshot"><div>Sample · Week 6/)
+  assert.doesNotMatch(rows, /<details|Selected protocol tools|Active protocol details|<ul/)
 })
 
-test('rings select a single summary without scrolling or opening details; all compounds remain selectable', () => {
+test('all protocols remain visible and selectable through rings without a duplicated list', () => {
   const List = component('../components/today/ActiveProtocolList.tsx').default
-  const items = [{ id: 'a', name: 'First compound', details: 'Dose not fully calculated', week: 1, hasPhase: true }, { id: 'b', name: 'Second compound', details: '2 mg · daily', week: 2, hasPhase: true }]
-  const render = selected => renderToStaticMarkup(React.createElement(List, { items, selected, detail: React.createElement('div', null, (items.find(item => item.id === selected) || items[0]).name) }, null))
+  const Rings = component('../components/dashboard/CompoundRings.tsx').default
+  const items = [{ id: 'a', name: 'First compound', phases: [] }, { id: 'b', name: 'Second compound', phases: [phase] }]
+  const protocols = [{ ...protocol, compounds: items }]
+  const render = selected => renderToStaticMarkup(React.createElement(List, { protocols, date: '2026-09-09', onSelect() {}, selected, detail: React.createElement('div', null, (items.find(item => item.id === selected) || items[0]).name) }, React.createElement(Rings, { activeProtocols: protocols, activeCompoundTab: selected, setActiveCompoundTab() {} })))
   assert.match(render('b'), /Second compound/)
-  assert.doesNotMatch(render('b'), /First compound/)
+  assert.match(render('b'), /First compound/)
   assert.match(render(null), /First compound/)
-  assert.match(render('b'), /Tap a named ring to view your protocol/)
+  assert.match(render('b'), /aria-pressed="true" aria-label="Second compound, week/)
+  assert.doesNotMatch(render('b'), /<details|Active protocol details|<ul/)
   const source = readFileSync(new URL('../app/protocol/page.tsx', import.meta.url), 'utf8')
   const select = source.slice(source.indexOf('function selectCompound'), source.indexOf('if (loading)'))
   assert.match(select, /setActiveCompoundTab\(id\)/)
   assert.doesNotMatch(select, /scrollIntoView|setHeroOpen/)
-  const Rings = component('../components/dashboard/CompoundRings.tsx').default
   const html = renderToStaticMarkup(React.createElement(Rings, { activeProtocols: [{ ...protocol, compounds: Array.from({ length: 10 }, (_, index) => ({ id: String(index), name: 'Compound ' + index })) }], activeCompoundTab: '9', setActiveCompoundTab() {} }))
   assert.equal((html.match(/aria-pressed=/g) || []).length, 10)
   assert.doesNotMatch(html, /\+\d+ more|View all protocols/)

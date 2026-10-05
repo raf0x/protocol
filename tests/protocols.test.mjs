@@ -62,7 +62,15 @@ test('completed overview uses saved completion date and never schedules reactiva
 })
 test('incomplete syringe entry stays a raw dose representation with no invented medication amount', () => {
   const entry = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' })
-  assert.equal(compoundOverview(protocol, { ...compound, phases: [{ ...phase, dosing_entry: entry }] }, today).dose, '20 U-100 units')
+  const incomplete={...protocol,compounds:[{...compound,phases:[{...phase,dosing_entry:entry}]}]}
+  assert.equal(compoundOverview(incomplete, incomplete.compounds[0], today).dose, '20 U-100 units · 0.2 mL · Medication dose not calculated.')
+  const Card=load('../components/protocols/ProtocolCard.tsx').default, Detail=load('../components/protocols/ProtocolDetail.tsx').default, PhaseCard=load('../components/protocols/PhaseCard.tsx').default
+  const props={protocol:incomplete,today,onReload(){}}
+  for(const html of [
+    renderToStaticMarkup(React.createElement(Card,{...props,index:0,selecting:false,selected:false,onOpen(){},onSelect(){}})),
+    renderToStaticMarkup(React.createElement(Detail,{...props,onBack(){},onEdit(){},onComplete(){},onPause(){},onResume(){},onReactivate(){},onDelete(){}})),
+    renderToStaticMarkup(React.createElement(PhaseCard,{...props,compound:incomplete.compounds[0],onEdit(){}})),
+  ]) assert.match(html,/Medication dose not calculated\./)
   assert.equal(compoundOverview(protocol, { ...compound, phases: [] }, today).dose, 'Dose not fully calculated')
 })
 test('library renders separate Active and Completed groups and useful empty states', () => {
@@ -80,10 +88,15 @@ test('multi-compound protocols remain distinct and all compounds are visible in 
   assert.match(html, /Another compound/)
   assert.match(html, /aria-label="View Plan"/)
 })
-test('detail renders progressive disclosure and expired-phase actions', () => {
+test('detail keeps three compact groups, closed history, and expired-phase actions', () => {
   const Detail = load('../components/protocols/ProtocolDetail.tsx').default
   const html = renderToStaticMarkup(React.createElement(Detail, { protocol: { ...protocol, compounds: [{ ...compound, phases: [{ ...phase, end_week: 4 }] }] }, today, onBack() {}, onEdit() {}, onComplete() {}, onReactivate() {}, onDelete() {}, onReload() {} }))
-  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', 'Administration details', 'Reconstitution &amp; concentration', 'Inventory &amp; notes', 'History']) assert.ok(html.includes(label), label)
+  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', '>Administration</h3>', '>Vial</h3>', '>Plan</h3>', 'Show history']) assert.ok(html.includes(label), label)
+  assert.equal((html.match(/class="protocol-more-section/g) ?? []).length, 3)
+  assert.ok(html.indexOf('Edit protocol') < html.indexOf('More details'))
+  assert.match(html, /<details class="protocol-more-details"><summary>More details<\/summary>/)
+  assert.match(html, /<details class="protocol-history-disclosure"><summary/)
+  assert.match(html, /<details class="protocol-phase-history"><summary>Show phases/)
   assert.doesNotMatch(html, /NaN|undefined/)
 })
 test('completed protocol has no continue-latest mutation action', () => {
@@ -100,7 +113,8 @@ test('editor sections support native collapsed optional fields without unmountin
 })
 test('editor still calls the save-first RPC, uses ongoing helper, and retains every entry mode', () => {
   const source = readFileSync(new URL('../app/protocol/manage/page.tsx', import.meta.url), 'utf8')
-  for (const token of ['saveProtocolWithEvents(', 'protocolCompoundPayload(compounds)', 'value="medication"', 'value="syringe"', 'value="volume"', 'value="unknown"']) assert.ok(source.includes(token), token)
+  for (const token of ['saveProtocolWithEvents(', 'protocolCompoundPayload(compounds)', '["medication",', "['syringe',", "['volume',", "['unknown',"]) assert.ok(source.includes(token), token)
+  assert.doesNotMatch(source, /title="Review"/)
   const adapter = readFileSync(new URL('../lib/protocols/form.ts', import.meta.url), 'utf8')
   assert.match(adapter, /phaseEndWeek\(start, c.duration_weeks\)/)
   assert.match(adapter, /entryFromForm\(c\)/)

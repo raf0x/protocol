@@ -14,7 +14,7 @@ export default function CompoundRings({ activeProtocols, activeCompoundTab, setA
   const today = useLocalCalendarDate()
   const items = activeRingItems(activeProtocols, today)
   return <div className="protocol-rings-hero">
-    <ProtocolRingComposition items={items} selected={activeCompoundTab || items[0]?.id} onSelect={setActiveCompoundTab} />
+    <ProtocolRingComposition items={items} selected={items.find(item => item.id === activeCompoundTab)?.id || items[0]?.id} onSelect={setActiveCompoundTab} />
     <div className="protocol-ring-links">
       <Link className="today-text-link" href="/protocol/manage?new=1">{items.length ? 'Add another protocol' : 'Add Protocol'}</Link>
     </div>

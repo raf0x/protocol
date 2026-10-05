@@ -6,12 +6,13 @@ import BottomNav from '../BottomNav'
 import ThemeToggle from '../ThemeToggle'
 import OfflineBanner from './OfflineBanner'
 import PwaLifecycle from './PwaLifecycle'
+import v2 from './design-system-v2.module.css'
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname()
   const publicPage = path === '/' || path.startsWith('/auth/') || path.startsWith('/share/') || path.startsWith('/demo') || path === '/privacy' || path === '/offline'
   if (publicPage) return <><PwaLifecycle />{children}<ThemeToggle /></>
-  return <div className={`mobile-app-shell${path === '/protocol' ? ' today-surface' : ''}`}>
+  return <div className={`mobile-app-shell${path === '/protocol' ? ` today-surface ${v2.theme}` : ''}`}>
     <PwaLifecycle />
     <OfflineBanner />
     {children}

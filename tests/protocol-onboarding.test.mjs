@@ -54,11 +54,23 @@ test('dismissal is per user and survives restricted session storage without stor
 test('each step validates its shared draft section without a later missing answer masking an error', () => {
   const value = createQuickStart(undefined, undefined, today)
   assert.equal(guidedStepIssue(value, 'compound', 0).field, 'name')
-  assert.equal(guidedStepIssue(value, 'dose', 0).field, 'dose')
+  assert.equal(guidedStepIssue(value, 'dose', 0).field, 'route')
   assert.equal(guidedStepIssue(value, 'schedule', 0).field, 'days_of_week')
   assert.equal(guidedStepIssue(value, 'start', 0), null)
   const draft = ready()
-  for (const field of ['dose', 'dose_unit', 'route']) assert.ok(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], [field]: '' }] }, 'dose', 0))
+  for (const field of ['dose', 'dose_unit']) {
+    const partial = { ...draft, compounds: [{ ...draft.compounds[0], [field]: '' }] }
+    assert.equal(guidedStepIssue(partial, 'dose', 0), null)
+    assert.equal(quickStartIssue(partial), null)
+  }
+  assert.equal(quickStartIssue({ ...draft, compounds: [{ ...draft.compounds[0], dose: '', dose_unit: '' }] }), null)
+  assert.equal(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], route: '' }] }, 'dose', 0).field, 'route')
+  for (const [field, entered] of [['dose', '-1'], ['dose_unit', 'g']]) {
+    const invalid = { ...draft, compounds: [{ ...draft.compounds[0], [field]: entered }] }
+    assert.equal(guidedStepIssue(invalid, 'dose', 0).field, field)
+    const missingRoute = { ...invalid, compounds: [{ ...invalid.compounds[0], route: '' }] }
+    assert.equal(guidedStepIssue(missingRoute, 'dose', 0).field, field)
+  }
   assert.ok(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], frequencyChoice: '3x' }] }, 'schedule', 0))
   for (const cycle_days of ['', '0', '8', '1.5', 'Infinity']) assert.ok(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], frequency_mode: 'rolling', cycle_days }] }, 'schedule', 0))
   assert.equal(quickStartIssue(draft), null)

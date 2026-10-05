@@ -23,10 +23,11 @@ export default function QuickProtocolFields({ value: c, onChange, issue, idPrefi
   return <div className="quick-fields">
     {(section === 'all' || section === 'dose') && <><div className="quick-dose" role="group" aria-label="Recorded amount" aria-describedby={issue?.field === 'input_mode' ? `${idPrefix}-method-error` : undefined}>
       {c.input_mode === 'medication' && amount('dose', c.route === 'SubQ' || c.route === 'IM' ? 'Dose per injection' : 'Medication dose', 'dose_unit', 'Medication dose unit', units)}
-      {c.input_mode === 'syringe' && c.route !== 'Oral' && <>
+      {(c.input_mode === 'syringe' || c.input_mode === 'unknown') && c.route !== 'Oral' && <>
         <QuickAmountField id={`${idPrefix}-syringe_markings`} label="Syringe markings" value={c.syringe_markings} onChange={value => update('syringe_markings', value)} unit={{ value: c.syringe_scale, label: 'Syringe scale', options: [['100', 'U-100'], ['40', 'U-40']], onChange: value => update('syringe_scale', value), placeholder: 'Choose scale' }} error={issue && ['syringe_markings', 'syringe_scale'].includes(issue.field) ? issue.message : null} invalid={issue?.field === 'syringe_scale' ? 'unit' : 'value'} helper="Syringe markings are not medication IU." />
       </>}
-      {c.input_mode === 'volume' && c.route !== 'Oral' && numeric('injection_volume', 'Injection volume', 'mL', 0, 'any', 'Injection volume (mL)')}
+      {(c.input_mode === 'volume' || c.input_mode === 'unknown') && c.route !== 'Oral' && numeric('injection_volume', 'Injection volume', 'mL', 0, 'any', 'Injection volume (mL)')}
+      {c.input_mode === 'unknown' && <p>That’s okay. Add what you know. You can save the facts you know now and clarify later.</p>}
       <button className="quick-text-action quick-method-toggle" type="button" aria-expanded={alternatives} aria-controls={`${idPrefix}-methods`} onClick={() => setAlternatives(!alternatives)}>I measure my dose another way<AppIcon name="chevron" size={14} /></button>
       {alternatives && <div id={`${idPrefix}-methods`} className="quick-methods"><QuickChoices describedBy={issue?.field === 'input_mode' ? `${idPrefix}-method-error` : undefined} label={c.input_mode === 'unknown' ? 'What measurement is on your instructions or syringe?' : 'Record dose as'} value={c.input_mode} options={c.route === 'Oral' ? [['medication', 'Medication dose'], ['unknown', 'I’m not sure']] : [["medication", c.input_mode === 'unknown' ? 'Medication dose (mg, mcg or IU)' : 'Medication dose'], ['syringe', 'Syringe markings'], ['volume', 'Injection volume'], ['unknown', 'I’m not sure']]} onChange={value => update('input_mode', value)} /></div>}
       <QuickStartError id={`${idPrefix}-method-error`} issue={issue?.field === 'input_mode' ? issue : null} />

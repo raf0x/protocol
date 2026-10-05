@@ -1,5 +1,9 @@
+'use client'
+
 import type { JournalEntryRow } from '../../lib/health/timeline'
+import { useState } from 'react'
 import { getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
+import { SecondaryAction } from '../app/DesignSystem'
 
 type ScoreField = 'mood' | 'energy' | 'hunger'
 // reverse: hunger runs the opposite direction from mood/energy — 1 (not hungry)
@@ -28,7 +32,8 @@ type Props = {
   onSleepChange: (value: string) => void
   onWeightChange: (value: string) => void
   onNotesChange: (value: string) => void
-  onSave: () => void
+  onSave: () => void | boolean | Promise<void | boolean>
+  onSaved?: () => void
 }
 
 // Most recent entry before today that logged this field. entries is already
@@ -46,8 +51,18 @@ function ScoreDelta({ current, prior }: { current: number | null; prior: number 
 
 export default function DailyCheckIn({
   today, entries, mood, energy, hunger, sleep, weight, notes, weightUnit, saving, saved, scoreError,
-  onScoreTap, onSleepChange, onWeightChange, onNotesChange, onSave,
+  onScoreTap, onSleepChange, onWeightChange, onNotesChange, onSave, onSaved,
 }: Props) {
+  const [saveError, setSaveError] = useState<string | null>(null)
+  async function save() {
+    setSaveError(null)
+    try {
+      if (await onSave() === false) throw new Error('Save failed')
+      onSaved?.()
+    } catch {
+      setSaveError('Your check-in wasn’t saved. Please try again.')
+    }
+  }
   const values: Record<ScoreField, number | null> = { mood, energy, hunger }
   return <div className="today-checkin">
     <div className="today-checkin-scores">
@@ -67,8 +82,9 @@ export default function DailyCheckIn({
         <label>Sleep (hrs)<input type="number" step="0.5" value={sleep} onChange={e => onSleepChange(e.target.value)} placeholder="7.5" /></label>
         <label>{`Weight (${getWeightLabel(weightUnit)})`}<input type="number" step="0.1" value={weight} onChange={e => onWeightChange(e.target.value)} placeholder="175" /></label>
       </div>
-      <textarea value={notes} onChange={e => onNotesChange(e.target.value)} placeholder="Notes…" rows={2} />
-      <button type="button" className="today-checkin-save" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : saved ? 'Update' : 'Save'}</button>
+      <textarea aria-label="Check-in notes" value={notes} onChange={e => onNotesChange(e.target.value)} placeholder="Notes…" rows={2} />
+      {saveError && <p className="today-checkin-save-error" role="alert">{saveError}</p>}
+      <SecondaryAction onClick={save} disabled={saving}>{saving ? 'Saving…' : saved ? 'Update' : 'Save'}</SecondaryAction>
     </div>
   </div>
 }

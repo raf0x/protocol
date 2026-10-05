@@ -3,6 +3,7 @@ import AppIcon from '../app/AppIcon'
 import { journalSnapshot } from '../../lib/health/today'
 import type { JournalEntryRow } from '../../lib/health/timeline'
 import { convertWeight, formatWeight, type WeightUnit } from '../../lib/weightUtils'
+import styles from '../../app/protocol/today-v2.module.css'
 
 export default function HealthTrendsCard({
   entries,
@@ -23,47 +24,35 @@ export default function HealthTrendsCard({
     formatWeight(convertWeight(value, 'lbs', unit), unit)
 
   return (
-    <section className="today-card" aria-labelledby="health-title">
+    <section className={`today-card ${styles.healthTrends}`} aria-labelledby="health-title">
       <div className="today-section-heading">
-        <h2 id="health-title">
-          <AppIcon name="health" />
-          Health trends
-        </h2>
-        <Link
-          href="/timeline?category=journal"
-          className="app-icon-button"
-          aria-label="View health timeline"
-        >
-          <AppIcon name="chevron" size={16} />
-        </Link>
+        <h2 id="health-title"><AppIcon name="health" />Health trends</h2>
       </div>
 
       {data.latest ? (
-        <div className="today-weight">
-          <div>
-            <span className="today-secondary">
-              Latest weight | {shortDate(data.latest.date)}
+        <div className={`today-weight ${styles.healthWeightRow}`}>
+          <p className={styles.healthWeight}>
+            <strong>{weight(data.latest.weight!)}</strong>{' '}
+            <button
+              type="button"
+              className="today-unit"
+              onClick={onToggleUnit}
+              aria-label={`Weight in ${unit}. Switch to ${unit === 'lbs' ? 'kg' : 'lbs'}`}
+            >
+              {unit}
+            </button>
+          </p>
+          {data.change !== null && data.first && (
+            <span className={`today-secondary ${styles.healthChange}`}>
+              {data.change > 0 ? '+' : data.change < 0 ? '-' : ''}
+              {weight(Math.abs(data.change))} {unit} since{' '}
+              <time dateTime={data.first.date}>{shortDate(data.first.date)}</time>
             </span>
-            <p>
-              <strong>{weight(data.latest.weight!)}</strong>{' '}
-              <button
-                type="button"
-                className="today-unit"
-                onClick={onToggleUnit}
-                aria-label={`Weight in ${unit}. Switch to ${unit === 'lbs' ? 'kg' : 'lbs'}`}
-              >
-                {unit}
-              </button>
-            </p>
-            {data.change !== null && data.first && (
-              <span className="today-secondary">
-                {data.change > 0 ? '+' : data.change < 0 ? '-' : ''}
-                {weight(Math.abs(data.change))} {unit} since{' '}
-                {shortDate(data.first.date)}
-              </span>
-            )}
-          </div>
-          <AppIcon name="health" size={40} />
+          )}
+          <span className={`today-secondary ${styles.healthLatest}`}>
+            Latest weight | <time dateTime={data.latest.date}>{shortDate(data.latest.date)}</time>
+          </span>
+          <span className={styles.healthBars}><AppIcon name="health" size={32} /></span>
         </div>
       ) : (
         <p className="today-empty">
@@ -74,13 +63,13 @@ export default function HealthTrendsCard({
       <div className="today-health-metrics">
         {(['energy', 'sleep', 'mood'] as const).map(key => (
           <div key={key}>
-            <span>{key}</span>
+            <span>{key === 'energy' ? 'Energy' : key === 'sleep' ? 'Sleep' : 'Mood'}</span>
             <strong>
               {data[key]
                 ? `${data[key]![key]} ${key === 'sleep' ? 'h' : '/5'}`
                 : 'Not logged'}
             </strong>
-            <small>{data[key] ? shortDate(data[key]!.date) : 'Not logged'}</small>
+            <small>{data[key] ? <time dateTime={data[key]!.date}>{shortDate(data[key]!.date)}</time> : 'Not logged'}</small>
           </div>
         ))}
       </div>

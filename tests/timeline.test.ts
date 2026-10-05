@@ -159,6 +159,17 @@ test('baseline prefers current raw entry over stale V1 columns and labels volume
   const raw=entryFromForm({input_mode:'volume',injection_volume:'0.5'})
   const active={...enriched.protocols,compounds:[{...enriched.compounds,phases:[{...phase,dose:999,dose_unit:'IU',dose_semantics_version:1,dosing_entry:raw}]}]}
   const baseline=deriveBaseline([active],[],[],'2026-09-09')
-  assert.equal(baseline.activeProtocols[0].compounds[0].details[0],'0.5 mL')
+  assert.match(baseline.activeProtocols[0].compounds[0].details[0],/0.5 mL.*Medication dose not calculated/)
   assert.match(baseline.activeProtocols[0].compounds[0].issue,/Medication dose not calculated/)
+})
+
+test('baseline keeps medication IU, medication mass, volume and unresolved syringe facts distinct',()=>{
+ const {entryFromForm}=awaitEntryModule
+ const active=(entry:any)=>({...enriched.protocols,compounds:[{...enriched.compounds,phases:[{...phase,end_week:null,dosing_entry:entry}]}]})
+ assert.equal(deriveBaseline([active(entryFromForm({input_mode:'medication',dose:'250',dose_unit:'IU'}))],[],[],'2026-09-09').activeProtocols[0].compounds[0].details[0],'250 IU')
+ assert.equal(deriveBaseline([active(entryFromForm({input_mode:'medication',dose:'2.5',dose_unit:'mg'}))],[],[],'2026-09-09').activeProtocols[0].compounds[0].details[0],'2.5 mg')
+ assert.match(deriveBaseline([active(entryFromForm({input_mode:'volume',injection_volume:'0.25'}))],[],[],'2026-09-09').activeProtocols[0].compounds[0].details[0],/^0.25 mL/)
+ const legacy={...enriched.protocols,compounds:[{...enriched.compounds,phases:[{...phase,end_week:null,dose:18,dose_unit:'IU',dose_semantics_version:null,syringe_units:18,syringe_scale:100}]}]}
+ const unresolved=deriveBaseline([legacy],[],[],'2026-09-09').activeProtocols[0].compounds[0]
+ assert.deepEqual(unresolved.details,[]);assert.match(unresolved.issue,/Legacy/);assert.doesNotMatch(JSON.stringify(unresolved),/18 IU/)
 })

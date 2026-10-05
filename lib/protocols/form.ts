@@ -1,4 +1,4 @@
-import { entryFromForm, type EntryMode } from '../health/dosingEntry'
+import { entryFormState, entryFromForm, type EntryMode } from '../health/dosingEntry'
 import { phaseEndWeek } from '../health/phaseLifecycle'
 import { isCalendarDate } from '../health/protocolDates'
 export type DefaultSource = 'previous' | 'session' | 'inventory' | 'handoff'
@@ -10,6 +10,8 @@ export type Compound = {
   manualName?: boolean
   durationSet?: boolean
   mixDateSet?: boolean
+  preserveSyringeScale?: boolean
+  preservedSyringeScale?: string
   id?: string
   phase_id?: string
   phase_start_week: string
@@ -67,10 +69,41 @@ export function updateCompoundDraft<K extends keyof Compound>(compound: Compound
   const next = { ...compound, [field]: value, origins: { ...compound.origins, [field]: 'session' as const } }
   if (field === 'input_mode') {
     if (value === 'syringe' && !next.syringe_markings) next.syringe_markings = next.legacy_value || ''
+    if (value === 'syringe' && !next.syringe_scale && !next.preserveSyringeScale) next.syringe_scale = '100'
     if (value === 'volume' && !next.injection_volume) next.injection_volume = next.legacy_value || ''
   }
-  if (['dose', 'dose_unit', 'input_mode', 'syringe_markings', 'syringe_scale', 'vial_strength', 'vial_unit', 'bac_water_ml', 'concentration_value', 'concentration_unit', 'injection_volume', 'vial_label'].includes(field)) next.reviewed = false
+  if (field === 'isPreMixed') next.preparation = value ? 'ready' : 'mixing'
+  if (['dose', 'dose_unit', 'input_mode', 'syringe_markings', 'syringe_scale', 'vial_strength', 'vial_unit', 'bac_water_ml', 'concentration_value', 'concentration_unit', 'injection_volume', 'vial_label', 'isPreMixed', 'preparation'].includes(field)) next.reviewed = false
   return next
+}
+
+export function phaseCompoundDraft(current: Compound, phase: Record<string, any>, preparation: Partial<Compound> = {}): Compound {
+  const frequency = typeof phase.frequency === 'string' ? phase.frequency : ''
+  const rolling = frequency.startsWith('every') && frequency.endsWith('days')
+  return {
+    ...current,
+    ...preparation,
+    phase_id: phase.id,
+    phase_start_week: String(phase.start_week || 1),
+    duration_weeks: phase.end_week == null ? '' : String(phase.end_week - (phase.start_week || 1) + 1),
+    route: phase.route || '',
+    days_of_week: phase.days_of_week || [],
+    frequency_mode: rolling ? 'rolling' : 'weekly',
+    cycle_days: rolling ? frequency.replace('every', '').replace('days', '') : '3',
+    time_of_day: phase.time_of_day ? phase.time_of_day[0].toUpperCase() + phase.time_of_day.slice(1) : '',
+    ...entryFormState(phase, preparation),
+  }
+}
+
+export function newPhaseCompoundDraft(current: Compound): Compound {
+  return {
+    ...current,
+    ...entryFormState(),
+    phase_id: undefined,
+    phase_start_week: String(Math.max(1, ...(current.phase_options || []).map(phase => (phase.end_week ?? phase.start_week) + 1))),
+    duration_weeks: '',
+    reviewed: false,
+  }
 }
 
 export function compoundFrequency(c: Compound) {

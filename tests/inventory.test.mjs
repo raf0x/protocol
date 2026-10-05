@@ -6,14 +6,21 @@ import ts from 'typescript'
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { reactHarness } from './helpers/reactHarness.mjs'
 
 const require = createRequire(import.meta.url), cache = new Map()
+const renderer = reactHarness()
 function load(path) {
   const url = new URL(path, import.meta.url)
   if (cache.has(url.href)) return cache.get(url.href)
   const code = ts.transpileModule(readFileSync(url,'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText
   const result = {exports:{}}
-  const resolve = name => name.endsWith('.css') ? {} : name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name+'.tsx',url)) ? '.tsx' : '.ts'),url).href) : require(name)
+  const resolve = name => {
+    if(name==='react') return {...React,...renderer.hooks}
+    if(name==='next/link') return {__esModule:true,default:props=>React.createElement('a',props)}
+    if(name.endsWith('/supabase')) return {createClient(){throw Error('No backend in Inventory navigation test')}}
+    return name.endsWith('.css') ? {} : name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name+'.tsx',url)) ? '.tsx' : '.ts'),url).href) : require(name)
+  }
   new Function('require','module','exports',code)(resolve,result,result.exports)
   cache.set(url.href,result.exports); return result.exports
 }
@@ -97,9 +104,21 @@ test('client requires confirmation, filters invalid/duplicate rows, keeps retry 
   await client.loadInventory(owned); await client.deleteInventoryItem('item',owned)
   assert.deepEqual(queries,[['user_id','owner'],['id','item'],['user_id','owner']])
 })
-test('Today exposes the independent Inventory route', () => {
-  const Header=load('../components/today/TodayHeader.tsx').default
-  assert.match(renderToStaticMarkup(React.createElement(Header,{date:'2026-09-21'})),/href="\/protocol\/inventory"/)
+test('integrated Today exposes an accessible Inventory link in the selected protocol snapshot', () => {
+  const Overview=load('../components/today/TodayOverview.tsx').default
+  const Hero=load('../components/dashboard/HeroProtocolCard.tsx').default
+  const protocol={id:'p',name:'Plan',status:'active',start_date:'2026-09-01',compounds:[{id:'c',name:'Recorded medication',phases:[]}]}
+  const detail=React.createElement(Hero,{snapshot:true,activeProtocols:[protocol],activeCompoundTab:'c',logs:{},allLogs:[],totalLost:null,compoundIndex:0})
+  renderer.reset()
+  const tree=renderer.render(React.createElement(Overview,{date:'2026-09-21',protocols:[protocol],events:[],entries:[],due:[],logs:{},saving:false,error:null,selected:'c',onSelect(){},onTaken(){},weightUnit:'lbs',onToggleUnit(){},detail}))
+  const nodes=node=>Array.isArray(node)?node.flatMap(nodes):node&&typeof node==='object'?[node,...nodes(node.props?.children)]:[]
+  const snapshot=nodes(tree).find(node=>node.props?.['aria-labelledby']==='selected-protocol-name')
+  assert.ok(snapshot,'The integrated Today surface includes the selected snapshot')
+  const links=nodes(snapshot).filter(node=>node.type==='a'&&node.props.href==='/protocol/inventory')
+  assert.equal(links.length,1)
+  assert.equal(links[0].props.children,'Inventory','Native link has an accessible name')
+  assert.notEqual(links[0].props['aria-hidden'],true)
+  assert.notEqual(links[0].props.tabIndex,-1)
 })
 
 function renderPreview(review) {

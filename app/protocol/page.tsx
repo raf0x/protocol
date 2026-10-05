@@ -10,9 +10,10 @@ import './manage/protocols.css'
 import TodayOverview from '../../components/today/TodayOverview'
 import TodayHeader from '../../components/today/TodayHeader'
 
-import StatsBoxes from '../../components/dashboard/StatsBoxes'
+import styles from './today-v2.module.css'
 import CompoundRings from '../../components/dashboard/CompoundRings'
 import DailyCheckIn from '../../components/today/DailyCheckIn'
+import DailyCheckInPrompt from '../../components/today/DailyCheckInPrompt'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { markOnboardingSeen, onboardingEligible, onboardingSeen } from '../../lib/protocols/onboarding'
@@ -39,6 +40,9 @@ export default function DashboardPage() {
   const [streakDays, setStreakDays] = useState(0)
   const [loadError, setLoadError] = useState(false)
   const [entries, setEntries] = useState<any[]>([])
+  const [checkInOwnerId, setCheckInOwnerId] = useState<string | null>(null)
+  const [checkInLoadedDate, setCheckInLoadedDate] = useState<string | null>(null)
+  const [checkInRecordedDate, setCheckInRecordedDate] = useState<string | null>(null)
   const [plannedProtocols, setPlannedProtocols] = useState<LibraryProtocol[]>([])
   const [activeProtocols, setActiveProtocols] = useState<any[]>([])
   const [scheduledProtocols, setScheduledProtocols] = useState<LibraryProtocol[]>([])
@@ -92,6 +96,15 @@ export default function DashboardPage() {
   }, [today])
 
   async function exportToCSV() {
+    // Calendar-only values are recorded days, not UTC instants. Keep the
+    // existing timestamp and injection-range semantics; only format CSV dates.
+    function csvProtocolDate(value: string, week = 1) {
+      const calendarOnly = /^\d{4}-\d{2}-\d{2}$/.test(value)
+      const date = new Date(calendarOnly ? value + 'T00:00:00' : value)
+      if (calendarOnly) date.setDate(date.getDate() + (week - 1) * 7)
+      else date.setTime(date.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000)
+      return date.toLocaleDateString('en-US')
+    }
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -131,7 +144,7 @@ export default function DashboardPage() {
             '-',
             '-',
             '-',
-            new Date(protocol.start_date).toLocaleDateString('en-US'),
+            csvProtocolDate(protocol.start_date),
             '-',
             totalInjections,
             vialsUsed,
@@ -159,8 +172,8 @@ export default function DashboardPage() {
               phase.dosing_entry ? dosingDisplay(phase).medication?.value ?? '' : phase.dose,
               phase.dosing_entry ? dosingDisplay(phase).medication?.unit ?? 'Uncalculated' : phase.dose_unit || '-',
               phase.frequency || '-',
-              phaseStart.toLocaleDateString('en-US'),
-              phaseEnd.toLocaleDateString('en-US'),
+              csvProtocolDate(protocol.start_date, phase.start_week || 1),
+              phase.end_week ? csvProtocolDate(protocol.start_date, phase.end_week) : phaseEnd.toLocaleDateString('en-US'),
               totalInjections,
               vialsUsed,
               mlPerDose
@@ -222,6 +235,7 @@ export default function DashboardPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
+    setCheckInOwnerId(user.id)
     
     // Only getUser() is a real dependency for the rest (they all need user.id via
     // the session, not a value from each other). Run the independent queries
@@ -252,6 +266,7 @@ export default function DashboardPage() {
     const js = journalResult.status === 'fulfilled' ? journalResult.value.data : null
     const journalError = journalResult.status === 'rejected' || !!journalResult.value.error
     setEntries(js || [])
+    setCheckInLoadedDate(journalError ? null : today)
     let streak = 0
     const today2 = new Date(); today2.setHours(0,0,0,0)
     for (let i = 0; i < 365; i++) {
@@ -351,7 +366,27 @@ export default function DashboardPage() {
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
   // Mood/Energy/Hunger save instantly on tap via saveJournalField below. This
   // now only covers the secondary, typed fields that still need an explicit confirm.
-  async function saveEntry() { try { navigator.vibrate(6) } catch(e) {} setSaving(true); const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setSaving(false); return }; const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }; if (sleep) row.sleep = parseFloat(sleep); if (weight) row.weight = convertWeight(parseFloat(weight), weightUnit, 'lbs'); await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' }); setSaving(false); setSaved(true); loadAll() }
+  async function saveEntry() {
+    try { navigator.vibrate(6) } catch(e) {}
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return false
+      const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }
+      if (sleep) row.sleep = parseFloat(sleep)
+      if (weight) row.weight = convertWeight(parseFloat(weight), weightUnit, 'lbs')
+      const { error } = await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' })
+      if (error) return false
+      setSaved(true)
+      loadAll()
+      return true
+    } catch {
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // Single-tap save for Mood/Energy/Hunger: a partial upsert touching only that
   // column, so it can never clobber Sleep/Weight/Notes. Optimistic update with a
@@ -370,6 +405,7 @@ export default function DashboardPage() {
       const { error } = await supabase.from('journal_entries').upsert({ user_id: user.id, date: today, [field]: value }, { onConflict: 'user_id,date' })
       if (error) throw error
       setSaved(true)
+      setCheckInRecordedDate(today)
     } catch {
       setValue(previousValue)
       setScoreError(previous => ({ ...previous, [field]: 'Not saved. Try again.' }))
@@ -380,6 +416,9 @@ export default function DashboardPage() {
 
   async function toggleWeightUnit() {
     const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
+    setWeight(draft => draft.trim() !== '' && Number.isFinite(Number(draft))
+      ? formatWeight(convertWeight(Number(draft), weightUnit, newUnit), newUnit)
+      : draft)
     setWeightUnit(newUnit)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -398,70 +437,54 @@ export default function DashboardPage() {
     setActiveCompoundTab(id)
   }
 
-  if (loading) return <main className="today-main"><div className="today-container"><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
+  if (loading) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
 
-  if (loadError) return <main className="today-main"><div className="today-container"><TodayHeader date={today} /><div className="today-card today-error" role="alert">Your day couldn’t be loaded. Your saved data hasn’t changed.<br /><button className="today-text-link" onClick={() => loadAll()}>Try again</button></div></div></main>
+  if (loadError) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card today-error" role="alert">Your day couldn’t be loaded. Your saved data hasn’t changed.<br /><button className="today-text-link" onClick={() => loadAll()}>Try again</button></div></div></main>
 
 
   return (
-    <main className="today-main">
-      <div className="today-container">
+    <main className={`today-main ${styles.page}`}>
+      <div className={styles.container}>
         <TodayOverview
           date={today} protocols={activeProtocols} events={protocolEvents} entries={entries}
           due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
           error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
-          weightUnit={weightUnit} onToggleUnit={toggleWeightUnit}
-          stats={<StatsBoxes
-            currentWeight={lw ?? null}
-            totalLost={tl ? Number(tl) : 0}
-            weightStartDate={we[0]?.date ?? null}
-            dueCompounds={dueCompounds.map(c => ({ id: c.id, name: c.name }))}
-            weightUnit={weightUnit}
-            onToggleUnit={toggleWeightUnit}
-          />}
+          weightUnit={weightUnit} onToggleUnit={toggleWeightUnit} onSelect={selectCompound}
+          onExportCSV={exportToCSV}
+          warning={missedDoses.length > 0 && (
+            <div className={`${styles.notice} ${styles.warningNotice}`}>
+              <div>
+                <strong>You may have missed a dose today</strong>
+                <p>{missedDoses.join(', ')} {missedDoses.length === 1 ? 'was' : 'were'} due but not logged. Review Today’s focus or Schedule / logs.</p>
+              </div>
+            </div>
+          )}
           rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
           detail={activeProtocols.length > 0 && <HeroProtocolCard
+            snapshot
             activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl}
             compoundIndex={activeProtocols.flatMap((p: any) => p.compounds || []).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
           />}
-          schedule={<>
-            <WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />
-            {activeProtocols.length > 0 && (
-              <div style={{display:'flex',gap:'8px',margin:'8px 0 16px',justifyContent:'flex-end'}}>
-                <button type="button" onClick={exportToCSV} style={{background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',cursor:'pointer'}}>↓ Export CSV</button>
-                <a href='/protocol/manage' style={{background:cb,color:dg,border:'1px solid '+bd,borderRadius:'8px',padding:'8px 14px',fontSize:'12px',fontWeight:'600',textDecoration:'none',display:'inline-flex',alignItems:'center'}}>→ My Protocols</a>
-              </div>
-            )}
-          </>}
-          checkin={<DailyCheckIn
+          schedule={<WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />}
+          checkin={<DailyCheckInPrompt key={today} date={today} ownerId={checkInLoadedDate === today ? checkInOwnerId : null} recorded={checkInRecordedDate === today || entries.some(entry => entry.date === today)}>{dismiss => <DailyCheckIn
             today={today} entries={entries} mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight}
             notes={entryNotes} weightUnit={weightUnit} saving={saving} saved={saved} scoreError={scoreError}
-            onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry}
-          />}
+            onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry} onSaved={dismiss}
+          />}</DailyCheckInPrompt>}
         />
 
         <PlannedProtocols protocols={plannedProtocols} onActivated={() => void loadAll(true)} />
         {!!scheduledProtocols.length && <section className="today-card"><h2>Scheduled protocols</h2>{scheduledProtocols.map(protocol => <p key={protocol.id}><a className="today-text-link" href={`/protocol/manage?protocol=${protocol.id}`}>{protocol.name}</a> · Starts {protocol.start_date}</p>)}</section>}
 
         {hasDemoCompounds && (
-          <div style={{background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
-            <span style={{fontSize:'16px',flexShrink:0}}>👋</span>
+          <div className={styles.notice}>
             <div>
-              <span style={{fontSize:'12px',fontWeight:'700',color:g,display:'block',marginBottom:'2px'}}>Delete these samples and create your real protocols</span>
-              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>These are demo compounds. Click on <a href="/protocol/manage" style={{color:g,fontWeight:'600',textDecoration:'none',borderBottom:'1px solid '+g}}>+ Add/Edit Protocol</a> to delete demo compounds and start tracking your stack.</span>
+              <strong>These are sample protocols</strong>
+              <p><a href="/protocol/manage" className="today-text-link">Manage protocols</a> to remove samples and add your own.</p>
             </div>
           </div>
         )}
 
-        {missedDoses.length > 0 && (
-          <div style={{background:'rgba(249,115,22,0.08)',border:'1px solid rgba(249,115,22,0.3)',borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',alignItems:'flex-start',gap:'10px'}}>
-            <span style={{fontSize:'16px',flexShrink:0}}>⚠️</span>
-            <div>
-              <span style={{fontSize:'12px',fontWeight:'700',color:'#f97316',display:'block',marginBottom:'2px'}}>Looks like you may have missed a dose today</span>
-              <span style={{fontSize:'12px',color:'var(--color-dim)'}}>{missedDoses.join(', ')} {missedDoses.length === 1 ? 'was' : 'were'} due but not logged. Tap the compound tab to log it.</span>
-            </div>
-          </div>
-        )}
       </div>
     </main>
   )

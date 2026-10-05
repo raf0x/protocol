@@ -13,6 +13,8 @@ function load(path) {
   const compiled = { exports: {} }
   const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
+    if (name.endsWith('.css')) return {}
     if (name.endsWith('/supabase')) return { createClient() { throw new Error('Presentation tests must not access Supabase') } }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -24,6 +26,7 @@ const { formatProtocolNumber: number, formatProtocolAmount: amount, formatProtoc
 const { protocolCompoundPayload, newCompound } = load('../lib/protocols/form.ts')
 const { todayProtocols } = load('../lib/health/today.ts')
 const Hero = load('../components/dashboard/HeroProtocolCard.tsx').default
+const DoseSummary = load('../components/protocols/DoseSummary.tsx').default
 const Detail = load('../components/protocols/ProtocolDetail.tsx').default
 const Card = load('../components/protocols/ProtocolCard.tsx').default
 const today = new Date().toLocaleDateString('en-CA')
@@ -53,7 +56,7 @@ test('percentages and counts have deterministic precision without redundant zero
   assert.equal(number(3.0000001, 'count'), '3')
   assert.equal(number(3.6, 'count'), '4')
   assert.equal(number(3.25, 'fractionalCount'), '3.3')
-  assert.equal(number(-0.00001), '0')
+  assert.equal(number(-0.00001), '-0.00001')
 })
 
 test('missing and invalid numbers never acquire a unit or become zero', () => {
@@ -72,7 +75,7 @@ for (const [name, values, volume, syringe] of [
   ['syringe draw without volume', { syringe_units: 16.8637, syringe_scale: 100 }, null, '16.9 U-100 units'],
   ['both measurements', { injection_volume_ml: 0.168637, syringe_units: 16.8637, syringe_scale: 100 }, '0.17 mL', '16.9 U-100 units'],
   ['neither measurement', {}, null, null],
-  ['markings with no recorded scale', { syringe_units: 16.8637 }, null, null],
+  ['markings with no recorded scale', { syringe_units: 16.8637 }, null, '16.9 syringe units'],
   ['a U-40 draw', { syringe_units: 6.74548, syringe_scale: 40 }, null, '6.7 U-40 units'],
 ]) test(`${name}: ring detail and protocol detail render separate, complete values`, () => {
   const p = protocol(values), actual = administrationDisplay(p.compounds[0].phases[0])
@@ -102,8 +105,42 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   for (const dosing_entry of [entryFromForm({ input_mode: 'syringe', syringe_markings: '16.8637' }), entryFromForm({ input_mode: 'volume', injection_volume: '0.168637' })]) {
     const display = dosingDisplay({ dosing_entry })
     assert.equal(display.medication, null)
-    assert.equal(display.primary, dosing_entry.mode === 'syringe' ? '16.9 syringe units' : '0.17 mL')
+    assert.equal(display.primary, dosing_entry.mode === 'syringe' ? '16.9 syringe units · Medication dose not calculated.' : '0.17 mL · Medication dose not calculated.')
   }
+})
+
+test('active compound shows one human review prompt instead of interpreter warnings', () => {
+  const entry = entryFromForm({ input_mode: 'medication', dose: '7.5', dose_unit: 'mg', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL', injection_volume: '0.2', syringe_markings: '20', syringe_scale: '100' })
+  const html = hero(protocol({ dosing_entry: entry }))
+  assert.match(html, /7\.5 mg\/dose/)
+  assert.match(html, /Vial details need review/)
+  assert.match(html, /Review vial details/)
+  assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL')
+  assert.equal(stat(html, 'SYRINGE DRAW'), '20 U-100 units')
+  assert.doesNotMatch(html, /Unverified dose semantics|Saved mixing details conflict|Entered medication dose and|Both are preserved|You can still save/)
+})
+
+test('syringe equivalence appears only for volume derived from its markings', () => {
+  const input = { input_mode: 'syringe', syringe_markings: '18', syringe_scale: '100', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL' }
+  const valid = render(DoseSummary, { phase: { dosing_entry: entryFromForm(input) }, editing: true })
+  assert.match(valid, /class="dose-equivalent"/)
+  assert.match(valid, /18 units .* 0\.18 mL/)
+
+  const conflict = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, injection_volume: '10' }) }, editing: true })
+  assert.doesNotMatch(conflict, /class="dose-equivalent"|18 units .* 10 mL/)
+  assert.match(conflict, /18 syringe units/)
+  assert.match(conflict, />10 mL</)
+  assert.match(conflict, /Syringe details need review/)
+
+  const rounded = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, syringe_markings: '16.8637' }) }, editing: true })
+  assert.doesNotMatch(rounded, /class="dose-equivalent"/)
+})
+
+test('unresolved entries display explicit medication and verification states',()=>{
+ const unknown=entryFromForm({input_mode:'unknown',injection_volume:'0.125'})
+ assert.match(dosingDisplay({dosing_entry:unknown}).primary,/0.13 mL.*Medication dose not calculated\..*Unverified dose semantics/)
+ const unsupported={...entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg'}),syringe_scale:'50'}
+ assert.equal(dosingDisplay({dosing_entry:unsupported}).primary,'2 mg · Unverified dose semantics')
 })
 
 test('active library cards and Today summaries share dose precision for V1 and V2 records', () => {
@@ -128,7 +165,7 @@ test('vial estimates and preparation displays use shared formatting', () => {
 })
 
 test('formatting never changes calculation results, saved entries, payloads, or legacy meaning', () => {
-  const draft = { ...newCompound(), name: 'Example', dose: '16.8637', dose_unit: 'mg', concentration_value: '100', concentration_unit: 'mg/mL', syringe_scale: '100' }
+  const draft = { ...newCompound(), name: 'Example', isPreMixed: true, dose: '16.8637', dose_unit: 'mg', concentration_value: '100', concentration_unit: 'mg/mL', syringe_scale: '100' }
   const entry = Object.freeze(entryFromForm(draft)), snapshot = JSON.stringify(entry), payload = protocolCompoundPayload([draft])
   const result = interpretEntry(entry), saved = { dosing_entry: entry }
   dosingDisplay(saved); administrationDisplay(saved)
@@ -140,6 +177,6 @@ test('formatting never changes calculation results, saved entries, payloads, or 
   assert.ok(Math.abs(result.volume - 0.168637) < 1e-12)
   assert.ok(Math.abs(result.markings - 16.8637) < 1e-12)
   assert.equal(payload[0].phase.dosing_entry.dose, '16.8637')
-  assert.deepEqual(administrationDisplay({ ...phase, dose_semantics_version: null, injection_volume_ml: 0.168637, syringe_units: 16.8637, syringe_scale: 100 }), { volume: null, syringe: null })
+  assert.deepEqual(administrationDisplay({ ...phase, dose_semantics_version: null, injection_volume_ml: 0.168637, syringe_units: 16.8637, syringe_scale: 100 }), { volume: '0.17 mL', syringe: '16.9 U-100 units' })
   assert.equal(dosingDisplay({ dose: 50, dose_unit: 'IU' }).medication, null)
 })

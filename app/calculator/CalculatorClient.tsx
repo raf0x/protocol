@@ -29,7 +29,7 @@ function SyringeVisual({ units }: { units: number }) {
         <rect x='14' y='16' width='32' height='8' rx='2' fill='#2a2a4e' stroke='#6b6b9c' strokeWidth='1'/>
         <rect x='26' y='8' width='8' height='12' rx='2' fill='#6b6b9c'/>
       </svg>
-      {units > 0 && <span style={{fontSize:'11px',color:'#8b8ba7'}}>U-100 syringe</span>}
+      {units > 0 && <span style={{fontSize:'11px',color:'#8b8ba7'}}>U-100 scale · 1 mL / 100-marking syringe example</span>}
     </div>
   )
 }
@@ -64,7 +64,7 @@ function getWarnings(dose: number | null, strength: number | null, water: number
     if (water < 0.5) warnings.push({ text: 'Less than 0.5mL BAC water creates a very concentrated solution. Ensure your vial size supports this.', level: 'warn' })
     if (water > 5) warnings.push({ text: 'More than 5mL BAC water dilutes the peptide significantly and reduces shelf stability.', level: 'warn' })
   }
-  if (units > 100) warnings.push({ text: 'This draw exceeds U-100 syringe capacity (100 units). Use less BAC water to increase concentration.', level: 'error' })
+  if (units > 100) warnings.push({ text: 'This draw exceeds the 1 mL / 100-marking syringe example. U-100 is a scale, not a capacity. Use less BAC water to increase concentration.', level: 'error' })
   if (units > 0 && units < 2) warnings.push({ text: 'Draw volume under 2 units is too small to measure accurately. Small errors become large dose errors.', level: 'error' })
   if (units >= 2 && units < 5) warnings.push({ text: 'Draw under 5 units is difficult to measure precisely. Consider using less BAC water.', level: 'warn' })
   const concentration = (strength * 1000) / water
@@ -275,7 +275,7 @@ export default function ReconstitutionCalculator() {
             </div>
           </div>
           <p style={{fontSize:'11px',color:mg,marginTop:'16px',lineHeight:'1.5'}}>
-  For U-100 insulin syringes only. Calculation tool for reference. Not medical advice — always consult a healthcare provider and verify all measurements independently.
+  Uses the U-100 scale (100 markings per mL); syringe capacity is separate. Calculation tool for reference. Not medical advice — always consult a healthcare provider and verify all measurements independently.
 </p>
 
           {hasAll && (
