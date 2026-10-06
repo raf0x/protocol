@@ -237,6 +237,8 @@
   .dailySummary .focusTitleIcon { width: 16px; height: 16px; }
   .dailySummary .focusCount { justify-content: flex-start; min-height: 24px; font-size: 9px; line-height: 12px; text-align: left; }
   .dailySummary .nextDose { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 6px; }
+  .dailySummary .doseDetails { text-align: center; }
+  .dailySummary .doseEyebrow { display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; gap: 0; }
   .dailySummary .doseCopy h3, .dailySummary .doseAmount { font-size: 14px; line-height: 20px; }
   .dailySummary .markTaken { justify-self: center; }
   .dailySummary .focusSupport { flex-wrap: wrap; gap: 4px; }
@@ -279,6 +281,10 @@
   .dailySummary .focusSupport:not(:empty) { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 2px; }
   .dailySummary .doseNavigation { justify-content: center; }
   .dailySummary .focusProgress { width: 100%; }
+}
+@media (min-width: 1200px) {
+  .dailySummary .nextDose { grid-template-columns: fit-content(65%) minmax(85px, 1fr); column-gap: 0; }
+  .dailySummary .markTaken { justify-self: center; }
 }
 @media (max-height: 620px) {
   .checkinPanelHeader { padding-block: 6px 8px; }

@@ -117,6 +117,19 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
       check(review.scrollWidth<=review.clientWidth&&lines[0].left>=panel.getBoundingClientRect().left&&lines[0].right<=panel.getBoundingClientRect().right,'Warning fully visible ${theme} ${width}');
       check(copy.contains(review)&&copy.getAttribute('aria-live')==='polite','Warning remains in dose announcement ${theme} ${width}');
       const panelBox=panel.getBoundingClientRect(),focusBox=focus.getBoundingClientRect(),markBox=mark.getBoundingClientRect();
+      if(${width}===390){
+        const center=(panelBox.left+panelBox.right)/2,eyebrowText=document.createRange(),timeText=document.createRange();
+        eyebrowText.selectNodeContents(eyebrow.lastChild);timeText.selectNodeContents(time);
+        const eyebrowBox=eyebrowText.getBoundingClientRect(),timeBox=timeText.getBoundingClientRect(),nameBox=focus.querySelector('h3').getBoundingClientRect(),amountBox=focus.querySelector('[class$="_doseAmount"]').getBoundingClientRect();
+        check(Math.abs((eyebrowBox.left+eyebrowBox.right)/2-center)<1,'Mobile Next dose text centered ${theme}');
+        check(Math.abs((nameBox.left+amountBox.right)/2-center)<1,'Mobile medication centered ${theme}');
+        check(Math.abs((timeBox.left+timeBox.right)/2-center)<1,'Mobile timing centered ${theme}');
+        check(getComputedStyle(review).textAlign==='left'&&Math.abs(lines[0].left-panelBox.left-7)<1&&getComputedStyle(review).fontSize==='12px'&&getComputedStyle(review).lineHeight==='16px','Mobile warning alignment and size unchanged ${theme}');
+      }
+      if(${width}===1440){
+        const doseRight=focus.querySelector('[class$="_doseAmount"]').getBoundingClientRect().right,buttonCenter=(markBox.left+markBox.right)/2;
+        check(Math.abs(buttonCenter-(doseRight+panelBox.right)/2)<5,'Desktop action centered between medication and panel edge ${theme}: '+JSON.stringify({doseRight,buttonCenter,panelRight:panelBox.right}));
+      }
       check(panelBox.width<=360&&Math.abs((panelBox.left+panelBox.right-focusBox.left-focusBox.right)/2)<1,'Dose panel centered and bounded ${theme} ${width}');
       if(${width}===1440)check(panelBox.width<focusBox.width*.9,'Desktop green panel is narrower ${theme}');
       if(${width}===390)check(markBox.width<=110&&markBox.width<panelBox.width*.8,'Mobile action fits its label ${theme}');
