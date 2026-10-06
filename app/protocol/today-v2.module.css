@@ -157,7 +157,7 @@
 .healthTrends { width: 100%; max-width: 480px; --app-surface: var(--today-card); --app-surface-raised: var(--today-raised); }
 .dailySummary .healthTrends { display: flex; flex-direction: column; max-width: none; padding: 8px; border-radius: 16px; }
 .dailySummary :global(.today-section-heading) { min-height: 28px; flex-wrap: nowrap; gap: 6px; margin-bottom: 2px; }
-.dailySummary :global(.today-section-heading) h2 { min-width: 0; gap: 4px; font-size: 14px; line-height: 18px; }
+.dailySummary :global(.today-section-heading) h2 { min-width: 0; gap: 4px; font-size: 14px; line-height: 20px; }
 .dailySummary :global(.today-section-heading) h2 svg { width: 16px; height: 16px; }
 .dailySummary :global(.today-section-heading) > a { width: 28px; height: 28px; }
 .dailySummary :global(.today-weight) { padding-block: 2px; text-align: center; }
@@ -221,6 +221,7 @@
 @media (max-width: 599px) {
   .dailySummary { gap: 8px; }
   .dailySummary .healthTrends, .dailySummary .focus { padding: 8px; }
+  .dailySummary :global(.today-section-heading) { align-items: flex-start; }
   .dailySummary :global(.today-section-heading) h2 { font-size: 12px; line-height: 16px; }
   .dailySummary :global(.today-section-heading) h2 svg { width: 14px; height: 14px; }
   .dailySummary :global(.today-section-heading) > a { width: 28px; height: 28px; }
