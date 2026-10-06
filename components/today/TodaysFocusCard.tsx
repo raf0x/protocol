@@ -57,12 +57,13 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
         const target = pending[index + (dx < 0 ? 1 : -1)]
         if (target) setSelectedId(target.id)
       }}>
-      <span className={styles.doseIcon}><AppIcon name="protocols" size={18} /></span>
       <div className={styles.doseCopy} aria-live="polite" aria-atomic="true">
         <span className={styles.visuallyHidden}>{index === 0 ? 'Next scheduled dose today' : 'Scheduled dose today'}</span>
-        <span className={styles.doseEyebrow}>{index === 0 ? 'Next dose' : 'Scheduled dose'}</span>
-        <div className={styles.doseContext}><h3>{next.name}</h3><p className={styles.doseAmount}>{doseText}</p></div>
-        <span className={styles.dueTime}>{next.time_of_day?.trim() ? `Today · ${next.time_of_day.trim()}` : 'Time not set'}</span>
+        <div className={styles.doseDetails}>
+          <span className={styles.doseEyebrow}><span className={styles.doseIcon}><AppIcon name="protocols" size={16} /></span>{index === 0 ? 'Next dose' : 'Scheduled dose'}</span>
+          <div className={styles.doseContext}><h3>{next.name}</h3><p className={styles.doseAmount}>{doseText}</p></div>
+          <span className={styles.dueTime}>{next.time_of_day?.trim() ? `Today · ${next.time_of_day.trim()}` : 'Time not set'}</span>
+        </div>
         {review && <p className={styles.focusReview}>{review}</p>}
       </div>
       <PrimaryAction className={styles.markTaken} disabled={saving} onClick={() => onTaken(next.id)}>{saving ? 'Saving…' : 'Mark taken'}</PrimaryAction>
