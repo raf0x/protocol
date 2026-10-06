@@ -158,7 +158,7 @@ export default function VialInventory({ presentation, compoundId, compoundName, 
 
       {presentation === 'status' ? <div className="vial-lifecycle">
         <span className="vial-lifecycle-title">VIAL STATUS</span>
-        <span className="vial-lifecycle-status">{statusText}</span>
+        <span className="vial-lifecycle-status" data-expired={hasLifecycle && daysElapsed >= expiryDays}>{statusText}</span>
         {activeVial && <div className="vial-lifecycle-track" role="progressbar" aria-label="Vial age" aria-valuemin={0} aria-valuemax={expiryDays} aria-valuenow={daysElapsed} aria-valuetext={statusText}>
           <div style={{width:`${progress}%`,height:'100%',background:barColor}} />
         </div>}

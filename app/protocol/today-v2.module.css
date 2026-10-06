@@ -121,6 +121,7 @@
 .selectedSnapshot :global(.vial-lifecycle) { display: grid; justify-items: center; gap: 6px; min-width: 0; text-align: center; }
 .selectedSnapshot :global(.vial-lifecycle-title) { color: var(--v2-meta); font-size: 10px; line-height: 14px; font-weight: 800; letter-spacing: 1px; }
 .selectedSnapshot :global(.vial-lifecycle-status) { color: var(--v2-text); font-size: 11px; line-height: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.selectedSnapshot :global(.vial-lifecycle-status[data-expired='true']) { color: var(--v2-error); }
 .selectedSnapshot :global(.vial-lifecycle-track) { width: 80%; height: 4px; border-radius: 3px; overflow: hidden; background: var(--v2-secondary-surface); }
 .selectedSnapshot :global(.vial-new-button) { justify-self: center; min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--v2-success); border-radius: 8px; background: var(--v2-secondary-surface); color: var(--v2-success); font-size: 11px; font-weight: 700; cursor: pointer; }
 .selectedSnapshot :global(.vial-new-button):disabled { cursor: wait; }

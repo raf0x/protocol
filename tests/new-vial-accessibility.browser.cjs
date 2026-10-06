@@ -175,6 +175,8 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
     check(title.textContent==='VIAL STATUS'&&card.querySelectorAll('.vial-lifecycle-title').length===1&&!card.textContent.includes('Vial lifecycle')&&!card.textContent.includes('VIAL LIFECYCLE'),'single status label in rail '+label);
     check(status.textContent===({1:'Day 12 of 28 · 16 days left',2:'Not recorded',3:'Not recorded',4:'Expired 26 days ago',5:'Expired today'}[number]),'human status copy '+label);
     check(!rail.closest('[aria-hidden=true]')&&!b.closest('[aria-hidden=true]'),'status and action accessible '+label);
+    const light=document.documentElement.dataset.theme==='light',expired=number===4||number===5;
+    check(getComputedStyle(status).color===(expired?(light?'rgb(179, 46, 60)':'rgb(255, 153, 159)'):(light?'rgb(23, 33, 50)':'rgb(244, 247, 251)')),'expired status red; active and missing status retain readable normal text '+label);
     check(Boolean(track)===(number===1),'only active vial has age progress '+label);
     if(track){check(getComputedStyle(track).display!=='none'&&track.getBoundingClientRect().height>0,'active progress visible '+label);check(track.getAttribute('aria-label')==='Vial age'&&track.getAttribute('aria-valuenow')==='12'&&track.getAttribute('aria-valuemax')==='28','age progress semantics '+label);check(vial.textContent.includes('25%'),'quantity percentage preserved separately '+label);}
     const bounds=rail.getBoundingClientRect(),factBox=facts.getBoundingClientRect(),visualBox=vial.getBoundingClientRect(),titleBox=title.getBoundingClientRect(),statusBox=status.getBoundingClientRect(),buttonBox=b.getBoundingClientRect();
