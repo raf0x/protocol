@@ -5,6 +5,7 @@ import { formatProtocolAmount } from '../../lib/health/dosingEntry'
 import styles from './VialInventory.module.css'
 
 type Props = {
+  presentation?: 'status'
   compoundId: string
   compoundName: string
   reconstitutionDate?: string
@@ -13,7 +14,7 @@ type Props = {
   vialUnit?: string
 }
 
-export default function VialInventory({ compoundId, compoundName, reconstitutionDate, bacWaterMl, vialStrength, vialUnit }: Props) {
+export default function VialInventory({ presentation, compoundId, compoundName, reconstitutionDate, bacWaterMl, vialStrength, vialUnit }: Props) {
   const [count, setCount] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -109,8 +110,13 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
   const progress = daysElapsed !== null ? Math.min(100, (daysElapsed / expiryDays) * 100) : 0
   const barColor = progress < 50 ? '#22c55e' : progress < 80 ? '#f59e0b' : '#ef4444'
   const strengthChanged = newVialStrength && vialStrength && parseFloat(newVialStrength) !== vialStrength
+  const activeVial = hasLifecycle && daysElapsed >= 0 && daysElapsed < expiryDays
+  const statusText = !hasLifecycle ? 'Not recorded'
+    : daysElapsed >= expiryDays
+      ? daysElapsed === expiryDays ? 'Expired today' : `Expired ${daysElapsed - expiryDays} ${daysElapsed - expiryDays === 1 ? 'day' : 'days'} ago`
+      : `Day ${daysElapsed} of ${expiryDays} · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`
 
-  if (loading) return <div className="vial-inventory" style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--color-border)',fontSize:'11px',color:'var(--color-muted)'}}>Loading...</div>
+  if (loading && presentation !== 'status') return <div className="vial-inventory" style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--color-border)',fontSize:'11px',color:'var(--color-muted)'}}>Loading...</div>
 
   return (
     <div className="vial-inventory" style={{marginTop:'10px',paddingTop:'10px',borderTop:'1px solid var(--color-border)'}}>
@@ -150,8 +156,14 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         </dialog>
       )}
 
-      {/* Vial lifecycle: label, day badge, and the new-vial trigger on one row; bar underneath */}
-      <div className="vial-lifecycle">
+      {presentation === 'status' ? <div className="vial-lifecycle">
+        <span className="vial-lifecycle-title">VIAL STATUS</span>
+        <span className="vial-lifecycle-status">{statusText}</span>
+        {activeVial && <div className="vial-lifecycle-track" role="progressbar" aria-label="Vial age" aria-valuemin={0} aria-valuemax={expiryDays} aria-valuenow={daysElapsed} aria-valuetext={statusText}>
+          <div style={{width:`${progress}%`,height:'100%',background:barColor}} />
+        </div>}
+        <button ref={triggerRef} className="vial-new-button" onClick={handleNewVial} disabled={loading} aria-haspopup="dialog" aria-controls={showNewVial ? dialogId : undefined}>+ New Vial</button>
+      </div> : <div className="vial-lifecycle">
         <div className="vial-lifecycle-toolbar" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:hasLifecycle ? '6px' : '0',gap:'8px',flexWrap:'wrap'}}>
           <span className="vial-lifecycle-title" style={{fontSize:'10px',fontWeight:'700',color:'var(--color-muted)',letterSpacing:'1px'}}>VIAL LIFECYCLE</span>
           {hasLifecycle && <span className="vial-lifecycle-status" style={{fontSize:'13px',fontWeight:'700',color:barColor}}>
@@ -164,7 +176,7 @@ export default function VialInventory({ compoundId, compoundName, reconstitution
         {hasLifecycle && <div className="vial-lifecycle-track" style={{width:'100%',height:'6px',background:'var(--color-surface)',borderRadius:'3px',overflow:'hidden',border:'1px solid var(--color-border)'}}>
           <div style={{width:`${progress}%`,height:'100%',background:barColor,transition:'width 0.3s ease, background 0.3s ease'}} />
         </div>}
-      </div>
+      </div>}
     </div>
   )
 }

@@ -144,6 +144,7 @@ for (const snapshot of [true, false]) test(`${snapshot ? 'Today snapshot' : 'Leg
     assert.equal(inventory.type, f.InventoryBoundary)
     assert.equal(inventory.props.compoundId, compound.id)
     assert.equal(inventory.props.compoundName, compound.name)
+    assert.equal(inventory.props.presentation, snapshot ? 'status' : undefined, 'Status polish is scoped to Today')
     assert.equal(inventory.props.reconstitutionDate, compound.reconstitution_date)
     assert.equal(inventory.props.bacWaterMl, compound.bac_water_ml ?? 0)
     assert.equal(inventory.props.vialStrength, compound.vial_strength)
@@ -206,6 +207,40 @@ function vialFixture(t, { props = {}, stock: initialStock = 2 } = {}) {
   }
 }
 const textContent = tree => Array.isArray(tree) ? tree.map(textContent).join('') : tree && typeof tree === 'object' ? textContent(tree.props?.children) : tree == null || typeof tree === 'boolean' ? '' : String(tree)
+for (const scenario of [
+  { date: '2026-09-23', status: 'Day 12 of 28 · 16 days left', day: 12 },
+  { date: '2026-10-05', status: 'Day 0 of 28 · 28 days left', day: 0 },
+  { date: '2026-09-08', status: 'Day 27 of 28 · 1 day left', day: 27 },
+  { date: '2026-08-12', status: 'Expired 26 days ago' },
+  { date: '2026-09-06', status: 'Expired 1 day ago' },
+  { date: '2026-09-07', status: 'Expired today' },
+  { date: undefined, status: 'Not recorded' },
+  { date: '', status: 'Not recorded' },
+  { date: 'invalid', status: 'Not recorded' },
+]) test(`Today vial status: ${scenario.date ?? 'missing'} renders ${scenario.status}`, async t => {
+  t.mock.method(Date, 'now', () => new Date('2026-10-05T12:00:00').getTime())
+  const f = vialFixture(t, { props: { presentation: 'status', reconstitutionDate: scenario.date } })
+  assert.ok(f.button('+ New Vial'), 'The action remains visible while inventory loads')
+  assert.equal(f.button('+ New Vial').props.disabled, true, 'Wait for real inventory before opening')
+  await f.ready()
+  const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
+  assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL STATUS')
+  assert.equal(textContent(find('vial-lifecycle-status')), scenario.status)
+  assert.doesNotMatch(textContent(tree), /VIAL LIFECYCLE|EXPIRED|NaN/)
+  assert.equal(f.button('+ New Vial').props.disabled, false)
+  const track = find('vial-lifecycle-track')
+  assert.equal(Boolean(track), scenario.day !== undefined)
+  if (track) {
+    assert.equal(track.props['aria-label'], 'Vial age')
+    assert.equal(track.props['aria-valuenow'], scenario.day)
+    assert.equal(track.props['aria-valuemax'], 28)
+    assert.ok(Math.abs(parseFloat(track.props.children.props.style.width) - scenario.day / 28 * 100) < .001)
+  }
+  await f.open()
+  assert.ok(nodes(f.draw()).some(node => node.type === 'dialog'), 'All statuses open the existing confirmation')
+  assert.deepEqual(f.writes, [])
+})
+
 for (const scenario of [
   { name: 'recorded date', props: { reconstitutionDate: '2026-09-30' }, lifecycle: true },
   { name: 'expired date', lifecycle: true, expired: true },

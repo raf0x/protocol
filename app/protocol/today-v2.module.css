@@ -92,7 +92,7 @@
 .rowDose :global(.dose-summary) strong { color: inherit; font-size: inherit; font-weight: 400; }
 .rowManage { flex-shrink: 0; display: grid; place-items: center; width: 44px; min-height: 44px; align-self: center; color: var(--v2-secondary); border-radius: 12px; }
 .selectedSnapshot { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--v2-border); min-width: 0; }
-.selectedSnapshot :global(.today-protocol-snapshot) { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 16px; }
+.selectedSnapshot :global(.today-protocol-snapshot) { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 16px; }
 .selectedSnapshot :global(.today-snapshot-heading) { min-width: 0; overflow-wrap: anywhere; align-self: center; }
 .selectedSnapshot :global(.today-snapshot-heading) > span { font-size: 11px; line-height: 16px; color: var(--v2-text); font-weight: 800; letter-spacing: 2px; }
 .selectedSnapshot :global(.today-snapshot-heading) h3 { margin: 6px 0 8px; font-size: 24px; line-height: 29px; font-weight: 900; }
@@ -104,6 +104,7 @@
 .selectedSnapshot :global(.today-snapshot-medication) strong[data-known='false'] { padding: 0; background: none; color: var(--v2-secondary); box-shadow: none; font-weight: 600; }
 .selectedSnapshot :global(.today-snapshot-medication) span { font-size: 11px; line-height: 16px; font-weight: 600; color: var(--v2-secondary); }
 .selectedSnapshot :global(.today-snapshot-notice) { margin-top: 8px; font-size: 13px; line-height: 18px; color: var(--v2-warning); }
+.selectedSnapshot :global(.today-snapshot-vial-rail) { display: grid; align-content: start; gap: 4px; min-width: 0; }
 .selectedSnapshot :global(.today-snapshot-vial) { display: flex; align-items: flex-start; justify-content: center; min-width: 0; filter: drop-shadow(0 4px 12px #0005); }
 .selectedSnapshot :global(.today-snapshot-vial) svg { width: 72px; height: 144px; }
 .selectedSnapshot :global(.today-snapshot-facts) { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin: 0; }
@@ -114,16 +115,16 @@
 .selectedSnapshot :global(.today-snapshot-actions) a { display: inline-flex; align-items: center; color: var(--v2-accent); font-size: 13px; }
 .selectedSnapshot :global(.today-snapshot-actions) button { padding: 8px 12px; background: var(--v2-secondary-surface); color: var(--v2-text); border: 1px solid var(--v2-control); border-radius: 12px; font: inherit; font-size: 13px; cursor: pointer; }
 .selectedSnapshot :global(.today-snapshot-actions) button:disabled { opacity: .6; cursor: wait; }
-.selectedSnapshot :global(.today-snapshot-lifecycle) > dt { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; color: var(--v2-accent); font-size: 12px; line-height: 16px; font-weight: 800; }
-.selectedSnapshot :global(.today-snapshot-lifecycle) > dt::before { content: ''; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--v2-accent); box-shadow: 0 0 8px color-mix(in srgb, var(--v2-accent) 45%, transparent); }
-/* Remove the two legacy divider wrappers; keep the existing inventory component. */
 .selectedSnapshot :global(.vial-inventory) { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
-.selectedSnapshot :global(.vial-lifecycle-title) { display: none; }
-.selectedSnapshot :global(.vial-lifecycle-track) { display: none; }
-.selectedSnapshot :global(.vial-lifecycle-toolbar) { display: grid !important; gap: 4px !important; }
-.selectedSnapshot :global(.vial-lifecycle-status) { font-size: 10px !important; line-height: 16px; white-space: nowrap; }
-.selectedSnapshot :global(.vial-lifecycle-status) > span { display: inline; margin-left: 4px !important; font-size: inherit !important; }
-.selectedSnapshot :global(.vial-new-button) { width: auto; justify-self: start; min-height: 30px; padding: 4px 8px !important; border: 1px solid var(--v2-accent) !important; border-radius: 8px !important; background: var(--v2-accent) !important; color: var(--v2-on-accent) !important; font-size: 10px !important; }
+/* Preserve the typography the dialog inherited from the former facts dd. */
+.selectedSnapshot :global(.today-snapshot-lifecycle) { color: var(--v2-text); font-size: 14px; line-height: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.selectedSnapshot :global(.vial-lifecycle) { display: grid; justify-items: center; gap: 6px; min-width: 0; text-align: center; }
+.selectedSnapshot :global(.vial-lifecycle-title) { color: var(--v2-meta); font-size: 10px; line-height: 14px; font-weight: 800; letter-spacing: 1px; }
+.selectedSnapshot :global(.vial-lifecycle-status) { color: var(--v2-text); font-size: 11px; line-height: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.selectedSnapshot :global(.vial-lifecycle-track) { width: 80%; height: 4px; border-radius: 3px; overflow: hidden; background: var(--v2-secondary-surface); }
+.selectedSnapshot :global(.vial-new-button) { justify-self: center; min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--v2-success); border-radius: 8px; background: var(--v2-secondary-surface); color: var(--v2-success); font-size: 11px; font-weight: 700; cursor: pointer; }
+.selectedSnapshot :global(.vial-new-button):disabled { cursor: wait; }
+.selectedSnapshot :global(.vial-new-button):focus-visible { outline-color: var(--v2-success); }
 .page .checkinReopen { position: fixed; z-index: 35; right: max(16px, calc((100vw - 960px) / 2 + 24px)); bottom: calc(var(--app-nav-height, 66px) + env(safe-area-inset-bottom, 0px) + 12px); display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 8px 12px; border-color: var(--v2-accent); color: var(--v2-accent); background: var(--v2-surface); border-radius: 20px; box-shadow: 0 4px 16px #0003; font-size: 12px; }
 .page .checkinReopen[hidden] { display: none; }
 .page:has(.checkinReopen:not([hidden])) .container { padding-bottom: 88px; }
@@ -207,19 +208,12 @@
 .selectedSnapshot :is(button, a) { min-width: 44px; min-height: 44px; }
 .selectedSnapshot :is(input, select, textarea) { max-width: 100%; font-size: 16px !important; }
 @container (min-width: 660px) {
-  .selectedSnapshot :global(.today-protocol-snapshot) { --snapshot-vial-width: 120px; --snapshot-vial-height: 240px; --snapshot-vial-column: 156px; position: relative; grid-template-columns: minmax(0, 1fr) var(--snapshot-vial-column); gap: 16px 32px; }
+  .selectedSnapshot :global(.today-protocol-snapshot) { --snapshot-vial-width: 120px; --snapshot-vial-height: 240px; grid-template-columns: minmax(0, 1fr) 156px; gap: 16px 32px; }
   .selectedSnapshot :global(.today-snapshot-heading) { align-self: start; }
-  .selectedSnapshot :global(.today-snapshot-vial) { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+  .selectedSnapshot :global(.today-snapshot-vial-rail) { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
   .selectedSnapshot :global(.today-snapshot-vial) svg { width: var(--snapshot-vial-width); height: var(--snapshot-vial-height); }
-  .selectedSnapshot :global(.today-protocol-snapshot):has(:global(.vial-new-button)) :global(.today-snapshot-vial) { min-height: calc(var(--snapshot-vial-height) * .9 + 8px + 40px); }
   .selectedSnapshot :global(.today-snapshot-facts) { grid-column: 1; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .selectedSnapshot :global(.today-snapshot-lifecycle) { grid-column: 1 / -1; display: grid; grid-template-columns: 120px minmax(0, 1fr) 156px; align-items: center; gap: 12px; margin-right: -188px; }
-  .selectedSnapshot :global(.today-snapshot-lifecycle) > dt { margin-bottom: 0; }
-  .selectedSnapshot :global(.today-snapshot-lifecycle) > dd, .selectedSnapshot :global(.vial-inventory), .selectedSnapshot :global(.vial-lifecycle), .selectedSnapshot :global(.vial-lifecycle-toolbar) { display: contents !important; }
-  .selectedSnapshot :global(.vial-lifecycle-status) { font-size: 13px !important; }
-  .selectedSnapshot :global(.vial-lifecycle-status) { grid-column: 2; }
-  /* The SVG bottle body occupies 75% of its width and ends at 90% of its height. */
-  .selectedSnapshot :global(.vial-new-button) { position: absolute; top: calc(var(--snapshot-vial-height) * .9 + 8px); right: calc((var(--snapshot-vial-column) - var(--snapshot-vial-width) * .75) / 2); width: calc(var(--snapshot-vial-width) * .75); box-sizing: border-box; min-height: 40px; padding: 6px 10px !important; font-size: 11px !important; }
+  .selectedSnapshot :global(.vial-lifecycle-status) { font-size: 12px; line-height: 18px; }
 }
 @media (max-width: 599px) {
   .dailySummary { gap: 8px; }

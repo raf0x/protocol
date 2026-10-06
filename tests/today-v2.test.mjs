@@ -206,7 +206,8 @@ test('selected snapshot exposes all nine facts and vial with existing values and
 test('snapshot keeps missing facts distinct from zero and never converts legacy markings to medication', () => {
   const p = snapshotProtocol({}, { dose: 50, dose_unit: 'IU', dose_semantics_version: null, syringe_units: 16.8637 })
   const tree = render(Hero, snapshotProps(p)), actual = facts(tree)
-  assert.equal(nodes(tree, n => n.props.className === 'today-snapshot-lifecycle').length, 0)
+  const rail = nodes(tree, n => n.props.className === 'today-snapshot-vial-rail')[0]
+  assert.equal(nodes(rail, n => n.props.className === 'vial-inventory').length, 1, 'Missing facts retain the inventory action in the rail')
   for (const key of ['Vial reconstituted', 'Vial expiration', 'Injection volume', 'Vials in stock', 'Doses taken (vial)', 'Next dose']) assert.equal(actual[key], 'Not recorded')
   assert.equal(actual['Syringe draw'], '16.9 syringe units')
   assert.match(text(tree), /Medication amount unknown/); assert.doesNotMatch(text(tree), /50 IU|unknown\/dose/)
@@ -215,17 +216,23 @@ test('snapshot keeps missing facts distinct from zero and never converts legacy 
   assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Doses taken (vial)'], '0')
 })
 
-test('snapshot places the supplied lifecycle after Next dose once and preserves its action', () => {
+test('snapshot groups the supplied vial status and action below the graphic outside the facts', () => {
   let opens = 0
-  const tree = render(Snapshot, { name: 'Sample', protocolName: 'Plan', medication: '5 mg', medicationKnown: true, week: 1, started: 'Oct 4', color: '#6c63ff', visual: null,
+  const tree = render(Snapshot, { name: 'Sample', protocolName: 'Plan', medication: '5 mg', medicationKnown: true, week: 1, started: 'Oct 4', color: '#6c63ff', visual: React.createElement('svg'),
     facts: [{ label: 'Vials in stock', value: 0 }, { label: 'Next dose', value: 'Due today' }],
-    lifecycle: React.createElement('button', { onClick: () => opens++ }, '+ New Vial'),
+    lifecycle: React.createElement('div', null, React.createElement('span', null, 'VIAL STATUS'), React.createElement('button', { onClick: () => opens++ }, '+ New Vial')),
     actions: React.createElement('a', { href: '/protocol/inventory' }, 'Inventory'),
   })
   const list = nodes(tree, n => n.props.className === 'today-snapshot-facts')[0]
-  assert.deepEqual(nodes(list, n => n.type === 'dt').map(text), ['Vials in stock', 'Next dose', 'Vial lifecycle'])
+  assert.deepEqual(nodes(list, n => n.type === 'dt').map(text), ['Vials in stock', 'Next dose'])
   assert.deepEqual(facts(tree), { 'Vials in stock': '0', 'Next dose': 'Due today' })
-  const lifecycle = nodes(list, n => n.props.className === 'today-snapshot-lifecycle')[0]
+  assert.equal(nodes(list, n => n.props.className === 'today-snapshot-lifecycle' || n.type === 'button').length, 0)
+  const rail = nodes(tree, n => n.props.className === 'today-snapshot-vial-rail')[0]
+  assert.deepEqual(rail.props.children.map(child => child.props.className), ['today-snapshot-vial', 'today-snapshot-lifecycle'])
+  assert.equal(rail.props['aria-hidden'], undefined, 'Only the graphic is decorative; status and action stay accessible')
+  assert.match(text(rail), /VIAL STATUS\+ New Vial/)
+  assert.doesNotMatch(text(tree), /Vial lifecycle/i)
+  const lifecycle = nodes(rail, n => n.props.className === 'today-snapshot-lifecycle')[0]
   const button = nodes(lifecycle, n => n.type === 'button')[0]
   assert.equal(nodes(tree, n => n.type === 'button').length, 1)
   button.props.onClick(); assert.equal(opens, 1)

@@ -259,7 +259,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     window.location.reload()
   }
 
-  const vialInventory = <VialInventory compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} />
+  const vialInventory = <VialInventory presentation={snapshot ? 'status' : undefined} compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={bacWater} vialStrength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} vialUnit={entry ? entry.vial_unit : activeCompound.vial_unit} />
 
   return (
     <div className={snapshot ? 'today-selected-protocol' : undefined} style={{position:'relative',overflow:'hidden'}}>

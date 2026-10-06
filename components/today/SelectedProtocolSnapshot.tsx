@@ -17,10 +17,12 @@ export default function SelectedProtocolSnapshot({ name, protocolName, medicatio
       <p className="today-snapshot-medication"><strong data-known={medicationKnown}>{medication}{medicationKnown && '/dose'}</strong>{frequency && <span>{frequency}</span>}</p>
       {notice && <div className="today-snapshot-notice">{notice}</div>}
     </div>
-    <div className="today-snapshot-vial" aria-hidden="true">{visual}</div>
+    <div className="today-snapshot-vial-rail">
+      <div className="today-snapshot-vial" aria-hidden="true">{visual}</div>
+      {lifecycle && <div className="today-snapshot-lifecycle">{lifecycle}</div>}
+    </div>
     <dl className="today-snapshot-facts">
       {facts.map(fact => <div className="today-snapshot-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
-      {lifecycle && <div className="today-snapshot-lifecycle"><dt>Vial lifecycle</dt><dd>{lifecycle}</dd></div>}
     </dl>
     {actions && <div className="today-snapshot-actions">{actions}</div>}
   </section>
