@@ -32,7 +32,8 @@
   align-items: center;
   justify-content: space-between;
   min-height: 68px;
-  padding: 12px clamp(20px, 5vw, 72px);
+  /* Keep the fixed 44px theme toggle and a 16px gap clear of the account link. */
+  padding: 12px 76px 12px clamp(20px, 5vw, 72px);
   border-bottom: 1px solid rgba(164, 190, 214, 0.09);
   background: rgba(8, 13, 20, 0.82);
   backdrop-filter: blur(18px);
@@ -672,7 +673,7 @@
 @media (max-width: 560px) {
   .nav {
     min-height: 62px;
-    padding-inline: 16px;
+    padding-left: 16px;
   }
 
   .brand {
