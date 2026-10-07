@@ -58,7 +58,7 @@ workflows:
           set -euo pipefail
           xcode-project use-profiles \
             --project ios/App/App.xcodeproj \
-            --custom-export-options='{"manageAppVersionAndBuildNumber":false,"testFlightInternalTestingOnly":true}'
+            --custom-export-options='{"manageAppVersionAndBuildNumber":false}'
       - name: Verify effective CI build number
         script: |
           #!/usr/bin/env bash
