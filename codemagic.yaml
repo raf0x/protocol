@@ -1,75 +1,128 @@
 workflows:
-  ios-bootstrap:
-    name: iOS project bootstrap
+  ios-testflight:
+    name: MyPepProtocol iOS TestFlight
     instance_type: mac_mini_m2
-    max_build_duration: 30
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic MyPepProtocol
     environment:
       node: "22"
-      xcode: latest
-    # Start manually; generate and download the native project before signing.
+      xcode: "26.6"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: app.mypepprotocol
+    # No automatic triggers; start this workflow manually in Codemagic.
     scripts:
-      - name: Ensure no iOS project exists
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          if [ -e ios ] || [ -L ios ]; then
-            echo "ios/ already exists. Bootstrap must not overwrite a native project." >&2
-            exit 1
-          fi
       - name: Install project dependencies
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
           npm ci
-      - name: Verify Capacitor version
+      - name: Verify source configuration and existing iOS project
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          npx cap --version
-          npm ls @capacitor/cli @capacitor/core @capacitor/ios --depth=0
-          node <<'NODE'
-          const assert = require('node:assert/strict');
-          for (const name of ['@capacitor/cli', '@capacitor/core', '@capacitor/ios']) {
-            const { version } = require(`${name}/package.json`);
-            assert.ok(version.startsWith('8.'), `${name} must use Capacitor 8; found ${version}`);
-          }
-          NODE
-      - name: Generate native iOS project
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          npx cap add ios
-      - name: Verify generated iOS project
-        script: |
-          #!/usr/bin/env bash
-          set -euo pipefail
-          test -d ios
+          test -d ios/App/App.xcodeproj
           test -f ios/App/App.xcodeproj/project.pbxproj
           test -f ios/App/CapApp-SPM/Package.swift
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' ios/App/App/Info.plist)" = "MyPepProtocol"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ios/App/App/Info.plist)" = '$(PRODUCT_BUNDLE_IDENTIFIER)'
           node <<'NODE'
           const assert = require('node:assert/strict');
           const fs = require('node:fs');
-          const project = fs.readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8');
-          const bundleIds = [...project.matchAll(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);/g)]
-            .map(match => match[1].trim().replace(/^"|"$/g, ''));
-          assert.ok(bundleIds.length > 0, 'No Xcode bundle identifiers found');
-          for (const bundleId of bundleIds) {
-            assert.equal(bundleId, 'app.mypepprotocol', 'Unexpected Xcode bundle identifier');
-          }
-          const config = JSON.parse(fs.readFileSync('ios/App/App/capacitor.config.json', 'utf8'));
-          assert.equal(config.appId, 'app.mypepprotocol');
-          assert.equal(config.appName, 'MyPepProtocol');
-          assert.equal(config.server.url, 'https://www.mypepprotocol.app');
-          assert.equal(config.server.cleartext, false);
-          console.log('Verified iOS project: app.mypepprotocol / MyPepProtocol');
+          const { loadConfig } = require('@capacitor/cli/dist/config');
+          (async () => {
+            const { app } = await loadConfig();
+            assert.equal(app.extConfigType, 'ts', 'Expected the Capacitor TypeScript source');
+            const config = app.extConfig;
+            assert.equal(config.appId, 'app.mypepprotocol');
+            assert.equal(config.appName, 'MyPepProtocol');
+            assert.equal(config.server?.url, 'https://www.mypepprotocol.app');
+            assert.equal(config.server?.cleartext, false);
+            const project = fs.readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8');
+            const bundleIds = [...project.matchAll(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+);/g)]
+              .map(match => match[1].trim().replace(/^"|"$/g, ''));
+            assert.ok(bundleIds.length > 0, 'No Xcode bundle identifiers found');
+            for (const bundleId of bundleIds) {
+              assert.equal(bundleId, 'app.mypepprotocol', 'Unexpected Xcode bundle identifier');
+            }
+            console.log('Verified Capacitor source and existing iOS project');
+          })().catch(error => { console.error(error); process.exit(1); });
           NODE
-      - name: Package complete iOS project
+      - name: Synchronize Capacitor iOS project
         script: |
           #!/usr/bin/env bash
           set -euo pipefail
-          zip -r ios-project.zip ios
-          unzip -t ios-project.zip
+          npx cap sync ios
+      - name: Configure App Store signing
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcode-project use-profiles \
+            --project ios/App/App.xcodeproj \
+            --custom-export-options='{"manageAppVersionAndBuildNumber":false,"testFlightInternalTestingOnly":true}'
+      - name: Verify effective CI build number
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if [[ ! "$PROJECT_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PROJECT_BUILD_NUMBER must be a positive integer" >&2
+            exit 1
+          fi
+          settings_file="$(mktemp)"
+          trap 'rm -f "$settings_file"' EXIT
+          xcodebuild -showBuildSettings \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -json \
+            CURRENT_PROJECT_VERSION="$PROJECT_BUILD_NUMBER" > "$settings_file"
+          node - "$settings_file" <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const settings = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const appTargets = settings.filter(entry => entry.target === 'App');
+          assert.equal(appTargets.length, 1, 'Expected exactly one App target');
+          const app = appTargets[0].buildSettings;
+          assert.equal(app.CURRENT_PROJECT_VERSION, process.env.PROJECT_BUILD_NUMBER);
+          assert.equal(app.MARKETING_VERSION, '1.0');
+          assert.equal(app.PRODUCT_BUNDLE_IDENTIFIER, 'app.mypepprotocol');
+          console.log('Verified effective App build number: ' + app.CURRENT_PROJECT_VERSION);
+          NODE
+      - name: Build and verify signed IPA
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcode-project build-ipa \
+            --project ios/App/App.xcodeproj \
+            --scheme App \
+            --archive-xcargs="CURRENT_PROJECT_VERSION=$PROJECT_BUILD_NUMBER COMPILER_INDEX_STORE_ENABLE=NO"
+          ipa_path="$(node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const directory = 'build/ios/ipa';
+          const ipas = fs.readdirSync(directory).filter(name => name.endsWith('.ipa'));
+          assert.equal(ipas.length, 1, 'Expected exactly one exported IPA');
+          console.log(directory + '/' + ipas[0]);
+          NODE
+          )"
+          plist_entry="$(unzip -Z1 "$ipa_path" | awk '/^Payload\/[^/]+\.app\/Info\.plist$/ { print }')"
+          if [[ -z "$plist_entry" || "$plist_entry" == *$'\n'* ]]; then
+            echo "Expected exactly one top-level app Info.plist in the IPA" >&2
+            exit 1
+          fi
+          plist_dir="$(mktemp -d)"
+          trap 'rm -f "$plist_dir/Info.plist"; rmdir "$plist_dir"' EXIT
+          unzip -p "$ipa_path" "$plist_entry" > "$plist_dir/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$plist_dir/Info.plist")" = "$PROJECT_BUILD_NUMBER"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist_dir/Info.plist")" = "1.0"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist_dir/Info.plist")" = "app.mypepprotocol"
+          echo "Verified exported IPA identity, marketing version, and CI build number"
     artifacts:
-      - ios-project.zip
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - build/ios/xcarchive/**/*.dSYM
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
