@@ -24,8 +24,8 @@ function client(db) {
       try {
         const result=values
           ? writeMode==='upsert'
-            ? await db.query(`INSERT INTO public.user_profiles (${Object.keys(values).map(ident).join(',')}) VALUES (${Object.keys(values).map((_,i)=>`${i+1}`).join(',')}) ON CONFLICT (id) DO UPDATE SET ${Object.keys(values).filter(key=>key!=='id').map(key=>`${ident(key)}=EXCLUDED.${ident(key)}`).join(',')} RETURNING *`,Object.values(values))
-            : await db.query(`UPDATE public.user_profiles SET ${Object.keys(values).map((key,i)=>`${ident(key)}=${i+1}`).join(',')} WHERE ${ident(ownerColumn)}=${Object.keys(values).length+1} RETURNING *`,[...Object.values(values),ownerId])
+            ? await db.query(`INSERT INTO public.user_profiles (${Object.keys(values).map(ident).join(',')}) VALUES (${Object.keys(values).map((_,i)=>`$${i+1}`).join(',')}) ON CONFLICT (id) DO UPDATE SET ${Object.keys(values).filter(key=>key!=='id').map(key=>`${ident(key)}=EXCLUDED.${ident(key)}`).join(',')} RETURNING *`,Object.values(values))
+            : await db.query(`UPDATE public.user_profiles SET ${Object.keys(values).map((key,i)=>`${ident(key)}=$${i+1}`).join(',')} WHERE ${ident(ownerColumn)}=$${Object.keys(values).length+1} RETURNING *`,[...Object.values(values),ownerId])
           : await db.query(`SELECT ${fields==='*'?'*':fields.split(',').map(ident).join(',')} FROM public.user_profiles WHERE ${ident(ownerColumn)}=$1`,[ownerId])
         return resolve({data:single?result.rows[0]??null:result.rows,error:null})
       }catch(error){return reject(error)}
