@@ -10,9 +10,10 @@ import styles from './login.module.css'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState<'email' | 'code'>('email')
-  const [pending, setPending] = useState<'send' | 'verify' | null>(null)
+  const [step, setStep] = useState<'email' | 'code' | 'password'>('email')
+  const [pending, setPending] = useState<'send' | 'verify' | 'password' | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [sessionChecking, setSessionChecking] = useState(true)
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const busy = useRef(false)
   const completed = useRef(false)
   const emailInput = useRef<HTMLInputElement>(null)
+  const passwordInput = useRef<HTMLInputElement>(null)
   const codeInput = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -60,7 +62,7 @@ export default function LoginPage() {
   }, [router])
 
   useEffect(() => {
-    if (!sessionChecking) (step === 'email' ? emailInput : codeInput).current?.focus()
+    if (!sessionChecking) (step === 'code' ? codeInput : emailInput).current?.focus()
   }, [step, sessionChecking])
 
   function pauseRequests(action: 'send' | 'verify') {
@@ -135,15 +137,56 @@ export default function LoginPage() {
     // Keep provider cooldowns; changing the email must not bypass the timer.
   }
 
+  async function signInWithPassword() {
+    if (busy.current || completed.current) return
+    const address = normalizeEmail(email)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      setError('Please enter a valid email address.')
+      emailInput.current?.focus()
+      return
+    }
+    if (!password) {
+      setError('Please enter your password.')
+      passwordInput.current?.focus()
+      return
+    }
+    busy.current = true
+    setPending('password'); setError(''); setNotice('')
+    try {
+      const client = createClient()
+      const { data, error: signInError } = await client.auth.signInWithPassword({ email: address, password })
+      if (signInError) throw signInError
+      if (!data.session?.access_token || !data.user?.id) throw new Error('Session unavailable')
+      completed.current = true
+      setPassword('')
+      const next = safeAuthReturnPath(new URLSearchParams(window.location.search).get('next'))
+      const returnPath = await postAuthDestination(client, data.user.id, next)
+      router.replace(returnPath)
+      router.refresh()
+    } catch {
+      setError('We couldn’t sign you in. Check your email and password and try again.')
+      passwordInput.current?.focus()
+    } finally {
+      busy.current = false
+      if (!completed.current) setPending(null)
+    }
+  }
+
+  function changeSignInMode(mode: 'email' | 'password') {
+    if (busy.current || completed.current) return
+    setStep(mode); setPassword(''); setError(''); setNotice('')
+  }
+
   if (sessionChecking) return <main className={styles.screen} role="status" aria-live="polite">Checking your session…</main>
 
   const codeStep = step === 'code'
+  const passwordStep = step === 'password'
   return (
     <main className={styles.screen}>
       <div className={styles.panel}>
         <h1 className={styles.heading}>{codeStep ? 'Check your email' : 'MyPepProtocol'}</h1>
-        <p className={styles.description}>{codeStep ? <>Enter the code sent to <strong>{email}</strong>.</> : 'Sign in with your email.'}</p>
-        <form noValidate aria-busy={!!pending} onSubmit={event => { event.preventDefault(); if (codeStep) void verifyCode(); else void sendCode() }}>
+        <p className={styles.description}>{codeStep ? <>Enter the code sent to <strong>{email}</strong>.</> : passwordStep ? 'Sign in with your email and password.' : 'Sign in with your email.'}</p>
+        <form noValidate aria-busy={!!pending} onSubmit={event => { event.preventDefault(); if (codeStep) void verifyCode(); else if (passwordStep) void signInWithPassword(); else void sendCode() }}>
           {codeStep ? (
             <>
               <label className={styles.label} htmlFor="login-code">{EMAIL_OTP_LENGTH}-digit code</label>
@@ -157,18 +200,25 @@ export default function LoginPage() {
               <input ref={emailInput} id="login-email" name="email" className={styles.input} type="email" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false}
                 value={email} onChange={event => { setEmail(event.target.value); setError('') }} readOnly={!!pending} placeholder="you@example.com"
                 aria-invalid={!!error} aria-describedby={error ? 'login-error' : undefined} />
+              {passwordStep && <>
+                <label className={styles.label} htmlFor="login-password">Password</label>
+                <input ref={passwordInput} id="login-password" name="password" className={styles.input} type="password" autoComplete="current-password"
+                  value={password} onChange={event => { setPassword(event.target.value); setError('') }} readOnly={!!pending}
+                  aria-invalid={!!error} aria-describedby={error ? 'login-error' : undefined} />
+              </>}
             </>
           )}
           {error && <p id="login-error" className={styles.error} role="alert">{error}</p>}
-          <button className={styles.primary} type="submit" disabled={!!pending || (codeStep ? verifySeconds > 0 : resendSeconds > 0)}>
-            {pending === 'verify' ? 'Verifying…' : pending === 'send' && !codeStep ? 'Sending…' : codeStep ? 'Verify code' : 'Email me a code'}
+          <button className={styles.primary} type="submit" disabled={!!pending || (!passwordStep && (codeStep ? verifySeconds > 0 : resendSeconds > 0))}>
+            {pending === 'password' ? 'Signing in…' : pending === 'verify' ? 'Verifying…' : pending === 'send' && !codeStep ? 'Sending…' : codeStep ? 'Verify code' : passwordStep ? 'Sign in' : 'Email me a code'}
           </button>
           {codeStep && <>
             {verifySeconds > 0 && <p className={styles.timer}>Try verifying again in {verifySeconds}s.</p>}
             <button className={styles.secondary} type="button" onClick={() => void sendCode()} disabled={!!pending || resendSeconds > 0} aria-describedby={resendSeconds > 0 ? 'resend-timer' : undefined}>{pending === 'send' ? 'Sending…' : 'Resend code'}</button>
             <button className={styles.secondary} type="button" onClick={changeEmail} disabled={!!pending}>Use a different email</button>
           </>}
-          {resendSeconds > 0 && <p id="resend-timer" className={styles.timer}>{codeStep ? 'Resend available' : 'Try again'} in {resendSeconds}s.</p>}
+          {!codeStep && <button className={styles.secondary} type="button" onClick={() => changeSignInMode(passwordStep ? 'email' : 'password')} disabled={!!pending}>{passwordStep ? 'Use email code instead' : 'Sign in with password'}</button>}
+          {!passwordStep && resendSeconds > 0 && <p id="resend-timer" className={styles.timer}>{codeStep ? 'Resend available' : 'Try again'} in {resendSeconds}s.</p>}
           <p className={styles.notice} role="status">{notice}</p>
         </form>
         <p className={styles.footer}>{codeStep ? 'No email? Check your spam folder.' : 'For personal harm reduction tracking. Not medical advice.'}</p>

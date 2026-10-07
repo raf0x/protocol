@@ -6,16 +6,16 @@ import ts from 'typescript'
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
 
 const require = createRequire(import.meta.url)
-function load(path, mocks = {}, cache = new Map()) {
+function load(path, mocks = {}, cache = new Map(), globals = {}) {
   const url = new URL(path, import.meta.url)
   if (cache.has(url.href)) return cache.get(url.href)
   const module = { exports: {} }
-  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-  new Function('require', 'module', 'exports', code)(name => {
+  const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
+  new Function('require', 'module', 'exports', ...Object.keys(globals), code)(name => {
     if (name in mocks) return mocks[name]
     if (!name.startsWith('.')) return require(name)
-    return load(new URL(name + (existsSync(new URL(name + '.ts', url)) ? '.ts' : ''), url), mocks, cache)
-  }, module, module.exports)
+    return load(new URL(name + (existsSync(new URL(name + '.ts', url)) ? '.ts' : ''), url), mocks, cache, globals)
+  }, module, module.exports, ...Object.values(globals))
   cache.set(url.href, module.exports)
   return module.exports
 }
@@ -170,4 +170,242 @@ test('installed Supabase SDK saves verified OTP session in SSR cookies readable 
   assert.equal((await server.auth.getUser()).data.user.id, user.id)
   assert.deepEqual(calls.find(c => c.path.endsWith('/verify')).body.token, '010203')
   await client.auth.stopAutoRefresh(); await server.auth.stopAutoRefresh()
+})
+
+// Exercise the actual client page with isolated hooks and SDK responses; no live auth requests.
+function loginPage({ auth = {}, protocols = [{ id: 'p' }], search = '' } = {}) {
+  const slots = [], effects = [], calls = [], routing = []
+  let cursor = 0, tree
+  const success = { data: { session: { access_token: 'fixture-session' }, user: { id: 'fixture-owner' } }, error: null }
+  const client = { ...ownership(protocols).client, auth: {
+    async getUser() { return { data: { user: null } } },
+    async signInWithOtp(args) { calls.push(['send', args]); return auth.signInWithOtp ? auth.signInWithOtp(args) : { error: null } },
+    async verifyOtp(args) { calls.push(['verify', args]); return auth.verifyOtp ? auth.verifyOtp(args) : success },
+    async signInWithPassword(args) { calls.push(['password', args]); return auth.signInWithPassword ? auth.signInWithPassword(args) : success },
+  } }
+  const hooks = {
+    useState(initial) {
+      const slot = slots[cursor++] ??= { value: initial }
+      return [slot.value, value => { slot.value = typeof value === 'function' ? value(slot.value) : value }]
+    },
+    useRef(initial) { return slots[cursor++] ??= { current: initial } },
+    useEffect(effect, dependencies) {
+      const index = cursor++, previous = slots[index]
+      if (previous && dependencies.every((value, i) => Object.is(value, previous.dependencies[i]))) return
+      slots[index] = { dependencies }
+      effects.push(effect)
+    },
+  }
+  const { default: Page } = load('../app/auth/login/page.tsx', {
+    react: hooks,
+    'next/navigation': { useRouter: () => router },
+    '../../../lib/supabase': { createClient: () => client },
+    '../../../lib/authPostAuth': { async postAuthDestination(receivedClient, userId, next) {
+      assert.equal(receivedClient, client)
+      routing.push(['destination', userId, next])
+      return postAuthDestination(receivedClient, userId, next)
+    } },
+    './login.module.css': { default: {} },
+  }, new Map(), { window: {
+    location: { search },
+    setInterval: () => 1, clearInterval() {}, setTimeout: () => 2, clearTimeout() {},
+  } })
+  const router = { replace: path => routing.push(['replace', path]), refresh: () => routing.push(['refresh']) }
+  function render() {
+    cursor = 0
+    tree = Page()
+    effects.splice(0).forEach(effect => effect())
+  }
+  function nodes(type) {
+    const found = []
+    function visit(node) {
+      if (Array.isArray(node)) { node.forEach(visit); return }
+      if (!node || typeof node !== 'object') return
+      if (node.type === type) found.push(node)
+      visit(node.props?.children)
+    }
+    visit(tree)
+    return found
+  }
+  function text(node) {
+    if (Array.isArray(node)) return node.map(text).join('')
+    if (node == null || typeof node === 'boolean') return ''
+    return typeof node === 'object' ? text(node.props?.children) : String(node)
+  }
+  function one(type, predicate = () => true) {
+    const found = nodes(type).filter(predicate)
+    assert.equal(found.length, 1, `Expected one ${type}`)
+    return found[0]
+  }
+  function button(label) { return one('button', node => text(node) === label) }
+  render()
+  return {
+    calls, routing, nodes, text, button,
+    input: id => one('input', node => node.props.id === id),
+    change(id, value) { one('input', node => node.props.id === id).props.onChange({ target: { value } }); render() },
+    click(label) { button(label).props.onClick(); render() },
+    submit() { one('form').props.onSubmit({ preventDefault() {} }); render() },
+    async settle() { await new Promise(resolve => setImmediate(resolve)); render() },
+  }
+}
+
+test('login defaults to email OTP with an optional password action', async () => {
+  const page = loginPage()
+  await page.settle()
+  assert.equal(page.text(page.nodes('h1')), 'MyPepProtocol')
+  assert.equal(page.input('login-email').props.type, 'email')
+  assert.equal(page.button('Email me a code').props.type, 'submit')
+  assert.equal(page.button('Sign in with password').props.type, 'button')
+  assert.equal(page.nodes('input').some(node => node.props.name === 'password'), false)
+  assert.deepEqual(page.calls, [])
+})
+
+test('the default OTP send and verify flow retains its SDK arguments and destination routing', async () => {
+  const page = loginPage({ search: '?next=%2Ftimeline%3Ffilter%3Dweight' })
+  await page.settle()
+  page.change('login-email', '  Person+tag@Example.com  ')
+  page.submit()
+  await page.settle()
+  assert.deepEqual(page.calls, [['send', { email: 'Person+tag@Example.com', options: { shouldCreateUser: true } }]])
+  assert.equal(page.text(page.nodes('h1')), 'Check your email')
+  assert.equal(page.input('login-code').props.autoComplete, 'one-time-code')
+  assert.equal(page.button('Resend code').props.disabled, true)
+  page.change('login-code', ' 01 02 03 ')
+  page.submit()
+  await page.settle()
+  assert.deepEqual(page.calls[1], ['verify', { email: 'Person+tag@Example.com', token: '010203', type: 'email' }])
+  assert.deepEqual(page.routing, [['destination', 'fixture-owner', '/timeline?filter=weight'], ['replace', '/timeline?filter=weight'], ['refresh']])
+  assert.equal(page.input('login-code').props.value, '')
+})
+
+test('password mode is reachable and has labeled email and current-password fields', async () => {
+  const page = loginPage()
+  await page.settle()
+  page.click('Sign in with password')
+  assert.equal(page.text(page.nodes('h1')), 'MyPepProtocol')
+  assert.ok(page.nodes('p').some(node => page.text(node) === 'Sign in with your email and password.'))
+  for (const [id, label] of [['login-email', 'Email address'], ['login-password', 'Password']]) {
+    assert.equal(page.text(page.nodes('label').find(node => node.props.htmlFor === id)), label)
+    assert.equal(page.input(id).props.name, id.slice('login-'.length))
+  }
+  assert.equal(page.input('login-password').props.type, 'password')
+  assert.equal(page.input('login-password').props.autoComplete, 'current-password')
+  assert.equal(page.button('Sign in').props.type, 'submit')
+  assert.equal(page.button('Use email code instead').props.type, 'button')
+})
+
+for (const [protocols, next, expected] of [
+  [[{ id: 'p' }], '/timeline?filter=weight', '/timeline?filter=weight'],
+  [[], '/protocol', '/onboarding'],
+  [[{ id: 'p' }], '//evil.example', '/protocol'],
+]) {
+  test(`password sign-in uses Supabase and the shared authenticated destination (${expected})`, async () => {
+    const page = loginPage({ protocols, search: `?next=${encodeURIComponent(next)}` })
+    await page.settle()
+    page.click('Sign in with password')
+    page.change('login-email', '  Person+tag@Example.com  ')
+    page.change('login-password', ' fixture password with spaces ')
+    page.submit()
+    await page.settle()
+    assert.deepEqual(page.calls, [['password', { email: 'Person+tag@Example.com', password: ' fixture password with spaces ' }]])
+    assert.deepEqual(page.routing, [['destination', 'fixture-owner', safeAuthReturnPath(next)], ['replace', expected], ['refresh']])
+    assert.equal(page.input('login-password').props.value, '')
+    page.submit()
+    assert.equal(page.calls.length, 1)
+  })
+}
+
+for (const failure of [
+  { code: 'user_not_found', message: 'Internal: account does not exist' },
+  { code: 'invalid_credentials', message: 'Internal: password mismatch' },
+  { status: 429, message: 'Internal: auth rate limit' },
+  new Error('Internal: provider unavailable'),
+  null,
+]) {
+  test(`password failure is generic and never routes (${failure?.code ?? failure?.status ?? failure?.name ?? 'missing session'})`, async () => {
+    const page = loginPage({ auth: { async signInWithPassword() {
+      if (failure instanceof Error) throw failure
+      return { data: { session: null, user: null }, error: failure }
+    } } })
+    await page.settle()
+    page.click('Sign in with password')
+    page.change('login-email', 'person@example.com')
+    page.change('login-password', 'fixture-password')
+    page.submit()
+    await page.settle()
+    const alert = page.nodes('p').find(node => node.props.role === 'alert')
+    assert.equal(page.text(alert), 'We couldn’t sign you in. Check your email and password and try again.')
+    assert.doesNotMatch(page.text(alert), /Internal|account|exist|mismatch|provider|session|rate limit/)
+    assert.equal(page.button('Sign in').props.disabled, false)
+    assert.deepEqual(page.routing, [])
+  })
+}
+
+test('switching back to email OTP preserves email and clears password state', async () => {
+  const page = loginPage()
+  await page.settle()
+  page.click('Sign in with password')
+  page.change('login-email', 'person@example.com')
+  page.change('login-password', 'fixture-password')
+  page.click('Use email code instead')
+  assert.equal(page.input('login-email').props.value, 'person@example.com')
+  assert.equal(page.nodes('input').some(node => node.props.name === 'password'), false)
+  assert.equal(page.button('Email me a code').props.disabled, false)
+  page.click('Sign in with password')
+  assert.equal(page.input('login-password').props.value, '')
+  page.click('Use email code instead')
+  page.submit()
+  await page.settle()
+  assert.deepEqual(page.calls, [['send', { email: 'person@example.com', options: { shouldCreateUser: true } }]])
+})
+
+test('mode switching preserves OTP provider cooldowns without blocking password sign-in', async () => {
+  const page = loginPage({ auth: { async signInWithOtp() { return { error: { status: 429 } } } } })
+  await page.settle()
+  page.change('login-email', 'person@example.com')
+  page.submit()
+  await page.settle()
+  assert.equal(page.button('Email me a code').props.disabled, true)
+  page.click('Sign in with password')
+  assert.equal(page.button('Sign in').props.disabled, false)
+  assert.equal(page.nodes('p').some(node => node.props.id === 'resend-timer'), false)
+  page.click('Use email code instead')
+  assert.equal(page.button('Email me a code').props.disabled, true)
+  page.submit()
+  assert.equal(page.calls.length, 1)
+  page.click('Sign in with password')
+  page.change('login-password', 'fixture-password')
+  page.submit()
+  await page.settle()
+  assert.equal(page.calls[1][0], 'password')
+})
+
+test('password submission guards duplicate requests and mode switches while pending', async () => {
+  let resolveSignIn
+  const result = new Promise(resolve => { resolveSignIn = resolve })
+  const page = loginPage({ auth: { signInWithPassword: () => result } })
+  await page.settle()
+  page.click('Sign in with password')
+  page.change('login-email', 'person@example.com')
+  page.change('login-password', 'fixture-password')
+  page.submit()
+  assert.equal(page.button('Signing in…').props.disabled, true)
+  assert.equal(page.button('Use email code instead').props.disabled, true)
+  assert.equal(page.input('login-password').props.readOnly, true)
+  page.submit()
+  page.click('Use email code instead')
+  assert.equal(page.calls.length, 1)
+  assert.equal(page.input('login-password').props.value, 'fixture-password')
+  resolveSignIn({ data: { session: { access_token: 'fixture-session' }, user: { id: 'fixture-owner' } }, error: null })
+  await page.settle()
+  assert.equal(page.input('login-password').props.value, '')
+  assert.equal(page.routing.filter(call => call[0] === 'refresh').length, 1)
+})
+
+test('login introduces only ordinary Supabase sign-in, without credential management or reviewer special cases', () => {
+  const source = readFileSync(new URL('../app/auth/login/page.tsx', import.meta.url), 'utf8')
+  assert.deepEqual([...new Set([...source.matchAll(/\.auth\.(\w+)\(/g)].map(match => match[1]))].sort(), ['getUser', 'signInWithOtp', 'signInWithPassword', 'verifyOtp'].sort())
+  assert.doesNotMatch(source, /signUp|resetPasswordForEmail|updateUser|service_role|auth\.users|reviewer|app.?review|localStorage|sessionStorage|document\.cookie|console\.|fetch\s*\(/i)
+  assert.match(source, /\[password, setPassword\] = useState\(''\)/)
+  assert.match(source, /signInWithPassword\(\{ email: address, password \}\)/)
 })
