@@ -104,7 +104,7 @@ workflows:
           console.log(directory + '/' + ipas[0]);
           NODE
           )"
-          plist_entry="$(unzip -Z1 "$ipa_path" | awk '/^Payload\/[^/]+\.app\/Info\.plist$/ { print }')"
+          plist_entry="$(unzip -Z1 "$ipa_path" | grep -E '^Payload/[^/]+\.app/Info\.plist$' || true)"
           if [[ -z "$plist_entry" || "$plist_entry" == *$'\n'* ]]; then
             echo "Expected exactly one top-level app Info.plist in the IPA" >&2
             exit 1
