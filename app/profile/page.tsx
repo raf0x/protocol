@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [theme, setTheme] = useState('dark')
   const [weightUnit, setWeightUnit] = useState<WeightUnit>('lbs')
   const [weightSaving, setWeightSaving] = useState(false)
+  const [weightStatus, setWeightStatus] = useState('')
   const [aiConsent, setAiConsent] = useState(false)
   const router = useRouter()
   const g = 'var(--color-green)'
@@ -67,11 +68,23 @@ export default function ProfilePage() {
   }
 
   async function updateWeightUnit(unit: WeightUnit) {
+    const previous = weightUnit
     setWeightUnit(unit)
     setWeightSaving(true)
-    const supabase = createClient()
-    await supabase.from('user_profiles').update({ weight_unit: unit }).eq('id', userId)
-    setWeightSaving(false)
+    setWeightStatus('')
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.from('user_profiles')
+        .upsert({ id: userId, weight_unit: unit }, { onConflict: 'id' })
+        .select('weight_unit')
+        .single()
+      if (error || data?.weight_unit !== unit) throw error ?? new Error('Weight unit was not persisted')
+    } catch {
+      setWeightUnit(previous)
+      setWeightStatus('Weight unit could not be saved. Try again.')
+    } finally {
+      setWeightSaving(false)
+    }
   }
 
   async function handleSignOut() {
@@ -210,6 +223,7 @@ export default function ProfilePage() {
             <option value="lbs">Pounds (lbs)</option>
             <option value="kg">Kilograms (kg)</option>
           </select>
+          {weightStatus && <p role="alert" style={{fontSize:'12px',color:'var(--app-error)',margin:'8px 0 0'}}>{weightStatus}</p>}
         </div>
         <div style={{background:'var(--color-card)',border:'1px solid var(--color-border)',borderRadius:'8px',padding:'20px',marginBottom:'16px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>

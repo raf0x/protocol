@@ -415,15 +415,25 @@ export default function DashboardPage() {
   }
 
   async function toggleWeightUnit() {
-    const newUnit: WeightUnit = weightUnit === 'lbs' ? 'kg' : 'lbs'
+    const previousUnit = weightUnit
+    const previousWeight = weight
+    const newUnit: WeightUnit = previousUnit === 'lbs' ? 'kg' : 'lbs'
     setWeight(draft => draft.trim() !== '' && Number.isFinite(Number(draft))
-      ? formatWeight(convertWeight(Number(draft), weightUnit, newUnit), newUnit)
+      ? formatWeight(convertWeight(Number(draft), previousUnit, newUnit), newUnit)
       : draft)
     setWeightUnit(newUnit)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from('user_profiles').update({ weight_unit: newUnit }).eq('id', user.id)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Sign in again to save this.')
+      const { data, error } = await supabase.from('user_profiles')
+        .upsert({ id: user.id, weight_unit: newUnit }, { onConflict: 'id' })
+        .select('weight_unit')
+        .single()
+      if (error || data?.weight_unit !== newUnit) throw error ?? new Error('Weight unit was not persisted')
+    } catch {
+      setWeightUnit(previousUnit)
+      setWeight(previousWeight)
     }
   }
   

@@ -19,11 +19,14 @@ function profileQueries(file) {
 function client(db) {
   const ident=value=>{assert.match(value,/^[a-z_]+$/);return `"${value}"`}
   return {from(table){
-    assert.equal(table,'user_profiles');let fields='*',values=null,ownerColumn,ownerId,single=false
-    const query={select(value){fields=value;return query},update(value){values=value;return query},eq(key,value){ownerColumn=key;ownerId=value;return query},limit(){return query},single(){single=true;return query},maybeSingle(){single=true;return query},async then(resolve,reject){
+    assert.equal(table,'user_profiles');let fields='*',values=null,ownerColumn,ownerId,single=false,writeMode=null
+    const query={select(value){fields=value;return query},update(value){values=value;writeMode='update';return query},upsert(value){values=value;writeMode='upsert';ownerColumn='id';ownerId=value.id;return query},eq(key,value){ownerColumn=key;ownerId=value;return query},limit(){return query},single(){single=true;return query},maybeSingle(){single=true;return query},async then(resolve,reject){
       try {
-        const result=values?await db.query(`UPDATE public.user_profiles SET ${Object.keys(values).map((key,i)=>`${ident(key)}=$${i+1}`).join(',')} WHERE ${ident(ownerColumn)}=$${Object.keys(values).length+1} RETURNING *`,[...Object.values(values),ownerId]):
-          await db.query(`SELECT ${fields==='*'?'*':fields.split(',').map(ident).join(',')} FROM public.user_profiles WHERE ${ident(ownerColumn)}=$1`,[ownerId])
+        const result=values
+          ? writeMode==='upsert'
+            ? await db.query(`INSERT INTO public.user_profiles (${Object.keys(values).map(ident).join(',')}) VALUES (${Object.keys(values).map((_,i)=>`${i+1}`).join(',')}) ON CONFLICT (id) DO UPDATE SET ${Object.keys(values).filter(key=>key!=='id').map(key=>`${ident(key)}=EXCLUDED.${ident(key)}`).join(',')} RETURNING *`,Object.values(values))
+            : await db.query(`UPDATE public.user_profiles SET ${Object.keys(values).map((key,i)=>`${ident(key)}=${i+1}`).join(',')} WHERE ${ident(ownerColumn)}=${Object.keys(values).length+1} RETURNING *`,[...Object.values(values),ownerId])
+          : await db.query(`SELECT ${fields==='*'?'*':fields.split(',').map(ident).join(',')} FROM public.user_profiles WHERE ${ident(ownerColumn)}=$1`,[ownerId])
         return resolve({data:single?result.rows[0]??null:result.rows,error:null})
       }catch(error){return reject(error)}
     }};return query
@@ -39,7 +42,7 @@ test('real Today/Profile queries use id ownership for two accounts; RLS rejects 
       CREATE TABLE user_profiles(id uuid PRIMARY KEY,weight_unit text,ai_processing_consent boolean DEFAULT false,ai_processing_consent_version int);
       ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
       CREATE POLICY owner ON user_profiles TO authenticated USING(id=auth.uid()) WITH CHECK(id=auth.uid());
-      GRANT SELECT,UPDATE ON user_profiles TO authenticated;
+      GRANT SELECT,INSERT,UPDATE ON user_profiles TO authenticated;
       INSERT INTO user_profiles(id,weight_unit) VALUES('${accountA}','lbs'),('${accountB}','lbs');
       SET ROLE authenticated;`)
     const todayQueries=profileQueries('../app/protocol/page.tsx'),profilePageQueries=profileQueries('../app/profile/page.tsx')
@@ -51,12 +54,21 @@ test('real Today/Profile queries use id ownership for two accounts; RLS rejects 
       for(const query of queries) {
         const result=await new Function('supabase','user','profileFields','unit','userId','newUnit',`return ${query}`)(client(db),{id:account},'weight_unit,ai_processing_consent,ai_processing_consent_version','kg',account,'kg')
         assert.ok(result.data,'profile access succeeds without a nonexistent-column probe')
-        if(query.includes('.update(')) assert.deepEqual(result.data.map(row=>[row.id,row.weight_unit]),[[account,'kg']])
+        if(query.includes('.upsert(')) { const rows=Array.isArray(result.data)?result.data:[result.data]; assert.deepEqual(rows.map(row=>[row.id,row.weight_unit]),[[account,'kg']]) }
       }
       const other=account===accountA?accountB:accountA
       assert.deepEqual((await client(db).from('user_profiles').select('*').eq('id',other)).data,[])
       assert.deepEqual((await client(db).from('user_profiles').update({weight_unit:'forged'}).eq('id',other)).data,[])
     }
+    const weightWrites=queries.filter(query=>query.includes('.upsert('))
+    assert.equal(weightWrites.length,2,'Today and Profile must both create a missing profile row when saving weight units')
+    await db.exec(`RESET ROLE; DELETE FROM user_profiles WHERE id='${accountA}'; SET ROLE authenticated; SET app.user_id='${accountA}'`)
+    for (const query of weightWrites) {
+      const result=await new Function('supabase','user','profileFields','unit','userId','newUnit',`return ${query}`)(client(db),{id:accountA},'weight_unit,ai_processing_consent,ai_processing_consent_version','kg',accountA,'kg')
+      const rows=Array.isArray(result.data)?result.data:[result.data]; assert.deepEqual(rows.map(row=>[row.id,row.weight_unit]),[[accountA,'kg']])
+    }
+    assert.equal((await client(db).from('user_profiles').select('weight_unit').eq('id',accountA).single()).data.weight_unit,'kg')
+
     await db.exec('SET ROLE anon')
     await assert.rejects(async()=>await client(db).from('user_profiles').select('*').eq('id',accountA),/permission denied/)
     await assert.rejects(async()=>await client(db).from('user_profiles').update({weight_unit:'forged'}).eq('id',accountB),/permission denied/)
