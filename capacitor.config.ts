@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'app.mypepprotocol.ios',
+  appId: 'app.mypepprotocol',
   appName: 'MyPepProtocol',
   webDir: 'public',
 
