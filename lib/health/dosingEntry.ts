@@ -206,7 +206,7 @@ export function formatProtocolNumber(value: unknown, kind: ProtocolNumberKind = 
   if ((typeof value !== 'number' && typeof value !== 'string') || (typeof value === 'string' && !value.trim())) return null
   const number = Number(value)
   if (!Number.isFinite(number)) return null
-  const digits = kind === 'count' ? 0 : kind === 'volume' && Math.abs(number) < 1 ? 2 : 1
+  const digits = kind === 'count' ? 0 : kind === 'dose' ? 2 : kind === 'volume' && Math.abs(number) < 1 ? 2 : 1
   let text = protocolDecimals[digits].format(number)
   if (number !== 0 && Number(text) === 0) {
     const needed = Math.min(8, Math.max(digits, Math.ceil(-Math.log10(Math.abs(number))) + 1))

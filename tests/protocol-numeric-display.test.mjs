@@ -41,13 +41,32 @@ test('volumes use magnitude-specific decimal limits and remove trailing zeroes',
   for (const [value, expected] of [[0.168637, '0.17 mL'], [0.1 + 0.2, '0.3 mL'], ['0.500000', '0.5 mL'], [1.25, '1.3 mL'], ['1.00000', '1 mL'], [0.99999, '1 mL'], [0, '0 mL']]) assert.equal(amount(value, 'mL', 'volume'), expected)
 })
 
-test('dose and syringe amounts use at most one decimal with unambiguous units', () => {
+test('dose amounts use at most two decimals and syringe amounts retain one with unambiguous units', () => {
+  for (const [value, expected] of [[0.25, '0.25'], [0.5, '0.5'], [2.5, '2.5'], [5, '5'], [250, '250']]) {
+    assert.equal(number(value), expected)
+    assert.equal(number(value, 'dose'), expected)
+  }
+  assert.equal(amount(0.25, 'mg'), '0.25 mg')
+  assert.equal(amount(60, 'mg'), '60 mg')
+  assert.equal(amount(1000, 'mcg'), '1000 mcg')
   assert.equal(amount('5.000000', 'mg'), '5 mg')
-  assert.equal(amount(5.25, 'mg'), '5.3 mg')
+  assert.equal(amount(5.25, 'mg'), '5.25 mg')
+  assert.equal(amount(16.8637, 'mg'), '16.86 mg')
+  assert.equal(number(1.236), '1.24')
   assert.equal(amount(16.8637, 'syringe units', 'syringe'), '16.9 syringe units')
   assert.equal(amount(16.8637, 'U-100 units', 'syringe'), '16.9 U-100 units')
   assert.equal(amount(250.0000001, 'IU'), '250 IU')
-  assert.equal(number(1000.25), '1000.3', 'Formatting is independent of device locale')
+  assert.equal(number(1000.25), '1000.25', 'Formatting is independent of device locale')
+})
+
+test('V1 and V2 medication displays preserve a quarter-milligram dose', () => {
+  for (const saved of [
+    { ...phase, dose: 0.25 },
+    { dosing_entry: entryFromForm({ input_mode: 'medication', dose: '0.25', dose_unit: 'mg' }) },
+  ]) {
+    assert.equal(dosingDisplay(saved).primary, '0.25 mg')
+    assert.deepEqual(dosingDisplay(saved).medication, { value: 0.25, unit: 'mg' })
+  }
 })
 
 test('percentages and counts have deterministic precision without redundant zeroes', () => {
@@ -88,7 +107,7 @@ for (const [name, values, volume, syringe] of [
   if (volume) assert.ok(detailHtml.includes(`<dt>Injection volume</dt><dd>${volume}</dd>`))
   if (syringe) assert.ok(detailHtml.includes(`<dt>Syringe draw</dt><dd>${syringe}</dd>`))
   for (const html of [ringHtml, detailHtml]) {
-    assert.match(html, /5\.3 mg/)
+    assert.match(html, /5\.25 mg/)
     assert.doesNotMatch(html, /--u|—u|-- mL|undefined|null|NaN|u \/|\/ mL|0\.168637|16\.8637/)
   }
   for (const value of Object.values(actual)) if (value) assert.doesNotMatch(value, /\//, 'Administration values do not use an ambiguous separator')
@@ -98,8 +117,8 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   const entry = entryFromForm({ input_mode: 'medication', dose: '16.8637', dose_unit: 'mg', concentration_value: '100', concentration_unit: 'mg/mL', syringe_scale: '100' })
   const saved = { ...phase, dosing_entry: entry }, p = protocol(saved)
   assert.deepEqual(administrationDisplay(saved), { volume: '0.17 mL', syringe: '16.9 U-100 units' })
-  assert.equal(dosingDisplay(saved).primary, '16.9 mg')
-  assert.match(hero(p), /16\.9 mg/)
+  assert.equal(dosingDisplay(saved).primary, '16.86 mg')
+  assert.match(hero(p), /16\.86 mg/)
   assert.equal(stat(hero(p), 'INJECTION VOLUME'), '0.17 mL')
   assert.equal(stat(hero(p), 'SYRINGE DRAW'), '16.9 U-100 units')
   for (const dosing_entry of [entryFromForm({ input_mode: 'syringe', syringe_markings: '16.8637' }), entryFromForm({ input_mode: 'volume', injection_volume: '0.168637' })]) {
@@ -147,8 +166,8 @@ test('active library cards and Today summaries share dose precision for V1 and V
   for (const extra of [{}, { dosing_entry: entryFromForm({ input_mode: 'medication', dose: '5.25', dose_unit: 'mg' }) }]) {
     const p = protocol(extra)
     const html = render(Card, { protocol: p, today, index: 0, selecting: false, selected: false, onOpen() {}, onSelect() {} })
-    assert.match(html, /5\.3 mg/)
-    assert.equal(todayProtocols([p], today)[0].details, '5.3 mg · daily')
+    assert.match(html, /5\.25 mg/)
+    assert.equal(todayProtocols([p], today)[0].details, '5.25 mg · daily')
   }
 })
 
@@ -159,9 +178,9 @@ test('vial estimates and preparation displays use shared formatting', () => {
   assert.equal(stat(html, 'EST. REMAINING'), '2.8 mL')
   assert.equal(stat(html, 'DOSES TAKEN (VIAL)'), '1')
   assert.match(html, /94\.4%/)
-  assert.match(html, /5\.3 mg/)
+  assert.match(html, /5\.25 mg/)
   assert.match(detail(p), /<dt>Liquid added<\/dt><dd>3 mL<\/dd>/)
-  assert.doesNotMatch(html, /2\.831363|3\.00|5\.25/)
+  assert.doesNotMatch(html, /2\.831363|3\.00|5\.250/)
 })
 
 test('formatting never changes calculation results, saved entries, payloads, or legacy meaning', () => {
