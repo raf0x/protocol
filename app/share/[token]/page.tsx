@@ -64,7 +64,6 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
 
         <div style={{marginTop:'24px',padding:'16px',background:'#12121a',border:'1px solid #1e1e2e',borderRadius:'12px',textAlign:'center'}}>
           <p style={{fontSize:'12px',color:'#3d3d5c',lineHeight:'1.6',margin:'0 0 12px'}}>This is a shared protocol for reference only. Not medical advice.</p>
-          <a href='/calculator' style={{color:'#39ff14',fontSize:'13px',fontWeight:'700',textDecoration:'none'}}>Try the reconstitution calculator →</a>
         </div>
 
       </div>

@@ -301,7 +301,7 @@ export default function Home() {
       <footer className={styles.footer}>
         <Link href="/" className={styles.footerBrand}>MyPepProtocol</Link>
         <div>
-          <Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/support">Support</Link><Link href="/calculator">Calculator</Link>
+          <Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/support">Support</Link>
         </div>
         <p>© 2026 MyPepProtocol. Not medical advice.</p>
       </footer>

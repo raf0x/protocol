@@ -220,7 +220,7 @@ for (const custom of ['disabled','blank','toggled-off']) test(`hotfix: moving st
   }finally{globalThis.window=previous}
 })
 
-test('explicit new/calculator entry resets edit identity and retains prefilled units',async()=>{
+test('explicit new entry resets edit identity and retains prefilled units',async()=>{
   const previous=globalThis.window
   globalThis.window={scrollTo(){},location:{search:'?new=1&protocol=existing-id&name=Prefilled&dose=200&dose_unit=mcg&vial=10&vial_unit=mg&water=2'},history:{replaceState(){globalThis.window.location.search=''}}}
   try {

@@ -40,7 +40,7 @@ export default function BottomTabBar() {
     <dialog ref={dialog} className="app-more-sheet" aria-labelledby="more-title" onClose={() => setMoreOpen(false)} onClick={event => { if (event.target === event.currentTarget) close() }}>
       <header className="today-section-heading"><h2 id="more-title">More from MyPepProtocol</h2><button type="button" className="app-icon-button" aria-label="Close menu" onClick={close}><AppIcon name="close" /></button></header>
       {[
-        ['/profile', 'Profile & settings'], ['/calculator', 'Dose calculator'],
+        ['/profile', 'Profile & settings'],
         ['/tracker', 'Tracker'], ['/learn', 'Learn'],
         ['/privacy', 'Privacy policy'], ['/support', 'Support'],
         ...(isAdmin ? [['/admin', 'Admin']] : []),

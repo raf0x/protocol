@@ -70,7 +70,6 @@ test('all five navigation destinations have distinct active states', () => {
   assert.equal(activeTab('/protocol/manage'), 'Protocols')
   assert.equal(activeTab('/timeline'), 'Timeline')
   assert.equal(activeTab('/journal'), 'Health')
-  assert.equal(activeTab('/calculator'), 'More')
   assert.equal(activeTab('/profile'), 'More')
 })
 test('Today keeps existing log conflict key and only reports success after the write', () => {
