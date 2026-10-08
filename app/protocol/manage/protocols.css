@@ -148,6 +148,8 @@
 .protocol-quick-start label, .quick-control legend { display: block; min-width: 0; color: var(--app-text); font-size: 14px; font-weight: 600; }
 .protocol-quick-start label:has(> input), .protocol-quick-start label:has(> select), .protocol-quick-start label:has(> textarea) { display: grid; gap: var(--app-space-xs); }
 .protocol-quick-start input, .protocol-quick-start select, .protocol-quick-start textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface-secondary); color: var(--app-text); font: inherit; font-size: 16px; font-weight: 500; scroll-margin-block: 120px; }
+.protocol-quick-start .dosing-confirmation input[type=checkbox] { width: 20px; height: 20px; min-height: 20px; padding: 0; flex-shrink: 0; accent-color: var(--app-accent); }
+.protocol-quick-start .dosing-confirmation small { color: var(--app-secondary); font-weight: 400; }
 .protocol-creation-layout button { min-width: 44px; min-height: 44px; max-width: 100%; padding: 8px 10px; border: 1px solid var(--app-border); border-radius: var(--app-radius-button); background: var(--app-surface-secondary); color: var(--app-secondary); font: inherit; font-size: var(--app-font-small); font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; transition: background-color 150ms, border-color 150ms, color 150ms, box-shadow 150ms; }
 .protocol-creation-layout button[aria-pressed=true] { color: var(--app-text); border-color: var(--app-accent); background: var(--app-accent-soft); font-weight: 650; }
 .protocol-creation-layout button[aria-pressed=true] > svg { color: var(--app-accent); flex-shrink: 0; }

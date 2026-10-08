@@ -148,7 +148,9 @@ export function acceptPreviousSetup(current: Compound, setup: PreviousSetup) {
 }
 
 export function setPreparation(current: Compound, value: 'ready' | 'mixing' | 'unknown'): Compound {
-  return { ...current, preparation: value, isPreMixed: value === 'ready', origins: { ...current.origins, preparation: 'session', isPreMixed: 'session' } }
+  const previousPreparation = current.preparation ?? (current.isPreMixed ? 'ready' : 'mixing')
+  const changed = previousPreparation !== value || current.isPreMixed !== (value === 'ready')
+  return { ...current, preparation: value, isPreMixed: value === 'ready', reviewed: changed ? false : current.reviewed, origins: { ...current.origins, preparation: 'session', isPreMixed: 'session' } }
 }
 
 export function setFrequency(current: Compound, choice: NonNullable<Compound['frequencyChoice']>): Compound {

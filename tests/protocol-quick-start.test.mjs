@@ -116,6 +116,142 @@ const Review = load('../components/protocols/ProtocolQuickStart.tsx').QuickStart
 const ready = overrides => ({ ...quick.selectCompound(form.newCompound(), 'Tirzepatide'), dose: '5', dose_unit: 'mg', route: 'SubQ', days_of_week: [0,1,2,3,4,5,6], ...overrides })
 const draft = c => ({ startDate: '2026-09-22', compounds: [c] })
 
+const doseConfirmation = view => nodes(view, n => n.type === 'label' && text(n).startsWith('I’ve reviewed these dose details')).flatMap(label => nodes(label, n => n.type === 'input' && n.props.type === 'checkbox'))[0]
+
+test('dose confirmation is explicit and optional; checking, editing and unchecking persist the current review state', () => {
+  hooks = []; let value = ready({ reviewed: true })
+  const render = () => ui(Fields, { value, section: 'dose', onChange: next => { value = next } })
+  field(render(), 'Dose per injection').props.onChange({ target: { value: '6' } })
+  assert.equal(value.reviewed, false)
+  const checkbox = doseConfirmation(render())
+  assert.ok(checkbox, 'A native checkbox is exposed after the dose details')
+  assert.equal(checkbox.props.checked, false)
+  assert.equal(checkbox.props.required, undefined, 'Review is optional')
+  const label = nodes(render(), n => n.type === 'label' && text(n).startsWith('I’ve reviewed these dose details'))[0]
+  assert.match(text(label), /\(optional\)/)
+  assert.equal(label.props.hidden, undefined)
+  assert.equal(nodes(render(), n => n.type === 'details').length, 0, 'Confirmation is outside any disclosure')
+  assert.equal(quick.quickStartIssue(draft(value)), null)
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'unverified')
+
+  checkbox.props.onChange({ target: { checked: true } })
+  assert.equal(value.reviewed, true)
+  assert.equal(doseConfirmation(render()).props.checked, true)
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'confirmed')
+
+  field(render(), 'Dose per injection').props.onChange({ target: { value: '7' } })
+  assert.equal(value.reviewed, false)
+  assert.equal(doseConfirmation(render()).props.checked, false)
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'unverified')
+  doseConfirmation(render()).props.onChange({ target: { checked: true } })
+  doseConfirmation(render()).props.onChange({ target: { checked: false } })
+  assert.equal(value.reviewed, false)
+  assert.equal(quick.quickStartIssue(draft(value)), null, 'Unchecked drafts remain saveable')
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'unverified')
+})
+
+test('dose confirmation supports known entry modes and their edits; unknown and other sections have no control', () => {
+  for (const [input_mode, values, edits] of [
+    ['medication', {}, [['Dose per injection', '8'], ['Medication dose unit', 'mcg']]],
+    ['syringe', { syringe_markings: '20', syringe_scale: '100' }, [['Syringe markings', '24'], ['Syringe scale', '40']]],
+    ['volume', { injection_volume: '0.2' }, [['Injection volume (mL)', '0.3']]],
+  ]) {
+    hooks = []; let value = ready({ input_mode, ...values, reviewed: false })
+    const render = () => ui(Fields, { value, section: 'dose', onChange: next => { value = next } })
+    for (const [name, next] of edits) {
+      doseConfirmation(render()).props.onChange({ target: { checked: true } })
+      assert.equal(value.reviewed, true, input_mode)
+      assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'confirmed', input_mode)
+      field(render(), name).props.onChange({ target: { value: next } })
+      assert.equal(value.reviewed, false, name)
+      assert.equal(doseConfirmation(render()).props.checked, false, name)
+      assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'unverified', name)
+    }
+  }
+  hooks = []; let value = ready()
+  const render = section => ui(Fields, { value, section, onChange: next => { value = next } })
+  assert.ok(doseConfirmation(render('all')))
+  for (const section of ['schedule', 'start']) assert.equal(doseConfirmation(render(section)), undefined, section)
+  button(render('dose'), 'I measure my dose another way').props.onClick()
+  button(render('dose'), 'I’m not sure').props.onClick()
+  assert.equal(value.input_mode, 'unknown')
+  assert.equal(value.reviewed, false)
+  for (const section of ['dose', 'all']) assert.equal(doseConfirmation(render(section)), undefined, section)
+  assert.equal(quick.quickStartIssue(draft(value)), null)
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.review_status, 'unverified')
+})
+
+test('preparation selection invalidates a confirmed volume dose when its interpreted amount changes', () => {
+  hooks = []; let value = ready({ input_mode: 'volume', dose: '', dose_unit: '', injection_volume: '0.2',
+    preparation: 'mixing', isPreMixed: false, vial_strength: '10', vial_unit: 'mg', bac_water_ml: '2',
+    concentration_value: '10', concentration_unit: 'mg/mL', reviewed: true })
+  const payload = () => form.protocolCompoundPayload([value])[0].phase.dosing_entry
+  const renderDose = () => ui(Fields, { value, section: 'dose', onChange: next => { value = next } })
+  const renderPreparation = () => ui(Additional, { value, today: '2026-09-22', onChange: next => { value = next } })
+  assert.equal(quick.quickStartIssue(draft(value)), null)
+  assert.equal(payload().review_status, 'confirmed')
+  assert.deepEqual(interpretEntry(payload()).medication, { value: 1, unit: 'mg' })
+
+  button(renderPreparation(), 'Ready to use').props.onClick()
+  assert.equal(value.reviewed, false)
+  assert.equal(doseConfirmation(renderDose()).props.checked, false)
+  assert.equal(payload().review_status, 'unverified')
+  assert.deepEqual(interpretEntry(payload()).medication, { value: 2, unit: 'mg' })
+  assert.equal(quick.quickStartIssue(draft(value)), null, 'The changed, unverified entry remains saveable')
+
+  doseConfirmation(renderDose()).props.onChange({ target: { checked: true } })
+  assert.equal(value.reviewed, true)
+  assert.equal(payload().review_status, 'confirmed')
+  button(renderPreparation(), 'Needs mixing').props.onClick()
+  assert.equal(value.reviewed, false)
+  assert.equal(payload().review_status, 'unverified')
+  assert.deepEqual(interpretEntry(payload()).medication, { value: 1, unit: 'mg' })
+
+  doseConfirmation(renderDose()).props.onChange({ target: { checked: true } })
+  button(renderPreparation(), 'Needs mixing').props.onClick()
+  assert.equal(value.reviewed, true, 'Selecting the current preparation does not invalidate review')
+  value = form.updateCompoundDraft(value, 'notes', 'An unrelated note')
+  assert.equal(payload().review_status, 'confirmed', 'Unrelated edits preserve confirmation')
+})
+
+test('setPreparation resets review only for changed preparation semantics across all three states', () => {
+  for (const from of ['ready', 'mixing', 'unknown']) for (const to of ['ready', 'mixing', 'unknown']) {
+    const confirmed = ready({ preparation: from, isPreMixed: from === 'ready', reviewed: true })
+    const next = quick.setPreparation(confirmed, to)
+    assert.equal(next.preparation, to)
+    assert.equal(next.isPreMixed, to === 'ready')
+    assert.equal(next.reviewed, from === to, `${from} -> ${to}`)
+    assert.equal(form.protocolCompoundPayload([next])[0].phase.dosing_entry.review_status, from === to ? 'confirmed' : 'unverified')
+    assert.equal(quick.setPreparation({ ...confirmed, reviewed: false }, to).reviewed, false, 'Preparation never reconfirms an unverified entry')
+  }
+  for (const isPreMixed of [true, false]) {
+    const inferred = ready({ preparation: undefined, isPreMixed, reviewed: true })
+    assert.equal(quick.setPreparation(inferred, isPreMixed ? 'ready' : 'mixing').reviewed, true, 'An unchanged legacy preparation meaning preserves review')
+  }
+})
+
+test('guided Quick Start exposes dose confirmation before Continue and keeps it outside optional setup', () => {
+  hooks = []; let value = draft(ready({ reviewed: false })), savedPayload
+  const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next }, onSave: () => { savedPayload = form.protocolCompoundPayload(value.compounds) } })
+  button(render(), 'Continue').props.onClick()
+  const view = render(), checkbox = doseConfirmation(view)
+  assert.ok(checkbox)
+  const disclosure = nodes(view, n => n.type === 'details')[0]
+  assert.equal(doseConfirmation(disclosure), undefined)
+  assert.ok(text(view).indexOf('I’ve reviewed these dose details') < text(view).indexOf('Continue'))
+  checkbox.props.onChange({ target: { checked: true } })
+  assert.equal(value.compounds[0].reviewed, true)
+  assert.equal(form.protocolCompoundPayload(value.compounds)[0].phase.dosing_entry.review_status, 'confirmed')
+  field(render(), 'Dose per injection').props.onChange({ target: { value: '6' } })
+  assert.equal(value.compounds[0].reviewed, false)
+  assert.equal(doseConfirmation(render()).props.checked, false)
+  button(render(), 'Continue').props.onClick()
+  button(render(), 'Continue').props.onClick()
+  button(render(), 'Review protocol').props.onClick()
+  button(render(), 'Start tracking').props.onClick()
+  assert.equal(savedPayload[0].phase.dosing_entry.review_status, 'unverified', 'An unchecked draft completes the save flow')
+})
+
 test('picker starts with search, exposes two categories and exactly five neutral quick picks', () => {
   hooks = []; let value = form.newCompound()
   const render = () => ui(Picker, { value, onChange: next => { value = next } })

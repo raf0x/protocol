@@ -33,7 +33,11 @@ export default function QuickProtocolFields({ value: c, onChange, issue, idPrefi
       <QuickStartError id={`${idPrefix}-method-error`} issue={issue?.field === 'input_mode' ? issue : null} />
     </div>
     <label className="quick-route">How do you take it?<select aria-label="How do you take it?" aria-invalid={issue?.field === 'route'} aria-describedby={issue?.field === 'route' ? `${idPrefix}-route-error` : undefined} value={c.route} onChange={event => update('route', event.target.value)}><option value="">Choose a route</option>{[['SubQ', 'Under the skin (SubQ)'], ['IM', 'Into a muscle (IM)'], ['Oral', 'By mouth (Oral)'], ['Other', 'Another route']].map(([route, label]) => <option key={route} value={route}>{label}</option>)}</select></label>
-    <QuickStartError id={`${idPrefix}-route-error`} issue={issue?.field === 'route' ? issue : null} /></>}
+    <QuickStartError id={`${idPrefix}-route-error`} issue={issue?.field === 'route' ? issue : null} />
+    {c.input_mode !== 'unknown' && <label className="dosing-confirmation protocol-check">
+      <input type="checkbox" checked={c.reviewed} onChange={event => update('reviewed', event.target.checked)} />
+      <span>I’ve reviewed these dose details <small>(optional)</small></span>
+    </label>}</>}
     {(section === 'all' || section === 'schedule') && <><div className="quick-schedule" role="group" aria-label="Schedule" aria-describedby={issue?.field === 'days_of_week' ? `${idPrefix}-schedule-error` : undefined}>
       <QuickChoices label="Frequency" value={frequency} options={[["daily", 'Daily'], ['weekly', 'Weekly'], ['2x', '2x/week'], ['3x', '3x/week'], ['custom', 'Custom']]} onChange={value => onChange(setFrequency(c, value))} />
       {frequency === 'custom' && <label>Repeat<select aria-label="Repeat" value={c.frequency_mode} onChange={event => update('frequency_mode', event.target.value as Compound['frequency_mode'])}><option value="weekly">Choose days</option><option value="rolling">Every N days</option></select></label>}
