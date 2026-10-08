@@ -123,7 +123,7 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
   const visibleFindings = findings.headlines.slice(0, 4)
   const supplementalLabUpdates = briefingSupplementalLabUpdates(latestPanel, histories, visibleFindings, 4)
   const source = protocols.status === 'ready' ? { protocols: protocols.data.protocols, protocolEvents: protocols.data.events } : null
-  const current = source && protocols.asOf ? healthStateAtDate(source, protocols.asOf) : []
+  const current = source && protocols.asOf ? healthStateAtDate(source, protocols.asOf, { mode: 'current' }) : []
   const windows = findings.headlines.flatMap(finding => finding.evidence.comparison ? [finding.evidence.comparison] : [])
   // Only structured event-backed interventions belong in this concise context.
   // Legacy events and saved phase boundaries remain available in Protocol Changes.

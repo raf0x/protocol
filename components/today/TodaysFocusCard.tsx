@@ -33,7 +33,7 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
   if (protocols && next) {
     try { review = phase?.dosing_entry ? dosingIssue(phase.dosing_entry)?.title ?? null : null }
     catch { review = 'Dose details need review' }
-    if (!review && (display.secondary || !display.medication || phase?.dosing_entry?.review_status === 'unverified')) review = 'Dose details need review'
+    if (!review && (!display.medication || phase?.dosing_entry?.review_status === 'unverified')) review = 'Dose details need review'
   }
   return <SectionCard className={styles.focus} aria-labelledby="focus-title">
     <div className={styles.focusHeader}>

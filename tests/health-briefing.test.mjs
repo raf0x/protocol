@@ -88,10 +88,36 @@ test('latest date, panel metadata and count come from the unique latest panel', 
   assert.equal(s.latestDate, '2026-09-01'); assert.equal(s.biomarkerCount, 2)
   assert.deepEqual(s.latestPanel, { id: 'new', panel_name: 'Fictional panel', provider: 'Fictional lab' })
 })
-test('current state is exactly canonical replay at the explicit as-of date', () => {
+test('current state is exactly canonical current-mode state at the explicit as-of date', () => {
   const ps = [protocol()], es = [event('paused', '2026-09-10', { event_type: 'paused' })]
-  for (const date of ['2026-09-09', '2026-09-10']) assert.deepEqual(build(pair(), ready(ps, es, date)).currentSnapshot.compounds, healthStateAtDate({ protocols: ps, protocolEvents: es }, date))
+  for (const date of ['2026-09-09', '2026-09-10']) assert.deepEqual(build(pair(), ready(ps, es, date)).currentSnapshot.compounds, healthStateAtDate({ protocols: ps, protocolEvents: es }, date, { mode: 'current' }))
 })
+test('current multi-phase briefing honors saved confirmation and retains historical uncertainty', () => {
+  const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+  const confirmed = entryFromForm({ input_mode: 'medication', dose: '7', dose_unit: 'mg', reviewed: true })
+  const saved = phase({ id: 'phase-b', start_week: 5, dosing_entry: confirmed })
+  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: 4 }), saved] })] })
+  const snapshot = { phaseId: 'phase-b', compoundId: 'compound-a', startWeek: 5, endWeek: null, doseConfirmed: false,
+    medicationDose: null, medicationUnit: null, frequency: '1x/week', route: 'SubQ', dosingEntry: { ...confirmed, review_status: 'unverified' } }
+  const es = [event('phase-start', '2026-01-29', { event_type: 'phase_started', metadata: { version: 1, newState: snapshot } })]
+  // Two contradictory early snapshots leave legitimate historical uncertainty.
+  for (const value of [3, 4]) es.push(event('old-' + value, '2026-01-05', { metadata: { version: 1, newState: {
+    ...snapshot, phaseId: 'phase-a', startWeek: 1, endWeek: 4, doseConfirmed: true, medicationDose: value, medicationUnit: 'mg', dosingEntry: null } } }))
+  const panels = pair(10, 30, '2026-01-10', '2026-02-01')
+  const model = build(panels, ready([p], es, '2026-03-15'))
+  assert.deepEqual(model.currentSnapshot.compounds[0].medication, { value: 7, unit: 'mg' })
+  assert.equal(model.currentSnapshot.compounds[0].phaseId, 'phase-b')
+  assert.ok(!model.gaps.some(gap => gap.key === 'unconfirmed_dose'))
+  assert.doesNotMatch(copy(model), /Dose not confirmed/)
+  assert.equal(healthStateAtDate({ protocols: [p], protocolEvents: es }, '2026-02-01')[0].medication, null)
+  assert.match(copy(model), /Some historical phase details are not known from the recorded history\./)
+  saved.dosing_entry = { ...confirmed, review_status: 'unverified' }
+  const unverified = build(panels, ready([p], es, '2026-03-15'))
+  assert.equal(unverified.currentSnapshot.compounds[0].medication, null)
+  assert.ok(unverified.gaps.some(gap => gap.key === 'unconfirmed_dose'))
+  assert.match(copy(unverified), /Dose not confirmed/)
+})
+
 for (const [unit, value] of [['mg', 7], ['mcg', 80], ['IU', 160]]) test(`confirmed medication ${unit} remains medication dose`, () => {
   const p = protocol({ compounds: [compound({ phases: [phase({ dose: value, dose_unit: unit })] })] })
   assert.match(copy(build(pair(), ready([p]))), new RegExp(`${value} ${unit}`))

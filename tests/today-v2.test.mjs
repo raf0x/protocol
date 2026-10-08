@@ -38,7 +38,8 @@ const Recent = load('../components/today/RecentChangesCard.tsx').default
 const Hero = load('../components/dashboard/HeroProtocolCard.tsx').default
 const Snapshot = load('../components/today/SelectedProtocolSnapshot.tsx').default
 const { CompactDisclosure } = load('../components/app/DesignSystem.tsx')
-const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+const { entryFromForm, dosingDisplay } = load('../lib/health/dosingEntry.ts')
+const { dosingIssue } = load('../components/protocols/DoseSummary.tsx')
 const { ringColors } = load('../lib/protocols/rings.ts')
 const date = '2026-10-04'
 const phase = { id: 'phase', dose: 5, dose_unit: 'mg', dose_semantics_version: 1, frequency: 'daily', start_week: 1, end_week: null }
@@ -137,7 +138,7 @@ test('CSV uses its existing callback in the hero header and warning follows the 
 
 test('rows retain precise medication amounts, frequency and real phase status', () => {
   const tree = render(Row, { id: 'a', name: 'Alpha', protocolId: 'p', week: 3, phase: { ...phase, dose: 5.25 }, color: ringColors[0], selected: true, onSelect() {} })
-  assert.match(text(tree), /5.3 mg · dailyActive · Week 3/)
+  assert.match(text(tree), /5.25 mg · dailyActive · Week 3/)
   assert.doesNotMatch(text(tree), /syringe|units|unknown/)
 })
 
@@ -190,7 +191,7 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.equal(actual['Injection volume'], '0.17 mL'); assert.equal(actual['Syringe draw'], '6.7 U-40 units')
   assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Doses taken (vial)'], '1'); assert.equal(actual['Next dose'], 'Tomorrow')
   assert.match(text(tree), /ACTIVE COMPOUNDAlpha compoundPlanWeek 1Started /)
-  assert.match(text(tree), /5.3 mg\/dosedaily/)
+  assert.match(text(tree), /5.25 mg\/dosedaily/)
   const snapshot = nodes(tree, n => n.props.className === 'today-protocol-snapshot')[0]
   assert.equal(snapshot.props.style['--compound-color'], '#39ff14')
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === true).length, 1)
@@ -412,6 +413,21 @@ test('compact Focus separates confirmed medication from secondary review and kee
     assert.equal(nodes(tree, n => n.type === 'p' && n.props['aria-live'] === 'polite')[0].props.className, 'visuallyHidden')
     nodes(tree, n => n.type === 'button' && text(n) === 'Mark taken')[0].props.onClick()
     assert.deepEqual(calls, ['a'])
+  }
+})
+
+test('confirmed Focus medication with only equivalent-calculation guidance needs no dose review', () => {
+  for (const preparation of ['ready', 'mixing']) {
+    const entry = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', preparation, reviewed: true })
+    const candidate = { ...phase, dosing_entry: entry }
+    assert.equal(entry.review_status, 'confirmed')
+    assert.deepEqual(dosingDisplay(candidate).medication, { value: 5, unit: 'mg' })
+    assert.match(dosingDisplay(candidate).secondary, /calculate equivalents/)
+    assert.equal(dosingIssue(entry), null)
+    const p = { ...protocol, compounds: [{ id: 'a', name: 'Alpha compound', phases: [candidate] }] }
+    const tree = render(Focus, { ...props, activeCount: 1, protocols: [p] })
+    assert.equal(text(nodes(tree, n => n.props.className === 'doseAmount')[0]), '5 mg')
+    assert.equal(nodes(tree, n => n.props.className === 'focusReview').length, 0)
   }
 })
 
