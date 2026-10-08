@@ -134,6 +134,33 @@ test('current multi-phase briefing uses the saved phase despite stale historical
   assert.equal(JSON.stringify({ p, es }), before)
 })
 
+test('current briefing uses saved confirmation despite same-day review snapshots and retains historical ambiguity', () => {
+  const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+  const date = '2026-03-15'
+  const confirmed = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: true })
+  const saved = phase({ id: 'phase-b', start_week: 5, dosing_entry: confirmed, frequency: '2x/week', route: 'IM' })
+  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: 4 }), saved] })] })
+  const oldState = { phaseId: 'phase-b', compoundId: 'compound-a', startWeek: 5, endWeek: null, doseConfirmed: false,
+    medicationDose: null, medicationUnit: null, dosingEntry: { ...confirmed, review_status: 'unverified' }, frequency: '2x/week', route: 'IM' }
+  const newState = { ...oldState, doseConfirmed: true, medicationDose: 5, medicationUnit: 'mg', dosingEntry: confirmed }
+  const es = [event('earlier-review', date, { event_type: 'dose_change', metadata: { version: 1, source: 'protocol_editor', newState: oldState } }),
+    event('later-confirmation', date, { event_type: 'dose_change', metadata: { version: 1, source: 'protocol_editor', previousState: oldState, newState } })]
+  const before = JSON.stringify({ p, es })
+  for (const ordered of [es, [...es].reverse()]) {
+    const model = build(pair(10, 30, '2026-02-01', date), ready([p], ordered, date))
+    const current = model.currentSnapshot.compounds[0]
+    assert.equal(current.phaseId, 'phase-b')
+    assert.deepEqual(current.medication, { value: 5, unit: 'mg' })
+    assert.equal(current.frequency, '2x/week')
+    assert.equal(current.route, 'IM')
+    assert.equal(current.provenance, 'saved_plan')
+    assert.ok(!model.gaps.some(gap => gap.key === 'unconfirmed_dose'))
+    assert.doesNotMatch(copy(model), /Dose not confirmed/)
+    assert.match(copy(model), /Some historical phase details are not known from the recorded history\./)
+  }
+  assert.equal(JSON.stringify({ p, es }), before)
+})
+
 for (const [unit, value] of [['mg', 7], ['mcg', 80], ['IU', 160]]) test(`confirmed medication ${unit} remains medication dose`, () => {
   const p = protocol({ compounds: [compound({ phases: [phase({ dose: value, dose_unit: unit })] })] })
   assert.match(copy(build(pair(), ready([p]))), new RegExp(`${value} ${unit}`))

@@ -162,8 +162,8 @@ function currentSavedPhase(phases: PhaseRow[], start: string, date: string, even
   return phases.find(phase => phase.id === selected?.id) ?? null
 }
 
-/** Historical replay is the default. Current snapshots select saved phase boundaries
- * while retaining explicit event dates and relevant structured ambiguity. */
+/** Historical replay is the default. Current queries use uniquely resolved saved
+ * rows as authority; snapshot ambiguity applies only to historical queries. */
 export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' | 'protocolEvents'>, date: string,
   options: { mode?: 'historical' | 'current' } = {}): ProtocolState[] {
   if (!day(date)) return []
@@ -193,23 +193,24 @@ export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' |
         ? currentSavedPhase(compound?.phases ?? [], protocol.start_date!, date, compoundEvents, restored)
         : currentPhase(restored.map(item => item.phase), protocol.start_date!, date)
       const match = restored.find(item => options.mode === 'current' ? item.phase.id === selected?.id : item.phase === selected)
-      const saved = options.mode === 'current' && selected && !match?.ambiguous
+      const saved = options.mode === 'current' && selected
         ? compound?.phases?.find(phase => phase.id === selected.id) : null
       const effective = saved ?? selected
+      const ambiguous = !saved && Boolean(match?.ambiguous)
       const provenance = saved ? 'saved_plan' : match?.provenance ?? 'unknown'
       const limitations: string[] = []
-      if (!selected || match?.ambiguous) limitations.push('No unambiguous phase covers this date.')
+      if (!selected || ambiguous) limitations.push('No unambiguous phase covers this date.')
       if (provenance !== 'snapshot') limitations.push('Reconstructed from the current saved plan; unrecorded historical edits cannot be recovered.')
       else limitations.push('Snapshot schedule days/times were not retained; only recorded frequency and route are available.')
       if (!compound) limitations.push('Compound record is absent; retained event snapshots are the only available history.')
-      const medication = match?.ambiguous ? null : medicationForPhase(effective)
+      const medication = ambiguous ? null : medicationForPhase(effective)
       if (!medication) limitations.push('Medication dose is not confirmed; syringe markings and volume are not medication IU.')
       const display = effective ? dosingDisplay(effective) : null
-      const frequency = effective && !match?.ambiguous ? scheduleLabel(effective) : null
+      const frequency = effective && !ambiguous ? scheduleLabel(effective) : null
       const eventName = compoundEvents.map(event => typeof event.metadata?.compoundName === 'string' ? event.metadata.compoundName : null).find(Boolean)
       result.push({ protocolId: protocol.id, compoundId, name: compound?.name || eventName || protocol.name || 'Recorded compound',
         phaseId: selected?.id ?? null, medication, administration: !medication && effective?.dosing_entry ? display?.primary ?? null : null,
-        frequency: frequency === 'Schedule not set' ? null : frequency, route: match?.ambiguous ? null : effective?.route ?? null,
+        frequency: frequency === 'Schedule not set' ? null : frequency, route: ambiguous ? null : effective?.route ?? null,
         provenance, limitations,
         sources: !saved && match?.eventIds.length ? match.eventIds.map(id => ({ table: 'protocol_events' as const, id, label: 'Structured phase snapshot' }))
           : selected ? [{ table: 'phases', id: selected.id, label: 'Saved phase plan' }] : [{ table: 'protocols', id: protocol.id, label: 'Protocol record' }] })

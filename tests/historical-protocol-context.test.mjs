@@ -289,6 +289,48 @@ test('a confirmed snapshot-only phase cannot become a confirmed current saved ph
   assert.equal(current.provenance, 'unknown')
 })
 
+test('current saved confirmation is authoritative over same-day phase snapshots while history stays ambiguous', () => {
+  const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+  const date = '2026-03-15'
+  const confirmed = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: true })
+  const unverified = { ...confirmed, review_status: 'unverified' }
+  const saved = phase({ id: 'ph2', start_week: 5, dosing_entry: confirmed, frequency: '2x/week', route: 'IM' })
+  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: 4 }), saved] })] })
+  const oldState = snapshot({ phaseId: 'ph2', startWeek: 5, doseConfirmed: false, medicationDose: null, medicationUnit: null,
+    dosingEntry: unverified, frequency: '2x/week', route: 'IM' })
+  const newState = { ...oldState, doseConfirmed: true, medicationDose: 5, medicationUnit: 'mg', dosingEntry: confirmed }
+  const rows = [event(), event({ id: 'earlier-review', date, event_type: 'dose_change', compound_id: 'c1',
+    metadata: { version: 1, source: 'protocol_editor', phaseId: 'ph2', newState: oldState } }),
+    event({ id: 'later-confirmation', date, event_type: 'dose_change', compound_id: 'c1',
+      metadata: { version: 1, source: 'protocol_editor', phaseId: 'ph2', previousState: oldState, newState } })]
+  const before = JSON.stringify({ p, rows })
+  for (const ordered of [rows, [...rows].reverse()]) {
+    const data = source([p], ordered)
+    const current = history.healthStateAtDate(data, date, currentMode)[0]
+    assert.equal(current.phaseId, 'ph2')
+    assert.deepEqual(current.medication, { value: 5, unit: 'mg' })
+    assert.equal(current.frequency, '2x/week')
+    assert.equal(current.route, 'IM')
+    assert.equal(current.provenance, 'saved_plan')
+    assert.deepEqual(current.sources, [{ table: 'phases', id: 'ph2', label: 'Saved phase plan' }])
+    assert.ok(!current.limitations.some(item => /No unambiguous phase/.test(item)))
+    const historical = history.healthStateAtDate(data, date)[0]
+    assert.equal(historical.phaseId, 'ph2')
+    assert.equal(historical.medication, null)
+    assert.equal(historical.frequency, null)
+    assert.equal(historical.route, null)
+    assert.equal(historical.provenance, 'unknown')
+  }
+  assert.equal(JSON.stringify({ p, rows }), before)
+  saved.dosing_entry = unverified
+  const unconfirmed = history.healthStateAtDate(source([p], rows), date, currentMode)[0]
+  assert.equal(unconfirmed.phaseId, 'ph2')
+  assert.equal(unconfirmed.medication, null)
+  assert.equal(unconfirmed.frequency, '2x/week')
+  assert.equal(unconfirmed.route, 'IM')
+  assert.equal(JSON.stringify(rows), JSON.stringify(JSON.parse(before).rows))
+})
+
 test('current state does not retain historical confirmation after the saved dose becomes unverified', () => {
   const data = multiPhaseReviewSource('unverified', 'confirmed')
   assert.deepEqual(history.healthStateAtDate(data, '2026-02-01')[0].medication, { value: 1, unit: 'mg' })
@@ -306,14 +348,18 @@ test('current saved-phase confirmation stays scoped to protocol and compound ide
   assert.deepEqual(current.map(item => [item.compoundId, item.medication?.value ?? null]), [['c1', 1], ['c2', null]])
 })
 
-test('current mode preserves ambiguous, overlapping, and snapshot-only phase uncertainty', () => {
+test('current saved authority preserves historical ambiguity, saved overlaps, and snapshot-only uncertainty', () => {
   const ambiguous = multiPhaseReviewSource()
   const stale = ambiguous.protocolEvents[1]
   ambiguous.protocolEvents.push({ ...stale, id: 'conflicting-phase', metadata: { ...stale.metadata,
     newState: { ...stale.metadata.newState, dosingEntry: syringeEntry({ syringe_markings: '40', review_status: 'unverified' }) } } })
-  const unresolved = history.healthStateAtDate(ambiguous, '2026-03-15', currentMode)[0]
-  assert.equal(unresolved.medication, null)
-  assert.equal(unresolved.provenance, 'unknown')
+  const historical = history.healthStateAtDate(ambiguous, '2026-03-15')[0]
+  assert.equal(historical.medication, null)
+  assert.equal(historical.provenance, 'unknown')
+  const current = history.healthStateAtDate(ambiguous, '2026-03-15', currentMode)[0]
+  assert.equal(current.phaseId, 'ph2')
+  assert.deepEqual(current.medication, { value: 1, unit: 'mg' })
+  assert.equal(current.provenance, 'saved_plan')
   const overlapping = multiPhaseReviewSource()
   overlapping.protocols[0].compounds[0].phases[0].end_week = null
   assert.equal(history.healthStateAtDate(overlapping, '2026-03-15', currentMode)[0].medication, null)
