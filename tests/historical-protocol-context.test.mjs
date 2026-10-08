@@ -156,7 +156,8 @@ test('conflicting same-day phase snapshots remain unresolved', () => {
 })
 
 test('phase continuation does not fill the earlier expired gap', () => {
-  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: 2 })] })] })
+  // The persisted plan is ongoing after continuation; its prior expiry lives in the event.
+  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: null })] })] })
   const rows = [event(), event({ id: 'cont', date: '2026-02-01', event_type: 'phase_continued', compound_id: 'c1', metadata: { version: 1, phaseId: 'ph1', previousEndWeek: 2, newEndWeek: null, newState: snapshot() } })]
   for (const options of [{}, { mode: 'current' }]) {
     assert.equal(history.healthStateAtDate(source([p], rows), '2026-01-25', options)[0].phaseId, null)
@@ -239,6 +240,55 @@ test('current multi-phase state uses saved confirmation while historical snapsho
   assert.equal(JSON.stringify(data), before)
 })
 
+test('current saved phase wins over a stale open-ended historical boundary without rewriting history', () => {
+  for (const [startWeek, value] of [[5, 5], [7, 60]]) {
+    const data = multiPhaseReviewSource()
+    const [prior, current] = data.protocols[0].compounds[0].phases
+    prior.end_week = startWeek - 1
+    current.start_week = startWeek
+    current.dosing_entry = { ...syringeEntry(), mode: 'medication', dose: String(value), dose_unit: 'mg', syringe_markings: '', vial_strength: '', vial_unit: '', bac_water_ml: '' }
+    data.protocolEvents[1].metadata.newState.startWeek = startWeek
+    const stale = event({ id: 'old-open', date: '2026-01-01', event_type: 'dose_change', compound_id: 'c1',
+      metadata: { version: 1, newState: snapshot({ endWeek: null }) } })
+    data.protocolEvents.push(stale)
+    const before = JSON.stringify(data)
+    const historicalBefore = history.healthStateAtDate(data, '2026-03-15')
+    const saved = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
+    assert.equal(saved.phaseId, 'ph2')
+    assert.deepEqual(saved.medication, { value, unit: 'mg' })
+    assert.equal(saved.provenance, 'saved_plan')
+    assert.deepEqual(saved.sources, [{ table: 'phases', id: 'ph2', label: 'Saved phase plan' }])
+    assert.equal(historicalBefore[0].phaseId, null)
+    assert.equal(historicalBefore[0].medication, null)
+    assert.equal(historicalBefore[0].provenance, 'unknown')
+    assert.deepEqual(history.healthStateAtDate(data, '2026-03-15'), historicalBefore)
+    assert.equal(stale.metadata.newState.endWeek, null)
+    assert.equal(JSON.stringify(data), before)
+    current.dosing_entry.review_status = 'unverified'
+    assert.equal(history.healthStateAtDate(data, '2026-03-15', currentMode)[0].medication, null)
+  }
+})
+
+test('conflicting snapshots of an inactive saved phase do not invalidate the unique saved current phase', () => {
+  const data = multiPhaseReviewSource()
+  for (const value of [6, 7]) data.protocolEvents.push(event({ id: 'old-' + value, date: '2026-01-01', event_type: 'dose_change', compound_id: 'c1',
+    metadata: { version: 1, newState: snapshot({ medicationDose: value, endWeek: null }) } }))
+  assert.equal(history.healthStateAtDate(data, '2026-03-15')[0].medication, null)
+  const current = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
+  assert.equal(current.phaseId, 'ph2')
+  assert.deepEqual(current.medication, { value: 1, unit: 'mg' })
+})
+
+test('a confirmed snapshot-only phase cannot become a confirmed current saved phase', () => {
+  const data = multiPhaseReviewSource('confirmed', 'confirmed')
+  data.protocols[0].compounds[0].phases.pop()
+  assert.deepEqual(history.healthStateAtDate(data, '2026-03-15')[0].medication, { value: 1, unit: 'mg' })
+  const current = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
+  assert.equal(current.phaseId, null)
+  assert.equal(current.medication, null)
+  assert.equal(current.provenance, 'unknown')
+})
+
 test('current state does not retain historical confirmation after the saved dose becomes unverified', () => {
   const data = multiPhaseReviewSource('unverified', 'confirmed')
   assert.deepEqual(history.healthStateAtDate(data, '2026-02-01')[0].medication, { value: 1, unit: 'mg' })
@@ -271,7 +321,23 @@ test('current mode preserves ambiguous, overlapping, and snapshot-only phase unc
   removed.protocols[0].compounds[0].phases.pop()
   const snapshotOnly = history.healthStateAtDate(removed, '2026-03-15', currentMode)[0]
   assert.equal(snapshotOnly.medication, null)
-  assert.equal(snapshotOnly.provenance, 'snapshot')
+  assert.equal(snapshotOnly.phaseId, null)
+  assert.equal(snapshotOnly.provenance, 'unknown')
+})
+
+test('current confirmed saved phases do not bypass lifecycle or compound presence uncertainty', () => {
+  const data = multiPhaseReviewSource()
+  const date = '2026-03-15'
+  const pause = event({ id: 'pause', date, event_type: 'paused' })
+  const resume = event({ id: 'resume', date, event_type: 'resumed' })
+  for (const rows of [[pause, resume], [resume, pause]]) {
+    assert.deepEqual(history.healthStateAtDate({ ...data, protocolEvents: [...data.protocolEvents, ...rows] }, date, currentMode), [])
+  }
+  const removed = event({ id: 'removed', date, event_type: 'compound_removed', compound_id: 'c1', metadata: { version: 1, compoundId: 'c1' } })
+  const added = event({ id: 'added', date, event_type: 'compound_added', compound_id: 'c1', metadata: { version: 1, compoundId: 'c1' } })
+  for (const rows of [[removed], [added, removed], [removed, added]]) {
+    assert.deepEqual(history.healthStateAtDate({ ...data, protocolEvents: [...data.protocolEvents, ...rows] }, date, currentMode), [])
+  }
 })
 
 test('protocol overlay context is a presentation adapter over canonical state', () => {

@@ -140,8 +140,30 @@ export function phasesAtDate(protocol: LibraryProtocol, compoundId: string, date
   return restored
 }
 
-/** Historical replay is the default. Current snapshots may use the saved row only
- * after replay resolves an unambiguous phase identity and its effective dates. */
+/** Current identity comes from saved boundaries. Only explicit future quick-change
+ * and continuation dates can adjust membership; general snapshots cannot. */
+function currentSavedPhase(phases: PhaseRow[], start: string, date: string, events: OverlayProtocolEvent[], restored: RestoredPhase[]): PhaseRow | null {
+  if (phases.filter(phase => currentPhase([phase], start, date)).length > 1) return null
+  const future = events.filter(event => event.metadata?.version === 1 && day(event.date) && day(event.date)! > date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  const candidates = phases.filter(phase => restored.some(item => item.phase.id === phase.id)).map(saved => {
+    let endWeek = saved.end_week
+    // Keep the saved prior phase in force until a quick change's exact date,
+    // even when the new phase's saved start week was rounded down.
+    const quick = future.find(event => event.metadata?.source === 'quick_dose_change'
+      && snapshotList(event, 'previous').some(phase => phase.id === saved.id)
+      && !snapshotList(event, 'new').some(phase => phase.id === saved.id))
+    if (quick) endWeek = snapshotList(quick, 'previous').find(phase => phase.id === saved.id)!.end_week
+    const continuation = future.find(event => event.event_type === 'phase_continued' && event.metadata?.phaseId === saved.id)
+    if (continuation && numeric(continuation.metadata?.previousEndWeek) != null) endWeek = numeric(continuation.metadata?.previousEndWeek)
+    return { ...saved, end_week: endWeek }
+  })
+  const selected = currentPhase(candidates, start, date)
+  return phases.find(phase => phase.id === selected?.id) ?? null
+}
+
+/** Historical replay is the default. Current snapshots select saved phase boundaries
+ * while retaining explicit event dates and relevant structured ambiguity. */
 export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' | 'protocolEvents'>, date: string,
   options: { mode?: 'historical' | 'current' } = {}): ProtocolState[] {
   if (!day(date)) return []
@@ -167,8 +189,10 @@ export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' |
       if (presence.has('compound_removed')) continue
       const restored = phasesAtDate(protocol, compoundId, date, events)
       if (!restored.length && compound?.phases?.length) continue // not yet created
-      const selected = currentPhase(restored.map(item => item.phase), protocol.start_date!, date)
-      const match = restored.find(item => item.phase === selected)
+      const selected = options.mode === 'current'
+        ? currentSavedPhase(compound?.phases ?? [], protocol.start_date!, date, compoundEvents, restored)
+        : currentPhase(restored.map(item => item.phase), protocol.start_date!, date)
+      const match = restored.find(item => options.mode === 'current' ? item.phase.id === selected?.id : item.phase === selected)
       const saved = options.mode === 'current' && selected && !match?.ambiguous
         ? compound?.phases?.find(phase => phase.id === selected.id) : null
       const effective = saved ?? selected

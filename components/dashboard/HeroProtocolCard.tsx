@@ -250,7 +250,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const dosePresentation = dosingDisplay(currentPhase)
   const doseIssue = entry ? (() => { try { return dosingIssue(entry) } catch { return null } })() : null
   const badgeDoseText = dosePresentation.medication ? formatProtocolAmount(dosePresentation.medication.value, dosePresentation.medication.unit) : 'Medication amount unknown'
-  const doseNotice = doseIssue?.title ?? (dosePresentation.secondary ? 'Dose details need review' : null)
+  const doseNotice = doseIssue?.title ?? (!dosePresentation.medication || entry?.review_status === 'unverified' ? 'Dose details need review' : null)
 
   async function archiveProtocol() {
     const completionDate = localCalendarDate()

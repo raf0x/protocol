@@ -204,6 +204,34 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.doesNotMatch(text(tree), /0.168637|6.74548|Selected protocol tools/)
 })
 
+test('Hero selected snapshot and card do not flag confirmed medication for secondary preparation guidance', () => {
+  for (const preparation of ['ready', 'mixing']) {
+    const entry = entryFromForm({ input_mode: 'medication', dose: '5.25', dose_unit: 'mg', preparation, reviewed: true })
+    assert.equal(entry.review_status, 'confirmed')
+    assert.deepEqual(dosingDisplay({ dosing_entry: entry }).medication, { value: 5.25, unit: 'mg' })
+    assert.match(dosingDisplay({ dosing_entry: entry }).secondary, /calculate equivalents/)
+    assert.equal(dosingIssue(entry), null)
+    for (const snapshot of [true, false]) {
+      const p = snapshotProtocol({}, { dosing_entry: entry })
+      const tree = render(Hero, { ...snapshotProps(p), snapshot })
+      assert.match(text(tree), /5\.25 mg/)
+      assert.doesNotMatch(text(tree), /Dose details need review/)
+    }
+  }
+})
+
+test('Hero selected snapshot retains real conflict, missing medication, and unverified dose warnings', () => {
+  const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
+  const missing = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', reviewed: true })
+  const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: false })
+  for (const [entry, notice] of [[conflict, 'Vial details need review'], [missing, 'Dose details need review'], [unverified, 'Dose details need review']]) {
+    const p = snapshotProtocol({}, { dosing_entry: entry })
+    assert.match(text(render(Hero, snapshotProps(p))), new RegExp(notice))
+  }
+  const legacy = snapshotProtocol({}, { dose_semantics_version: null })
+  assert.match(text(render(Hero, snapshotProps(legacy))), /Dose details need review/)
+})
+
 test('snapshot keeps missing facts distinct from zero and never converts legacy markings to medication', () => {
   const p = snapshotProtocol({}, { dose: 50, dose_unit: 'IU', dose_semantics_version: null, syringe_units: 16.8637 })
   const tree = render(Hero, snapshotProps(p)), actual = facts(tree)

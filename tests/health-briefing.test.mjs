@@ -118,6 +118,22 @@ test('current multi-phase briefing honors saved confirmation and retains histori
   assert.match(copy(unverified), /Dose not confirmed/)
 })
 
+test('current multi-phase briefing uses the saved phase despite stale historical open-ended boundaries', () => {
+  const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+  const confirmed = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: true })
+  const p = protocol({ compounds: [compound({ phases: [phase({ end_week: 4 }), phase({ id: 'phase-b', start_week: 5, dosing_entry: confirmed })] })] })
+  const es = [event('old-open', '2026-01-01', { metadata: { version: 1, newState: { phaseId: 'phase-a', compoundId: 'compound-a',
+    startWeek: 1, endWeek: null, doseConfirmed: true, medicationDose: 7, medicationUnit: 'mg', dosingEntry: null } } })]
+  const before = JSON.stringify({ p, es })
+  const model = build(pair(10, 30, '2026-02-01', '2026-03-01'), ready([p], es, '2026-03-15'))
+  assert.equal(model.currentSnapshot.compounds[0].phaseId, 'phase-b')
+  assert.deepEqual(model.currentSnapshot.compounds[0].medication, { value: 5, unit: 'mg' })
+  assert.doesNotMatch(copy(model), /Dose not confirmed/)
+  assert.ok(!model.gaps.some(gap => gap.key === 'unconfirmed_dose'))
+  assert.match(copy(model), /Some historical phase details are not known from the recorded history\./)
+  assert.equal(JSON.stringify({ p, es }), before)
+})
+
 for (const [unit, value] of [['mg', 7], ['mcg', 80], ['IU', 160]]) test(`confirmed medication ${unit} remains medication dose`, () => {
   const p = protocol({ compounds: [compound({ phases: [phase({ dose: value, dose_unit: unit })] })] })
   assert.match(copy(build(pair(), ready([p]))), new RegExp(`${value} ${unit}`))
