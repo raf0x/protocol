@@ -8,10 +8,11 @@ It explains who does what and what evidence is needed before moving forward.
 
 Roles describe responsibilities, not permanent model choices. Model selection can change.
 One person or agent may cover compatible roles; independent review must remain separate from implementation.
+Follow the product and engineering authority hierarchy in [CLAUDE.md](../../CLAUDE.md#agent-skills).
 
 | Role | Responsibility |
 | --- | --- |
-| Product owner (Rafael) | Defines the business outcome, accepts product behavior, resolves product choices, and authorizes release actions. |
+| Product owner (Rafael) | Has ultimate authority over business objectives, product acceptance, major scope changes, and release authorization. |
 | Delivery Lead | Sets risk level, keeps the task packet and scope clear, coordinates handoffs, and identifies the next decision or blocker. |
 | Architect | Reviews the proposed design, data boundaries, risks, and rollback before implementation when required. |
 | Implementer | Makes the agreed changes, runs focused checks, and returns evidence and remaining gaps. |
@@ -36,7 +37,7 @@ A release gate is the final check of the intended change before publication, not
 
 1. **Intake:** Rafael states the outcome. The Delivery Lead identifies risk, scope, preservation boundaries, and missing information.
 2. **Task packet:** Use [TASK_TEMPLATE.md](TASK_TEMPLATE.md) to record observable acceptance criteria, allowed surfaces, budget, required checks, and permissions.
-3. **Architecture decision when required:** The Architect reviews high-risk work and other changes affecting established design choices. Rafael resolves any product-decision change before implementation; record durable choices in [DECISIONS.md](DECISIONS.md).
+3. **Architecture decision when required:** The Architect reviews high-risk work and other changes affecting established design choices. ChatGPT resolves product decisions within Rafael's approved direction; Rafael resolves changes to that direction or major scope before implementation. Record durable choices in [DECISIONS.md](DECISIONS.md).
 4. **Implementation:** The implementer makes the scoped change and runs focused tests. Hand off a concrete result that can be reviewed.
 5. **Product-owner QA:** Rafael checks the intended experience against acceptance criteria in a suitable preview or test environment. Record results and gaps; product acceptance does not authorize deployment.
 6. **Independent review:** A separate reviewer checks correctness, relevant decisions, safety, and evidence. Low-risk work may skip this step when review was not requested; record that choice.

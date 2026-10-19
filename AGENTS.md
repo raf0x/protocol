@@ -22,6 +22,7 @@ production origin: `https://www.mypepprotocol.app/`.
 
 ## Read when relevant
 
+- At task start, read the `Agent skills` section of [CLAUDE.md](CLAUDE.md) for engineering-skill guidance and Product Orchestrator boundaries. Follow its `docs/agents/` pointers when working with issues, triage, or domain decisions. Read that section once; its `@AGENTS.md` reference points back here, where shared repository rules remain authoritative.
 - For multi-step feature, review, validation, or release work, follow [WORKFLOW.md](docs/agent-os/WORKFLOW.md). Do not load it for trivial explanations or one-line edits.
 - [PROJECT_STATE.md](docs/agent-os/PROJECT_STATE.md): only when current production state, baseline failures, or active work matters.
 - [DECISIONS.md](docs/agent-os/DECISIONS.md): only when a task could affect an established product or architecture decision.
