@@ -18,7 +18,7 @@ export default function SelectedProtocolSnapshot({ name, protocolName, medicatio
       {notice && <div className="today-snapshot-notice">{notice}</div>}
     </div>
     <div className="today-snapshot-vial-rail">
-      <div className="today-snapshot-vial" aria-hidden="true">{visual}</div>
+      <div className="today-snapshot-vial">{visual}</div>
       {lifecycle && <div className="today-snapshot-lifecycle">{lifecycle}</div>}
     </div>
     <dl className="today-snapshot-facts">
