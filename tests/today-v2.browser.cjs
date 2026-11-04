@@ -1,13 +1,18 @@
 // Local-only QA of the actual Today page, shell, rings, snapshot and non-blocking check-in panel.
-// Updated for MPP-019C; not run in that task's deliberately narrower validation gate.
+// Includes Today Performance V1A fault, recovery, race and render-timing checks.
 // Supabase is replaced at the module boundary. No real account/data/network writes.
 // Run with: npm run validate:browser -- tests/today-v2.browser.cjs
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os')
 const cp = require('node:child_process'), http = require('node:http'), ts = require('typescript')
+const sha256 = text => require('node:crypto').createHash('sha256').update(text).digest('hex')
+const sourceHashes = { 'tests/today-v2.browser.cjs': sha256(fs.readFileSync(__filename)) }
 const WebSocket = require('next/dist/compiled/ws')
 const root = process.cwd(), dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mpp019-browser-'))
 const entry = path.join(dir, 'fixture.tsx')
+const baselineDir = process.env.TODAY_BASELINE_DIR
+const performanceOnly = process.env.TODAY_PERFORMANCE_ONLY === '1' || Boolean(baselineDir)
+const scheduleOnly = process.env.TODAY_SCHEDULE_ONLY === '1'
 let chrome, ws, server
 const deadline = setTimeout(() => { console.error('Today fixture exceeded 120 seconds'); process.exit(1) }, 120000)
 fs.writeFileSync(entry, `
@@ -17,14 +22,16 @@ import Page from ${JSON.stringify(path.join(root, 'app/protocol/page.tsx'))};
 import Shell from ${JSON.stringify(path.join(root, 'components/app/AppShell.tsx'))};
 import {entryFromForm} from ${JSON.stringify(path.join(root, 'lib/health/dosingEntry.ts'))};
 const NativeDate=Date;
-window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:['2026-10-04T12:00:00']))}static now(){return new NativeDate('2026-10-04T12:00:00').getTime()}};
-window.qaCount=5; window.qaMode='full'; window.qaLogs=[]; window.qaWrites=[]; window.qaFailSave=false; window.qaNavigated=''; window.qaUnit='lbs';
+window.qaNow='2026-10-04T12:00:00';
+window.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:[qaNow]))}static now(){return new NativeDate(qaNow).getTime()}};
+window.qaCount=5; window.qaMode='full'; window.qaLogs=[]; window.qaWrites=[]; window.qaFailSave=false; window.qaNavigated=''; window.qaUnit='lbs';window.qaPolicy={};window.qaRequests=[];window.qaAuthListeners=new Set();window.qaUserId='qa-owner';window.qaJournal=null;
+window.qaEmitAuth=(event,userId)=>{qaUserId=userId;for(const listener of qaAuthListeners)listener(event,userId?{user:{id:userId}}:null)};
 window.qaProtocols=()=>Array.from({length:qaCount},(_,i)=>({id:'p'+i,created_at:'2026-09-01',name:'Protocol '+i,status:'active',start_date:'2026-09-01',compounds:[{id:'c'+i,name:i===4?'A very long compound name that stays fully readable in its row':['Tirzepatide','GHK-Cu','BPC-157','CJC-1295'][i%4],vial_strength:10,vial_unit:'mg',bac_water_ml:2,ml_per_dose:.2,vials_in_stock:2,doses_taken_override:0,phases:[{id:'phase'+i,dose:5,dose_unit:'mg',dose_semantics_version:i===3?null:1,frequency:'daily',time_of_day:'Morning',start_week:1,end_week:null}]}]}));
 const originalProtocols=qaProtocols;
-window.qaProtocols=()=>{const rows=originalProtocols();if(qaMode==='focus'){const compound=rows[0].compounds[0];compound.name='HGH';Object.assign(compound.phases[0],{dose:1,dose_unit:'IU',time_of_day:'night',dosing_entry:entryFromForm({input_mode:'medication',dose:'1',dose_unit:'IU',injection_volume:'.5',preparation:'ready',concentration_value:'20',concentration_unit:'IU/mL',reviewed:true})})}return rows};
-window.qaEntries=()=>qaMode==='empty'||qaMode==='missing'?[]:[{id:'j1',date:'2026-10-04',weight:180,energy:3,mood:4,hunger:null,sleep:0,notes:''},{id:'j2',date:'2026-09-01',weight:182,energy:2,mood:3,sleep:7,notes:''}];
+window.qaProtocols=()=>{const rows=originalProtocols();if(qaMode==='history')rows[0].start_date='2020-01-01';if(qaMode==='focus'){const compound=rows[0].compounds[0];compound.name='HGH';Object.assign(compound.phases[0],{dose:1,dose_unit:'IU',time_of_day:'night',dosing_entry:entryFromForm({input_mode:'medication',dose:'1',dose_unit:'IU',injection_volume:'.5',preparation:'ready',concentration_value:'20',concentration_unit:'IU/mL',reviewed:true})})}return rows};
+window.qaEntries=()=>qaJournal??(qaMode==='empty'||qaMode==='missing'?[]:[{id:'j1',date:'2026-10-04',weight:180,energy:3,mood:4,hunger:null,sleep:0,notes:''},{id:'j2',date:'2026-09-01',weight:182,energy:2,mood:3,sleep:7,notes:''}]);
 window.qaRouter={push:url=>{qaNavigated=url},replace:url=>{qaNavigated=url},refresh:()=>{}};
-function Fixture(){const [version,setVersion]=React.useState(0);React.useEffect(()=>{window.qaReset=(count=5,mode='full')=>{qaCount=count;qaMode=mode;qaLogs=[];qaWrites=[];qaFailSave=false;qaNavigated='';qaUnit='lbs';sessionStorage.setItem('mpp:first-protocol:qa-owner','1');setVersion(v=>v+1)}},[]);return <Shell><Page key={version}/></Shell>}
+function Fixture(){const [version,setVersion]=React.useState(0);React.useEffect(()=>{window.qaReset=(count=5,mode='full',policy={},options={})=>{qaCount=count;qaMode=mode;qaLogs=options.logs??[];qaWrites=[];qaFailSave=false;qaNavigated='';qaUnit='lbs';qaPolicy=policy;qaRequests=[];qaJournal=null;qaNow='2026-10-04T12:00:00';qaUserId=options.userId??'qa-owner';if(!options.onboarding)sessionStorage.setItem('mpp:first-protocol:'+qaUserId,'1');window.qaMountedAt=performance.now();setVersion(v=>v+1)}},[]);return <Shell><Page key={version}/></Shell>}
 sessionStorage.setItem('mpp:first-protocol:qa-owner','1');
 createRoot(document.getElementById('root')).render(<Fixture/>);
 `)
@@ -36,18 +43,27 @@ function bundle(file) {
   if (ids.has(file)) return ids.get(file)
   const id = modules.length; ids.set(file, id); modules.push(null)
   let code = fs.readFileSync(file, 'utf8')
+  // Only these production modules are replaced, without writing a baseline into the repository.
+  if (baselineDir && ['app/protocol/page.tsx', 'components/today/TodayOverview.tsx'].some(relative => file === path.join(root, relative))) code = fs.readFileSync(path.join(baselineDir, path.relative(root, file)), 'utf8')
+  for (const relative of ['app/protocol/page.tsx', 'components/today/TodayOverview.tsx', 'components/dashboard/WeeklySchedule.tsx']) if (file === path.join(root, relative)) sourceHashes[relative] = sha256(code)
   if (file === path.join(root, 'lib/supabase.ts')) code = `
-  exports.createClient=()=>({auth:{getUser:async()=>({data:{user:{id:'qa-owner'}},error:null})},from:table=>{
-    let filters={},single=false,columns='',write=null;
-    const q={select(c){columns=c;return this},eq(k,v){filters[k]=v;return this},order(){return this},limit(){return this},single(){single=true;return this},maybeSingle(){single=true;return this},upsert(value){write=value;return this},update(value){write=value;return this},then(resolve,reject){return Promise.resolve().then(async()=>{
+  async function response(key,result,signal){
+    const policy={...(qaPolicy[key]??{})};const record={key,started:performance.now(),completed:null,aborted:false};qaRequests.push(record);
+    await new Promise((resolve,reject)=>{let timer;const abort=()=>{record.aborted=true;if(policy.ignoreAbort)return;clearTimeout(timer);record.completed=performance.now();reject(Object.assign(Error('Fixture request aborted'),{name:'AbortError'}))};if(signal?.aborted)abort();else{signal?.addEventListener('abort',abort,{once:true});timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},policy.delay??0)}});
+    record.completed=performance.now();return policy.fail?{data:key==='auth'?{user:null}:null,error:{message:'Fictional request failure',name:policy.errorName??'AuthRetryableFetchError',status:503}}:policy.result??result;
+  }
+  exports.createClient=()=>({auth:{getUser:()=>response('auth',{data:{user:qaUserId?{id:qaUserId}:null},error:null}),onAuthStateChange:callback=>{qaAuthListeners.add(callback);return {data:{subscription:{unsubscribe:()=>qaAuthListeners.delete(callback)}}}}},from:table=>{
+    let filters={},single=false,columns='',write=null,signal;
+    const q={select(c){columns=c;return this},eq(k,v){filters[k]=v;return this},order(){return this},limit(){return this},single(){single=true;return this},maybeSingle(){single=true;return this},abortSignal(value){signal=value;return this},upsert(value){write=value;return this},update(value){write=value;return this},then(resolve,reject){return Promise.resolve().then(async()=>{
       if(window.qaMode==='loading')await new Promise(r=>setTimeout(r,1500));
-      if(write){qaWrites.push({table,value:write});if(qaFailSave)return {data:null,error:{message:'Fixture failed save'}};if(table==='user_profiles')qaUnit=write.weight_unit;if(table==='injection_logs'){qaLogs=qaLogs.filter(l=>l.compound_id!==write.compound_id||l.date!==write.date);qaLogs.push(write)}return {data:null,error:null}}
-      if(qaMode==='error'&&table==='journal_entries')return {data:null,error:{message:'Fixture load failed'}};
+      if(write){qaWrites.push({table,value:write,filters:{...filters}});if(qaFailSave)return {data:null,error:{message:'Fixture failed save'}};if(table==='user_profiles')qaUnit=write.weight_unit;if(table==='journal_entries'){const rows=qaEntries();qaJournal=[{...rows.find(e=>e.date===write.date),...write},...rows.filter(e=>e.date!==write.date)]}if(table==='injection_logs'){qaLogs=qaLogs.filter(l=>l.compound_id!==write.compound_id||l.date!==write.date);qaLogs.push(write)}return response('write:'+table,{data:table==='user_profiles'&&columns?{weight_unit:qaUnit}:null,error:null},signal)}
+      const key=table==='protocols'?(filters.status==='active'?'active':filters.status==='planned'?'planned':columns==='id'?'ownership':'protocol-detail'):table==='injection_logs'?(filters.date?'today':'history'):table==='journal_entries'?'journal':table==='user_profiles'?'profile':table;
+      if(qaMode==='error'&&table==='journal_entries')return response(key,{data:null,error:{message:'Fixture load failed'}},signal);
       let rows=table==='protocols'?qaProtocols():table==='journal_entries'?qaEntries():table==='injection_logs'?qaLogs:table==='protocol_events'&&qaMode!=='empty'?Array.from({length:4},(_,i)=>({id:'e'+i,date:'2026-10-0'+(4-i),event_type:'started',protocol_id:'p'+i,compound_id:'c'+i,description:null})):[];
-      if(table==='user_profiles')return {data:{weight_unit:qaUnit},error:null};
-      if(table==='compounds')return {data:{vials_in_stock:2,doses_taken_override:0},error:null};
+      if(table==='user_profiles')return response(key,{data:{weight_unit:qaUnit},error:null},signal);
+      if(table==='compounds')return response(key,{data:{vials_in_stock:2,doses_taken_override:0},error:null},signal);
       for(const [key,value] of Object.entries(filters))if(key!=='user_id')rows=rows.filter(row=>row[key]===value);
-      return {data:single?rows[0]||null:rows,error:null}
+      return response(key,{data:single?rows[0]||null:rows,error:null},signal)
     }).then(resolve,reject)}};return q}});`
   // PWA registration is unrelated and must not install a fixture service worker.
   if (file === path.join(root, 'components/app/PwaLifecycle.tsx')) code = 'exports.__esModule=true;exports.default=()=>null;'
@@ -91,7 +107,7 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
   console.log('Chrome connected')
   let seq = 0; const pending = new Map()
   ws.onmessage = event => { const message = JSON.parse(event.data); if (message.id) { const job = pending.get(message.id); if (!job) return; clearTimeout(job.timer); pending.delete(message.id); message.error ? job.reject(message.error) : job.resolve(message.result) } }
-  const cdp = (method, params = {}) => new Promise((resolve, reject) => { const id = ++seq; const timer = setTimeout(() => { pending.delete(id); reject(Error('CDP timeout: ' + method)) }, 10000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params })) })
+  const cdp = (method, params = {}) => new Promise((resolve, reject) => { const id = ++seq; const timer = setTimeout(() => { pending.delete(id); reject(Error('CDP timeout: ' + method)) }, 45000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params })) })
   const run = async code => { const result = await cdp('Runtime.evaluate', { expression: '(async()=>{' + code + '})()', awaitPromise: true, returnByValue: true }); if (result.exceptionDetails) throw Error(JSON.stringify(result.exceptionDetails)); return result.result.value }
   const viewport = (width, height = 844) => cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 600 })
   const press = async (key, code, value) => { for (const type of ['keyDown', 'keyUp']) await cdp('Input.dispatchKeyEvent', { type, key, code, windowsVirtualKeyCode: value, ...(type === 'keyDown' && key === 'Enter' ? { text: '\r' } : {}) }) }
@@ -103,6 +119,100 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
   console.log('Fixture page opened')
   await new Promise(resolve => setTimeout(resolve, 800))
   await run(`window.checks=[];window.check=(ok,label)=>{if(!ok)throw Error(label);checks.push(label)};window.tick=()=>new Promise(r=>setTimeout(r,100));window.summary=label=>[...document.querySelectorAll('summary')].find(e=>e.textContent.startsWith(label));window.button=label=>[...document.querySelectorAll('button')].find(e=>e.textContent===label);check(errors.length===0,'No initial errors '+JSON.stringify(errors));check(document.querySelector('h1').textContent.includes('your day'),'Today renders');check(document.querySelector('main section').getAttribute('aria-labelledby')==='health-title','Health leads the paired summary');`)
+  await run(`window.metrics={};window.waitFor=async(predicate,limit=1500)=>{const start=performance.now();while(!predicate()){if(performance.now()-start>limit)throw Error('Fixture condition timed out after '+limit+'ms');await new Promise(r=>setTimeout(r,20))}};window.criticalPolicy=()=>Object.fromEntries(['auth','active','today','ownership'].map(key=>[key,{delay:100}]));window.actionReady=()=>qaRequests.some(r=>r.key==='active')&&button('Mark taken')&&!document.querySelector('.today-loading');`)
+  if (!baselineDir) {
+    console.log('Checking disabled and enabled schedule reordering')
+    await run(`
+      window.scheduleRows=()=>[...document.querySelectorAll('.today-weekly-schedule [data-compound-id]')];
+      window.scheduleOrder=()=>scheduleRows().map(row=>row.dataset.compoundId).join(',');
+      window.positionWrites=()=>qaWrites.filter(write=>write.table==='compounds'&&Object.hasOwn(write.value,'position'));
+      window.scheduleDisabled=()=>document.querySelector('.today-weekly-schedule')?.closest('fieldset').disabled;
+      window.gestureEvent=async(row,type)=>{
+        row.scrollIntoView({block:'center'});
+        const box=row.getBoundingClientRect(),event=new Event(type,{bubbles:true,cancelable:true});
+        Object.defineProperty(event,'touches',{value:[{clientX:Math.max(1,box.left+20),clientY:box.top+box.height/2}]});
+        row.dispatchEvent(event);await new Promise(resolve=>setTimeout(resolve,20));
+      };
+      window.reorder=async(kind)=>{
+        const [first,second]=scheduleRows();
+        await gestureEvent(first,kind==='drag'?'dragstart':'touchstart');
+        await gestureEvent(second,kind==='drag'?'dragover':'touchmove');
+        await gestureEvent(second,kind==='drag'?'drop':'touchend');
+      };
+      window.expectBlockedReorder=async(label)=>{
+        check(scheduleDisabled(),label+' disables schedule');
+        const before=scheduleOrder(),writes=positionWrites().length;
+        for(const kind of ['drag','touch']){
+          await reorder(kind);
+          check(positionWrites().length===writes,label+' blocks '+kind+' position writes');
+          check(scheduleOrder()===before,label+' preserves '+kind+' row order');
+        }
+        check(scheduleRows().every(row=>!row.draggable),label+' removes native draggable behavior');
+      };
+      qaReset(3);await tick();await waitFor(()=>scheduleRows().length===3&&!scheduleDisabled());
+      qaPolicy.history={fail:true};window.dispatchEvent(new Event('doses_updated'));
+      await waitFor(()=>button('Retry history'));await expectBlockedReorder('Failed history refresh');
+      qaPolicy.history={delay:500};button('Retry history').click();await tick();
+      await expectBlockedReorder('Pending history retry');
+      await waitFor(()=>!scheduleDisabled());check(scheduleRows().every(row=>row.draggable),'History retry restores reordering');
+      qaPolicy.history={};qaPolicy.active={delay:500};window.dispatchEvent(new Event('doses_updated'));await tick();
+      await expectBlockedReorder('Active refresh');await waitFor(()=>!scheduleDisabled());
+      qaPolicy.active={};qaPolicy.today={fail:true};window.dispatchEvent(new Event('doses_updated'));
+      await waitFor(()=>button('Try again'));await expectBlockedReorder('Critical loading failure');
+      qaPolicy.today={};button('Try again').click();await waitFor(()=>!scheduleDisabled());
+    `)
+    for (const kind of ['drag', 'touch']) {
+      await run(`
+        qaReset(3);await tick();await waitFor(()=>scheduleRows().length===3&&!scheduleDisabled());
+        await reorder('${kind}');await waitFor(()=>positionWrites().length===3);
+        check(scheduleOrder()==='c1,c0,c2','Enabled ${kind} reorders rows');
+        check(JSON.stringify(positionWrites().map(w=>[w.filters.id,w.value.position]))===JSON.stringify([['c1',0],['c0',1],['c2',2]]),'Enabled ${kind} preserves compound IDs and zero-based positions');
+        qaWrites=[];
+        const first=scheduleRows()[0],second=scheduleRows()[1],before=scheduleOrder();
+        await gestureEvent(first,'${kind === 'drag' ? 'dragstart' : 'touchstart'}');
+        await gestureEvent(second,'${kind === 'drag' ? 'dragover' : 'touchmove'}');
+        qaPolicy.history={fail:true};window.dispatchEvent(new Event('doses_updated'));await waitFor(()=>button('Retry history'));
+        check(scheduleRows().every(row=>row.style.opacity==='1'),'Disabling clears active ${kind} gesture');
+        await gestureEvent(second,'${kind === 'drag' ? 'drop' : 'touchend'}');
+        check(positionWrites().length===0&&scheduleOrder()===before,'Disabling mid-${kind} prevents completion');
+        qaPolicy.history={};button('Retry history').click();await waitFor(()=>!scheduleDisabled());
+        await gestureEvent(second,'${kind === 'drag' ? 'drop' : 'touchend'}');
+        check(positionWrites().length===0&&scheduleOrder()===before,'Re-enabling cannot revive old ${kind} gesture');
+        await reorder('${kind}');await waitFor(()=>positionWrites().length===3);
+        check(scheduleOrder()==='c0,c1,c2','A fresh ${kind} works after retry');
+      `)
+    }
+    for (const transition of ['disabled', 'reenabled', 'unmounted']) {
+      await run(`
+        qaReset(3,'full',{'write:compounds':{delay:600}});await tick();await waitFor(()=>scheduleRows().length===3&&!scheduleDisabled());
+        await reorder('drag');await waitFor(()=>positionWrites().length===1);
+        ${transition === 'unmounted' ? "qaEmitAuth('SIGNED_OUT',null);await tick();check(scheduleRows().length===0,'Sign-out unmounts schedule');" : "qaPolicy.history={fail:true};window.dispatchEvent(new Event('doses_updated'));await waitFor(()=>button('Retry history'));"}
+        ${transition === 'reenabled' ? "qaPolicy.history={};button('Retry history').click();await waitFor(()=>!scheduleDisabled());" : ''}
+        await new Promise(resolve=>setTimeout(resolve,700));
+        check(positionWrites().length===1,'Pending reorder stops subsequent writes when ${transition}');
+      `)
+    }
+    await run(`qaReset(3,'full',{history:{fail:true}});await tick();await waitFor(()=>button('Retry history'));check(scheduleRows().length===0&&positionWrites().length===0,'Initial history failure exposes no reorder surface or position writes');check(errors.length===0,'No runtime errors after schedule safety checks');`)
+    if (scheduleOnly) {
+      const report = { passed: (await run('return checks')).length, checks: await run('return checks'), sourceHashes, errors: await run('return errors'), fixture: 'Actual Today and WeeklySchedule in local headless Chrome; fictional Supabase only; synthetic drag and touch events.' }
+      const reportPath = path.join(dir, 'today-schedule-safety.json')
+      fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
+      console.log(JSON.stringify({ passed: report.passed, report: reportPath }, null, 2))
+      return
+    }
+  }
+  await run(`qaReset(5,'full',criticalPolicy());await tick();await waitFor(actionReady);metrics.healthyActionMs=Math.round(performance.now()-qaMountedAt);check(metrics.healthyActionMs<1000,'Healthy critical data produces actions within one second');`)
+  const delayed = await run(`qaReset(5,'full',{...criticalPolicy(),history:{delay:30000}});await tick();await waitFor(actionReady,35000);metrics.history30sActionMs=Math.round(performance.now()-qaMountedAt);return metrics.history30sActionMs;`)
+  console.log(JSON.stringify({ source: baselineDir ? 'before-backup' : 'after-working-tree', history30sActionMs: delayed }))
+  if (baselineDir) {
+    const reportPath = path.join(dir, 'today-performance-before.json')
+    fs.writeFileSync(reportPath, JSON.stringify({ source: 'Verified pre-change backups bundled in memory', metrics: await run('return metrics'), errors: await run('return errors'), scope: 'Fictional mocked requests in local headless Chrome; not production latency' }, null, 2))
+    console.log(JSON.stringify({ report: reportPath }, null, 2))
+    return
+  }
+  await run(`check(metrics.history30sActionMs<1000,'A 30-second historical read does not block critical actions');check(!document.querySelector('.today-weekly-schedule'),'Pending history does not display an empty schedule');check(!qaRequests.some(r=>r.key==='protocol_events'),'Unused events query is absent');await waitFor(()=>button('Retry history'),12000);metrics.historyDeadlineMs=Math.round(performance.now()-qaMountedAt);check(metrics.historyDeadlineMs>=9500&&metrics.historyDeadlineMs<11500,'Secondary history deadline is approximately ten seconds');check(qaRequests.some(r=>r.key==='history'&&r.aborted),'History deadline aborts the database request');check(button('Mark taken'),'History timeout keeps critical actions');qaPolicy.history={};button('Retry history').click();await waitFor(()=>document.querySelector('.today-weekly-schedule'));check(button('Mark taken'),'History section retry recovers independently');`)
+  await run(`qaReset(5);await tick();`)
+  if (!performanceOnly) {
   for (const theme of ['dark','light']) for (const width of [390,1440]) {
     await viewport(width)
     await run(`document.documentElement.dataset.theme='${theme}';qaReset(5,'focus');qaLogs=[1,2,3,4].map(i=>({compound_id:'c'+i,date:'2026-10-04',taken:true}));await tick();window.scrollTo(0,0);await tick();
@@ -186,9 +296,24 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
   await screen('today-light-390')
   await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
   await run(`check([...document.querySelectorAll('.protocol-ring-named,summary')].every(e=>getComputedStyle(e).transitionDuration==='0s'&&getComputedStyle(e).animationName==='none'),'Reduced motion removes transitions');window.scrollTo(0,document.body.scrollHeight);await tick();const nav=document.querySelector('.app-tab-bar').getBoundingClientRect(),last=document.querySelector('main').getBoundingClientRect();check(nav.bottom<=innerHeight+1,'Bottom navigation in viewport');check(last.bottom<=nav.top,'Bottom content clears navigation');check(errors.length===0,'No runtime errors');`)
-  await run(`qaReset(5,'error');await tick();check(document.querySelector('[role="alert"]').textContent.includes('couldn’t be loaded'),'Load error preserved');check(button('Try again')!==undefined,'Retry preserved');qaMode='full';button('Try again').click();await tick();check(button('Mark taken')!==undefined,'Retry recovers');`)
-  const report = { passed: (await run('return checks')).length, checks: await run('return checks'), screenshots, errors: await run('return errors'), fixture: 'Actual Today Page and AppShell with mocked Supabase, Next navigation and PWA registration; CSS Modules transformed locally; no Next production build or live backend verification.' }
-  const reportPath = path.join(os.tmpdir(), 'mpp019-browser.json')
+  }
+  console.log('Checking Today loading deadlines and recovery')
+  await run(`qaReset(1,'history',{}, {logs:[{compound_id:'c0',date:'2020-02-01',taken:true}]});qaJournal=[{id:'j-current',date:'2026-10-04',weight:180,energy:3,mood:4,hunger:null,sleep:null,notes:''},{id:'j-old',date:'2020-01-01',weight:200,energy:2,mood:3,sleep:7,notes:''}];await tick();await waitFor(()=>document.querySelector('.today-protocol-snapshot'));check(document.querySelector('[class$="_healthChange"]').textContent.includes('-20 lbs'),'Earliest historical weight remains part of weight change');check(document.querySelector('[class$="_healthChange"] time').getAttribute('datetime')==='2020-01-01','Weight baseline retains records older than arbitrary windows');check([...document.querySelectorAll('.today-health-metrics strong')].some(e=>e.textContent==='7 h'),'Latest non-null historic sleep value is preserved');const next=[...document.querySelectorAll('.today-snapshot-fact dt')].find(e=>e.textContent==='Next dose');check(next.nextElementSibling.textContent==='Due today','Old injection history still drives last-dose result');`)
+  await run(`qaReset(5,'error');await tick();await waitFor(()=>button('Retry health'));check(button('Mark taken'),'Journal failure preserves critical dose actions');check(!document.querySelector('.today-error'),'Journal failure is section-local');check(!document.querySelector('header button[aria-label^="Current weight"]'),'Failed health does not present a fabricated weight');qaMode='full';button('Retry health').click();await waitFor(()=>button('Review check-in'));check(document.querySelector('header button[aria-label^="Current weight"]'),'Health retry restores trustworthy weight');`)
+  await run(`qaReset(5,'full',{history:{fail:true}});await tick();await waitFor(()=>button('Retry history'));check(!document.querySelector('.today-weekly-schedule')&&!document.querySelector('.today-protocol-snapshot'),'Failed history never becomes an empty schedule or zero-inventory snapshot');check(button('Mark taken'),'Historical failure preserves essential actions');qaPolicy.history={};button('Retry history').click();await waitFor(()=>document.querySelector('.today-weekly-schedule'));check(document.querySelector('.today-protocol-snapshot'),'History retry restores detailed results');`)
+  await run(`qaReset(5,'full',{planned:{fail:true}});await tick();await waitFor(()=>button('Retry planned protocols'));check(button('Mark taken'),'Planned-protocol failure preserves essential actions');qaPolicy.planned={};button('Retry planned protocols').click();await waitFor(()=>!button('Retry planned protocols'));`)
+  await run(`qaReset(5,'full',{auth:{delay:30000}});await tick();await waitFor(()=>document.querySelector('.today-error'),12000);metrics.authDeadlineMs=Math.round(performance.now()-qaMountedAt);check(metrics.authDeadlineMs>=9500&&metrics.authDeadlineMs<11500,'Authentication deadline is approximately ten seconds');check(!qaRequests.some(r=>r.key==='active'),'Unverified authentication starts no protocol reads');check(button('Try again')&&!button('Mark taken'),'Stalled authentication has recovery without dose actions');qaPolicy.auth={};button('Try again').click();await waitFor(actionReady);check(button('Mark taken'),'Authentication deadline retry recovers');`)
+  await run(`qaReset(5,'full',{today:{delay:30000}});await tick();await waitFor(()=>document.querySelector('.today-error'),12000);metrics.criticalDeadlineMs=Math.round(performance.now()-qaMountedAt);check(metrics.criticalDeadlineMs>=9500&&metrics.criticalDeadlineMs<11500,'Critical-read deadline is approximately ten seconds');check(qaRequests.some(r=>r.key==='today'&&r.aborted),'Critical deadline aborts the database request');check(!button('Mark taken'),'Unknown today logs never expose a scheduled-dose action');qaPolicy.today={};button('Try again').click();await waitFor(actionReady);`)
+  await run(`qaReset(0,'empty',{ownership:{fail:true}},{userId:'fictional-ownership-failure',onboarding:true});await tick();await waitFor(()=>button('Try again'));check(qaNavigated==='','Ownership failure never triggers empty-account onboarding');check(!button('Mark taken'),'Ownership failure exposes no dose actions');qaReset(0,'empty',{}, {userId:'fictional-new-account',onboarding:true});await tick();await waitFor(()=>qaNavigated.includes('/protocol/manage'));check(qaNavigated.includes('new=1'),'Verified empty ownership opens existing onboarding');`)
+  await run(`qaReset(5,'full',{auth:{fail:true}});await tick();await waitFor(()=>button('Try again'));check(![...document.querySelectorAll('a')].some(e=>e.textContent==='Sign in again'),'Authentication network failure is not presented as signed out');check(document.querySelector('.today-error').textContent.includes('Check your connection'),'Authentication network failure explains verification recovery');qaReset(5,'full',{auth:{result:{data:{user:null},error:null}}});await tick();await waitFor(()=>[...document.querySelectorAll('a')].some(e=>e.textContent==='Sign in again'));check(!button('Mark taken'),'Confirmed unauthenticated session has no dose actions');qaReset(5);await tick();await waitFor(actionReady);qaEmitAuth('SIGNED_OUT',null);await tick();check(!button('Mark taken')&&!document.querySelector('.today-protocol-snapshot'),'Sign-out clears prior account content');`)
+  await run(`qaReset(5,'full',{active:{delay:450,ignoreAbort:true}});await tick();qaPolicy.active={};qaCount=1;qaEmitAuth('SIGNED_IN','fictional-next-account');await waitFor(()=>document.querySelectorAll('.protocol-ring-named').length===1);await new Promise(r=>setTimeout(r,500));check(document.querySelectorAll('.protocol-ring-named').length===1,'Late prior-account data cannot replace new account records');`)
+  await run(`qaReset(5,'full',{today:{delay:450,ignoreAbort:true}},{logs:[{compound_id:'c0',date:'2026-10-04',taken:true}]});await tick();qaPolicy.today={};qaNow='2026-10-05T12:00:00';window.dispatchEvent(new Event('focus'));await waitFor(actionReady);await new Promise(r=>setTimeout(r,500));check(document.querySelector('progress').value===0,'Late previous-day logs cannot replace the new calendar day');check(document.querySelector('header time').getAttribute('datetime')==='2026-10-05','Calendar-day change refreshes the displayed date');`)
+  await run(`qaReset(5);await tick();await waitFor(actionReady);window.loadingFlashes=0;window.loadingObserver=new MutationObserver(()=>{if(document.querySelector('.today-loading'))loadingFlashes++});loadingObserver.observe(document.getElementById('root'),{childList:true,subtree:true});qaRequests=[];qaPolicy.active={delay:250};for(let i=0;i<3;i++)window.dispatchEvent(new Event('doses_updated'));await new Promise(r=>setTimeout(r,400));check(qaRequests.filter(r=>r.key==='active').length===1,'Concurrent refresh events share one loading batch');check(loadingFlashes===0,'Silent dose refresh never flashes full-page loading');qaPolicy.active={};const mark=button('Mark taken');mark.click();mark.click();await tick();check(qaWrites.filter(w=>w.table==='injection_logs').length===1,'Rapid dose activation writes once');check(document.querySelector('progress').value===1,'Saved dose state remains visible');button('Review check-in').click();await tick();const notes=document.querySelector('[aria-label="Check-in notes"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(notes,'Fictional saved note');notes.dispatchEvent(new Event('input',{bubbles:true}));await tick();qaPolicy.journal={delay:400};const update=button('Update');update.click();update.click();await tick();check(qaWrites.filter(w=>w.table==='journal_entries').length===1,'Rapid journal save writes once');check(loadingFlashes===0,'Journal save never flashes full-page loading');button('Review check-in').click();await tick();const draft=document.querySelector('[aria-label="Check-in notes"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(draft,'Newer unsaved fictional draft');draft.dispatchEvent(new Event('input',{bubbles:true}));await new Promise(r=>setTimeout(r,500));check(document.querySelector('[aria-label="Check-in notes"]').value==='Newer unsaved fictional draft','Late journal refresh preserves newer user edits');check(document.querySelector('progress').value===1,'Journal refresh preserves saved dose status');check(loadingFlashes===0,'All save refreshes keep Today visible');loadingObserver.disconnect();check(errors.length===0,'No runtime errors after performance and recovery cases');`)
+  await run(`qaReset(5,'full',{}, {logs:[{compound_id:'c0',date:'2026-10-04',taken:true}]});await tick();await waitFor(()=>document.querySelector('.today-protocol-snapshot'));button('Review check-in').click();await tick();const notes=document.querySelector('[aria-label="Check-in notes"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(notes,'Keep this draft during failed refresh');notes.dispatchEvent(new Event('input',{bubbles:true}));await tick();const previousWeight=document.querySelector('header button[aria-label^="Current weight"]').textContent,previousDetail=document.querySelector('.today-protocol-snapshot').textContent;qaPolicy.journal={fail:true};qaPolicy.history={fail:true};window.dispatchEvent(new Event('doses_updated'));await waitFor(()=>button('Retry health')&&button('Retry history'));check(document.querySelector('header button[aria-label^="Current weight"]').textContent===previousWeight,'Failed refresh retains previously loaded weight');check(document.querySelector('.today-protocol-snapshot').textContent===previousDetail,'Failed refresh retains previously loaded protocol history');check(document.querySelector('.today-weekly-schedule'),'Failed refresh retains the loaded schedule');check(document.querySelector('[aria-label="Check-in notes"]').value==='Keep this draft during failed refresh','Failed health refresh preserves the open draft');check(document.querySelector('[aria-label="Check-in notes"]').matches(':disabled'),'Failed health refresh disables uncertain check-in controls');check(document.querySelector('.today-weekly-schedule').closest('fieldset').disabled,'Failed history refresh disables schedule mutations');check(document.querySelector('progress').value===1&&button('Mark taken'),'Secondary refresh failures preserve saved dose state and critical actions');qaPolicy.journal={};qaPolicy.history={};button('Retry health').click();button('Retry history').click();await waitFor(()=>!button('Retry health')&&!button('Retry history'));check(!document.querySelector('[aria-label="Check-in notes"]').matches(':disabled'),'Health retry restores the existing panel controls');check(document.querySelector('[aria-label="Check-in notes"]').value==='Keep this draft during failed refresh','Successful section retry preserves the draft');`)
+  await run(`qaReset(5);await tick();await waitFor(actionReady);button('Review check-in').click();await tick();const weight=[...document.querySelectorAll('#daily-checkin-panel label')].find(e=>e.textContent.startsWith('Weight (')).querySelector('input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(weight,'200');weight.dispatchEvent(new Event('input',{bubbles:true}));await tick();qaUnit='kg';window.dispatchEvent(new Event('doses_updated'));await tick();check(weight.value==='200'&&weight.closest('label').textContent==='Weight (lbs)','Remote profile refresh preserves the edited weight and its unit');`)
+  await run(`qaReset(5,'full',{history:{delay:30000},'write:injection_logs':{delay:11000}});await tick();await waitFor(actionReady);const started=performance.now();button('Mark taken').click();await waitFor(()=>document.querySelector('main').textContent.includes('A save is still pending.'),12000);metrics.stalledWriteRecoveryMs=Math.round(performance.now()-started);check(metrics.stalledWriteRecoveryMs>=9500&&metrics.stalledWriteRecoveryMs<11500,'Secondary reads waiting for a stalled save recover within ten seconds: '+metrics.stalledWriteRecoveryMs+'ms');check(button('Retry history')&&button('Retry health'),'Stalled save gives section-specific recovery controls');check(!document.querySelector('.today-loading'),'Stalled save keeps the loaded Today screen visible');check(button('Saving…')?.disabled,'Uncertain save stays locked against duplicate writes');check(qaWrites.filter(w=>w.table==='injection_logs').length===1,'Stalled save does not repeat its mutation');qaPolicy.history={};await waitFor(()=>document.querySelector('.today-weekly-schedule')&&button('Mark taken'),2500);check(document.querySelector('progress').value===1,'Delayed save completion restores its saved dose state');check(!document.querySelector('main').textContent.includes('A save is still pending.'),'Delayed save completion clears bounded recovery notice');check(errors.length===0,'No runtime errors after refresh and stalled-save recovery');`)
+  const report = { passed: (await run('return checks')).length, checks: await run('return checks'), metrics: await run('return metrics'), sourceHashes, screenshots, errors: await run('return errors'), fixture: 'Actual Today Page and AppShell with fictional mocked Supabase, Next navigation and PWA registration; CSS Modules transformed locally; no Next production build or live backend verification.' }
+  const reportPath = path.join(dir, performanceOnly ? 'today-performance-after.json' : 'today-browser.json')
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
-  console.log(JSON.stringify({ passed: report.passed, screenshots, report: reportPath }, null, 2))
+  console.log(JSON.stringify({ passed: report.passed, metrics: report.metrics, screenshots, report: reportPath }, null, 2))
 })().catch(error => { console.error(error); process.exitCode = 1 }).finally(() => { ws?.close(); chrome?.kill(); server?.close(); clearTimeout(deadline) })

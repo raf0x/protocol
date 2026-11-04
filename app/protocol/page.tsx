@@ -29,6 +29,30 @@ import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '..
 
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
+type SecondarySection = 'health' | 'history' | 'planned'
+type ReadStatus = 'loading' | 'ready' | 'error'
+const LOAD_DEADLINE_MS = 10_000
+
+// Bound the caller even when authentication or a transport ignores cancellation.
+function withLoadingDeadline<T>(controller: AbortController, work: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const aborted = () => reject(new Error('Loading interrupted'))
+    const timer = setTimeout(() => {
+      reject(new Error('Loading timed out'))
+      controller.abort()
+    }, LOAD_DEADLINE_MS)
+    controller.signal.addEventListener('abort', aborted, { once: true })
+    Promise.resolve().then(() => {
+      if (controller.signal.aborted) throw new Error('Loading interrupted')
+      return work()
+    }).then(resolve, reject).finally(() => {
+      clearTimeout(timer)
+      controller.signal.removeEventListener('abort', aborted)
+    })
+    // Also clean up immediately if work never settles after cancellation.
+    controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true })
+  })
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -38,7 +62,26 @@ export default function DashboardPage() {
   const scorePending = useRef<Partial<Record<'mood' | 'energy' | 'hunger', boolean>>>({})
   const [loading, setLoading] = useState(true)
   const [streakDays, setStreakDays] = useState(0)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [signedOut, setSignedOut] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false)
+  const [criticalDate, setCriticalDate] = useState<string | null>(null)
+  const [secondary, setSecondary] = useState<Record<SecondarySection, ReadStatus>>({ health: 'loading', history: 'loading', planned: 'loading' })
+  const [secondaryLoaded, setSecondaryLoaded] = useState<Record<SecondarySection, boolean>>({ health: false, history: false, planned: false })
+  const mounted = useRef(false)
+  const scopeVersion = useRef(0)
+  const readVersion = useRef(0)
+  const owner = useRef<string | null>(null)
+  const authIdentity = useRef<string | null>(null)
+  const criticalReady = useRef(false)
+  const draftHydrated = useRef<string | null>(null)
+  const controllers = useRef(new Set<AbortController>())
+  const batch = useRef<Promise<void> | null>(null)
+  const secondaryJobs = useRef<Partial<Record<SecondarySection, Promise<void>>>>({})
+  const mutations = useRef(new Set<string>())
+  const writeWaiters = useRef(new Set<() => void>())
   const [entries, setEntries] = useState<any[]>([])
   const [checkInOwnerId, setCheckInOwnerId] = useState<string | null>(null)
   const [checkInLoadedDate, setCheckInLoadedDate] = useState<string | null>(null)
@@ -55,7 +98,6 @@ export default function DashboardPage() {
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const scrollStartX = useRef(0)
-  const [protocolEvents, setProtocolEvents] = useState<any[]>([])
   // Local calendar day, not UTC — toISOString() drifts a day off in the evening
   // (US timezones) or at any hour (positive-UTC-offset timezones). This value
   // keys every injection_logs/journal_entries read and write on this page, so
@@ -78,7 +120,24 @@ export default function DashboardPage() {
   const bd = 'var(--color-border)'
 
   useEffect(() => {
-    loadAll()
+    mounted.current = true
+    resetScope()
+    void loadAll()
+    const { data: { subscription } } = createClient().auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') { authIdentity.current = session?.user.id ?? null; return }
+      if (event === 'SIGNED_OUT') {
+        authIdentity.current = null
+        resetScope()
+        setSignedOut(true)
+        setLoadError('Your session has ended. Sign in again to load your day.')
+        setLoading(false)
+      } else if (session?.user.id && session.user.id !== (owner.current || authIdentity.current)) {
+        authIdentity.current = session.user.id
+        resetScope()
+        // Do not await another auth method inside Supabase's auth callback.
+        queueMicrotask(() => { if (mounted.current) void loadAll() })
+      }
+    })
     const pending = localStorage.getItem('pendingProtocol')
     if (pending) {
       try {
@@ -92,7 +151,13 @@ export default function DashboardPage() {
     // FIX: Use silent refresh (no full-page loading flash) when doses are logged
     function handleDosesUpdate() { refreshProtocolsSilently() }
     window.addEventListener('doses_updated', handleDosesUpdate)
-    return () => window.removeEventListener('doses_updated', handleDosesUpdate)
+    return () => {
+      mounted.current = false
+      scopeVersion.current++
+      cancelReads()
+      subscription.unsubscribe()
+      window.removeEventListener('doses_updated', handleDosesUpdate)
+    }
   }, [today])
 
   async function exportToCSV() {
@@ -228,70 +293,190 @@ export default function DashboardPage() {
     await loadAll(true)
   }
 
-  async function loadAll(silent = false) {
-    if (!silent) setLoading(true)
-    setLoadError(false)
-    try {
+  function cancelReads() {
+    readVersion.current++
+    controllers.current.forEach(controller => controller.abort())
+    controllers.current.clear()
+    batch.current = null
+    secondaryJobs.current = {}
+  }
+
+  function resetScope() {
+    scopeVersion.current++
+    cancelReads()
+    owner.current = null
+    criticalReady.current = false
+    draftHydrated.current = null
+    mutations.current.clear()
+    doseSavePending.current = false
+    scorePending.current = {}
+    setLoading(true)
+    setRefreshing(false)
+    setPendingSave(false)
+    setLoadError(null)
+    setSignedOut(false)
+    setRedirecting(false)
+    setCriticalDate(null)
+    setSecondary({ health: 'loading', history: 'loading', planned: 'loading' })
+    setSecondaryLoaded({ health: false, history: false, planned: false })
+    setEntries([]); setAllLogs([]); setLogs({}); setDueCompounds([])
+    setActiveProtocols([]); setScheduledProtocols([]); setPlannedProtocols([])
+    setCheckInOwnerId(null); setCheckInLoadedDate(null); setCheckInRecordedDate(null)
+    setMood(null); setEnergy(null); setHunger(null); setSleep(''); setWeight(''); setEntryNotes('')
+    setWeightUnit('lbs'); setSaved(false); setSaving(false); setTogglingId(null)
+    setDoseSaveError(null); setScoreError({}); setMissedDoses([]); setActiveCompoundTab(null)
+  }
+
+  function currentRead(version: number) {
+    return mounted.current && readVersion.current === version
+  }
+
+  function waitForWrites(signal: AbortSignal): Promise<void> {
+    if (!mutations.current.size) return Promise.resolve()
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        writeWaiters.current.delete(finished)
+        signal.removeEventListener('abort', aborted)
+      }
+      const finished = () => { cleanup(); resolve() }
+      const aborted = () => { cleanup(); reject(new Error('Loading interrupted')) }
+      writeWaiters.current.add(finished)
+      signal.addEventListener('abort', aborted, { once: true })
+      if (signal.aborted) aborted()
+    })
+  }
+
+  function loadSecondary(section: SecondarySection, version = readVersion.current, userId = owner.current) {
+    if (!userId || !currentRead(version)) return Promise.resolve()
+    const existing = secondaryJobs.current[section]
+    if (existing) return existing
+    const controller = new AbortController()
+    controllers.current.add(controller)
+    // A background refresh keeps successful content visible. Initial reads and
+    // retries must not present an empty array as successfully loaded history.
+    setSecondary(previous => ({ ...previous, [section]: previous[section] === 'ready' ? 'ready' : 'loading' }))
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    setCheckInOwnerId(user.id)
-    
-    // Only getUser() is a real dependency for the rest (they all need user.id via
-    // the session, not a value from each other). Run the independent queries
-    // concurrently. allSettled (not all) so one failed query never blanks out the
-    // setters for the others that already succeeded.
-    const [profileResult, journalResult, protocolsResult, logsResult, allLogsResult, eventsResult, plannedResult, ownershipResult] = await Promise.allSettled([
-      supabase.from('user_profiles').select('weight_unit').eq('id', user.id).single(),
-      supabase.from('journal_entries').select('*').order('date', { ascending: false }),
-      supabase.from('protocols').select('id, created_at, status, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active'),
-      supabase.from('injection_logs').select('*').eq('date', today),
-      supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true),
-      supabase.from('protocol_events').select('*').order('date', { ascending: true }),
-      supabase.from('protocols').select('id,name,status,start_date,compounds(id,name)').eq('status', 'planned'),
-      supabase.from('protocols').select('id').eq('user_id', user.id).limit(1),
-    ])
-
-    const owned = ownershipResult.status === 'fulfilled' && !ownershipResult.value.error ? ownershipResult.value.data : null
-    if (onboardingEligible(user.id, owned) && !onboardingSeen(user.id)) {
-      markOnboardingSeen(user.id)
-      router.replace('/protocol/manage?new=1&onboarding=1')
-      return
+    const read = async (query: any) => {
+      const result = await query.abortSignal(controller.signal)
+      if (result.error) throw result.error
+      if (result.data == null) throw new Error('Missing response data')
+      return result.data
     }
+    const job = withLoadingDeadline(controller, async () => {
+      // Waiting for an in-flight save is bounded by this section's deadline too.
+      // Never read an older snapshot over a save, or unlock an uncertain write.
+      await waitForWrites(controller.signal)
+      if (!currentRead(version) || controller.signal.aborted) return
+      if (section === 'health') {
+        const [profileResult, journalResult] = await Promise.all([
+          supabase.from('user_profiles').select('weight_unit').eq('id', userId).abortSignal(controller.signal).single(),
+          supabase.from('journal_entries').select('*').order('date', { ascending: false }).abortSignal(controller.signal),
+        ])
+        if (!currentRead(version) || controller.signal.aborted) return
+        const journalError = !!journalResult.error || journalResult.data == null
+        setCheckInLoadedDate(journalError ? null : today)
+        if (profileResult.error || !profileResult.data || journalError) throw new Error('Health read failed')
+        const profile = profileResult.data
+        const js = journalResult.data || []
+        if (profile.weight_unit !== 'lbs' && profile.weight_unit !== 'kg') throw new Error('Weight unit unavailable')
+        setEntries(js)
+        // Background refreshes update recorded history, never the user's draft.
+        const key = userId + ':' + today
+        if (draftHydrated.current !== key) {
+          draftHydrated.current = key
+          // The unit belongs to the draft too. A remote preference refresh must
+          // not relabel an edited pounds value as kilograms (or vice versa).
+          setWeightUnit(profile.weight_unit)
+          const todayEntry = js.find((e: any) => e.date === today)
+          setMood(todayEntry?.mood ?? null); setEnergy(todayEntry?.energy ?? null); setHunger(todayEntry?.hunger ?? null)
+          setEntryNotes(todayEntry?.notes || ''); setSaved(Boolean(todayEntry))
+          const latestSleep = js.find((e: any) => e.sleep !== null && e.sleep !== undefined)?.sleep
+          setSleep(latestSleep != null ? latestSleep.toString() : '')
+          const latestWeight = js.find((e: any) => e.weight !== null && e.weight !== undefined)?.weight
+          setWeight(latestWeight != null ? formatWeight(convertWeight(latestWeight, 'lbs', profile.weight_unit), profile.weight_unit) : '')
+        }
+      } else if (section === 'history') {
+        const data = await read(supabase.from('injection_logs').select('compound_id, taken, date').eq('taken', true))
+        if (!currentRead(version) || controller.signal.aborted) return
+        setAllLogs(data)
+      } else {
+        const data = await read(supabase.from('protocols').select('id,name,status,start_date,compounds(id,name)').eq('status', 'planned'))
+        if (!currentRead(version) || controller.signal.aborted) return
+        setPlannedProtocols(data)
+      }
+      if (currentRead(version) && !controller.signal.aborted) {
+        setSecondaryLoaded(previous => ({ ...previous, [section]: true }))
+        setSecondary(previous => ({ ...previous, [section]: 'ready' }))
+      }
+    }).catch(() => {
+      if (currentRead(version)) {
+        if (mutations.current.size) setPendingSave(true)
+        if (section === 'health') setCheckInLoadedDate(null)
+        setSecondary(previous => ({ ...previous, [section]: 'error' }))
+      }
+    }).finally(() => {
+      controller.abort()
+      controllers.current.delete(controller)
+      if (secondaryJobs.current[section] === job) delete secondaryJobs.current[section]
+    })
+    secondaryJobs.current[section] = job
+    return job
+  }
 
-    setPlannedProtocols(plannedResult.status === 'fulfilled' ? plannedResult.value.data || [] : [])
-    const profile = profileResult.status === 'fulfilled' ? profileResult.value.data : null
-    if (profile?.weight_unit) setWeightUnit(profile.weight_unit as WeightUnit)
-
-    const js = journalResult.status === 'fulfilled' ? journalResult.value.data : null
-    const journalError = journalResult.status === 'rejected' || !!journalResult.value.error
-    setEntries(js || [])
-    setCheckInLoadedDate(journalError ? null : today)
-    let streak = 0
-    const today2 = new Date(); today2.setHours(0,0,0,0)
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(today2); d.setDate(d.getDate() - i)
-      const ds = d.toLocaleDateString('en-CA')
-      if ((js || []).find((e: any) => e.date === ds)) { streak++ } else { break }
-    }
-    setStreakDays(streak)
-    const todayEntry = (js || []).find((e: any) => e.date === today)
-    if (todayEntry) { setMood(todayEntry.mood); setEnergy(todayEntry.energy); setHunger(todayEntry.hunger ?? null); setEntryNotes(todayEntry.notes || ''); setSaved(true) }
-    // Sleep and weight pre-fill from today's own entry when present, otherwise the
-    // most recent prior entry that logged that field — a starting point to confirm
-    // or adjust, not a blank field. js is already newest-first.
-    const latestSleep = (js || []).find((e: any) => e.sleep !== null && e.sleep !== undefined)?.sleep
-    setSleep(latestSleep != null ? latestSleep.toString() : '')
-    const displayUnit: WeightUnit = (profile?.weight_unit as WeightUnit) || weightUnit
-    const latestWeight = (js || []).find((e: any) => e.weight !== null && e.weight !== undefined)?.weight
-    setWeight(latestWeight != null ? formatWeight(convertWeight(latestWeight, 'lbs', displayUnit), displayUnit) : '')
-
-    const configured = protocolsResult.status === 'fulfilled' ? protocolsResult.value.data || [] : []
-    const protocols = orderRingProtocols(configured.filter((p: {start_date:string}) => p.start_date && p.start_date <= localCalendarDate()))
-    setScheduledProtocols(configured.filter((p: {start_date:string}) => p.start_date > localCalendarDate()))
-    const protocolsError = protocolsResult.status === 'rejected' || !!protocolsResult.value.error
-
-    setActiveProtocols(protocols || [])
+  function loadAll(silent = false): Promise<void> {
+    if (!mounted.current || mutations.current.size) return Promise.resolve()
+    if (batch.current) return batch.current
+    cancelReads()
+    const version = readVersion.current
+    if (!silent || !criticalReady.current) setLoading(true)
+    setRefreshing(true)
+    setLoadError(null)
+    setSignedOut(false)
+    const controller = new AbortController()
+    controllers.current.add(controller)
+    const supabase = createClient()
+    const job = withLoadingDeadline(controller, async () => {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (!currentRead(version) || controller.signal.aborted) return
+      if (error) {
+        const ended = error.name === 'AuthSessionMissingError' || error.status === 401 ||
+          ['refresh_token_not_found', 'session_not_found', 'user_not_found', 'bad_jwt'].includes(error.code || '')
+        if (ended) throw new Error('signed-out')
+        throw new Error('auth-unavailable')
+      }
+      if (!user) throw new Error('signed-out')
+      if (owner.current && owner.current !== user.id) {
+        resetScope()
+        queueMicrotask(() => { if (mounted.current) void loadAll() })
+        return
+      }
+      owner.current = user.id
+      authIdentity.current = user.id
+      setCheckInOwnerId(user.id)
+      // Start all reads together, but only these three can gate daily actions.
+      void loadSecondary('health', version, user.id)
+      void loadSecondary('history', version, user.id)
+      void loadSecondary('planned', version, user.id)
+      const [ownershipResult, protocolsResult, logsResult] = await Promise.all([
+        supabase.from('protocols').select('id').eq('user_id', user.id).limit(1).abortSignal(controller.signal),
+        supabase.from('protocols').select('id, created_at, status, start_date, name, notes, compounds(id, name, vial_strength, vial_unit, bac_water_ml, reconstitution_date, doses_taken_override, ml_per_dose, vials_in_stock, notes, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, route, dose, dose_unit, frequency, day_of_week, days_of_week, start_week, end_week, name, time_of_day))').eq('status', 'active').abortSignal(controller.signal),
+        supabase.from('injection_logs').select('*').eq('date', today).abortSignal(controller.signal),
+      ])
+      if (!currentRead(version) || controller.signal.aborted) return
+      for (const result of [ownershipResult, protocolsResult, logsResult]) {
+        if (result.error || result.data == null) throw new Error('Critical read failed')
+      }
+      if (onboardingEligible(user.id, ownershipResult.data) && !onboardingSeen(user.id)) {
+        markOnboardingSeen(user.id)
+        setRedirecting(true)
+        setLoading(false)
+        router.replace('/protocol/manage?new=1&onboarding=1')
+        return
+      }
+      const configured = protocolsResult.data || []
+      const protocols = orderRingProtocols(configured.filter((p: {start_date:string}) => p.start_date && p.start_date <= localCalendarDate()))
+      setScheduledProtocols(configured.filter((p: {start_date:string}) => p.start_date > localCalendarDate()))
+      setActiveProtocols(protocols)
     const due: DueCompound[] = []
     ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
           const volumeMl = administrationForPhase(phase).volume ?? 0
@@ -308,32 +493,78 @@ export default function DashboardPage() {
           })
         } }) })
     setDueCompounds(orderTodayDoses(due))
-    const ls = logsResult.status === 'fulfilled' ? logsResult.value.data : null
-    const logsError = logsResult.status === 'rejected' || !!logsResult.value.error
-    const allLogsData = allLogsResult.status === 'fulfilled' ? allLogsResult.value.data : null
-    setAllLogs(allLogsData || [])
-    const map: Record<string, LogEntry> = {}; (ls || []).forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } }); setLogs(map)
-    const events = eventsResult.status === 'fulfilled' ? eventsResult.value.data : null
-    const eventsError = eventsResult.status === 'rejected' || !!eventsResult.value.error
-    setProtocolEvents((events || []).filter((event: {date:string}) => event.date <= localCalendarDate()))
-    if (journalError || protocolsError || logsError || eventsError || plannedResult.status === 'rejected' || plannedResult.value.error) setLoadError(true)
-    const hour = new Date().getHours()
-    if (hour >= 20) {
-      const logMap: Record<string, boolean> = {}
-      ;(ls || []).forEach((l: any) => { if (l.taken) logMap[l.compound_id] = true })
-      const missed = due.filter((c: any) => !logMap[c.id]).map((c: any) => c.name)
-      setMissedDoses(missed)
-    } else setMissedDoses([])
-    setLoading(false)
-    } catch {
-      setLoadError(true)
+
+      const ls = logsResult.data || []
+      const map: Record<string, LogEntry> = {}
+      ls.forEach((l: any) => { map[l.compound_id] = { compound_id: l.compound_id, taken: l.taken, discomfort: l.discomfort } })
+      setLogs(map)
+      const hour = new Date().getHours()
+      if (hour >= 20) {
+        const logMap: Record<string, boolean> = {}
+        ls.forEach((l: any) => { if (l.taken) logMap[l.compound_id] = true })
+        setMissedDoses(due.filter((c: any) => !logMap[c.id]).map((c: any) => c.name))
+      } else setMissedDoses([])
+      criticalReady.current = true
+      setCriticalDate(today)
       setLoading(false)
+    }).catch(error => {
+      if (!currentRead(version)) return
+      if (error.message === 'signed-out') {
+        resetScope()
+        setSignedOut(true)
+        setLoadError('Your session has ended. Sign in again to load your day.')
+      } else {
+        setLoadError(error.message === 'auth-unavailable'
+          ? 'Your session could not be verified. Check your connection and try again.'
+          : 'Your day could not be loaded. Your saved data has not changed.')
+      }
+      setLoading(false)
+    }).finally(() => {
+      controller.abort()
+      controllers.current.delete(controller)
+      if (currentRead(version)) setRefreshing(false)
+      if (batch.current === job) batch.current = null
+    })
+    batch.current = job
+    return job
+  }
+
+  // Invalidate reads before a write so an earlier response cannot undo a saved
+  // dose or journal entry. Refresh once all concurrent, distinct saves finish.
+  async function performMutation<T>(key: string, action: (isCurrent: () => boolean, ownerId: string) => Promise<T>): Promise<T | false> {
+    if (!owner.current || mutations.current.has(key)) return false
+    const version = scopeVersion.current
+    const ownerId = owner.current
+    const isCurrent = () => mounted.current && scopeVersion.current === version && owner.current === ownerId
+    mutations.current.add(key)
+    cancelReads()
+    setRefreshing(false)
+    // Suspended secondary sections keep a deadline and a functional retry even
+    // if the save never responds. The mutation lock itself is not timed out.
+    void loadSecondary('health')
+    void loadSecondary('history')
+    void loadSecondary('planned')
+    try { return await action(isCurrent, ownerId) }
+    finally {
+      if (isCurrent()) {
+        mutations.current.delete(key)
+        if (!mutations.current.size) {
+          setPendingSave(false)
+          writeWaiters.current.forEach(finished => finished())
+          void loadAll(true)
+        }
+      }
     }
+  }
+
+  function takeDose(cid: string, dateStr = today) {
+    if (loadError || refreshing || !criticalReady.current || (dateStr !== today && secondary.history !== 'ready')) return
+    return performMutation('dose', (isCurrent, ownerId) => toggleInjection(cid, dateStr, isCurrent, ownerId))
   }
 
   // Single write path for every dose log surface (today's focus card and the
   // weekly schedule table) so they always agree on what has been logged.
-  async function toggleInjection(cid: string, dateStr: string = today) {
+  async function toggleInjection(cid: string, dateStr: string = today, isCurrent = () => true, ownerId?: string) {
     if (doseSavePending.current) return
     doseSavePending.current = true
     const isToday = dateStr === today
@@ -342,56 +573,62 @@ export default function DashboardPage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (!isCurrent()) return
       if (!user) throw new Error('Sign in again to save this dose.')
+      if (ownerId && user.id !== ownerId) return
       const cur = isToday ? logs[cid] : undefined
       const wasTaken = isToday ? !!cur?.taken : allLogs.some(log => log.compound_id === cid && log.date === dateStr && log.taken)
       const taken = !wasTaken
       const { error } = await supabase.from('injection_logs').upsert({
         user_id: user.id, compound_id: cid, date: dateStr, taken, discomfort: cur?.discomfort || 0
       }, { onConflict: 'user_id,compound_id,date' })
+      if (!isCurrent()) return
       if (error) throw error
       if (isToday) setLogs(previous => ({ ...previous, [cid]: { compound_id: cid, taken, discomfort: cur?.discomfort || 0 } }))
       setAllLogs(previous => [...previous.filter(log => !(log.compound_id === cid && log.date === dateStr)), ...(taken ? [{ compound_id: cid, date: dateStr, taken }] : [])])
       const { data: compound } = await supabase.from('compounds').select('doses_taken_override').eq('id', cid).single()
+      if (!isCurrent()) return
       const currentDoses = compound?.doses_taken_override ?? 0
       await supabase.from('compounds').update({ doses_taken_override: taken ? currentDoses + 1 : Math.max(0, currentDoses - 1) }).eq('id', cid)
-      window.dispatchEvent(new Event('doses_updated'))
+      if (isCurrent()) window.dispatchEvent(new Event('doses_updated'))
     } catch {
-      setDoseSaveError('This dose wasn’t saved. Please check your connection and try again.')
+      if (isCurrent()) setDoseSaveError('This dose wasn’t saved. Please check your connection and try again.')
     } finally {
-      doseSavePending.current = false
-      if (isToday) setTogglingId(null)
+      if (isCurrent()) {
+        doseSavePending.current = false
+        if (isToday) setTogglingId(null)
+      }
     }
   }
   async function setDiscomfortVal(cid: string, v: number) { const supabase = createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return; await supabase.from('injection_logs').upsert({ user_id: user.id, compound_id: cid, date: today, taken: true, discomfort: v }, { onConflict: 'user_id,compound_id,date' }); setLogs({ ...logs, [cid]: { compound_id: cid, taken: true, discomfort: v } }) }
   // Mood/Energy/Hunger save instantly on tap via saveJournalField below. This
   // now only covers the secondary, typed fields that still need an explicit confirm.
-  async function saveEntry() {
+  async function saveEntry(isCurrent = () => true, ownerId?: string) {
     try { navigator.vibrate(6) } catch(e) {}
     setSaving(true)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return false
+      if (!isCurrent() || !user || (ownerId && user.id !== ownerId)) return false
       const row: any = { user_id: user.id, date: today, notes: entryNotes.trim() }
       if (sleep) row.sleep = parseFloat(sleep)
       if (weight) row.weight = convertWeight(parseFloat(weight), weightUnit, 'lbs')
       const { error } = await supabase.from('journal_entries').upsert(row, { onConflict: 'user_id,date' })
-      if (error) return false
+      if (!isCurrent() || error) return false
       setSaved(true)
-      loadAll()
+      loadAll(true)
       return true
     } catch {
       return false
     } finally {
-      setSaving(false)
+      if (isCurrent()) setSaving(false)
     }
   }
 
   // Single-tap save for Mood/Energy/Hunger: a partial upsert touching only that
   // column, so it can never clobber Sleep/Weight/Notes. Optimistic update with a
   // per-field pending lock and revert-on-failure, same spirit as toggleInjection.
-  async function saveJournalField(field: 'mood' | 'energy' | 'hunger', value: number) {
+  async function saveJournalField(field: 'mood' | 'energy' | 'hunger', value: number, isCurrent = () => true, ownerId?: string) {
     if (scorePending.current[field]) return
     scorePending.current[field] = true
     setScoreError(previous => ({ ...previous, [field]: null }))
@@ -401,20 +638,25 @@ export default function DashboardPage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (!isCurrent()) return
       if (!user) throw new Error('Sign in again to save this.')
+      if (ownerId && user.id !== ownerId) return
       const { error } = await supabase.from('journal_entries').upsert({ user_id: user.id, date: today, [field]: value }, { onConflict: 'user_id,date' })
+      if (!isCurrent()) return
       if (error) throw error
       setSaved(true)
       setCheckInRecordedDate(today)
     } catch {
-      setValue(previousValue)
-      setScoreError(previous => ({ ...previous, [field]: 'Not saved. Try again.' }))
+      if (isCurrent()) {
+        setValue(previousValue)
+        setScoreError(previous => ({ ...previous, [field]: 'Not saved. Try again.' }))
+      }
     } finally {
-      scorePending.current[field] = false
+      if (isCurrent()) scorePending.current[field] = false
     }
   }
 
-  async function toggleWeightUnit() {
+  async function toggleWeightUnit(isCurrent = () => true, ownerId?: string) {
     const previousUnit = weightUnit
     const previousWeight = weight
     const newUnit: WeightUnit = previousUnit === 'lbs' ? 'kg' : 'lbs'
@@ -425,15 +667,26 @@ export default function DashboardPage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
+      if (!isCurrent()) return
       if (!user) throw new Error('Sign in again to save this.')
+      if (ownerId && user.id !== ownerId) return
       const { data, error } = await supabase.from('user_profiles')
         .upsert({ id: user.id, weight_unit: newUnit }, { onConflict: 'id' })
         .select('weight_unit')
         .single()
+      if (!isCurrent()) return
       if (error || data?.weight_unit !== newUnit) throw error ?? new Error('Weight unit was not persisted')
     } catch {
-      setWeightUnit(previousUnit)
-      setWeight(previousWeight)
+      if (isCurrent()) {
+        setWeightUnit(previousUnit)
+        // Preserve edits made while the preference save was pending, converting
+        // their meaning back into the restored unit instead of replacing them.
+        setWeight(draft => draft === (previousWeight.trim() !== '' && Number.isFinite(Number(previousWeight))
+          ? formatWeight(convertWeight(Number(previousWeight), previousUnit, newUnit), newUnit) : previousWeight)
+          ? previousWeight
+          : draft.trim() !== '' && Number.isFinite(Number(draft))
+            ? formatWeight(convertWeight(Number(draft), newUnit, previousUnit), previousUnit) : draft)
+      }
     }
   }
   
@@ -447,19 +700,27 @@ export default function DashboardPage() {
     setActiveCompoundTab(id)
   }
 
-  if (loading) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
+  if (loading || (!loadError && !redirecting && criticalDate !== today)) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card today-loading" role="status">Loading your day…</div></div></main>
 
-  if (loadError) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card today-error" role="alert">Your day couldn’t be loaded. Your saved data hasn’t changed.<br /><button className="today-text-link" onClick={() => loadAll()}>Try again</button></div></div></main>
+  const criticalError = loadError && <div className="today-card today-error" role="alert">{loadError}<br /><button className="today-text-link" onClick={() => void loadAll(criticalReady.current)}>Try again</button>{signedOut && <> · <a className="today-text-link" href="/auth/login?next=%2Fprotocol">Sign in again</a></>}</div>
+  if (loadError && !criticalReady.current) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} />{criticalError}</div></main>
+  if (redirecting) return <main className={`today-main ${styles.page}`}><div className={styles.container}><TodayHeader date={today} /><div className="today-card" role="status">Opening protocol setup… <a href="/protocol/manage?new=1&onboarding=1">Continue to setup</a></div></div></main>
+
+  const historyStatus = <div className="today-card" role={secondary.history === 'error' ? 'alert' : 'status'}>{secondary.history === 'error' ? <>Schedule and protocol history couldn’t be loaded. <button className="today-text-link" onClick={() => void loadSecondary('history')}>Retry history</button></> : 'Loading schedule and protocol history…'}</div>
+  const controlsDisabled = pendingSave || refreshing || !!loadError || togglingId !== null
 
 
   return (
     <main className={`today-main ${styles.page}`}>
       <div className={styles.container}>
+        {criticalError}
+        {pendingSave && <div className="today-card today-error" role="alert">A save is still pending. Your edits are kept here. Saving controls will recover when it finishes.</div>}
         <TodayOverview
-          date={today} protocols={activeProtocols} events={protocolEvents} entries={entries}
-          due={dueCompounds} logs={logs} saving={togglingId !== null} onTaken={toggleInjection}
+          date={today} protocols={activeProtocols} entries={entries}
+          healthStatus={secondary.health} healthAvailable={secondaryLoaded.health} onRetryHealth={() => void loadSecondary('health')}
+          due={dueCompounds} logs={logs} saving={controlsDisabled} onTaken={takeDose}
           error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
-          weightUnit={weightUnit} onToggleUnit={toggleWeightUnit} onSelect={selectCompound}
+          weightUnit={weightUnit} onToggleUnit={() => { void performMutation('unit', toggleWeightUnit) }} onSelect={selectCompound}
           onExportCSV={exportToCSV}
           warning={missedDoses.length > 0 && (
             <div className={`${styles.notice} ${styles.warningNotice}`}>
@@ -470,20 +731,21 @@ export default function DashboardPage() {
             </div>
           )}
           rings={<CompoundRings activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} setActiveCompoundTab={selectCompound} />}
-          detail={activeProtocols.length > 0 && <HeroProtocolCard
+          detail={activeProtocols.length > 0 && secondaryLoaded.history && <fieldset disabled={controlsDisabled || secondary.history !== 'ready'} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><HeroProtocolCard
             snapshot
             activeProtocols={activeProtocols} activeCompoundTab={activeCompoundTab} logs={logs} allLogs={allLogs} totalLost={tl}
             compoundIndex={activeProtocols.flatMap((p: any) => p.compounds || []).findIndex((c: any) => c.id === (activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id))}
-          />}
-          schedule={<WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={toggleInjection} />}
-          checkin={<DailyCheckInPrompt key={today} date={today} ownerId={checkInLoadedDate === today ? checkInOwnerId : null} recorded={checkInRecordedDate === today || entries.some(entry => entry.date === today)}>{dismiss => <DailyCheckIn
+          /></fieldset>}
+          schedule={<>{secondary.history !== 'ready' && historyStatus}{secondaryLoaded.history && <fieldset disabled={controlsDisabled || secondary.history !== 'ready'} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><WeeklySchedule activeProtocols={activeProtocols} allLogs={allLogs} onToggle={takeDose} disabled={controlsDisabled || secondary.history !== 'ready'} /></fieldset>}</>}
+          checkin={secondaryLoaded.health && <fieldset disabled={secondary.health !== 'ready'} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><DailyCheckInPrompt key={today} date={today} ownerId={checkInLoadedDate === today ? checkInOwnerId : null} recorded={checkInRecordedDate === today || entries.some(entry => entry.date === today)}>{dismiss => <DailyCheckIn
             today={today} entries={entries} mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight}
             notes={entryNotes} weightUnit={weightUnit} saving={saving} saved={saved} scoreError={scoreError}
-            onScoreTap={saveJournalField} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={saveEntry} onSaved={dismiss}
-          />}</DailyCheckInPrompt>}
+            onScoreTap={(field, value) => { void performMutation(field, (isCurrent, ownerId) => saveJournalField(field, value, isCurrent, ownerId)) }} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={() => performMutation('journal', saveEntry)} onSaved={dismiss}
+          />}</DailyCheckInPrompt></fieldset>}
         />
 
-        <PlannedProtocols protocols={plannedProtocols} onActivated={() => void loadAll(true)} />
+        {secondaryLoaded.planned && <fieldset disabled={controlsDisabled || secondary.planned !== 'ready'} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><PlannedProtocols protocols={plannedProtocols} onActivated={() => void loadAll(true)} /></fieldset>}
+        {secondary.planned !== 'ready' && <div className="today-card" role={secondary.planned === 'error' ? 'alert' : 'status'}>{secondary.planned === 'error' ? <>Planned protocols couldn’t be loaded. <button className="today-text-link" onClick={() => void loadSecondary('planned')}>Retry planned protocols</button></> : 'Loading planned protocols…'}</div>}
         {!!scheduledProtocols.length && <section className="today-card"><h2>Scheduled protocols</h2>{scheduledProtocols.map(protocol => <p key={protocol.id}><a className="today-text-link" href={`/protocol/manage?protocol=${protocol.id}`}>{protocol.name}</a> · Starts {protocol.start_date}</p>)}</section>}
 
         {hasDemoCompounds && (
