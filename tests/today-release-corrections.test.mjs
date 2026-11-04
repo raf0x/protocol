@@ -34,7 +34,7 @@ function weightFixture(draft = '180', unit = 'lbs') {
     setWeightUnit(value) { context.weightUnit = value }, setSaving() {}, setSaved() {}, loadAll() {},
     createClient: () => ({ auth: { getUser: async () => ({ data: { user: { id: 'owner' } } }) }, from(table) {
       return { update(value) { writes.push({ table, value }); return this }, eq: async () => ({ error: null }),
-        upsert: async value => { writes.push({ table, value }); return { error: null } } }
+        upsert(value) { writes.push({ table, value }); return { select() { return this }, single: async () => ({ data: { weight_unit: value.weight_unit }, error: null }), then(resolve) { return Promise.resolve({ error: null }).then(resolve) } } } }
     } }),
   }
   return { context, writes, toggle: pageHandler('toggleWeightUnit', context), save: pageHandler('saveEntry', context) }
@@ -47,7 +47,7 @@ test('unit switch converts the current check-in draft and saves canonical pounds
   const journal = f.writes.filter(write => write.table === 'journal_entries')
   assert.equal(journal.length, 1)
   assert.ok(Math.abs(journal[0].value.weight - 180) < .2, '81.6 kg is saved as about 180 canonical pounds')
-  assert.deepEqual(f.writes[0], { table: 'user_profiles', value: { weight_unit: 'kg' } })
+  assert.deepEqual(f.writes[0], { table: 'user_profiles', value: { id: 'owner', weight_unit: 'kg' } })
 })
 test('unit round trip and an edited draft retain their meaning', async () => {
   const f = weightFixture()

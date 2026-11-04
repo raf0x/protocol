@@ -30,7 +30,7 @@ import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '..
 type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 type SecondarySection = 'health' | 'history' | 'planned'
-type ReadStatus = 'loading' | 'ready' | 'error'
+type ReadStatus = 'loading' | 'ready' | 'error' | 'needs-unit'
 const LOAD_DEADLINE_MS = 10_000
 
 // Bound the caller even when authentication or a transport ignores cancellation.
@@ -67,6 +67,11 @@ export default function DashboardPage() {
   const [redirecting, setRedirecting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
+  const [needsWeightUnit, setNeedsWeightUnit] = useState(false)
+  const [weightRecoveryPending, setWeightRecoveryPending] = useState(false)
+  const [weightRecoveryError, setWeightRecoveryError] = useState<string | null>(null)
+  const recoveryNeeded = useRef(false)
+  const failedWeightRecovery = useRef(false)
   const [criticalDate, setCriticalDate] = useState<string | null>(null)
   const [secondary, setSecondary] = useState<Record<SecondarySection, ReadStatus>>({ health: 'loading', history: 'loading', planned: 'loading' })
   const [secondaryLoaded, setSecondaryLoaded] = useState<Record<SecondarySection, boolean>>({ health: false, history: false, planned: false })
@@ -313,6 +318,11 @@ export default function DashboardPage() {
     setLoading(true)
     setRefreshing(false)
     setPendingSave(false)
+    recoveryNeeded.current = false
+    failedWeightRecovery.current = false
+    setNeedsWeightUnit(false)
+    setWeightRecoveryPending(false)
+    setWeightRecoveryError(null)
     setLoadError(null)
     setSignedOut(false)
     setRedirecting(false)
@@ -368,17 +378,28 @@ export default function DashboardPage() {
       await waitForWrites(controller.signal)
       if (!currentRead(version) || controller.signal.aborted) return
       if (section === 'health') {
+        recoveryNeeded.current = false
         const [profileResult, journalResult] = await Promise.all([
-          supabase.from('user_profiles').select('weight_unit').eq('id', userId).abortSignal(controller.signal).single(),
+          supabase.from('user_profiles').select('weight_unit').eq('id', userId).abortSignal(controller.signal).maybeSingle(),
           supabase.from('journal_entries').select('*').order('date', { ascending: false }).abortSignal(controller.signal),
         ])
         if (!currentRead(version) || controller.signal.aborted) return
         const journalError = !!journalResult.error || journalResult.data == null
         setCheckInLoadedDate(journalError ? null : today)
-        if (profileResult.error || !profileResult.data || journalError) throw new Error('Health read failed')
+        if (profileResult.error || journalError) throw new Error('Health read failed')
         const profile = profileResult.data
         const js = journalResult.data || []
+        // A background read cannot substitute another preference for a failed explicit choice.
+        const failedChoice = failedWeightRecovery.current && (profile?.weight_unit === 'lbs' || profile?.weight_unit === 'kg')
+        if (failedChoice || !profile || profile.weight_unit == null || (typeof profile.weight_unit === 'string' && profile.weight_unit.trim() === '')) {
+          recoveryNeeded.current = true
+          setNeedsWeightUnit(true)
+          setSecondary(previous => ({ ...previous, health: 'needs-unit' }))
+          return
+        }
         if (profile.weight_unit !== 'lbs' && profile.weight_unit !== 'kg') throw new Error('Weight unit unavailable')
+        setNeedsWeightUnit(false)
+        setWeightRecoveryError(null)
         setEntries(js)
         // Background refreshes update recorded history, never the user's draft.
         const key = userId + ':' + today
@@ -411,7 +432,13 @@ export default function DashboardPage() {
     }).catch(() => {
       if (currentRead(version)) {
         if (mutations.current.size) setPendingSave(true)
-        if (section === 'health') setCheckInLoadedDate(null)
+        if (section === 'health') {
+          setCheckInLoadedDate(null)
+          if (!mutations.current.has('unit')) {
+            recoveryNeeded.current = false
+            setNeedsWeightUnit(false)
+          }
+        }
         setSecondary(previous => ({ ...previous, [section]: 'error' }))
       }
     }).finally(() => {
@@ -656,6 +683,44 @@ export default function DashboardPage() {
     }
   }
 
+  // Recovery never assumes a display unit or changes a draft before persistence.
+  function recoverWeightUnit(unit: WeightUnit) {
+    if ((unit !== 'lbs' && unit !== 'kg') || !recoveryNeeded.current || mutations.current.size) return Promise.resolve(false)
+    return performMutation('unit', async (isCurrent, ownerId) => {
+      setWeightRecoveryPending(true)
+      setWeightRecoveryError(null)
+      try {
+        const supabase = createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (!isCurrent()) return false
+        if (authError || !user || user.id !== ownerId) throw new Error('Session could not be verified')
+        const { data, error } = await supabase.from('user_profiles')
+          .upsert({ id: ownerId, weight_unit: unit }, { onConflict: 'id' })
+          .select('weight_unit')
+          .single()
+        if (!isCurrent()) return false
+        if (error || data?.weight_unit !== unit) throw new Error('Weight unit was not persisted')
+        if (draftHydrated.current === ownerId + ':' + today && weightUnit !== unit) {
+          setWeight(draft => draft.trim() !== '' && Number.isFinite(Number(draft))
+            ? formatWeight(convertWeight(Number(draft), weightUnit, unit), unit) : draft)
+          setWeightUnit(unit)
+        }
+        recoveryNeeded.current = false
+        failedWeightRecovery.current = false
+        setNeedsWeightUnit(false)
+        return true
+      } catch {
+        if (isCurrent()) {
+          failedWeightRecovery.current = true
+          setWeightRecoveryError('Weight unit could not be saved. Please try again.')
+        }
+        return false
+      } finally {
+        if (isCurrent()) setWeightRecoveryPending(false)
+      }
+    })
+  }
+
   async function toggleWeightUnit(isCurrent = () => true, ownerId?: string) {
     const previousUnit = weightUnit
     const previousWeight = weight
@@ -718,6 +783,7 @@ export default function DashboardPage() {
         <TodayOverview
           date={today} protocols={activeProtocols} entries={entries}
           healthStatus={secondary.health} healthAvailable={secondaryLoaded.health} onRetryHealth={() => void loadSecondary('health')}
+          weightRecovery={needsWeightUnit ? { pending: weightRecoveryPending, disabled: controlsDisabled || secondary.health !== 'needs-unit', error: weightRecoveryError, onChoose: recoverWeightUnit } : undefined}
           due={dueCompounds} logs={logs} saving={controlsDisabled} onTaken={takeDose}
           error={doseSaveError} selected={activeCompoundTab || activeProtocols[0]?.compounds?.[0]?.id || null}
           weightUnit={weightUnit} onToggleUnit={() => { void performMutation('unit', toggleWeightUnit) }} onSelect={selectCompound}
@@ -740,7 +806,7 @@ export default function DashboardPage() {
           checkin={secondaryLoaded.health && <fieldset disabled={secondary.health !== 'ready'} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><DailyCheckInPrompt key={today} date={today} ownerId={checkInLoadedDate === today ? checkInOwnerId : null} recorded={checkInRecordedDate === today || entries.some(entry => entry.date === today)}>{dismiss => <DailyCheckIn
             today={today} entries={entries} mood={mood} energy={energy} hunger={hunger} sleep={sleep} weight={weight}
             notes={entryNotes} weightUnit={weightUnit} saving={saving} saved={saved} scoreError={scoreError}
-            onScoreTap={(field, value) => { void performMutation(field, (isCurrent, ownerId) => saveJournalField(field, value, isCurrent, ownerId)) }} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={() => performMutation('journal', saveEntry)} onSaved={dismiss}
+            onScoreTap={(field, value) => { if (secondary.health === 'ready' && !recoveryNeeded.current) void performMutation(field, (isCurrent, ownerId) => saveJournalField(field, value, isCurrent, ownerId)) }} onSleepChange={setSleep} onWeightChange={setWeight} onNotesChange={setEntryNotes} onSave={() => secondary.health === 'ready' && !recoveryNeeded.current ? performMutation('journal', saveEntry) : Promise.resolve(false)} onSaved={dismiss}
           />}</DailyCheckInPrompt></fieldset>}
         />
 

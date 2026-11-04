@@ -608,3 +608,317 @@ test('failed unit save converts a newer edited draft back to its original unit w
   assert.equal(f.overview().healthStatus, 'ready')
 })
 
+
+for (const [label, profile] of [['missing row', null], ['null unit', { weight_unit: null }], ['blank unit', { weight_unit: '  ' }]]) {
+  test(`weight recovery offers an explicit choice for ${label} without unlocking check-in or writing`, async t => {
+    const f = fixture(t, { profile: () => ok(profile) })
+    await f.settle()
+    assert.ok(f.overview().weightRecovery, 'A successful missing-preference read offers recovery')
+    assert.equal(f.checkin(), undefined, 'Unknown units never unlock the weight form')
+    assert.deepEqual(f.mutations, [])
+    assert.equal(f.overview().saving, false, 'Daily dose actions remain available')
+  })
+}
+for (const unit of ['lbs', 'kg']) test(`weight recovery persists an explicit ${unit} choice before health becomes ready`, async t => {
+  let profile = null
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(profile), journal: () => ok([{ date: calendarDay, weight: 180 }]),
+    mutation: async query => { const result = await pending.promise; if (!result.error) profile = { weight_unit: query.value.weight_unit }; return result } })
+  await f.settle()
+  const choose = f.overview().weightRecovery?.onChoose
+  assert.equal(typeof choose, 'function', 'Missing profile provides an explicit choice callback')
+  const first = choose(unit), duplicate = choose(unit)
+  await f.settle()
+  assert.equal(f.overview().weightRecovery.pending, true)
+  assert.equal(f.checkin(), undefined)
+  assert.equal(f.mutations.length, 1)
+  assert.deepEqual(f.mutations[0].value, { id: owner, weight_unit: unit })
+  pending.resolve(ok({ weight_unit: unit })); await Promise.all([first, duplicate]); await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.overview().healthStatus, 'ready')
+  assert.equal(f.checkin().weightUnit, unit)
+  assert.equal(f.checkin().weight, unit === 'lbs' ? '180' : '81.6')
+  assert.equal(f.mutations.filter(query => query.table === 'journal_entries').length, 0)
+})
+for (const [label, profile, journal] of [
+  ['profile permission error', () => ({ data: null, error: { code: '42501' } })],
+  ['profile network error', () => Promise.reject(new Error('Offline'))],
+  ['invalid recorded unit', () => ok({ weight_unit: 'stone' })],
+  ['journal permission error', () => ok(null), () => ({ data: null, error: { code: '42501' } })],
+  ['journal network error', () => ok(null), () => Promise.reject(new Error('Offline'))],
+]) test(`weight recovery never disguises ${label} as a missing preference`, async t => {
+  const f = fixture(t, { profile, ...(journal ? { journal } : {}) })
+  await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.overview().healthStatus, 'error')
+  assert.equal(f.checkin(), undefined)
+  assert.deepEqual(f.mutations, [])
+})
+
+test('weight recovery failure stays closed, reports the failure and permits a successful retry', async t => {
+  let profile = null, fail = true
+  const f = fixture(t, { profile: () => ok(profile), mutation: query => {
+    if (fail) return { data: null, error: { code: '42501' } }
+    profile = { weight_unit: query.value.weight_unit }; return ok(profile)
+  } })
+  await f.settle()
+  assert.ok(f.overview().weightRecovery)
+  await f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.ok(f.overview().weightRecovery.error)
+  assert.equal(f.overview().weightRecovery.pending, false)
+  assert.equal(f.checkin(), undefined)
+  fail = false
+  await f.overview().weightRecovery.onChoose('lbs'); await f.settle()
+  assert.equal(f.checkin().weightUnit, 'lbs')
+  assert.equal(f.mutations.length, 2)
+  assert.ok(f.mutations.every(query => query.table === 'user_profiles'))
+})
+
+test('weight recovery converts an existing edited draft only after the chosen unit is persisted', async t => {
+  let profile = { weight_unit: 'lbs' }
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(profile), journal: () => ok([{ date: calendarDay, weight: 180 }]), mutation: async query => {
+    const result = await pending.promise
+    profile = { weight_unit: query.value.weight_unit }; return result
+  } })
+  await f.settle(); f.checkin().onWeightChange('177'); f.checkin().onNotesChange('Keep this draft'); await f.settle()
+  profile = null; await f.refresh()
+  assert.ok(f.overview().weightRecovery)
+  const write = f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.equal(f.checkin().weightUnit, 'lbs')
+  assert.equal(f.checkin().weight, '177')
+  pending.resolve(ok({ weight_unit: 'kg' })); await write; await f.settle()
+  assert.equal(f.checkin().weightUnit, 'kg')
+  assert.equal(f.checkin().weight, '80.3', 'Convert the existing 177 lb draft; do not relabel it or rehydrate 180 lb history')
+  assert.equal(f.checkin().notes, 'Keep this draft')
+  assert.equal(f.mutations.filter(query => query.table === 'journal_entries').length, 0)
+})
+
+for (const change of ['sign-out', 'account', 'day']) test(`weight recovery completion after ${change} cannot change the new scope`, async t => {
+  const pending = deferred()
+  const f = fixture(t, { profile: query => ok(query.owner === owner ? null : { weight_unit: 'lbs' }), mutation: () => pending.promise })
+  await f.settle()
+  assert.ok(f.overview().weightRecovery)
+  const write = f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  if (change === 'sign-out') await f.auth('SIGNED_OUT', null)
+  else if (change === 'account') await f.auth('SIGNED_IN', { id: 'fictional-owner-two' })
+  else await f.day('2026-10-30')
+  const before = { unit: f.checkin()?.weightUnit, requests: f.requests.length, recovery: Boolean(f.overview()?.weightRecovery) }
+  pending.resolve(ok({ weight_unit: 'kg' })); await write; await f.settle()
+  assert.equal(f.checkin()?.weightUnit, before.unit)
+  assert.equal(f.requests.length, before.requests)
+  assert.equal(Boolean(f.overview()?.weightRecovery), before.recovery)
+  assert.equal(f.mutations.length, 1)
+  assert.deepEqual(f.mutations[0].value, { id: owner, weight_unit: 'kg' })
+})
+
+test('weight recovery keeps an existing same-unit fractional draft exactly unchanged', async t => {
+  let profile = { weight_unit: 'lbs' }
+  const f = fixture(t, { profile: () => ok(profile), mutation: query => { profile = { weight_unit: query.value.weight_unit }; return ok(profile) } })
+  await f.settle(); f.checkin().onWeightChange('180.5'); await f.settle()
+  profile = null; await f.refresh()
+  await f.overview().weightRecovery.onChoose('lbs'); await f.settle()
+  assert.equal(f.checkin().weight, '180.5')
+  assert.equal(f.checkin().weightUnit, 'lbs')
+})
+
+for (const label of ['mismatched returned unit', 'missing returned row', 'network rejection']) test(`weight recovery does not unlock on ${label}`, async t => {
+  const f = fixture(t, { profile: () => ok(null), mutation: () => label === 'network rejection' ? Promise.reject(Error('Offline')) : ok(label === 'missing returned row' ? null : { weight_unit: 'lbs' }) })
+  await f.settle(); await f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.ok(f.overview().weightRecovery.error)
+  assert.equal(f.checkin(), undefined)
+  assert.equal(f.mutations.length, 1)
+})
+
+test('weight recovery keeps the unit mutation locked past the read deadline and recovers on completion', async t => {
+  let profile = null
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(profile), mutation: async query => { const result = await pending.promise; profile = { weight_unit: query.value.weight_unit }; return result } })
+  await f.settle(); const choose = f.overview().weightRecovery.onChoose
+  const write = choose('kg'); await f.settle(); await f.advance(10_000)
+  assert.ok(f.overview().weightRecovery.pending)
+  assert.match(f.text(), /save is still pending/i)
+  assert.equal(f.checkin(), undefined)
+  await choose('lbs'); await f.settle()
+  assert.equal(f.mutations.length, 1)
+  pending.resolve(ok({ weight_unit: 'kg' })); await write; await f.settle()
+  assert.equal(f.overview().healthStatus, 'ready')
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.doesNotMatch(f.text(), /save is still pending/i)
+})
+
+test('weight recovery cannot overlap a pending dose mutation or use a stale choice after a valid profile refresh', async t => {
+  let profile = null
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(profile), mutation: query => query.table === 'injection_logs' ? pending.promise : ok(null) })
+  await f.settle(); const choose = f.overview().weightRecovery.onChoose
+  const dose = f.overview().onTaken('fictional-compound'); await f.settle()
+  await choose('kg'); await f.settle()
+  assert.equal(f.mutations.filter(query => query.table === 'user_profiles').length, 0)
+  profile = { weight_unit: 'lbs' }
+  pending.resolve(ok(null)); await dose; await f.settle()
+  await choose('kg'); await f.settle()
+  assert.equal(f.mutations.filter(query => query.table === 'user_profiles').length, 0)
+  assert.equal(f.checkin().weightUnit, 'lbs')
+})
+
+test('weight recovery rejects stale check-in save and score callbacks while units are unknown', async t => {
+  let profile = { weight_unit: 'lbs' }
+  const f = fixture(t, { profile: () => ok(profile) })
+  await f.settle(); const { onSave, onScoreTap } = f.checkin()
+  profile = null; await f.refresh()
+  assert.ok(f.overview().weightRecovery)
+  assert.equal(await onSave(), false)
+  onScoreTap('mood', 4); await f.settle()
+  assert.deepEqual(f.mutations, [])
+})
+
+test('weight recovery re-verifies authentication before submitting a preference write', async t => {
+  const f = fixture(t, { profile: () => ok(null) })
+  await f.settle()
+  f.plans.auth = () => ({ data: { user: { id: 'different-owner-without-event' } }, error: null })
+  await f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.deepEqual(f.mutations, [])
+})
+
+test('late prior-account missing-profile data cannot offer recovery for a healthy new account', async t => {
+  const pending = deferred()
+  const f = fixture(t, { profile: query => query.owner === owner ? pending.promise : ok({ weight_unit: 'kg' }) })
+  await f.settle(); await f.auth('SIGNED_IN', { id: 'fictional-owner-two' })
+  assert.equal(f.checkin().weightUnit, 'kg')
+  pending.resolve(ok(null)); await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.checkin().weightUnit, 'kg')
+})
+
+test('failed recovery leaves the latest edited draft and its existing unit untouched', async t => {
+  let profile = { weight_unit: 'lbs' }
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(profile), mutation: () => pending.promise })
+  await f.settle(); f.checkin().onWeightChange('180.5'); await f.settle()
+  profile = null; await f.refresh()
+  const write = f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  f.checkin().onWeightChange('177.5'); await f.settle()
+  pending.resolve({ data: null, error: { code: '42501' } }); await write; await f.settle()
+  assert.equal(f.checkin().weight, '177.5')
+  assert.equal(f.checkin().weightUnit, 'lbs')
+  assert.ok(f.overview().weightRecovery.error)
+})
+
+function recoveryOverview(props) {
+  const output = { exports: {} }
+  const source = readFileSync(new URL('../components/today/TodayOverview.tsx', import.meta.url), 'utf8')
+  new Function('require', 'module', 'exports', ts.transpileModule(source, { compilerOptions }).outputText)(name => {
+    if (name.endsWith('.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
+    if (name.startsWith('.')) return { __esModule: true, default: () => null }
+    return require(name)
+  }, output, output.exports)
+  return output.exports.default({ date: calendarDay, protocols: [], entries: [], due: [], logs: {}, weightUnit: 'lbs', ...props })
+}
+
+test('actual Today recovery presentation has neutral labelled choices and keeps Retry health after a stalled save', () => {
+  let chosen = null, retries = 0
+  const recovery = { pending: false, disabled: false, error: null, onChoose: unit => { chosen = unit } }
+  const ready = recoveryOverview({ healthStatus: 'needs-unit', weightRecovery: recovery })
+  const choices = nodes(ready).filter(node => node.type === 'button')
+  assert.deepEqual(choices.map(button => button.props.children), ['Pounds (lbs)', 'Kilograms (kg)'])
+  assert.ok(choices.every(button => button.props['aria-pressed'] === undefined && !button.props.disabled))
+  choices[1].props.onClick(); assert.equal(chosen, 'kg')
+  const pending = recoveryOverview({ healthStatus: 'error', weightRecovery: { ...recovery, pending: true, disabled: true }, onRetryHealth: () => { retries++ } })
+  const retry = nodes(pending).find(node => node.type === 'button' && node.props.children === 'Retry health')
+  assert.ok(retry, 'A timed-out secondary read retains its existing retry action during a pending preference write')
+  assert.ok(nodes(pending).filter(node => node.type === 'button' && node !== retry).every(node => node.props.disabled))
+  retry.props.onClick(); assert.equal(retries, 1)
+  assert.ok(nodes(pending).some(node => node.props?.role === 'status' && text(node).includes('Saving weight unit')))
+})
+
+for (const unit of ['lbs', 'kg']) test(`valid recorded ${unit} preference preserves normal Today behavior`, async t => {
+  const f = fixture(t, { profile: () => ok({ weight_unit: unit }), journal: () => ok([{ date: calendarDay, weight: 180 }]) })
+  await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.overview().healthStatus, 'ready')
+  assert.equal(f.checkin().weightUnit, unit)
+  assert.equal(f.checkin().weight, unit === 'lbs' ? '180' : '81.6')
+  assert.deepEqual(f.mutations, [])
+})
+
+test('weight recovery completion after unmount performs no state updates or follow-up reads', async t => {
+  const pending = deferred()
+  const f = fixture(t, { profile: () => ok(null), mutation: () => pending.promise })
+  await f.settle(); const write = f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  f.unmount(); const requests = f.requests.length
+  pending.resolve(ok({ weight_unit: 'kg' })); await write; await f.settle()
+  assert.equal(f.updatesAfterUnmount(), 0)
+  assert.equal(f.requests.length, requests)
+})
+
+test('a late missing-profile response after the read deadline cannot open recovery', async t => {
+  const pending = deferred()
+  const f = fixture(t, { profile: () => pending.promise })
+  await f.settle(); await f.advance(10_000)
+  assert.equal(f.overview().healthStatus, 'error')
+  pending.resolve(ok(null)); await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.checkin(), undefined)
+  f.plans.profile = () => ok(null)
+  await f.overview().onRetryHealth(); await f.settle()
+  assert.ok(f.overview().weightRecovery)
+})
+
+for (const outcome of ['mismatched returned unit', 'rejected write', 'network rejection']) test(`failed explicit recovery stays closed when ${outcome} is followed by an opposite valid profile`, async t => {
+  let profile = null, fail = true
+  const f = fixture(t, { profile: () => ok(profile), mutation: query => {
+    if (fail) {
+      profile = { weight_unit: 'lbs' }
+      if (outcome === 'network rejection') return Promise.reject(Error('Offline'))
+      return outcome === 'rejected write' ? { data: null, error: { code: '42501' } } : ok(profile)
+    }
+    profile = { weight_unit: query.value.weight_unit }; return ok(profile)
+  } })
+  await f.settle()
+  assert.equal(await f.overview().weightRecovery.onChoose('kg'), false)
+  await f.settle()
+  assert.ok(f.overview().weightRecovery?.error, 'An automatic valid-profile read must retain the explicit-choice failure')
+  assert.equal(f.overview().healthStatus, 'needs-unit')
+  assert.equal(f.checkin(), undefined, 'The opposite preference cannot unlock or label an unknown draft')
+  await f.refresh()
+  assert.ok(f.overview().weightRecovery?.error, 'Later successful reads cannot silently clear the failed choice')
+  assert.equal(f.checkin(), undefined)
+  fail = false
+  assert.equal(await f.overview().weightRecovery.onChoose('kg'), true)
+  await f.settle()
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.checkin().weightUnit, 'kg')
+  assert.equal(f.mutations.length, 2)
+  assert.ok(f.mutations.every(query => query.table === 'user_profiles'))
+})
+
+for (const condition of ['profile permission', 'journal permission', 'unsupported unit']) test(`failed recovery latch does not disguise a later ${condition} error`, async t => {
+  let profile = null, journal = ok([])
+  const f = fixture(t, { profile: () => profile, journal: () => journal, mutation: () => {
+    profile = condition === 'profile permission' ? { data: null, error: { code: '42501' } } : ok({ weight_unit: condition === 'unsupported unit' ? 'stone' : 'lbs' })
+    if (condition === 'journal permission') journal = { data: null, error: { code: '42501' } }
+    return { data: null, error: { code: '42501' } }
+  } })
+  profile = ok(null); await f.settle()
+  await f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.equal(f.overview().healthStatus, 'error')
+  assert.equal(f.overview().weightRecovery, undefined, 'Actual query/data failure takes precedence over explicit-choice recovery')
+  assert.equal(f.checkin(), undefined)
+  profile = ok({ weight_unit: 'lbs' }); journal = ok([])
+  await f.overview().onRetryHealth(); await f.settle()
+  assert.ok(f.overview().weightRecovery.error, 'The failed choice remains explicit after the independent read error recovers')
+  assert.equal(f.checkin(), undefined)
+})
+
+test('failed explicit recovery state resets when the account changes', async t => {
+  let profile = null
+  const f = fixture(t, { profile: query => ok(query.owner === owner ? profile : { weight_unit: 'lbs' }), mutation: () => {
+    profile = { weight_unit: 'lbs' }; return { data: null, error: { code: '42501' } }
+  } })
+  await f.settle(); await f.overview().weightRecovery.onChoose('kg'); await f.settle()
+  assert.ok(f.overview().weightRecovery.error)
+  await f.auth('SIGNED_IN', { id: 'fictional-owner-two' })
+  assert.equal(f.overview().weightRecovery, undefined)
+  assert.equal(f.checkin().weightUnit, 'lbs')
+})
