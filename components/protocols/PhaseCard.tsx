@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { compoundOverview, phaseLabel, type LibraryCompound, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import DoseSummary from './DoseSummary'
+import ProtocolSetupArtwork from './ProtocolSetupArtwork'
+import artworkStyles from './protocol-setup-artwork.module.css'
 import { continueLatestPhase } from '../../lib/health/protocolMutations'
 import { protocolLifecycle } from '../../lib/health/protocolDates'
 
@@ -22,8 +24,8 @@ export default function PhaseCard({ protocol, compound, today, onEdit, onReload 
     } catch { setError('This phase could not be continued. Please try again.') }
     finally { setBusy(false) }
   }
-  return <section className="protocol-phase"><div className="protocol-phase-meta"><h3>{protocol.status === 'completed' ? 'Final phase' : scheduled ? 'Scheduled phase' : protocol.status === 'planned' ? 'Planned phase' : 'Current phase'}</h3>
-    <p>{info.phase ? scheduled ? phaseLabel(info.phase).replace('Started Week','From Week') : phaseLabel(info.phase) : expired ? 'Latest phase ended' : 'No current phase saved'}</p></div>
+  return <section className={`protocol-phase ${artworkStyles.phaseSection}`} data-protocol-artwork-section="phases"><div className="protocol-phase-meta"><h3>{protocol.status === 'completed' ? 'Final phase' : scheduled ? 'Scheduled phase' : protocol.status === 'planned' ? 'Planned phase' : 'Current phase'}</h3>
+    <p>{info.phase ? scheduled ? phaseLabel(info.phase).replace('Started Week','From Week') : phaseLabel(info.phase) : expired ? 'Latest phase ended' : 'No current phase saved'}</p></div><ProtocolSetupArtwork kind="phases" />
     {expired && <div className="protocol-action-row"><button disabled={busy} onClick={continueLatest}>{busy ? 'Continuing…' : 'Continue latest phase'}</button><button onClick={() => onEdit(compound.id, true)}>Add new phase</button></div>}
     {!compound.phases?.length && protocol.status !== 'completed' && <button onClick={() => onEdit(compound.id, true)}>Add a phase</button>}
     {error && <p role="alert">{error}</p>}

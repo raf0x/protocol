@@ -2,6 +2,7 @@
 import ProtocolDialog from '../../../components/protocols/ProtocolDialog'
 import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
+import ProtocolSetupArtwork from '../../../components/protocols/ProtocolSetupArtwork'
 import DoseSummary, { dosingIssue } from '../../../components/protocols/DoseSummary'
 import { QuickChoices } from '../../../components/protocols/QuickStartControls'
 import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
@@ -555,7 +556,7 @@ export default function ManagePage() {
                     ['inventory', 'Inventory', c.vials_in_stock ? `${c.vials_in_stock} vials` : 'Stock and notes'],
                     ['phases', 'Phases', phaseSummary ? `Weeks ${phaseSummary.start_week}–${phaseSummary.end_week ?? 'ongoing'}` : `Week ${c.phase_start_week || '1'}`],
                     ['other', 'Other', 'Name · dates · help'],
-                  ] as const).map(([name, title, summary]) => <button type="button" className="dosing-option-card" key={name} aria-expanded={selectedPanel(name)} aria-controls={`dosing-panel-${ci}-${name}`} onClick={() => setOpenEditorPanel(selectedPanel(name) ? null : panelId(name))}><strong>{title}</strong><small>{summary}</small></button>)}
+                  ] as const).map(([name, title, summary]) => <button type="button" className="dosing-option-card" key={name} aria-expanded={selectedPanel(name)} aria-controls={`dosing-panel-${ci}-${name}`} onClick={() => setOpenEditorPanel(selectedPanel(name) ? null : panelId(name))}>{(name === 'phases' || name === 'other') && <ProtocolSetupArtwork kind={name} compact />}<strong>{title}</strong><small>{summary}</small></button>)}
                 </div>
                 <section className="dosing-option-panel" id={`dosing-panel-${ci}-administration`} aria-label="Administration" hidden={!selectedPanel('administration')}>
                 <div className="protocol-fields">

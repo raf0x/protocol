@@ -1,0 +1,31 @@
+/* Release 3B only. The data and existing editor controls remain outside the artwork. */
+.artwork { display: grid; place-items: center; width: 100%; min-width: 0; margin: 8px 0; pointer-events: none; user-select: none; }
+.phases { --setup-accent: #ad9bef; --setup-secondary: #7c88d6; --setup-highlight: #e2d9ff; --setup-signal: #e7a197; }
+.other { --setup-accent: #d4b987; --setup-secondary: #858bd2; --setup-highlight: #f0dfbc; --setup-signal: #a8b4f0; }
+.svg { display: block; width: 176px; max-width: 100%; height: auto; overflow: visible; }
+.compact { margin: 0 0 4px; }
+.compact .svg { width: 112px; }
+.phaseSection { min-width: 0; }
+.phaseSection :global(.protocol-phase-meta) { flex-wrap: wrap; }
+.phaseSection :global(.protocol-phase-meta) p { overflow-wrap: anywhere; }
+:global(.dosing-option-card):has(.artwork) { overflow: hidden; }
+:global(.dosing-option-card):has(.artwork):focus-visible { outline: 3px solid var(--app-text); outline-offset: 3px; }
+.artwork [data-motion] { transform-box: fill-box; transform-origin: center; }
+.artwork[data-playing] [data-motion='plinth'] { animation: materialReveal 380ms 40ms ease-out 1 both; }
+/* All nodes arrive together. Motion never depicts progression through saved phases. */
+.artwork[data-playing] [data-motion='phase-assembly'] { --arrival-from: translateY(3px); animation: arrival 560ms 100ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.artwork[data-playing] [data-motion='document'] { --arrival-from: translate(-3px,3px); animation: arrival 420ms 70ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.artwork[data-playing] [data-motion='gear-front'] { --arrival-from: translate(3px,2px); animation: arrival 360ms 220ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.artwork[data-playing] [data-motion='gear'] { animation: gearTurn 420ms 380ms ease-out 1 both; }
+.artwork[data-playing] [data-motion='document-reflection'] { animation: reflection 420ms 430ms ease-in-out 1 both; }
+.artwork[data-playing] [data-motion='metadata'] { animation: materialReveal 240ms 560ms ease-out 1 both; }
+.artwork[data-playing] [data-motion='document-dots'] { animation: materialReveal 180ms 720ms ease-out 1 both; }
+@keyframes arrival { from { opacity: .6; transform: var(--arrival-from); } to { opacity: 1; transform: none; } }
+@keyframes materialReveal { from { opacity: .25; } to { opacity: 1; } }
+@keyframes gearTurn { from { transform: rotate(-20deg); } to { transform: rotate(0); } }
+@keyframes reflection { 0% { opacity: 0; transform: translateX(0); } 45% { opacity: .6; } 100% { opacity: 0; transform: translateX(18px); } }
+@media (max-width: 359px) { .compact .svg { width: 100px; } .svg { width: 164px; } }
+@media (prefers-reduced-motion: reduce) {
+  .artwork [data-motion] { animation: none !important; transition: none !important; transform: none !important; }
+  .artwork [data-motion='document-reflection'] { opacity: 0 !important; }
+}
