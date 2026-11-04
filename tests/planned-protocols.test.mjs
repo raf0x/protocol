@@ -14,6 +14,7 @@ function load(path) {
   const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2021, esModuleInterop: true } }).outputText
   const compiled = { exports: {} }
   const resolve = name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (!name.startsWith('.')) return require(name)
     for (const extension of ['.ts', '.tsx']) {
       const file = new URL(name + extension, url)

@@ -10,6 +10,8 @@ import { protocolLifecycle } from '../../lib/health/protocolDates'
 import PhaseCard from './PhaseCard'
 import DoseChangeAction from './DoseChangeAction'
 import DoseSummary, { dosingIssue } from './DoseSummary'
+import ProtocolDetailArtwork, { administrationArtwork } from './ProtocolDetailArtwork'
+import artworkStyles from './protocol-detail-artwork.module.css'
 
 type Log = { id: string; compound_id: string; date: string; taken: boolean }
 type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean) => void; onComplete: () => void; onPause: () => void; onResume: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
@@ -61,6 +63,7 @@ export default function ProtocolDetail(props: Props) {
       {(protocol.compounds ?? []).map(compound => {
         const info = compoundOverview(protocol, compound, today)
         const admin = administrationDisplay(info.phase)
+        const adminArtwork = administrationArtwork(info.phase)
         const entry = info.phase?.dosing_entry
         const preparation = entry ?? compound
         const vialAmount = formatProtocolAmount(preparation.vial_strength, preparation.vial_unit)
@@ -70,7 +73,7 @@ export default function ProtocolDetail(props: Props) {
         return <div className="protocol-more-compound" key={compound.id}>
         {protocol.compounds?.length !== 1 && <h2>{compound.name}</h2>}
         <div className="protocol-more-grid">
-        <section className="protocol-more-section"><h3>Administration</h3><dl>
+        <section className={`protocol-more-section ${artworkStyles.section}`} data-protocol-artwork-section="administration" data-administration-artwork={adminArtwork ?? 'none'}><h3>Administration</h3>{adminArtwork && <ProtocolDetailArtwork kind="administration" presentation={adminArtwork} />}<dl>
           {info.phase?.route && <><dt>Route</dt><dd>{info.phase.route}</dd></>}
           {admin.volume && <><dt>Injection volume</dt><dd>{admin.volume}</dd></>}
           {admin.syringe && <><dt>Syringe draw</dt><dd>{admin.syringe}</dd></>}
@@ -80,9 +83,12 @@ export default function ProtocolDetail(props: Props) {
           {liquid && <><dt>Liquid added</dt><dd>{liquid}</dd></>}
           {concentration && <><dt>Concentration</dt><dd>{concentration}</dd></>}
         </dl>{!vialAmount && !liquid && !concentration && <p>Not recorded</p>}</section>
+        <section className={`protocol-more-section ${artworkStyles.section}`} data-protocol-artwork-section="inventory"><h3>Inventory</h3><ProtocolDetailArtwork kind="inventory" /><dl>
+          <dt>Inventory</dt><dd>{stock ?? 'Not recorded'}</dd>
+        </dl></section>
         <section className="protocol-more-section protocol-plan"><h3>Plan</h3><dl>
           {(!!info.phase?.days_of_week?.length || info.phase?.time_of_day) && <><dt>Schedule</dt><dd>{[info.phase.days_of_week?.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(' · '), info.phase.time_of_day].filter(Boolean).join(' · ')}</dd></>}
-          <dt>Inventory</dt><dd>{stock ?? 'Not recorded'}</dd>
+
           {compound.notes && <><dt>Notes</dt><dd className="protocol-notes">{compound.notes}</dd></>}
         </dl>
         <PhaseCard protocol={protocol} compound={compound} today={today} onEdit={props.onEdit} onReload={props.onReload} />

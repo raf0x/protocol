@@ -14,6 +14,7 @@ function load(path) {
   const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2021, esModuleInterop: true } }).outputText
   const compiled = { exports: {} }
   const resolve = name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (!name.startsWith('.')) return require(name)
     for (const extension of ['.ts', '.tsx']) {
       const file = new URL(name + extension, url)
@@ -88,11 +89,11 @@ test('multi-compound protocols remain distinct and all compounds are visible in 
   assert.match(html, /Another compound/)
   assert.match(html, /aria-label="View Plan"/)
 })
-test('detail keeps three compact groups, closed history, and expired-phase actions', () => {
+test('detail keeps four groups including illustrated inventory, closed history, and expired-phase actions', () => {
   const Detail = load('../components/protocols/ProtocolDetail.tsx').default
   const html = renderToStaticMarkup(React.createElement(Detail, { protocol: { ...protocol, compounds: [{ ...compound, phases: [{ ...phase, end_week: 4 }] }] }, today, onBack() {}, onEdit() {}, onComplete() {}, onReactivate() {}, onDelete() {}, onReload() {} }))
-  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', '>Administration</h3>', '>Vial</h3>', '>Plan</h3>', 'Show history']) assert.ok(html.includes(label), label)
-  assert.equal((html.match(/class="protocol-more-section/g) ?? []).length, 3)
+  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', '>Administration</h3>', '>Vial</h3>', '>Inventory</h3>', '>Plan</h3>', 'Show history']) assert.ok(html.includes(label), label)
+  assert.equal((html.match(/class="protocol-more-section/g) ?? []).length, 4)
   assert.ok(html.indexOf('Edit protocol') < html.indexOf('More details'))
   assert.match(html, /<details class="protocol-more-details"><summary>More details<\/summary>/)
   assert.match(html, /<details class="protocol-history-disclosure"><summary/)
