@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
 
 const require = createRequire(import.meta.url)
-function load(file, mocks = {}) {
+function load(file, mocks = {}, globals = {}) {
   const source = readFileSync(new URL(file, import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021,
@@ -15,7 +15,7 @@ function load(file, mocks = {}) {
   } }).outputText
   const module = { exports: {} }
   const localRequire = name => Object.hasOwn(mocks, name) ? mocks[name] : require(name)
-  new Function('require', 'module', 'exports', code)(localRequire, module, module.exports)
+  new Function('require', 'module', 'exports', ...Object.keys(globals), code)(localRequire, module, module.exports, ...Object.values(globals))
   return module.exports
 }
 
@@ -104,14 +104,19 @@ test('generated robots rules no longer advertise the calculator', () => {
 })
 
 test('anonymous calculator request passes auth proxy to normal not-found routing', async () => {
-  const next = { kind: 'next' }
+  const { NextRequest } = require('next/server')
   const { proxy } = load('../proxy.ts', {
-    '@supabase/ssr': { createServerClient: () => ({ auth: { getUser: async () => ({ data: { user: null } }) } }) },
-    'next/server': { NextResponse: {
-      next: () => next,
-      redirect() { throw new Error('Removed calculator must not redirect to login') },
-    } },
-  })
-  const url = new URL('https://www.mypepprotocol.app/calculator')
-  assert.equal(await proxy({ url: url.href, nextUrl: url }), next)
+    '@supabase/ssr': {
+      ...require('@supabase/ssr'),
+      createServerClient: () => ({ auth: { getUser: async () => ({ data: { user: null }, error: null }) } }),
+    },
+    './lib/authRedirect': load('../lib/authRedirect.ts'),
+  }, { process: { env: {
+    NEXT_PUBLIC_SUPABASE_URL: 'https://fixture.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'fixture-anon-key',
+  } } })
+  const response = await proxy(new NextRequest('https://www.mypepprotocol.app/calculator'))
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('x-middleware-next'), '1')
+  assert.equal(response.headers.get('location'), null)
 })
