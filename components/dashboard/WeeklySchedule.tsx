@@ -1,12 +1,12 @@
 'use client'
 import type { PhaseRow } from '../../lib/health/timeline'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import { isDueToday } from '../../lib/utils'
 
 type Compound = { id: string; name: string; protocol_start: string; phases: any[] }
 type LoggedEntry = { compound_id: string; date: string; taken: boolean }
-type Props = { activeProtocols: any[]; allLogs: LoggedEntry[]; onToggle: (compoundId: string, dateStr: string) => void }
+type Props = { activeProtocols: any[]; allLogs: LoggedEntry[]; onToggle: (compoundId: string, dateStr: string) => void; disabled?: boolean }
 
 function getWeekDates(weekOffset: number = 0): Date[] {
   const today = new Date(); today.setHours(0,0,0,0)
@@ -18,10 +18,21 @@ function getWeekDates(weekOffset: number = 0): Date[] {
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
-export default function WeeklySchedule({ activeProtocols, allLogs, onToggle }: Props) {
+export default function WeeklySchedule({ activeProtocols, allLogs, onToggle, disabled = false }: Props) {
   const [order, setOrder] = useState<string[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const interactionVersion = useRef(0)
+
+  // A fieldset cannot disable row gestures. Cancel both the active gesture and
+  // any remaining position writes before disabled content can be interacted with.
+  useLayoutEffect(() => {
+    if (disabled) {
+      setDraggingId(null)
+      setDragOverId(null)
+    }
+    return () => { interactionVersion.current++ }
+  }, [disabled])
   // Load saved week offset from localStorage
 const [weekOffset, setWeekOffset] = useState(() => {
   try {
@@ -34,6 +45,7 @@ const [weekOffset, setWeekOffset] = useState(() => {
 
 // Persist week offset changes to localStorage
 function changeWeekOffset(newOffset: number) {
+  if (disabled) return
   setWeekOffset(newOffset)
   try {
     localStorage.setItem('schedule_week_offset', String(newOffset))
@@ -64,25 +76,36 @@ function changeWeekOffset(newOffset: number) {
   }, [compounds.length])
 
   function toggleLog(compoundId: string, dateStr: string) {
+    if (disabled) return
     onToggle(compoundId, dateStr)
     try { navigator.vibrate(8) } catch(e) {}
   }
 
   async function saveOrder(newOrder: string[]) {
+    if (disabled) return
+    const version = interactionVersion.current
     const supabase = createClient()
     for (let i = 0; i < newOrder.length; i++) {
+      // Invalidate permanently on disable/unmount, even if re-enabled before
+      // the previous request settles. An already submitted write cannot be undone.
+      if (version !== interactionVersion.current) return
       await supabase.from('compounds').update({ position: i }).eq('id', newOrder[i])
     }
   }
 
-  function handleDragStart(id: string) { setDraggingId(id) }
+  function handleDragStart(e: React.DragEvent, id: string) {
+    if (disabled) { e.preventDefault(); return }
+    setDraggingId(id)
+  }
 
   function handleDragOver(e: React.DragEvent, id: string) {
+    if (disabled) return
     e.preventDefault()
     if (id !== draggingId) setDragOverId(id)
   }
 
   function handleDrop(id: string) {
+    if (disabled) return
     if (!draggingId || draggingId === id) { setDraggingId(null); setDragOverId(null); return }
     const currentOrder = order.length > 0 ? order : compounds.map(c => c.id)
     const from = currentOrder.indexOf(draggingId)
@@ -96,9 +119,13 @@ function changeWeekOffset(newOffset: number) {
     saveOrder(newOrder)
   }
 
-  function handleTouchStart(e: React.TouchEvent, id: string) { setDraggingId(id) }
+  function handleTouchStart(e: React.TouchEvent, id: string) {
+    if (disabled) return
+    setDraggingId(id)
+  }
 
   function handleTouchMove(e: React.TouchEvent) {
+    if (disabled) return
     e.preventDefault()
     const touch = e.touches[0]
     const el = document.elementFromPoint(touch.clientX, touch.clientY)
@@ -108,6 +135,7 @@ function changeWeekOffset(newOffset: number) {
   }
 
   function handleTouchEnd() {
+    if (disabled) return
     if (draggingId && dragOverId) handleDrop(dragOverId)
     setDraggingId(null)
     setDragOverId(null)
@@ -146,6 +174,7 @@ function changeWeekOffset(newOffset: number) {
       {/* NEW: Week navigation header */}
       <div style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid '+bd}}>
         <button 
+          disabled={disabled}
           onClick={() => changeWeekOffset(weekOffset - 1)}
           style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
         >
@@ -160,6 +189,7 @@ function changeWeekOffset(newOffset: number) {
           </div>
         </div>
         <button 
+          disabled={disabled}
           onClick={() => changeWeekOffset(weekOffset + 1)}
           style={{background:'none',border:'1px solid '+bd,borderRadius:'6px',padding:'6px 12px',color:dg,fontSize:'13px',fontWeight:'700',cursor:'pointer'}}
         >
@@ -170,6 +200,7 @@ function changeWeekOffset(newOffset: number) {
       {!isCurrentWeek && (
         <div style={{padding:'8px 16px',background:'rgba(57,255,20,0.05)',borderBottom:'1px solid '+bd}}>
           <button 
+            disabled={disabled}
             onClick={() => changeWeekOffset(0)}
             style={{background:'none',border:'none',color:g,fontSize:'12px',fontWeight:'700',cursor:'pointer',padding:0}}
           >
@@ -199,8 +230,8 @@ function changeWeekOffset(newOffset: number) {
               <tr
                 key={compound.id}
                 data-compound-id={compound.id}
-                draggable
-                onDragStart={() => handleDragStart(compound.id)}
+                draggable={!disabled}
+                onDragStart={e => handleDragStart(e, compound.id)}
                 onDragOver={e => handleDragOver(e, compound.id)}
                 onDrop={() => handleDrop(compound.id)}
                 onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
@@ -212,7 +243,7 @@ function changeWeekOffset(newOffset: number) {
                   opacity: draggingId === compound.id ? 0.4 : 1,
                   background: dragOverId === compound.id ? 'var(--color-green-05)' : 'transparent',
                   transition:'opacity 0.15s, background 0.15s',
-                  cursor:'grab'
+                  cursor:disabled ? 'default' : 'grab'
                 }}
               >
                 <td style={{padding:'8px 10px',fontSize:'11px',fontWeight:'700',color:'var(--color-text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'80px'}}>
@@ -257,6 +288,7 @@ function changeWeekOffset(newOffset: number) {
                     <td key={di} style={{padding:'6px 4px',textAlign:'center',background:isToday?'rgba(57,255,20,0.08)':'transparent',borderLeft:isToday?'1px solid rgba(57,255,20,0.2)':'none',borderRight:isToday?'1px solid rgba(57,255,20,0.2)':'none'}}>
                       {content !== null && (
                         <button
+                          disabled={disabled}
                           onClick={() => canTap && toggleLog(compound.id, dateStr)}
                           style={{
                             width:'26px',
