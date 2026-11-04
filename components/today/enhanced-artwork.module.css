@@ -1,0 +1,55 @@
+/* Production adaptation of the approved V0.6.4 material and finite object response. */
+.vial { width: 100%; min-width: 0; margin: 0; text-align: center; color: var(--v2-text); }
+.artwork { display: block; margin-inline: auto; overflow: visible; pointer-events: none; }
+.caption { display: grid; gap: 3px; margin-top: -3px; overflow-wrap: anywhere; }
+.strength { font-size: 11px; font-weight: 700; line-height: 15px; }
+.remainingLabel { color: var(--v2-meta); font-size: 10px; line-height: 14px; }
+.remainingValue { color: var(--today-cyan, #88d8e3); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+.remainingValue span { display: block; color: var(--v2-secondary); font-size: 10px; font-weight: 500; line-height: 14px; }
+.schedule { display: block; width: 60px; height: 46px; margin: -6px auto 2px; overflow: visible; pointer-events: none; }
+.bottle { transform-box: view-box; transform-origin: 90.5px 89px; animation: vialCounterpose 1800ms cubic-bezier(.22,.68,.28,1) 1 both; }
+.liquid { transform-box: view-box; transform-origin: 90px 80px; animation: liquidInertia 1800ms cubic-bezier(.3,.65,.25,1) 1 both; }
+.glassSweep { opacity: 0; animation: glassCatchlight 1800ms cubic-bezier(.25,.65,.35,1) 1 both; }
+.calendar { transform-box: view-box; transform-origin: 85.5px 60px; animation: calendarResponse 1800ms cubic-bezier(.22,.68,.28,1) 1 both; }
+.clock { transform-box: view-box; transform-origin: 123px 82px; animation: clockResponse 1800ms cubic-bezier(.22,.68,.28,1) 1 both; }
+
+/* No path morphing, filters, timers or perpetual effects. All final poses match rest. */
+@keyframes vialCounterpose {
+  0% { transform: translate(0,0) rotate(0); }
+  10% { transform: translate(.7px,.6px) rotate(2.5deg); }
+  32% { transform: translate(-2px,-2px) rotate(-10deg); }
+  53% { transform: translate(1px,-.8px) rotate(4.5deg); }
+  70% { transform: translate(-.3px,-.2px) rotate(-1.6deg); }
+  85%,100% { transform: translate(0,0) rotate(0); }
+}
+@keyframes liquidInertia {
+  0%,7% { transform: rotate(0); }
+  17% { transform: rotate(-4deg); }
+  36% { transform: rotate(11deg); }
+  57% { transform: rotate(-6deg); }
+  74% { transform: rotate(2.5deg); }
+  90%,100% { transform: rotate(0); }
+}
+@keyframes glassCatchlight {
+  0%,16% { transform: translateX(-13px); opacity: 0; }
+  31% { opacity: .14; }
+  44% { opacity: .74; }
+  64%,100% { transform: translateX(47px); opacity: 0; }
+}
+@keyframes calendarResponse {
+  0% { transform: translate(0,0) rotate(0); }
+  10% { transform: translate(0,.8px) rotate(-1.8deg); }
+  30% { transform: translate(0,-2px) rotate(2deg); }
+  52% { transform: translate(0,.5px) rotate(-.7deg); }
+  75%,100% { transform: translate(0,0) rotate(0); }
+}
+@keyframes clockResponse {
+  0%,10% { transform: translate(0,0) rotate(0); }
+  34% { transform: translate(1px,-2px) rotate(4deg); }
+  58% { transform: translate(-.5px,.3px) rotate(-1.5deg); }
+  79%,100% { transform: translate(0,0) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vial *, .schedule * { animation: none !important; transition: none !important; }
+  .glassSweep { opacity: 0 !important; }
+}

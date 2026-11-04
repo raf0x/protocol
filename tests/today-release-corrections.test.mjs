@@ -12,6 +12,7 @@ function load(file, mocks = {}) {
   const url = new URL(file, import.meta.url), output = { exports: {} }
   new Function('require', 'module', 'exports', ts.transpileModule(read(url), { compilerOptions: options }).outputText)(name => {
     if (Object.hasOwn(mocks, name)) return mocks[name]
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (name.endsWith('/supabase')) throw Error('No real backend in correction tests')
     return name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url), mocks) : require(name)
   }, output, output.exports)

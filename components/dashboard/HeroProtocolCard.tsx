@@ -12,6 +12,7 @@ import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { dateLabel } from '../../lib/health/protocolPresentation'
 import { dosingIssue } from '../protocols/DoseSummary'
 import SelectedProtocolSnapshot from '../today/SelectedProtocolSnapshot'
+import EnhancedVial from '../today/EnhancedVial'
 
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 
@@ -46,7 +47,7 @@ function DynamicVial({ name, color, fillPct, vialStrength, vialUnit }: { name: s
   const W = 80; const H = 160; const capH = 18; const neckH = 12; const neckW = 28
   const bodyX = 10; const bodyY = capH + neckH; const bodyW = W - 20; const bodyH = H - bodyY - 16
   const fillH = bodyH * fill; const fillY = bodyY + bodyH - fillH
-  const id = short.replace(/[^a-z0-9]/gi, '') + Math.random().toString(36).slice(2,5)
+  const id = React.useId().replace(/:/g, '')
   
   const ribbonY = bodyY + bodyH * 0.35
   const ribbonH = 24
@@ -277,7 +278,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           { label: 'Doses taken (vial)', value: formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded' },
           { label: 'Next dose', value: nextDoseText || 'Not recorded' },
         ]}
-        visual={<DynamicVial name={activeCompound.name} color={color} fillPct={fillPct} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />}
+        visual={<EnhancedVial name={activeCompound.name} strength={entry ? Number(entry.vial_strength) || undefined : activeCompound.vial_strength} unit={entry ? entry.vial_unit : activeCompound.vial_unit} remainingFraction={mlRemaining === null ? null : fillPct} remainingMl={mlRemaining} />}
         notice={doseNotice}
         lifecycle={vialInventory}
         actions={<>

@@ -3,6 +3,7 @@ import type { PhaseRow } from '../../lib/health/timeline'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase'
 import { isDueToday } from '../../lib/utils'
+import EnhancedScheduleArtwork from '../today/EnhancedScheduleArtwork'
 
 type Compound = { id: string; name: string; protocol_start: string; phases: any[] }
 type LoggedEntry = { compound_id: string; date: string; taken: boolean }
@@ -181,6 +182,7 @@ function changeWeekOffset(newOffset: number) {
           ← Prev
         </button>
         <div style={{textAlign:'center'}}>
+          <EnhancedScheduleArtwork />
           <div style={{fontSize:'11px',fontWeight:'700',color:'var(--color-text)',letterSpacing:'1px'}}>
             {weekLabel}
           </div>

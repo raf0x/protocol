@@ -3,9 +3,13 @@ import React from 'react'
 // A small hook renderer for interaction tests, with state scoped to component identity.
 export function reactHarness() {
   const bank = new Map()
-  let current, slot = 0
+  let current, slot = 0, nextId = 0
   const hooks = {
     useEffect() {},
+    useId() {
+      const index = slot++
+      return current[index] ?? (current[index] = 'harness-id-' + (++nextId))
+    },
     useState(initial) {
       const state = current, index = slot++
       if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial
