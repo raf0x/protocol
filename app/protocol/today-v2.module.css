@@ -347,3 +347,11 @@
 
 /* Phase B artwork keeps the existing snapshot rail and Phase A materials. */
 .selectedSnapshot :global(.today-snapshot-vial) svg[data-premium-vial] { width: 104px; max-width: 100%; height: 112px; }
+
+/* Missing-preference recovery uses the existing Today material and readable controls. */
+.unitRecovery h2 { margin: 0; color: var(--v2-text); font-size: 16px; line-height: 22px; }
+.unitRecovery p { margin: 8px 0; color: var(--v2-secondary); font-size: 13px; line-height: 20px; }
+.unitChoices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.unitChoices button { flex: 1 1 130px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--v2-control); border-radius: 10px; background: var(--today-raised); color: var(--v2-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.unitChoices button:disabled { opacity: .65; cursor: wait; }
+.unitChoices button:focus-visible { outline: 3px solid var(--v2-accent); outline-offset: 3px; }
