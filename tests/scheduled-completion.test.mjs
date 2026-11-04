@@ -12,6 +12,7 @@ function load(file, overrides={}) {
   const code=ts.transpileModule(read(url),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2021,esModuleInterop:true}}).outputText
   new Function('require','module','exports',code)(name=>{
     if(overrides[name]) return overrides[name]
+    if(name.endsWith('.module.css'))return new Proxy({}, {get:(_,key)=>key==='__esModule'?false:String(key)})
     if(name.endsWith('/supabase'))return {createClient(){throw Error('No database access in render tests')}}
     if(name.startsWith('.'))for(const ext of ['.ts','.tsx']){const path=new URL(name+ext,url);try{read(path)}catch(error){if(error.code==='ENOENT')continue;throw error}return load(path,overrides)}
     return require(name)

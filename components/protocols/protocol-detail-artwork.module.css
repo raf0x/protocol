@@ -1,0 +1,72 @@
+/* Scoped to the two Release 3A detail sections; Today and the Visual Lab are untouched. */
+:global(.protocol-more-grid) > :global(.protocol-more-section).section {
+  padding: 16px 18px;
+  border: 1px solid var(--app-border);
+  border-radius: 20px;
+  background: var(--app-surface-secondary);
+  box-shadow: inset 0 1px 0 #ffffff08;
+}
+.section dl { padding-top: 12px; border-top: 1px solid var(--app-border); }
+.figure { margin: 0 0 10px; }
+.administration { --art-accent: #aa98ed; --art-secondary: #7184c7; --art-highlight: #ddd4ff; --art-signal: #eaa096; }
+.inventory { --art-accent: #74cbbb; --art-secondary: #4e9aab; --art-highlight: #c5eee3; --art-signal: #bfd494; }
+.stage {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 2px 0 0;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--art-accent) 8%, transparent), transparent 68%);
+}
+.artwork { display: block; width: 194px; height: auto; max-width: 100%; overflow: visible; }
+.caption { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--app-secondary); font-size: 12px; line-height: 1.5; }
+.caption > span { min-width: 0; }
+.figure .replay {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 50%;
+  background: var(--app-surface);
+  color: var(--app-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.figure .replay svg { display: block; width: 18px; height: 18px; }
+.figure .replay:disabled { cursor: default; }
+.figure .replay:focus-visible { outline: 3px solid var(--app-text); outline-offset: 3px; }
+@media (hover: hover) { .figure .replay:not(:disabled):hover { background: var(--app-surface-secondary); border-color: var(--app-secondary); } }
+.figure [data-motion] { transform-box: fill-box; transform-origin: center; }
+.figure :is([data-motion='instrument-arc'], [data-motion='stock-edge']) { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.figure [data-motion='barrel-reflection'] { stroke-dasharray: .15 1; stroke-dashoffset: .15; }
+.figure[data-playing] [data-motion='plinth'] { animation: materialReveal 380ms 40ms ease-out 1 both; }
+.figure[data-playing] [data-motion='instrument-arc'] { animation: trace 440ms 90ms ease-out 1 both; }
+.figure[data-playing] [data-motion='syringe'] { --arrival-from: translate(-4px, 3px); animation: arrival 420ms 80ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.figure[data-playing] [data-motion='capsule'] { --arrival-from: translate(3px, 2px); animation: arrival 340ms 200ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.figure[data-playing] [data-motion='barrel-reflection'] { animation: sweep 430ms 360ms ease-in-out 1 both; }
+.figure[data-playing] [data-motion='stock-box'] { --arrival-from: translate(-3px, 3px); animation: arrival 400ms 60ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.figure[data-playing] [data-motion='stock-vial'] { --arrival-from: translateY(4px); animation: arrival 390ms 160ms cubic-bezier(.2,.75,.25,1) 1 both; }
+.figure[data-playing] [data-motion='stock-edge'] { animation: trace 400ms 300ms ease-out 1 both; }
+.figure[data-playing] [data-motion='stock-reflection'] { animation: reflection 420ms 440ms ease-in-out 1 both; }
+.figure[data-playing] [data-motion='stock-seal'] { animation: materialReveal 260ms 590ms ease-out 1 both; }
+@keyframes arrival { from { opacity: .35; transform: var(--arrival-from); } to { opacity: 1; transform: none; } }
+@keyframes materialReveal { from { opacity: .2; } to { opacity: 1; } }
+@keyframes trace { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes sweep { 0% { opacity: 0; stroke-dashoffset: .15; } 30% { opacity: .5; } 100% { opacity: 0; stroke-dashoffset: -1; } }
+@keyframes reflection { 0% { opacity: 0; transform: translateX(0); } 45% { opacity: .6; } 100% { opacity: 0; transform: translateX(18px); } }
+@media (max-width: 359px) {
+  :global(.protocol-more-grid) > :global(.protocol-more-section).section { padding: 14px; }
+  .artwork { width: 176px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .figure [data-motion] { animation: none !important; transition: none !important; }
+  .figure :is([data-motion='barrel-reflection'], [data-motion='stock-reflection']) { opacity: 0 !important; }
+  .figure .replay { display: none; }
+  .caption { min-height: 32px; }
+}
+/* Unknown/unsupported administration keeps its facts without decorative empty space. */
+.section[data-administration-artwork='none'] dl { padding-top: 0; border-top: 0; }
+.section[data-administration-artwork='none'] dl:empty { display: none; }
