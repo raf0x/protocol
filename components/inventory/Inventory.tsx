@@ -8,7 +8,7 @@ import { FORMS, UNITS, RECONSTITUTION, INVENTORY_HEADERS, MAX_FILE_BYTES, TEMPLA
 import '../../app/protocol/manage/protocols.css'
 import styles from '../../app/protocol/inventory/inventory.module.css'
 
-const labels: Record<string, string> = { item_name: 'Item or compound name', form: 'Form', vial_strength: 'Vial strength', strength_unit: 'Strength unit', quantity: 'Quantity', acquisition_date: 'Acquisition date', expiration_date: 'Expiration date', lot_number: 'Lot / batch number', reconstitution_status: 'Reconstitution status', reconstitution_date: 'Reconstitution date', notes: 'Notes' }
+const labels: Record<string, string> = { item_name: 'Item or compound name', form: 'Form', vial_strength: 'Vial strength', strength_unit: 'Strength unit', quantity: 'Quantity', acquisition_date: 'Acquisition date', expiration_date: 'Recorded expiration date', lot_number: 'Lot / batch number', reconstitution_status: 'Reconstitution status', reconstitution_date: 'Reconstitution date', notes: 'Notes' }
 const options: Record<string, readonly string[]> = { form: FORMS, strength_unit: UNITS, reconstitution_status: RECONSTITUTION }
 const today = () => new Date().toLocaleDateString('en-CA')
 const message = (error: unknown) => error instanceof Error ? error.message : 'This action could not be completed. Try again.'

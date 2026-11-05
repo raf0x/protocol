@@ -1,9 +1,12 @@
 import { entryFormState, entryFromForm, type EntryMode } from '../health/dosingEntry'
 import { phaseEndWeek } from '../health/phaseLifecycle'
 import { isCalendarDate } from '../health/protocolDates'
+import { historicalCompoundPayload, markHistoricalEdit, rebindHistoricalPhase, type HistoricalSource } from './historicalSave'
+export { captureHistoricalCompound } from './historicalSave'
 export type DefaultSource = 'previous' | 'session' | 'inventory' | 'handoff'
 
 export type Compound = {
+  historical?: HistoricalSource
   origins?: Partial<Record<keyof Compound, DefaultSource>>
   preparation?: 'ready' | 'mixing' | 'unknown'
   frequencyChoice?: '' | 'daily' | 'weekly' | '2x' | '3x' | 'custom'
@@ -66,7 +69,7 @@ export function newCompound(): Compound {
 export type QuickStartDraft = { startDate: string; compounds: Compound[] }
 
 export function updateCompoundDraft<K extends keyof Compound>(compound: Compound, field: K, value: Compound[K]): Compound {
-  const next = { ...compound, [field]: value, origins: { ...compound.origins, [field]: 'session' as const } }
+  const next = { ...compound, [field]: value, historical: markHistoricalEdit(compound.historical, field), origins: { ...compound.origins, [field]: 'session' as const } }
   if (field === 'input_mode') {
     if (value === 'syringe' && !next.syringe_markings) next.syringe_markings = next.legacy_value || ''
     if (value === 'syringe' && !next.syringe_scale && !next.preserveSyringeScale) next.syringe_scale = '100'
@@ -80,7 +83,7 @@ export function updateCompoundDraft<K extends keyof Compound>(compound: Compound
 export function phaseCompoundDraft(current: Compound, phase: Record<string, any>, preparation: Partial<Compound> = {}): Compound {
   const frequency = typeof phase.frequency === 'string' ? phase.frequency : ''
   const rolling = frequency.startsWith('every') && frequency.endsWith('days')
-  return {
+  const draft: Compound = {
     ...current,
     ...preparation,
     phase_id: phase.id,
@@ -93,10 +96,11 @@ export function phaseCompoundDraft(current: Compound, phase: Record<string, any>
     time_of_day: phase.time_of_day ? phase.time_of_day[0].toUpperCase() + phase.time_of_day.slice(1) : '',
     ...entryFormState(phase, preparation),
   }
+  return rebindHistoricalPhase(current, draft, phase)
 }
 
 export function newPhaseCompoundDraft(current: Compound): Compound {
-  return {
+  const draft: Compound = {
     ...current,
     ...entryFormState(),
     phase_id: undefined,
@@ -104,6 +108,7 @@ export function newPhaseCompoundDraft(current: Compound): Compound {
     duration_weeks: '',
     reviewed: false,
   }
+  return rebindHistoricalPhase(current, draft, undefined, true)
 }
 
 export function compoundFrequency(c: Compound) {
@@ -113,7 +118,10 @@ export function compoundFrequency(c: Compound) {
 /** The sole compound draft -> canonical RPC payload adapter, shared with editing. */
 export function protocolCompoundPayload(compounds: Compound[]) {
   if (!compounds.length || compounds.some(c => !c.name.trim() || c.name.trim().length > 100)) throw new Error('Every compound needs a name of 100 characters or fewer.')
-  return compounds.map(c => {
+  return compounds.map(c => c.id ? historicalCompoundPayload(c, () => newCompoundPayload(c)) : newCompoundPayload(c))
+}
+
+function newCompoundPayload(c: Compound) {
     const entry = entryFromForm(c)
     if (c.reconstitution_date && !isCalendarDate(c.reconstitution_date)) throw new Error('Enter a valid calendar date.')
     if (c.vials_in_stock && (!Number.isSafeInteger(Number(c.vials_in_stock)) || Number(c.vials_in_stock) < 0)) throw new Error('Vials in stock must be a non-negative whole number.')
@@ -123,12 +131,10 @@ export function protocolCompoundPayload(compounds: Compound[]) {
     const start = Number(c.phase_start_week)
     return { id: c.id || null, name: c.name.trim(),
       vial_strength: c.isPreMixed || !c.vial_strength ? null : Number(c.vial_strength), vial_unit: c.isPreMixed ? null : c.vial_unit,
-      bac_water_ml: c.isPreMixed || !c.bac_water_ml ? null : Number(c.bac_water_ml), reconstitution_date: c.isPreMixed ? null : c.reconstitution_date || null,
+      bac_water_ml: c.isPreMixed || !c.bac_water_ml ? null : Number(c.bac_water_ml), reconstitution_date: c.reconstitution_date || null,
       notes: c.notes.trim(), vials_in_stock: c.vials_in_stock ? Number(c.vials_in_stock) : null,
       phase: { id: c.phase_id || null, dosing_entry: entry, start_week: start, end_week: phaseEndWeek(start, c.duration_weeks),
         frequency, days_of_week: c.frequency_mode === 'weekly' ? c.days_of_week : [], day_of_week: c.frequency_mode === 'weekly' ? c.days_of_week[0] : null,
         time_of_day: c.time_of_day.toLowerCase(), route: c.route || null },
     }
-  })
 }
-

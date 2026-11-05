@@ -96,11 +96,11 @@ const phase = { dose: 1, dose_unit: 'mg', dose_semantics_version: 1, injection_v
 function hero(compound = {}, phases = [phase]) {
   return render(Hero, { activeProtocols: [{ id: 'protocol', name: 'Existing plan', status: 'active', start_date: today, compounds: [{ id: 'compound', name: 'Original compound identity', vial_strength: 10, vial_unit: 'mg', bac_water_ml: 2, reconstitution_date: today, doses_taken_override: 3, vials_in_stock: 4, ...compound, phases }] }], activeCompoundTab: 'compound', logs: {}, allLogs: [], totalLost: null, compoundIndex: 0, snapshot: true })
 }
-test('real Hero maps existing volume estimate and preserves inventory actions and facts', () => {
+test('real Hero withholds unattributable remaining while preserving artwork, inventory actions and facts', () => {
   const html = hero()
-  assert.match(text(html), /70%/)
-  assert.match(text(html), /1\.4(?:0)?\s*mL/)
-  assert.match(text(html), /Estimated remaining/i)
+  assert.match(text(html), /Remaining unknown/i)
+  assert.match(text(html), /saved doses are not linked to an individual vial/)
+  assert.doesNotMatch(html, /data-vial-liquid/)
   assert.match(text(html), /Vials in stock\s*4/)
   assert.match(html, /data-inventory-compound="compound"/)
   assert.match(text(html), /\+ New Vial/)
@@ -119,17 +119,17 @@ for (const [label, compound, phases] of [
   assert.doesNotMatch(text(html), /\b100%/)
   assert.match(text(html), /\+ New Vial/)
 })
-test('real Hero uses reviewed entry vial strength and units instead of stale compound metadata', () => {
+test('real Hero labels compound and phase preparation separately without using the phase as current vial confirmation', () => {
   const { entryFromForm } = load('../lib/health/dosingEntry.ts')
   const dosing_entry = entryFromForm({ input_mode: 'medication', dose: '2', dose_unit: 'IU', preparation: 'mixing', vial_strength: '20', vial_unit: 'IU', bac_water_ml: '2', reviewed: true })
   const html = hero({ vial_strength: 99, vial_unit: 'mg' }, [{ ...phase, dosing_entry }])
   const caption = html.split('<figcaption')[1]?.split('</figcaption>')[0]
   assert.ok(caption, 'The selected vial has a readable caption')
-  assert.match(text(caption), /20 IU/)
-  assert.doesNotMatch(text(caption), /99 mg/)
-  assert.match(text(caption), /Estimated remaining/)
-  assert.match(text(caption), /70%/)
-  assert.ok(text(caption).includes('1.4 mL'), text(caption))
+  assert.match(text(caption), /Recorded compound amount\s*99 mg/)
+  assert.doesNotMatch(text(caption), /20 IU/)
+  assert.match(text(caption), /Remaining unknown/)
+  assert.match(text(html), /compound vial amount 99 mg; saved phase vial amount 20 IU/)
+  assert.doesNotMatch(html, /data-vial-liquid/)
 })
 
 test('manual React harness gives useId stable instance slots and unique sibling IDs', () => {

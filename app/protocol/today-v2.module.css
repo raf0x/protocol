@@ -355,3 +355,9 @@
 .unitChoices button { flex: 1 1 130px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--v2-control); border-radius: 10px; background: var(--today-raised); color: var(--v2-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .unitChoices button:disabled { opacity: .65; cursor: wait; }
 .unitChoices button:focus-visible { outline: 3px solid var(--v2-accent); outline-offset: 3px; }
+
+/* Release 4A: actionable disclosure without changing the dose/logging layout. */
+.focusReview summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
+.focusReview a { display: inline-flex; align-items: center; min-height: 44px; color: var(--app-accent); }
+.focusReview p { white-space: normal; overflow-wrap: anywhere; }
+.focusReview summary:focus-visible, .focusReview a:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }

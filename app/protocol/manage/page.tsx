@@ -4,11 +4,12 @@ import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import ProtocolSetupArtwork from '../../../components/protocols/ProtocolSetupArtwork'
 import DoseSummary, { dosingIssue } from '../../../components/protocols/DoseSummary'
+import { isDosingReviewField, type DosingReviewField } from '../../../lib/health/dosingGuidance'
 import { QuickChoices } from '../../../components/protocols/QuickStartControls'
 import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
 import ProtocolSetupSuccess, { type SavedSetup } from '../../../components/protocols/ProtocolSetupSuccess'
 import { markOnboardingSeen, onboardingEligible } from '../../../lib/protocols/onboarding'
-import { newCompound, newPhaseCompoundDraft, phaseCompoundDraft, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
+import { captureHistoricalCompound, newCompound, newPhaseCompoundDraft, phaseCompoundDraft, protocolCompoundPayload, updateCompoundDraft, type Compound } from '../../../lib/protocols/form'
 import { createQuickStart, quickStartDates, quickStartIssue, requireIdentifier } from '../../../lib/protocols/quickStart'
 import { loadInventoryItem } from '../../../lib/inventory/client'
 import { localCalendarDate, protocolLifecycle, protocolSaveDates } from '../../../lib/health/protocolDates'
@@ -25,6 +26,11 @@ const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const DAY_NUMS = [1,2,3,4,5,6,0]
 const TIMES = ['Morning','Afternoon','Evening','Night']
 const UNITS = ['mg','mcg','IU']
+const reviewFieldKeys: Partial<Record<DosingReviewField, keyof Compound>> = {
+  'Medication dose': 'dose', 'Medication dose unit': 'dose_unit', 'Syringe markings': 'syringe_markings', 'Syringe scale': 'syringe_scale',
+  'Injection volume (mL)': 'injection_volume', 'Vial amount': 'vial_strength', 'Vial unit': 'vial_unit', 'BAC water in mL': 'bac_water_ml',
+  'Concentration value': 'concentration_value', 'Concentration unit': 'concentration_unit',
+}
 
 export default function ManagePage() {
   const router = useRouter()
@@ -69,6 +75,39 @@ export default function ManagePage() {
   const [quickValidationAttempts, setQuickValidationAttempts] = useState(0)
   const [openEditorPanel, setOpenEditorPanel] = useState<string | null>(null)
   const [openMoreOptions, setOpenMoreOptions] = useState<number | null>(null)
+  const [reviewFocus, setReviewFocus] = useState<{ index: number; field: DosingReviewField } | null>(null)
+  const [reviewFallback, setReviewFallback] = useState<{ index: number; field: DosingReviewField; nextField: DosingReviewField } | null>(null)
+  const [vialHandoffBlocked, setVialHandoffBlocked] = useState(false)
+
+  function requestDosingReview(index: number, field: DosingReviewField, inputMode = compounds[index]?.input_mode) {
+    setReviewFallback(null)
+    const vial = ['Vial amount', 'Vial unit', 'BAC water in mL', 'Concentration value', 'Concentration unit', 'Preparation source'].includes(field)
+    const administration = field === 'Injection volume (mL)' ? inputMode === 'medication' || inputMode === 'syringe' :
+      ['Syringe markings', 'Syringe scale'].includes(field) && (inputMode === 'medication' || inputMode === 'volume')
+    if (vial || administration) { setOpenMoreOptions(index); setOpenEditorPanel(index + ':' + (vial ? 'vial' : 'administration')) }
+    setReviewFocus({ index, field })
+  }
+
+  useEffect(() => {
+    if (!reviewFocus || !showForm || mode !== 'edit') return
+    const frame = requestAnimationFrame(() => {
+      const compound = document.querySelector<HTMLElement>('[data-dosing-compound="' + reviewFocus.index + '"]')
+      const measurementControl = () => compound?.querySelector<HTMLElement>('.dosing-methods [aria-pressed="true"]') ?? compound?.querySelector<HTMLElement>('.dosing-methods button')
+      let field = reviewFocus.field === 'How do you measure it?'
+        ? measurementControl()
+        : Array.from(compound?.querySelectorAll<HTMLElement>('[aria-label]') || []).find(element => element.getAttribute('aria-label') === reviewFocus.field && !element.closest('[hidden]'))
+      if (!field) {
+        const preparationField = ['Vial amount', 'Vial unit', 'BAC water in mL', 'Concentration value', 'Concentration unit'].includes(reviewFocus.field)
+        const nextField = preparationField ? 'Preparation source' : 'How do you measure it?'
+        field = preparationField ? compound?.querySelector<HTMLElement>('[aria-label="Preparation source"]') ?? undefined : measurementControl()
+        setReviewFallback({ ...reviewFocus, nextField })
+      }
+      field?.focus({ preventScroll: true })
+      field?.scrollIntoView({ block: 'center' })
+      setReviewFocus(null)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [reviewFocus, showForm, mode, openMoreOptions, openEditorPanel])
 
   useEffect(() => {
     const message = document.querySelector<HTMLElement>('[data-quick-error], .protocol-editor [role="alert"]')
@@ -107,6 +146,14 @@ export default function ManagePage() {
       const first = onboardingEligible(user.id, data)
       setFirstProtocol(first)
       const params = new URLSearchParams(window.location.search)
+      // Retired New Vial links must never prefill a treatment edit or replace saved vial facts.
+      if (['reconstitution_vial', 'reconstitution_water', 'reconstitution_date'].some(key => params.has(key))) {
+        setVialHandoffBlocked(true)
+        const existing = data?.find(p => p.id === params.get('protocol') || p.compounds?.some((c: { id: string }) => c.id === params.get('compound')))
+        if (existing) setDetailId(existing.id)
+        window.history.replaceState(null, '', '/protocol/manage')
+        return
+      }
       if (first && params.get('new') === '1') markOnboardingSeen(user.id)
       if (!first && params.get('onboarding') === '1') { router.replace('/protocol'); return }
       if ((params.get('new') === '1' || params.has('dose')) && handoffInitialized.current) return
@@ -332,6 +379,7 @@ export default function ManagePage() {
   }
 
   function startEdit(p: any) {
+    setReviewFallback(null)
     savedProtocolId.current = null
     setFromInventory(false)
     window.scrollTo({ top: 0 })
@@ -348,22 +396,20 @@ export default function ManagePage() {
       const freq = ph?.frequency || ''
       const isRolling = freq.startsWith('every') && freq.endsWith('days')
       const cycleDays = isRolling ? freq.replace('every','').replace('days','') : '3'
-      const incomingMix = parameters.get('compound') === c.id && parameters.has('reconstitution_vial')
-      const isPreMixed = !incomingMix && !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
+      const isPreMixed = !c.vial_strength && !c.bac_water_ml && !c.reconstitution_date
       const preparationFacts = {
         isPreMixed, preparation: isPreMixed ? 'ready' as const : 'mixing' as const,
         vial_strength: c.vial_strength?.toString() || '', vial_unit: c.vial_unit || '', bac_water_ml: c.bac_water_ml?.toString() || '',
         concentration_value: c.concentration_value?.toString() || '', concentration_unit: c.concentration_unit || '',
       }
       const dosing = entryFormState(ph, preparationFacts)
-      const handoffVialUnit = dosing.vial_unit || c.vial_unit || ''
       
-      return {
+      return captureHistoricalCompound({
         name: c.name, id: c.id, phase_id: ph?.id,
         phase_start_week: String(ph?.start_week || 1),
         route: ph?.route || '',
         phase_options: c.phases || [],
-        reconstitution_date: incomingMix ? parameters.get('reconstitution_date') || '' : c.reconstitution_date || '',
+        reconstitution_date: c.reconstitution_date || '',
         duration_weeks: ph?.end_week == null ? '' : String(ph.end_week - (ph.start_week || 1) + 1),
         frequency_mode: isRolling ? 'rolling' : 'weekly',
         days_of_week: ph?.days_of_week || [],
@@ -372,8 +418,7 @@ export default function ManagePage() {
         vials_in_stock: c.vials_in_stock?.toString() || '',
         notes: c.notes || '',
         ...dosing,
-        ...(incomingMix ? {isPreMixed:false,preparation:'mixing' as const,vial_strength:parameters.get('reconstitution_vial') || '',vial_unit:handoffVialUnit,bac_water_ml:parameters.get('reconstitution_water') || '',concentration_value:'',concentration_unit:'',reviewed:false} : {}),
-      }
+      }, c, ph)
     })
     if(parameters.get('action')==='add-phase') {
       const target=cs.find((c: Compound)=>c.id===parameters.get('compound'))
@@ -384,18 +429,21 @@ export default function ManagePage() {
     setOpenMoreOptions(parameters.get('action') === 'add-phase' ? Math.max(0, cs.findIndex((c: Compound) => c.id === parameters.get('compound'))) : null)
     setContinuedFromId(p.continued_from_protocol_id || '')
     setShowForm(true)
+    const requestedField = parameters.get('review')
+    if (isDosingReviewField(requestedField)) {
+      const index = Math.max(0, cs.findIndex((c: Compound) => c.id === parameters.get('compound')))
+      requestDosingReview(index, requestedField, cs[index]?.input_mode)
+    }
     setError('')
   }
 
   function updateCompound(i: number, field: string, value: any) {
+    setReviewFallback(null)
     setCompounds(current => current.map((c, index) => index === i ? updateCompoundDraft(c, field as keyof Compound, value) : c))
   }
 
   function toggleDay(ci: number, dayNum: number) {
-    const u = [...compounds]
-    const days = u[ci].days_of_week
-    u[ci].days_of_week = days.includes(dayNum) ? days.filter(d => d !== dayNum) : [...days, dayNum]
-    setCompounds(u)
+    setCompounds(current => current.map((compound, index) => index === ci ? updateCompoundDraft(compound, 'days_of_week', compound.days_of_week.includes(dayNum) ? compound.days_of_week.filter(day => day !== dayNum) : [...compound.days_of_week, dayNum]) : compound))
   }
 
   async function save() {
@@ -412,7 +460,9 @@ export default function ManagePage() {
     try {
       const dates = mode === 'create' ? quickStartDates(startDate) : protocolSaveDates({ mode, planned, startDate, today: localCalendarDate(), originalStartDate: editingProtocol?.status === 'active' ? editingProtocol.start_date : null, useDifferentDate: changeHappenedEarlier, effectiveDate })
       const payload = protocolCompoundPayload(compounds)
-      savedProtocolId.current = await saveProtocolWithEvents({ protocolId: editingId, name: compounds[0].name.trim(), ...dates,
+      const protocolName = editingId ? editingProtocol?.name : compounds[0].name.trim()
+      if (typeof protocolName !== 'string' || protocolName !== protocolName.trim() || !protocolName || protocolName.length > 100) throw new Error('The recorded protocol name cannot be preserved by this save. Cancel and reopen the protocol; a supported name correction is required.')
+      savedProtocolId.current = await saveProtocolWithEvents({ protocolId: editingId, name: protocolName, ...dates,
         compounds: payload, continuedFromId: continuedFromId || null, removedCompoundIds,
       })
       if (mode === 'create') {
@@ -484,6 +534,7 @@ export default function ManagePage() {
           </div>
         )}
 
+        {vialHandoffBlocked && <div role="status" className="protocol-dose-issue" data-vial-handoff-blocked><strong>Starting a new vial is temporarily unavailable</strong><p>The old New Vial link cannot safely preserve previous vial details. No preparation, stock or dose counters were changed. Your existing protocols and recorded history remain available.</p><button type="button" onClick={() => setVialHandoffBlocked(false)}>Dismiss</button></div>}
         {savedNotice && <p role="status" className="protocol-saved-notice">{savedNotice}</p>}
         {error && !showForm && !confirmComplete && !confirmReactivate && <p role="alert" className="protocol-error">{error}</p>}
       {showForm && (
@@ -503,7 +554,7 @@ export default function ManagePage() {
               const scheduleSummary = [c.frequency_mode === 'rolling' ? `Every ${c.cycle_days || '?'} days` : c.days_of_week.length === 7 ? 'Daily' : c.days_of_week.length === 1 ? 'Weekly' : c.days_of_week.length ? `${c.days_of_week.length}x/week` : 'Schedule', c.frequency_mode === 'weekly' && c.days_of_week.length < 3 ? c.days_of_week.map(day => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]).join(' · ') : '', c.time_of_day].filter(Boolean).join(' · ')
               const phaseSummary = c.phase_options?.find(phase => phase.id === c.phase_id)
               return (
-              <div key={ci} className="dosing-compound">
+              <div key={ci} className="dosing-compound" data-dosing-compound={ci}>
                 {compounds.length > 1 && (
                   <div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}>
                     <span style={{fontSize:'11px',color:mg,fontWeight:'700',letterSpacing:'1px'}}>COMPOUND {ci+1}</span>
@@ -516,7 +567,7 @@ export default function ManagePage() {
                 <section className="dosing-primary" aria-label={`Dosing for ${c.name || 'your compound'}`}>
                 <QuickChoices label="How do you measure it?" className="dosing-methods" value={c.input_mode} options={[["medication", 'Medication dose'], ['syringe', 'Syringe units'], ['volume', 'Volume'], ['unknown', 'I’m not sure']]} onChange={value => updateCompound(ci,'input_mode',value)} />
                 <div className="dosing-mode-fields">
-                  {c.input_mode === 'unknown' && <p className="dosing-reassurance">That’s okay. Add what you know. You can save now and add details later.</p>}
+                  {c.input_mode === 'unknown' && <p className="dosing-reassurance">{editingId ? 'Add only what you can confirm from the original record. Saving must preserve your recorded history.' : 'That’s okay. Add what you know. You can save now and add details later.'}</p>}
                   {(c.input_mode === 'syringe' || c.input_mode === 'unknown') && <>
                     <label>{c.input_mode === 'syringe' ? 'How much do you draw?' : 'Syringe units (optional)'}<input aria-label="Syringe markings" inputMode="decimal" type="number" min="0" step="any" value={c.syringe_markings} onChange={e => updateCompound(ci,'syringe_markings',e.target.value)} style={is} /></label>
                     <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option>{c.syringe_scale && !['100','40'].includes(c.syringe_scale) && <option value={c.syringe_scale} disabled>Stored U-{c.syringe_scale} (unsupported; preserved)</option>}<option value="100">U-100</option><option value="40">U-40</option></select></label>
@@ -534,16 +585,8 @@ export default function ManagePage() {
                 </div>
 
                 <div className="dosing-live-summary" aria-live="polite" aria-atomic="true">
-                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={{ dosing_entry: entryFromForm(c) }} editing onReview={target => {
-                    setOpenMoreOptions(ci)
-                    const panel = target === 'syringe' ? 'administration' : 'vial'
-                    setOpenEditorPanel(panelId(panel))
-                    requestAnimationFrame(() => {
-                      const openedPanel = document.getElementById(`dosing-panel-${ci}-${panel}`)
-                      openedPanel?.scrollIntoView({ block: 'nearest' })
-                      if (panel === 'vial') openedPanel?.querySelector<HTMLElement>('.dosing-review-panel > summary')?.focus()
-                    })
-                  }} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
+                  {reviewFallback?.index === ci && <div data-dose-review-fallback id={'dosing-review-fallback-' + ci} role="status"><strong>Review {reviewFallback.nextField}</strong><p>{reviewFallback.field} is not shown by the current {reviewFallback.nextField === 'Preparation source' ? 'preparation' : 'measurement'} controls. Review {reviewFallback.nextField} against the original record before editing this field. No preparation, measurement mode or saved value has been changed.</p><dl><dt>Saved {reviewFallback.field}</dt><dd>{reviewFieldKeys[reviewFallback.field] ? String(c[reviewFieldKeys[reviewFallback.field]!] ?? '') || 'Not recorded' : 'Original entry retained'}</dd></dl></div>}
+                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={{ dosing_entry: entryFromForm(c) }} editing onReview={(_target, field) => requestDosingReview(ci, field || 'How do you measure it?')} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
                 </div>
                 </section>
                 <details className="dosing-more-options" id={`dosing-options-${ci}`} open={openMoreOptions === ci} onToggle={event => { if (event.currentTarget.open) setOpenMoreOptions(ci); else if (openMoreOptions === ci) { setOpenMoreOptions(null); setOpenEditorPanel(null) } }}><summary>More options</summary>
@@ -573,6 +616,8 @@ export default function ManagePage() {
                   <label style={{display:'flex',alignItems:'center',gap:'10px',cursor:'pointer'}}>
                     <input
                       type='checkbox'
+                      aria-label='Preparation source'
+                      aria-describedby={reviewFallback?.index === ci ? 'dosing-review-fallback-' + ci : undefined}
                       checked={c.isPreMixed}
                       onChange={e => updateCompound(ci, 'isPreMixed', e.target.checked)}
                       style={{width:'18px',height:'18px',cursor:'pointer'}}
@@ -617,7 +662,7 @@ export default function ManagePage() {
                   </div>
                 </div>}
                 </div>
-                {reviewIssue && <div className="dosing-panel-issue" role="status"><strong>{reviewIssue.title}</strong></div>}
+                {reviewIssue && <div className="dosing-panel-issue" role="status"><strong>{reviewIssue.title}</strong><p>{reviewIssue.explanation}</p><button type="button" className="dose-review-link" onClick={() => requestDosingReview(ci, reviewIssue.field)}>{reviewIssue.action}</button></div>}
                 <details className="dosing-review-panel" data-dose-review hidden={!reviewIssue && !showConfirmation}><summary>Review calculation</summary>
                   {(() => { try {
                     if (!reviewEntry || !reviewResult) return null
@@ -783,7 +828,7 @@ export default function ManagePage() {
                 <div className="protocol-fields">
                   <label>Compound name<input aria-label='Compound name' value={c.name} onChange={e => updateCompound(ci,'name',e.target.value)} placeholder='e.g. Retatrutide, Test C' style={is} /></label>
                   <label>Vial label (optional)<input aria-label="Vial label" style={is} value={c.vial_label} onChange={e => updateCompound(ci,'vial_label',e.target.value)} /></label>
-                  {!c.isPreMixed && <label>Date mixed (optional)<input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} /></label>}
+                  {(c.id || !c.isPreMixed) && <label>{c.id ? 'Recorded reconstitution date' : 'Date mixed (optional)'}<input aria-label='Reconstitution date' type='date' value={c.reconstitution_date} onChange={e => updateCompound(ci,'reconstitution_date',e.target.value)} style={is} /></label>}
                   <p className="dosing-unit-help"><strong>Help with units</strong><br />mg, mcg and IU describe medication; mL describes liquid; syringe units are syringe markings.</p>
                 </div>
                 {ci === 0 && <>
@@ -825,10 +870,10 @@ export default function ManagePage() {
           const selected = protocols.find(p => p.id === detailId)
           if (!selected) return <button className="protocol-back" onClick={() => setDetailId(null)}>Return to protocols</button>
           return <ProtocolDetail key={selected.id} protocol={selected} today={today} onBack={() => setDetailId(null)}
-            onEdit={(compoundId, addPhase) => {
-              if (addPhase && compoundId) window.history.replaceState(null, '', '/protocol/manage?compound=' + encodeURIComponent(compoundId) + '&action=add-phase')
+            onEdit={(compoundId, addPhase, reviewField) => {
+              if (compoundId) window.history.replaceState(null, '', '/protocol/manage?compound=' + encodeURIComponent(compoundId) + (addPhase ? '&action=add-phase' : '') + (reviewField ? '&review=' + encodeURIComponent(reviewField) : ''))
               startEdit(selected)
-              if (addPhase) window.history.replaceState(null, '', '/protocol/manage')
+              if (compoundId) window.history.replaceState(null, '', '/protocol/manage')
             }}
             onComplete={() => { setError(''); setCompletionHappenedEarlier(false); setCompletionDate(today); setConfirmComplete(selected) }} onReactivate={() => { setError(''); setConfirmReactivate(selected) }}
             onPause={() => void changeStatus(selected, 'pause')} onResume={() => void changeStatus(selected, 'resume')}

@@ -132,8 +132,9 @@ test('active compound shows one human review prompt instead of interpreter warni
   const entry = entryFromForm({ input_mode: 'medication', dose: '7.5', dose_unit: 'mg', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL', injection_volume: '0.2', syringe_markings: '20', syringe_scale: '100' })
   const html = hero(protocol({ dosing_entry: entry }))
   assert.match(html, /7\.5 mg\/dose/)
-  assert.match(html, /Vial details need review/)
-  assert.match(html, /Review vial details/)
+  assert.match(html, /Medication dose and volume disagree/)
+  assert.match(html, /Review injection volume/)
+  assert.match(html, /differs from the volume calculated/)
   assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL')
   assert.equal(stat(html, 'SYRINGE DRAW'), '20 U-100 units')
   assert.doesNotMatch(html, /Unverified dose semantics|Saved mixing details conflict|Entered medication dose and|Both are preserved|You can still save/)
@@ -149,7 +150,8 @@ test('syringe equivalence appears only for volume derived from its markings', ()
   assert.doesNotMatch(conflict, /class="dose-equivalent"|18 units .* 10 mL/)
   assert.match(conflict, /18 syringe units/)
   assert.match(conflict, />10 mL</)
-  assert.match(conflict, /Syringe details need review/)
+  assert.match(conflict, /Syringe markings and volume disagree/)
+  assert.match(conflict, /Both recorded values are preserved/)
 
   const rounded = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, syringe_markings: '16.8637' }) }, editing: true })
   assert.doesNotMatch(rounded, /class="dose-equivalent"/)
@@ -171,16 +173,28 @@ test('active library cards and Today summaries share dose precision for V1 and V
   }
 })
 
-test('vial estimates and preparation displays use shared formatting', () => {
+test('unattributable vial balance remains unknown while recorded preparation uses shared formatting', () => {
   const p = protocol({ injection_volume_ml: 0.168637 })
   Object.assign(p.compounds[0], { bac_water_ml: 3, reconstitution_date: today, doses_taken_override: 1, vial_strength: 5.25, vial_unit: 'mg', vials_in_stock: 3 })
   const html = hero(p)
-  assert.equal(stat(html, 'EST. REMAINING'), '2.8 mL')
-  assert.equal(stat(html, 'DOSES TAKEN (VIAL)'), '1')
-  assert.match(html, /94\.4%/)
+  assert.equal(stat(html, 'EST. REMAINING'), 'Unknown')
+  assert.match(html, /saved doses are not linked to an individual vial/)
+  assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), '1')
+  assert.doesNotMatch(html, /94\.4%|2\.8 mL/)
   assert.match(html, /5\.25 mg/)
   assert.match(detail(p), /<dt>Liquid added<\/dt><dd>3 mL<\/dd>/)
   assert.doesNotMatch(html, /2\.831363|3\.00|5\.250/)
+})
+
+test('legacy Hero compound counter label preserves missing and explicit zero without vial attribution', () => {
+  for (const counter of [null, 0, 7]) {
+    const p = protocol({ injection_volume_ml: 0.2 })
+    p.compounds[0].doses_taken_override = counter
+    const before = JSON.stringify(p), html = hero(p)
+    assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), counter === null ? 'Not recorded' : String(counter))
+    assert.doesNotMatch(html, /DOSES TAKEN \(VIAL\)/)
+    assert.equal(JSON.stringify(p), before)
+  }
 })
 
 test('formatting never changes calculation results, saved entries, payloads, or legacy meaning', () => {

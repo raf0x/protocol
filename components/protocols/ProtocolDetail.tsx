@@ -9,12 +9,14 @@ import ActivateProtocol from './ActivateProtocol'
 import { protocolLifecycle } from '../../lib/health/protocolDates'
 import PhaseCard from './PhaseCard'
 import DoseChangeAction from './DoseChangeAction'
-import DoseSummary, { dosingIssue } from './DoseSummary'
+import DoseSummary, { phaseDosingIssue } from './DoseSummary'
 import ProtocolDetailArtwork, { administrationArtwork } from './ProtocolDetailArtwork'
 import artworkStyles from './protocol-detail-artwork.module.css'
 
+import type { DosingReviewField } from '../../lib/health/dosingGuidance'
+
 type Log = { id: string; compound_id: string; date: string; taken: boolean }
-type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean) => void; onComplete: () => void; onPause: () => void; onResume: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
+type Props = { protocol: LibraryProtocol; today: string; onBack: () => void; onEdit: (compoundId?: string, addPhase?: boolean, reviewField?: DosingReviewField) => void; onComplete: () => void; onPause: () => void; onResume: () => void; onReactivate: () => void; onDelete: () => void; onReload: () => void }
 export default function ProtocolDetail(props: Props) {
   const { protocol, today } = props
   const scheduled = protocolLifecycle(protocol,today) === 'scheduled'
@@ -47,8 +49,7 @@ export default function ProtocolDetail(props: Props) {
     {(protocol.compounds ?? []).map(compound => {
       const info = compoundOverview(protocol, compound, today)
       const admin = administrationDisplay(info.phase)
-      const entry = info.phase?.dosing_entry
-      const issue = entry ? (() => { try { return dosingIssue(entry) } catch { return { title: 'Dose details need review', explanation: 'Check the entered amounts and units.', action: 'Review dose' } } })() : null
+      const issue = phaseDosingIssue(info.phase)
       return <section className="protocol-detail-compound" key={compound.id}>
         {protocol.compounds?.length === 1 ? <h1>{compound.name}</h1> : <h2>{compound.name}</h2>}
         <div className="protocol-dose-overview"><DoseSummary phase={info.phase} compact showIssue={false} /><p>{info.frequency}{info.phase?.route && ` · ${info.phase.route}`}</p></div>
@@ -56,7 +57,7 @@ export default function ProtocolDetail(props: Props) {
           {info.next && <div className="protocol-next-dose"><span>Next dose</span><strong>{info.next.date === today ? 'Today' : dateLabel(info.next.date)}</strong>{info.next.time && <small>{info.next.time}</small>}</div>}
           {(admin.syringe || admin.volume) && <div className="protocol-compact-administration"><span>Dose details</span><p>{[admin.syringe?.replace(/ U-(100|40) units$/, ' units'), admin.volume].filter(Boolean).join(' · ')}</p></div>}
         </div>
-        {issue && <div className="protocol-dose-issue" role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p><button type="button" onClick={() => props.onEdit(compound.id)}>{issue.action}</button></div>}
+        {issue && <div className="protocol-dose-issue" role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p><button type="button" onClick={() => props.onEdit(compound.id, false, issue.field)}>{issue.action}</button></div>}
       </section>
     })}
     <details className="protocol-more-details"><summary>More details</summary>
@@ -78,11 +79,11 @@ export default function ProtocolDetail(props: Props) {
           {admin.volume && <><dt>Injection volume</dt><dd>{admin.volume}</dd></>}
           {admin.syringe && <><dt>Syringe draw</dt><dd>{admin.syringe}</dd></>}
         </dl>{!info.phase?.route && !admin.volume && !admin.syringe && <p>Not recorded</p>}</section>
-        <section className="protocol-more-section"><h3>Vial</h3><dl>
+        <section className="protocol-more-section"><h3>{entry ? 'Saved phase preparation' : 'Saved compound preparation'}</h3><p>These saved preparation facts do not confirm the current vial.</p><dl>
           {vialAmount && <><dt>Vial amount</dt><dd>{vialAmount}</dd></>}
           {liquid && <><dt>Liquid added</dt><dd>{liquid}</dd></>}
           {concentration && <><dt>Concentration</dt><dd>{concentration}</dd></>}
-        </dl>{!vialAmount && !liquid && !concentration && <p>Not recorded</p>}</section>
+        </dl>{!vialAmount && !liquid && !concentration && <p>Not recorded</p>}<dl><dt>Recorded reconstitution date</dt><dd>{dateLabel(compound.reconstitution_date) || 'Not recorded'}</dd><dt>Current vial expiration</dt><dd>Unknown: no recorded source linked to this vial</dd></dl></section>
         <section className={`protocol-more-section ${artworkStyles.section}`} data-protocol-artwork-section="inventory"><h3>Inventory</h3><ProtocolDetailArtwork kind="inventory" /><dl>
           <dt>Inventory</dt><dd>{stock ?? 'Not recorded'}</dd>
         </dl></section>

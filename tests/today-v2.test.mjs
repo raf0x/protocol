@@ -156,7 +156,7 @@ test('a conflicting or malformed dose shows one honest review issue', () => {
   for (const entry of [conflict, { version: 2 }]) {
     const tree = render(Row, { id: 'a', name: 'Alpha', protocolId: 'p', week: 3, phase: { ...phase, dosing_entry: entry }, color: ringColors[0], selected: true, onSelect() {} })
     const issues = nodes(tree, n => n.type === 'span' && n.props.className?.includes('warning'))
-    assert.equal(issues.length, 1); assert.match(text(issues[0]), /need review/)
+    assert.equal(issues.length, 1); assert.match(text(issues[0]), /Syringe markings and volume disagree|Saved dose entry is invalid/)
     assert.doesNotMatch(text(issues[0]), /Active ·|Week 3/)
   }
 })
@@ -185,11 +185,12 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   const p = snapshotProtocol({ reconstitution_date: today, vial_strength: 20, vial_unit: 'mg', bac_water_ml: 2, vials_in_stock: 3, doses_taken_override: 1 }, { dose: 5.25, injection_volume_ml: 0.168637, syringe_units: 6.74548, syringe_scale: 40 })
   const tree = render(Hero, { ...snapshotProps(p), allLogs: [{ compound_id: 'a', date: today, taken: true }] })
   const actual = facts(tree)
-  assert.deepEqual(Object.keys(actual), ['Protocol start', 'Current week', 'Vial reconstituted', 'Vial expiration', 'Injection volume', 'Syringe draw', 'Vials in stock', 'Doses taken (vial)', 'Next dose'])
+  assert.deepEqual(Object.keys(actual), ['Protocol start', 'Current week', 'Vial reconstituted', 'Vial expiration', 'Injection volume', 'Syringe draw', 'Vials in stock', 'Recorded compound dose count', 'Next dose'])
   assert.equal(actual['Current week'], 'Week 1')
-  assert.notEqual(actual['Protocol start'], 'Not recorded'); assert.notEqual(actual['Vial reconstituted'], 'Not recorded'); assert.notEqual(actual['Vial expiration'], 'Not recorded')
+  assert.notEqual(actual['Protocol start'], 'Not recorded'); assert.notEqual(actual['Vial reconstituted'], 'Not recorded'); assert.equal(actual['Vial expiration'], 'Unknown')
   assert.equal(actual['Injection volume'], '0.17 mL'); assert.equal(actual['Syringe draw'], '6.7 U-40 units')
-  assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Doses taken (vial)'], '1'); assert.equal(actual['Next dose'], 'Tomorrow')
+  assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Recorded compound dose count'], '1'); assert.equal(actual['Next dose'], 'Tomorrow')
+  assert.doesNotMatch(text(tree), /Doses taken \(vial\)/)
   assert.match(text(tree), /ACTIVE COMPOUNDAlpha compoundPlanWeek 1Started /)
   assert.match(text(tree), /5.25 mg\/dosedaily/)
   const snapshot = nodes(tree, n => n.props.className === 'today-protocol-snapshot')[0]
@@ -199,7 +200,7 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.ok(nodes(tree, n => n.type === 'svg').length)
   assert.equal(nodes(tree, n => n.props.className === 'today-snapshot-lifecycle').length, 1)
   assert.equal(nodes(tree, n => n.props.className === 'vial-inventory').length, 1)
-  assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/manage?protocol=p').length, 1)
+  assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/manage?compound=a' && text(n) === 'Manage protocol').length, 1)
   assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/inventory').length, 1)
   assert.doesNotMatch(text(tree), /0.168637|6.74548|Selected protocol tools/)
 })
@@ -224,12 +225,12 @@ test('Hero selected snapshot retains real conflict, missing medication, and unve
   const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
   const missing = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', reviewed: true })
   const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: false })
-  for (const [entry, notice] of [[conflict, 'Vial details need review'], [missing, 'Dose details need review'], [unverified, 'Dose details need review']]) {
+  for (const [entry, notice] of [[conflict, 'Medication dose and volume disagree'], [missing, 'Preparation information is missing'], [unverified, 'Dose entry is unconfirmed']]) {
     const p = snapshotProtocol({}, { dosing_entry: entry })
     assert.match(text(render(Hero, snapshotProps(p))), new RegExp(notice))
   }
   const legacy = snapshotProtocol({}, { dose_semantics_version: null })
-  assert.match(text(render(Hero, snapshotProps(legacy))), /Dose details need review/)
+  assert.match(text(render(Hero, snapshotProps(legacy))), /Dose meaning is unverified/)
 })
 
 test('snapshot keeps missing facts distinct from zero and never converts legacy markings to medication', () => {
@@ -237,12 +238,13 @@ test('snapshot keeps missing facts distinct from zero and never converts legacy 
   const tree = render(Hero, snapshotProps(p)), actual = facts(tree)
   const rail = nodes(tree, n => n.props.className === 'today-snapshot-vial-rail')[0]
   assert.equal(nodes(rail, n => n.props.className === 'vial-inventory').length, 1, 'Missing facts retain the inventory action in the rail')
-  for (const key of ['Vial reconstituted', 'Vial expiration', 'Injection volume', 'Vials in stock', 'Doses taken (vial)', 'Next dose']) assert.equal(actual[key], 'Not recorded')
+  for (const key of ['Vial reconstituted', 'Injection volume', 'Vials in stock', 'Recorded compound dose count', 'Next dose']) assert.equal(actual[key], 'Not recorded')
+  assert.equal(actual['Vial expiration'], 'Unknown')
   assert.equal(actual['Syringe draw'], '16.9 syringe units')
   assert.match(text(tree), /Medication amount unknown/); assert.doesNotMatch(text(tree), /50 IU|unknown\/dose/)
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === false).length, 1)
   const zero = facts(render(Hero, snapshotProps(snapshotProtocol({ vials_in_stock: 0, doses_taken_override: 0 }))))
-  assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Doses taken (vial)'], '0')
+  assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Recorded compound dose count'], '0')
 })
 
 test('snapshot groups the supplied vial status and action below the graphic outside the facts', () => {
@@ -285,17 +287,15 @@ test('ring selection updates the directly connected snapshot as well as pressed 
   tree = draw(); assert.equal(text(nodes(tree, n => n.props.id === 'selected-protocol-name')[0]), 'Alpha compound')
 })
 
-test('snapshot completion still opens the existing confirmation before any mutation', () => {
+test('unattributable remaining never offers completion based on an assumed empty vial', () => {
   renderer.reset()
   const p = snapshotProtocol({ reconstitution_date: today, bac_water_ml: 1, doses_taken_override: 2 }, { injection_volume_ml: 0.5 })
-  const draw = () => renderer.render(React.createElement(Hero, snapshotProps(p)))
-  let tree = draw()
-  const complete = nodes(tree, n => n.type === 'button' && text(n) === 'Complete')[0]
-  assert.ok(complete); complete.props.onClick()
-  tree = draw(); assert.match(text(tree), /Mark as Complete\?/)
-  const cancel = nodes(tree, n => n.type === 'button' && text(n) === 'Cancel')[0]
-  assert.ok(cancel); cancel.props.onClick()
-  assert.doesNotMatch(text(draw()), /Mark as Complete\?/)
+  const before = JSON.stringify(p), tree = renderer.render(React.createElement(Hero, snapshotProps(p)))
+  assert.equal(nodes(tree, n => n.type === 'button' && text(n) === 'Complete').length, 0)
+  assert.match(text(tree), /Remaining unknown/)
+  assert.match(text(tree), /saved doses are not linked to an individual vial/)
+  assert.ok(nodes(tree, n => n.type === 'a' && text(n) === 'Manage protocol').length, 'Existing protocol actions remain accessible through management')
+  assert.equal(JSON.stringify(p), before)
 })
 
 test('check-in scores, inputs, notes and save still call their supplied handlers', () => {
@@ -437,7 +437,7 @@ test('compact Focus separates confirmed medication from secondary review and kee
     assert.match(text(amount), candidate === phase || [conflict, unverified].includes(candidate.dosing_entry) ? /^5 mg$/ : /^Medication amount unknown$/)
     const review = nodes(tree, n => n.props.className === 'focusReview')
     assert.equal(review.length, candidate === phase ? 0 : 1)
-    if (review.length) assert.match(text(review[0]), /need review/)
+    if (review.length) { assert.match(text(review[0]), /disagree|unverified|unconfirmed|invalid/); assert.ok(nodes(review[0], n => n.type === 'a' && n.props.href.includes('&review=')).length, 'Review opens the exact saved field') }
     assert.equal(nodes(tree, n => n.type === 'p' && n.props['aria-live'] === 'polite')[0].props.className, 'visuallyHidden')
     nodes(tree, n => n.type === 'button' && text(n) === 'Mark taken')[0].props.onClick()
     assert.deepEqual(calls, ['a'])

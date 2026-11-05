@@ -110,7 +110,7 @@ test('the All overlay renders no future stored or derived phase markers',()=>{
   assert.deepEqual(markers,[])
 })
 
-test('cron excludes future-local starts even without subscription timezone data',async()=>{
+test('cron emits no inferred vial expiry for active or future-local protocols',async()=>{
   const RealDate=Date,secret=process.env.CRON_SECRET;process.env.CRON_SECRET='test'
   globalThis.Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-09-20T09:00:00Z']))}getHours(){return 9}}
   try {
@@ -127,7 +127,7 @@ test('cron excludes future-local starts even without subscription timezone data'
     const route=load('../app/api/cron/route.ts',{'@supabase/supabase-js':{createClient:()=>client},'next/server':{NextResponse:{json:x=>x}},'web-push':{sendNotification:async(_,message)=>sent.push(JSON.parse(message))},
       '../../../lib/pushConfig':{configureWebPush:()=>({ok:true})},'../../../lib/monitoring':{captureOperationalError(){}},'../../../lib/rateLimit':{rateLimit:()=>true}})
     await route.GET({headers:{get:key=>key==='authorization'?'Bearer test':'test'}})
-    assert.ok(queries.some(([,key,value])=>key==='protocols.start_date'&&value==='2026-09-19'))
-    assert.equal(sent.length,1);assert.match(sent[0].body,/Active vial/);assert.doesNotMatch(sent[0].body,/Scheduled vial/)
+    assert.deepEqual(queries,[['push_subscriptions','select','*']])
+    assert.equal(sent.length,0, 'Reconstitution dates must not generate expiry alerts for either protocol')
   }finally{globalThis.Date=RealDate;if(secret===undefined)delete process.env.CRON_SECRET;else process.env.CRON_SECRET=secret}
 })

@@ -5,7 +5,6 @@ import type { NextRequest } from 'next/server'
 import webpush from 'web-push'
 import { configureWebPush } from '../../../lib/pushConfig'
 import { captureOperationalError } from '../../../lib/monitoring'
-import { requestCalendarDate } from '../../../lib/health/protocolDates'
 
 type StoredPushSubscription = { subscription: webpush.PushSubscription }
 
@@ -52,47 +51,7 @@ export async function GET(request: NextRequest) {
     if (ok) sent++
   }
 
-  // 2. Vial expiry warning: runs once per day at hour 9.
-  if (currentHour === 9) {
-    // Subscriptions have no user timezone. UTC-12 is the earliest local date
-    // anywhere, so a future local start can never trigger a protocol reminder.
-    const startedEverywhere = requestCalendarDate(null, now)
-    const { data: compounds } = await supabase
-      .from('compounds')
-      .select('id, name, reconstitution_date, user_id, protocols!inner(status,start_date)')
-      .eq('protocols.status', 'active')
-      .lte('protocols.start_date', startedEverywhere)
-      .not('reconstitution_date', 'is', null)
-
-    const expiringNames: Record<string, string[]> = {}
-
-    for (const compound of compounds || []) {
-      const recon = new Date(compound.reconstitution_date + 'T00:00:00')
-      const daysSince = Math.floor((now.getTime() - recon.getTime()) / 86400000)
-      const daysLeft = 28 - daysSince
-      if (daysLeft >= 0 && daysLeft <= 3) {
-        if (!expiringNames[compound.user_id]) expiringNames[compound.user_id] = []
-        expiringNames[compound.user_id].push(compound.name + ' (' + daysLeft + 'd left)')
-      }
-    }
-
-    for (const [userId, names] of Object.entries(expiringNames)) {
-      const { data: userSubs } = await supabase
-        .from('push_subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-
-      for (const sub of userSubs || []) {
-        const ok = await sendPush(
-          sub,
-          'Vial expiring soon',
-          names.join(', ') + '. Time to reconstitute a fresh vial.',
-          '/protocol'
-        )
-        if (ok) sent++
-      }
-    }
-  }
+  // No vial-expiry notifications: reconstitution dates do not establish expiration.
 
   return NextResponse.json({ sent, hour: currentHour, date: today })
 }

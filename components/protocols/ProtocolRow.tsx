@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import type { PhaseRow } from '../../lib/health/timeline'
 import { dosingDisplay } from '../../lib/health/dosingEntry'
 import { scheduleLabel } from '../../lib/health/protocolPresentation'
-import DoseSummary, { dosingIssue } from './DoseSummary'
+import DoseSummary, { phaseDosingIssue } from './DoseSummary'
 import { StatusPill } from '../app/DesignSystem'
 import AppIcon from '../app/AppIcon'
 import styles from '../../app/protocol/today-v2.module.css'
@@ -13,18 +13,17 @@ export default function ProtocolRow({ id, name, week, phase, protocolId, color, 
   color: string; selected: boolean; onSelect: (id: string) => void
 }) {
   const medication = dosingDisplay(phase).medication
-  let issue: { title: string } | null = null
-  try { issue = phase?.dosing_entry ? dosingIssue(phase.dosing_entry) : null }
-  catch { issue = { title: 'Dose details need review' } }
+  const issue = phaseDosingIssue(phase)
   return <li className={styles.protocolRow} style={{ '--ring-color': color } as CSSProperties} data-selected={selected}>
     <button type="button" className={styles.rowSelect} aria-pressed={selected} aria-label={`${name}. Select protocol`} onClick={() => onSelect(id)}>
       <span className={styles.identityMarker} aria-hidden="true" />
       <span className={styles.rowCopy}>
         <strong className={styles.rowName}>{name}</strong>
         <span className={styles.rowDose}>{medication ? <DoseSummary phase={phase} compact showIssue={false} /> : 'Medication amount unknown'}<span> · {scheduleLabel(phase)}</span></span>
+        {issue && <span className={styles.rowDose}>{issue.explanation}</span>}
         <StatusPill warning={Boolean(issue) || !phase}>{issue?.title || (!phase ? 'No current phase' : week === null ? 'Active' : `Active · Week ${week}`)}</StatusPill>
       </span>
     </button>
-    <Link href={`/protocol/manage?protocol=${encodeURIComponent(protocolId)}`} className={styles.rowManage} aria-label={`Manage ${name}`}><AppIcon name="chevron" size={18} /></Link>
+    <Link href={`/protocol/manage?protocol=${encodeURIComponent(protocolId)}&compound=${encodeURIComponent(id)}${issue ? `&review=${encodeURIComponent(issue.field)}` : ''}`} className={styles.rowManage} aria-label={issue ? `${issue.action} for ${name}` : `Manage ${name}`}><AppIcon name="chevron" size={18} /></Link>
   </li>
 }

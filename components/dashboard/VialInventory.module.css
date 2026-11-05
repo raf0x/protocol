@@ -13,3 +13,16 @@
 .newVialDialog::backdrop {
   background: rgba(0, 0, 0, .85);
 }
+
+.newVialDialog { max-height: calc(100dvh - 32px); overflow-y: auto; overflow-wrap: anywhere; }
+.newVialDialog h3 { margin: 0 0 12px; font-size: 18px; line-height: 1.35; }
+.newVialDialog p { font-size: 14px; line-height: 1.55; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px; }
+.actions button, .actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font-size: 14px; font-weight: 700; text-decoration: none; }
+.actions button:focus-visible, .actions a:focus-visible { outline: 3px solid var(--color-green); outline-offset: 3px; }
+.expiration { margin: 6px 0 12px; color: var(--color-dim); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.recovery { margin: 14px 0; padding: 12px; border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.recovery p { margin: 6px 0 0; }
+.recovery ul { margin: 8px 0 0; padding-left: 18px; }
+.recovery li + li { margin-top: 6px; }
+.recovery a { color: var(--color-green); display: inline-block; padding: 10px 0; }
