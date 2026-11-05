@@ -8,17 +8,17 @@ export type RecordedPhase = {
 }
 export type RecordedFact = { reviewStatus: DosingEntry['review_status'] | null; value: string; unit: string; field: string; source: 'dosing_entry' | 'legacy_phase'; origin: 'explicit_field' | 'legacy_medication' | 'saved_origin_unverified'; phaseId: string | null }
 const raw = (value: unknown): string | null => typeof value === 'string' ? value.trim() ? value : null : typeof value === 'number' && Number.isFinite(value) ? String(value) : null
-export const recordedAmount = (value: unknown, unit?: string | null) => {
+export const recordedAmount = (value: unknown, unit?: unknown) => {
   const amount = raw(value)
-  return amount === null ? null : unit?.trim() ? `${amount} ${unit}` : amount
+  return amount === null ? null : typeof unit === 'string' && unit.trim() ? `${amount} ${unit}` : amount
 }
 
 export function recordedDose(phase?: RecordedPhase | null) {
   const entry = phase?.dosing_entry
   const source = entry ? 'dosing_entry' as const : 'legacy_phase' as const
-  const fact = (value: unknown, unit: string | null | undefined, field: string): RecordedFact | null => {
+  const fact = (value: unknown, unit: unknown, field: string): RecordedFact | null => {
     const valueText = raw(value)
-    return valueText === null ? null : { reviewStatus: entry?.review_status ?? null, value: valueText, unit: unit ?? '', field, source: field === 'dose' && phase?.legacyMedication ? 'legacy_phase' : source, origin: !(field === 'dose' && phase?.legacyMedication) && !phase?.unverifiedFields?.includes(field) && entry && ((field === 'dose' && entry.mode === 'medication') || (field === 'syringe_markings' && entry.mode === 'syringe') || (field === 'injection_volume' && entry.mode === 'volume')) ? 'explicit_field' : field === 'dose' && ((!entry && phase?.dose_semantics_version === 1) || phase?.legacyMedication) ? 'legacy_medication' : 'saved_origin_unverified', phaseId: phase?.id ?? null }
+    return valueText === null ? null : { reviewStatus: entry?.review_status ?? null, value: valueText, unit: typeof unit === 'string' ? unit : '', field, source: field === 'dose' && phase?.legacyMedication ? 'legacy_phase' : source, origin: !(field === 'dose' && phase?.legacyMedication) && !phase?.unverifiedFields?.includes(field) && entry && ((field === 'dose' && entry.mode === 'medication') || (field === 'syringe_markings' && entry.mode === 'syringe') || (field === 'injection_volume' && entry.mode === 'volume')) ? 'explicit_field' : field === 'dose' && ((!entry && phase?.dose_semantics_version === 1) || phase?.legacyMedication) ? 'legacy_medication' : 'saved_origin_unverified', phaseId: phase?.id ?? null }
   }
   const originalAmount = fact(entry ? entry.dose : phase?.dose, entry ? entry.dose_unit : phase?.dose_unit, 'dose')
   const medicationOrigin = entry ? entry.version === 2 && entry.mode === 'medication' : phase?.dose_semantics_version === 1

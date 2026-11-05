@@ -155,3 +155,35 @@ for (const file of ['../app/protocol/page.tsx', '../app/protocol/manage/page.tsx
     }
   })
 }
+
+for (const file of ['../app/protocol/page.tsx', '../app/protocol/manage/page.tsx']) {
+ const label = file.includes('/manage/') ? 'Manage CSV' : 'Today CSV'
+ test(`${label}: runtime units remain unknown and original malformed JSON survives actual export`, async () => {
+  const valid = await exported(file, { phases: [phase({ dosing_entry: entry() })] })
+  for (const unit of [null, undefined, '', '  ', 2, true, false, { unit: 'mg,"quoted"\nunit' }, ['mg']]) {
+   const dosing_entry = { ...entry(), dose_unit: unit }
+   for (const candidate of [phase({ dosing_entry }), phase({ dose: '4.50e-3', dose_unit: unit })]) {
+    const { headers, rows } = await exported(file, { phases: [candidate] })
+    assert.deepEqual(headers, valid.headers, 'CSV column schema is unchanged')
+    assert.equal(rows.length, 1)
+    const row = rows[0]
+    assert.equal(row[2], ''); assert.equal(row[3], '', 'No malformed unit becomes medication')
+    assert.equal(row[headers.indexOf('Medication provenance')], 'not_recorded')
+    assert.equal(row[headers.indexOf('Original amount unit')], typeof unit === 'string' ? unit : '')
+    assert.equal(row[headers.indexOf('Original amount')], candidate.dosing_entry ? '4.50e-3' : candidate.dose)
+    if (candidate.dosing_entry) {
+     assert.deepEqual(JSON.parse(row[headers.indexOf('Original dosing entry JSON')]), JSON.parse(JSON.stringify(dosing_entry)))
+    }
+   }
+  }
+ })
+ test(`${label}: all supported medication units retain exact raw output`, async () => {
+  for (const unit of ['mg', 'mcg', 'IU']) {
+   const dosing_entry = entry({ dose_unit: unit })
+   const { headers, rows } = await exported(file, { phases: [phase({ dosing_entry })] })
+   assert.equal(rows[0][2], '4.50e-3'); assert.equal(rows[0][3], unit)
+   assert.equal(rows[0][headers.indexOf('Original amount unit')], unit)
+   assert.deepEqual(JSON.parse(rows[0][headers.indexOf('Original dosing entry JSON')]), dosing_entry)
+  }
+ })
+}

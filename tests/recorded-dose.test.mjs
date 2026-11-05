@@ -147,3 +147,84 @@ test('historical AI evidence carries review status and qualifies original descri
  assert.ok(events.some(e=>e.confidence==='low'&&e.detail.includes('unverified')&&e.detail.includes('Historical event text')))
  const reportAI=buildReportAiContext(buildDoctorReport(data,'all','2026-01-03'));assert.ok(reportAI.evidence.some(e=>e.type==='protocol_event'&&e.detail.includes('unverified')&&e.confidence==='low'))
 })
+
+// Runtime JSON can violate the declared unit type; presentation must not mutate it.
+const runtimeUnits = [
+ ['null', null], ['undefined', undefined], ['empty', ''], ['whitespace', '  '],
+ ['numeric', 2], ['true', true], ['false', false], ['object', { unit: 'mg' }], ['array', ['mg']],
+]
+function freezeRecorded(value) {
+ if (value && typeof value === 'object') { Object.values(value).forEach(freezeRecorded); Object.freeze(value) }
+ return value
+}
+function medicationPhase(unit) {
+ return phase({ ...entry({ input_mode: 'medication', dose: '4.50e-3', dose_unit: 'mg', syringe_markings: '', syringe_scale: '' }), dose_unit: unit })
+}
+test('runtime units: formatter preserves string representation and never coerces non-string units', () => {
+ for (const unit of ['mg', 'mcg', 'IU', 'mL', 'markings', 'markings/mL', ' mg ']) {
+  assert.equal(facts.recordedAmount('4.50e-3', unit), `4.50e-3 ${unit}`)
+ }
+ for (const [, unit] of runtimeUnits) {
+  assert.equal(facts.recordedAmount('4.50e-3', unit), '4.50e-3')
+  assert.equal(facts.recordedAmount(null, unit), null)
+ }
+})
+for (const [label, unit] of runtimeUnits) test(`runtime units: ${label} stays unknown in legacy and component presentation`, () => {
+ const cases = [phase(null, { dose: '4.50e-3', dose_unit: unit, dose_semantics_version: 1 }), medicationPhase(unit)]
+ // This branch renders the saved ambiguous amount alongside administration facts.
+ cases.push(phase({ ...medicationPhase(unit).dosing_entry, syringe_markings: '40', syringe_scale: '100', injection_volume: '.4' }))
+ for (const p of cases) {
+  const original = structuredClone(p); freezeRecorded(p)
+  const display = facts.recordedDoseDisplay(p)
+  assert.equal(display.medication, null)
+  assert.equal(display.facts.medicationOrigin, null)
+  assert.equal(display.facts.originalAmount.unit, typeof unit === 'string' ? unit : '')
+  assert.equal(display.facts.originalAmount.value, '4.50e-3')
+  if (p.dosing_entry) assert.deepEqual(display.facts.originalEntry, original.dosing_entry)
+  const html = renderToStaticMarkup(React.createElement(Summary, { phase: p }))
+  assert.match(html, /meaning unverified/)
+  assert.doesNotMatch(html, /4\.50e-3 (?:mg|mcg|IU)|\[object Object\]/)
+  const report = buildDoctorReport(source(p), 'all', '2026-01-02')
+  assert.equal(report.currentProtocols[0].verified, false)
+  assert.equal(healthStateAtDate(source(p), '2026-01-02')[0].medication, null)
+  assert.deepEqual(p, original, 'Original historical data is unchanged')
+ }
+})
+test('runtime units: historical event snapshots preserve JSON without establishing medication', () => {
+ const { snapshotPhase, medicationForPhase } = load('../lib/health/longitudinal/history.ts')
+ for (const [, unit] of runtimeUnits) {
+  const metadata = freezeRecorded({ version: 1, newState: { phaseId: 'synthetic-phase', dosingEntry: medicationPhase(unit).dosing_entry } })
+  const original = structuredClone(metadata)
+  const p = snapshotPhase(metadata.newState)
+  assert.equal(medicationForPhase(p), null)
+  assert.equal(facts.recordedEventMedication(metadata), null)
+  assert.equal(facts.recordedDoseDisplay(p).primary, '4.50e-3 · meaning unverified')
+  assert.deepEqual(facts.recordedDose(p).originalEntry, original.newState.dosingEntry)
+  assert.deepEqual(metadata, original)
+ }
+})
+test('runtime units: valid current and historical medication displays remain exact', () => {
+ const { snapshotPhase, medicationForPhase } = load('../lib/health/longitudinal/history.ts')
+ for (const unit of ['mg', 'mcg', 'IU']) {
+  for (const p of [medicationPhase(unit), phase(null, { dose: '4.50e-3', dose_unit: unit, dose_semantics_version: 1 })]) {
+   assert.equal(facts.recordedDoseDisplay(p).primary, `4.50e-3 ${unit}`)
+   assert.equal(renderToStaticMarkup(React.createElement(Summary, { phase: p })), `<span class="dose-summary"><strong>4.50e-3 ${unit}</strong></span>`)
+  }
+  const p = snapshotPhase({ phaseId: 'synthetic-phase', dosingEntry: medicationPhase(unit).dosing_entry })
+  assert.equal(medicationForPhase(p).rawValue, '4.50e-3')
+  assert.equal(medicationForPhase(p).unit, unit)
+ }
+})
+test('runtime units: protected Focus keeps neutral display, actions and existing save errors', () => {
+ const Focus = load('../components/today/TodaysFocusCard.tsx').default
+ for (const [, unit] of runtimeUnits) {
+  const props = { activeCount: 1, protocols: source(medicationPhase(unit)).protocols, date: '2026-01-02', due: [{ id: 'synthetic-compound', name: 'Synthetic compound', dose: '99 mg', time_of_day: 'Morning' }], logs: {}, saving: false, onTaken() {}, error: null }
+  const html = renderToStaticMarkup(React.createElement(Focus, props))
+  assert.match(html, /Not recorded/); assert.match(html, /Mark taken/); assert.match(html, /Morning/)
+  assert.match(html, /href="\/protocol\/manage"/)
+  assert.doesNotMatch(html, /99 mg|meaning unverified|unsupported|dose-issue|role="alert"|Review medication/)
+  const errorHtml = renderToStaticMarkup(React.createElement(Focus, { ...props, saving: true, error: 'Could not save. Please try again.' }))
+  assert.match(errorHtml, /disabled=""/); assert.match(errorHtml, /role="alert"/)
+  assert.match(errorHtml, /Could not save\. Please try again\./)
+ }
+})
