@@ -1,5 +1,6 @@
 'use client'
-import { dosingDisplay, administrationDisplay, formatProtocolAmount, formatProtocolNumber, formatProtocolPercent } from '../../lib/health/dosingEntry'
+import { formatProtocolAmount, formatProtocolNumber, formatProtocolPercent } from '../../lib/health/dosingEntry'
+import { recordedDoseDisplay, recordedAdministrationDisplay } from '../../lib/health/recordedDose'
 import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
 import React, { useState } from 'react'
@@ -209,7 +210,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
 
   const reconDate = activeCompound.reconstitution_date && isCalendarDate(activeCompound.reconstitution_date) ? activeCompound.reconstitution_date : null
   const entry = currentPhase?.dosing_entry
-  const administrationText = administrationDisplay(currentPhase)
+  const administrationText = recordedAdministrationDisplay(currentPhase)
   const vialSafety = currentVialSafety(activeCompound, entry)
   const stockText = formatProtocolNumber(activeCompound.vials_in_stock, 'count')
   const vialRecovery = <div className={vialStyles.recovery} data-vial-remaining-reason role="status">
@@ -228,9 +229,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     } catch(error) {setPhaseError((error as {message?:string}).message || 'Unable to continue the phase. Please retry.');setContinuing(false)}
 
   }
-  const dosePresentation = dosingDisplay(currentPhase)
+  const dosePresentation = recordedDoseDisplay(currentPhase)
   const doseIssue = phaseDosingIssue(currentPhase)
-  const badgeDoseText = dosePresentation.medication ? formatProtocolAmount(dosePresentation.medication.value, dosePresentation.medication.unit) : 'Medication amount unknown'
+  const badgeDoseText = dosePresentation.primary
   const doseNotice = doseIssue ? <><strong>{doseIssue.title}</strong><p>{doseIssue.explanation}</p></> : null
   const reviewHref = `/protocol/manage?compound=${activeCompound.id}${doseIssue ? '&review=' + encodeURIComponent(doseIssue.field) : ''}`
 

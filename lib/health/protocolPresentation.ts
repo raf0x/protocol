@@ -1,5 +1,5 @@
 import { currentPhase } from './dosing'
-import { dosingDisplay } from './dosingEntry'
+import { recordedDoseDisplay } from './recordedDose'
 import { formatFrequency, type CompoundRow, type PhaseRow, type ProtocolRow } from './timeline'
 import { isDueToday } from '../utils'
 import { protocolLifecycle } from './protocolDates'
@@ -17,8 +17,8 @@ export function dateLabel(value?: string | null) {
   return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 }
 export function doseLabel(phase: PhaseRow | null) {
-  const display = dosingDisplay(phase)
-  return phase ? display.primary : 'Dose not fully calculated'
+  const display = recordedDoseDisplay(phase)
+  return phase ? display.primary : 'Medication amount not recorded'
 }
 export function phaseLabel(phase: PhaseRow) {
   return phase.end_week === null ? `Started Week ${phase.start_week ?? 'unknown'} · Ongoing` : `Weeks ${phase.start_week ?? '?'}–${phase.end_week}`

@@ -14,7 +14,7 @@ function load(file, mocks = {}, globals = {}) {
     jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
   } }).outputText
   const module = { exports: {} }
-  const localRequire = name => Object.hasOwn(mocks, name) ? mocks[name] : require(name)
+  const localRequire = name => Object.hasOwn(mocks, name) ? mocks[name] : name.startsWith('.') ? load(new URL(name + '.ts', new URL(file, import.meta.url)), mocks, globals) : require(name)
   new Function('require', 'module', 'exports', ...Object.keys(globals), code)(localRequire, module, module.exports, ...Object.values(globals))
   return module.exports
 }

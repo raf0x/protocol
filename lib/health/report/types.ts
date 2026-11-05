@@ -6,7 +6,7 @@ import type { Intervention, ProtocolState } from '../longitudinal/types'
 
 export type ReportRange = '3m' | '6m' | '12m' | 'all'
 export type ReportSections = { protocols: boolean; history: boolean; labs: boolean; weight: boolean; journal: boolean }
-export type ReportProtocol = { name: string; dose: string; frequency: string | null; route: string | null; startDate: string | null; status: string; verified: boolean }
+export type ReportProtocol = { recordedFacts?: ProtocolState['recordedFacts']; provenance?: ProtocolState['provenance']; limitations?: string[]; name: string; dose: string; frequency: string | null; route: string | null; startDate: string | null; status: string; verified: boolean }
 export type ReportHistoryEvent = { date: string; title: string; detail: string | null; confidence: DataConfidence; source: string }
 export type ReportLabPanel = { date: string; name: string; provider: string | null; resultCount: number }
 export type ReportLabResult = { date: string; name: string; value: string; reference: string; status: string }
@@ -28,7 +28,7 @@ export type ReportVerification = { code: string; text: string }
 export type ReportReviewItem = ReportVerification & { findingIds: string[] }
 export type ReportProtocolTimelineItem = Intervention & {
   contextDate: string
-  recordedStates: Pick<ProtocolState, 'protocolId' | 'compoundId' | 'phaseId' | 'name' | 'medication' | 'frequency' | 'route' | 'provenance' | 'sources' | 'limitations'>[]
+  recordedStates: Pick<ProtocolState, 'protocolId' | 'compoundId' | 'phaseId' | 'name' | 'medication' | 'recordedFacts' | 'frequency' | 'route' | 'provenance' | 'sources' | 'limitations'>[]
 }
 export type ReportIntelligence = {
   contextNotes: ReportContextNote[]

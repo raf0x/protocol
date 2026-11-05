@@ -1,3 +1,4 @@
+import type { recordedDose } from '../recordedDose'
 import type { LabPanel } from '../labs'
 import type { LabComparison, LabDateEvidence, LabComparisonSummary } from '../labEvidence'
 import type { LibraryProtocol } from '../protocolPresentation'
@@ -9,15 +10,15 @@ export type LongitudinalSource = {
   panels: LabPanel[]; journal: JournalEntryRow[]
 }
 export type SourceRef = { table: 'protocols' | 'phases' | 'protocol_events' | 'lab_results' | 'journal_entries'; id: string; parentId?: string; label: string }
-export type MedicationDose = { value: number; unit: 'mg' | 'mcg' | 'IU' }
+export type MedicationDose = { value: number; unit: 'mg' | 'mcg' | 'IU'; rawValue?: string; reviewStatus?: 'confirmed' | 'unverified' | 'legacy_semantics_v1'; source?: string; phaseId?: string | null }
 export type ProtocolState = {
   protocolId: string; compoundId: string; name: string; phaseId: string | null
-  medication: MedicationDose | null; administration: string | null
+  recordedFacts?: ReturnType<typeof recordedDose> | null; medication: MedicationDose | null; administration: string | null
   frequency: string | null; route: string | null
   provenance: 'snapshot' | 'saved_plan' | 'unknown'; sources: SourceRef[]; limitations: string[]
 }
 export type InterventionKind = 'started' | 'stopped' | 'paused' | 'resumed' | 'reactivated' | 'compound_added' | 'compound_removed'
-  | 'dose_increased' | 'dose_decreased' | 'dose_changed' | 'frequency_changed' | 'route_changed' | 'phase_started' | 'phase_ended' | 'phase_continued'
+  | 'recorded_measurements_changed' | 'dose_increased' | 'dose_decreased' | 'dose_changed' | 'frequency_changed' | 'route_changed' | 'phase_started' | 'phase_ended' | 'phase_continued'
 export type Intervention = {
   id: string; date: string; protocolId: string; compoundId: string | null; phaseId: string | null
   /** Structured label only; optional for older in-memory consumers. Never identity. */

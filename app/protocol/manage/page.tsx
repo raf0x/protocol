@@ -19,7 +19,8 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { currentPhase } from '../../../lib/health/dosing'
-import { dosingDisplay, administrationDisplay, formatProtocolAmount, entryFromForm, entryFormState, interpretEntry, validDate } from '../../../lib/health/dosingEntry'
+import { formatProtocolAmount, entryFromForm, entryFormState, validDate } from '../../../lib/health/dosingEntry'
+import { recordedDoseDisplay, recordedAdministrationDisplay, recordedReviewPhase, recordedAmount, recordedDoseCsvHeaders, recordedDoseCsvFields, csvRecordedCell } from '../../../lib/health/recordedDose'
 import { saveProtocolWithEvents, ProtocolSaveUncertainError, transitionProtocol, deleteOwnedProtocol } from '../../../lib/health/protocolMutations'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -272,7 +273,7 @@ export default function ManagePage() {
     // Fetch all protocols with compounds, phases, and injection logs
     const { data: allProtocols } = await supabase
       .from('protocols')
-      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, phases(id, dosing_entry, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
+      .select('id, name, start_date, status, compounds(id, name, vial_strength, vial_unit, bac_water_ml, ml_per_dose, phases(id, dosing_entry, dose_semantics_version, injection_volume_ml, syringe_units, syringe_scale, dose, dose_unit, frequency, start_week, end_week, duration_weeks), injection_logs(date, taken))')
       .eq('user_id', user.id)
 
     if (!allProtocols || allProtocols.length === 0) {
@@ -280,7 +281,7 @@ export default function ManagePage() {
       return
     }
 
-    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,mL per Injection\n'
+    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,Legacy compound mL per injection (origin unverified),' + recordedDoseCsvHeaders.join(',') + '\n'
 
     for (const protocol of allProtocols) {
       const compounds = protocol.compounds || []
@@ -288,13 +289,11 @@ export default function ManagePage() {
       for (const compound of compounds) {
         const phases = compound.phases || []
         const injectionLogs = compound.injection_logs || []
-        const mlPerDose = compound.ml_per_dose || 0
-        const vialStrength = compound.vial_strength || 0
+        const mlPerDose = compound.ml_per_dose ?? 'Unknown'
         
         if (phases.length === 0) {
           // No phases, just add compound row
-          const totalInjections = injectionLogs.length
-          const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+          const totalInjections = injectionLogs.filter((log: any) => log.taken === true).length
           
           const row = [
             `"${protocol.name}"`,
@@ -305,8 +304,10 @@ export default function ManagePage() {
             new Date(protocol.start_date).toLocaleDateString('en-US'),
             '-',
             totalInjections,
-            vialsUsed,
-            mlPerDose
+            'Unknown', // Physical-vial usage is not established by injection logs.
+            mlPerDose,
+
+            ...recordedDoseCsvFields(null).map(csvRecordedCell)
           ].join(',')
           csvContent += row + '\n'
         } else {
@@ -318,23 +319,24 @@ export default function ManagePage() {
             // Count injections in this phase
             const phaseInjections = injectionLogs.filter((log: any) => {
               const logDate = new Date(log.date)
-              return logDate >= phaseStart && logDate <= phaseEnd && log.taken
+              return logDate >= phaseStart && logDate <= phaseEnd && log.taken === true
             })
             
             const totalInjections = phaseInjections.length
-            const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
             
             const row = [
               `"${protocol.name}"`,
               `"${compound.name}"`,
-              phase.dosing_entry ? dosingDisplay(phase).medication?.value ?? '' : phase.dose,
-              phase.dosing_entry ? dosingDisplay(phase).medication?.unit ?? 'Uncalculated' : phase.dose_unit || '-',
+              csvRecordedCell(recordedDoseDisplay(phase).medication?.value),
+              csvRecordedCell(recordedDoseDisplay(phase).medication?.unit),
               phase.frequency || '-',
               phaseStart.toLocaleDateString('en-US'),
               phaseEnd.toLocaleDateString('en-US'),
               totalInjections,
-              vialsUsed,
-              mlPerDose
+              'Unknown', // Physical-vial usage is not established by injection logs.
+              mlPerDose,
+
+              ...recordedDoseCsvFields(phase).map(csvRecordedCell)
             ].join(',')
             csvContent += row + '\n'
           }
@@ -544,9 +546,10 @@ export default function ManagePage() {
             {mode === 'create' ? <ProtocolQuickStart value={{ startDate, compounds }} firstProtocol={firstProtocol} onSave={save} onClose={cancelForm} saving={saving} retryBlocked={retryBlocked} saveError={error} today={today} onChange={draft => { setStartDate(draft.startDate); setPlanned(!draft.startDate); setCompounds(draft.compounds) }}>{continuationField}</ProtocolQuickStart> : <>
             {compounds.map((c, ci) => {
               const reviewEntry = (() => { try { return entryFromForm(c) } catch { return null } })()
-              const reviewResult = (() => { try { return reviewEntry ? interpretEntry(reviewEntry) : null } catch { return null } })()
+              const reviewPhase = reviewEntry ? recordedReviewPhase(reviewEntry, c.historical) : null
+              const reviewResult = (() => { try { return reviewEntry ? recordedDoseDisplay(reviewPhase) : null } catch { return null } })()
               const reviewIssue = (() => { try { return reviewEntry ? dosingIssue(reviewEntry) : null } catch { return null } })()
-              const showConfirmation = Boolean((reviewResult?.medication || reviewResult?.candidate) && (c.input_mode === 'unknown' || c.input_mode === 'medication' || c.reviewed))
+              const showConfirmation = Boolean(reviewEntry)
               const panelId = (name: string) => `${ci}:${name}`
               const selectedPanel = (name: string) => openEditorPanel === panelId(name)
               const administrationSummary = [c.route, c.syringe_markings && `${c.syringe_markings} units`, c.injection_volume && `${c.injection_volume} mL`].filter(Boolean).join(' · ') || 'Route and measurements'
@@ -586,7 +589,7 @@ export default function ManagePage() {
 
                 <div className="dosing-live-summary" aria-live="polite" aria-atomic="true">
                   {reviewFallback?.index === ci && <div data-dose-review-fallback id={'dosing-review-fallback-' + ci} role="status"><strong>Review {reviewFallback.nextField}</strong><p>{reviewFallback.field} is not shown by the current {reviewFallback.nextField === 'Preparation source' ? 'preparation' : 'measurement'} controls. Review {reviewFallback.nextField} against the original record before editing this field. No preparation, measurement mode or saved value has been changed.</p><dl><dt>Saved {reviewFallback.field}</dt><dd>{reviewFieldKeys[reviewFallback.field] ? String(c[reviewFieldKeys[reviewFallback.field]!] ?? '') || 'Not recorded' : 'Original entry retained'}</dd></dl></div>}
-                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={{ dosing_entry: entryFromForm(c) }} editing onReview={(_target, field) => requestDosingReview(ci, field || 'How do you measure it?')} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
+                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={recordedReviewPhase(entryFromForm(c), c.historical)} editing onReview={(_target, field) => requestDosingReview(ci, field || 'How do you measure it?')} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
                 </div>
                 </section>
                 <details className="dosing-more-options" id={`dosing-options-${ci}`} open={openMoreOptions === ci} onToggle={event => { if (event.currentTarget.open) setOpenMoreOptions(ci); else if (openMoreOptions === ci) { setOpenMoreOptions(null); setOpenEditorPanel(null) } }}><summary>More options</summary>
@@ -663,27 +666,24 @@ export default function ManagePage() {
                 </div>}
                 </div>
                 {reviewIssue && <div className="dosing-panel-issue" role="status"><strong>{reviewIssue.title}</strong><p>{reviewIssue.explanation}</p><button type="button" className="dose-review-link" onClick={() => requestDosingReview(ci, reviewIssue.field)}>{reviewIssue.action}</button></div>}
-                <details className="dosing-review-panel" data-dose-review hidden={!reviewIssue && !showConfirmation}><summary>Review calculation</summary>
+                <details className="dosing-review-panel" data-dose-review hidden={!reviewIssue && !showConfirmation}><summary>Review recorded facts</summary>
                   {(() => { try {
                     if (!reviewEntry || !reviewResult) return null
                     const result = reviewResult
-                    const administration = administrationDisplay({ dosing_entry: reviewEntry })
-                    const recordedAmount = c.input_mode === 'unknown' ? formatProtocolAmount(reviewEntry.dose, reviewEntry.dose_unit) : null
-                    const medicationAmount = result.medication && formatProtocolAmount(result.medication.value, result.medication.unit)
-                    const candidateAmount = !medicationAmount && result.candidate && formatProtocolAmount(result.candidate.value, result.candidate.unit)
+                    const administration = recordedAdministrationDisplay(reviewPhase)
+                    const originalAmount = result.facts.ambiguousAmount ? recordedAmount(reviewEntry.dose, reviewEntry.dose_unit) : null
+                    const medicationAmount = result.medication && result.primary
                     return <div className="dosing-calculation-details">
                       <dl>
-                        {recordedAmount && <><dt>Recorded value</dt><dd>{recordedAmount}</dd></>}
-                        {medicationAmount && <><dt>Medication amount</dt><dd>{medicationAmount}</dd></>}
-                        {candidateAmount && <><dt>Calculated medication amount</dt><dd>{candidateAmount}</dd></>}
+                        {originalAmount && <><dt>Saved amount · meaning unverified</dt><dd>{originalAmount}</dd></>}
+                        {medicationAmount && <><dt>Recorded medication amount</dt><dd>{medicationAmount}</dd></>}
                         {administration.volume && <><dt>Injection volume</dt><dd>{administration.volume}</dd></>}
                         {administration.syringe && <><dt>Syringe draw</dt><dd>{administration.syringe}</dd></>}
-                        {result.concentration && <><dt>Concentration</dt><dd>{formatProtocolAmount(result.concentration.value, `${result.concentration.unit}/mL`)}</dd></>}
                       </dl>
                       {reviewIssue && <p className="dosing-review-explanation">{reviewIssue.explanation}</p>}
                     </div>
                   } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check numeric inputs.'}</p> } })()}
-                  <label className="dosing-confirmation" hidden={!showConfirmation}><input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I confirm this medication amount (optional).</label>
+                  <label className="dosing-confirmation" hidden={!showConfirmation}><input type="checkbox" checked={c.reviewed} onChange={e => updateCompound(ci,'reviewed',e.target.checked)} /> I reviewed these recorded facts (optional).</label>
                 </details>
                 </section>
                 <section className="dosing-option-panel" id={`dosing-panel-${ci}-inventory`} aria-label="Inventory" hidden={!selectedPanel('inventory')}><div className="protocol-fields">

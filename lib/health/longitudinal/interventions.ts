@@ -9,7 +9,7 @@ const actions: Record<string, InterventionKind> = {
   frequency_change: 'frequency_changed', route_change: 'route_changed', phase_started: 'phase_started', phase_continued: 'phase_continued', phase_ended: 'phase_ended',
 }
 const labels: Record<InterventionKind, string> = { started: 'started', stopped: 'ended', paused: 'paused', resumed: 'resumed', reactivated: 'reactivated',
-  compound_added: 'added', compound_removed: 'removed', dose_increased: 'dose increased', dose_decreased: 'dose decreased', dose_changed: 'dosing entry changed',
+  recorded_measurements_changed: 'recorded measurements changed', compound_added: 'added', compound_removed: 'removed', dose_increased: 'dose increased', dose_decreased: 'dose decreased', dose_changed: 'dosing entry changed',
   frequency_changed: 'frequency changed', route_changed: 'route changed', phase_started: 'phase started', phase_ended: 'phase ended', phase_continued: 'phase continued' }
 
 export function detectInterventions(source: LongitudinalSource, asOf: string): Intervention[] {
@@ -34,7 +34,7 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
     const name = protocol?.compounds?.find(item => item.id === compoundId)?.name || protocol?.name || 'Recorded protocol'
     const before = medicationForPhase(previous), after = medicationForPhase(next)
     const difference = compareMedication(before, after)
-    const action = kind === 'dose_changed' && difference != null && difference !== 0 ? difference > 0 ? 'dose_increased' : 'dose_decreased' : kind
+    const action = kind === 'dose_changed' && (!before || !after) ? 'recorded_measurements_changed' : kind === 'dose_changed' && difference != null && difference !== 0 ? difference > 0 ? 'dose_increased' : 'dose_decreased' : kind
     const limitations: string[] = []
     if (!metadata) limitations.push('Legacy event: exact historical dose and schedule are not verified.')
     if (!protocol) limitations.push('Protocol record is absent; this event does not establish the complete former regimen.')
@@ -77,7 +77,7 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
         // Exact effective-date events already own this transition. Do not add a
         // second "change" from a rounded week boundary or the same phase/action.
         if (items.some(item => item.protocolId === protocol.id && item.date === date &&
-          ((item.compoundId === compound.id && ['phase_started', 'dose_changed', 'dose_increased', 'dose_decreased'].includes(item.kind)) || item.kind === 'stopped'))) continue
+          ((item.compoundId === compound.id && ['phase_started', 'recorded_measurements_changed', 'dose_changed', 'dose_increased', 'dose_decreased'].includes(item.kind)) || item.kind === 'stopped'))) continue
         const change = compareMedication(before?.medication ?? null, after?.medication ?? null)
         const kinds: InterventionKind[] = after?.phaseId ? ['phase_started'] : ['phase_ended']
         if (before?.phaseId && after?.phaseId) {
@@ -108,6 +108,6 @@ export function detectInterventions(source: LongitudinalSource, asOf: string): I
 }
 
 export function interventionDoseLabel(item: Intervention): string | null {
-  const format = (dose: NonNullable<Intervention['after']>) => `${numberLabel(dose.value)} ${dose.unit}`
+  const format = (dose: NonNullable<Intervention['after']>) => `${dose.rawValue ?? numberLabel(dose.value)} ${dose.unit}`
   return item.before && item.after ? `${format(item.before)} → ${format(item.after)}` : item.after ? format(item.after) : null
 }

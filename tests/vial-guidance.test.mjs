@@ -32,9 +32,9 @@ const render = (Component, props) => renderToStaticMarkup(React.createElement(Co
 const entry = extra => entryFromForm({ input_mode: 'medication', dose: '2', dose_unit: 'mg', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '2', reviewed: true, ...extra })
 
 for (const [name, raw, code, field] of [
-  ['medication and volume conflict', { injection_volume: '0.2' }, 'medication-volume-conflict', 'Injection volume (mL)'],
-  ['markings and entered volume conflict', { syringe_markings: '20', syringe_scale: '100', injection_volume: '0.3' }, 'markings-volume-conflict', 'Injection volume (mL)'],
-  ['medication and markings conflict', { syringe_markings: '20', syringe_scale: '100' }, 'medication-markings-conflict', 'Syringe markings'],
+  ['medication and volume conflict', { injection_volume: '0.2' }, 'multiple-recorded-measurements', 'How do you measure it?'],
+  ['markings and entered volume conflict', { syringe_markings: '20', syringe_scale: '100', injection_volume: '0.3' }, 'multiple-recorded-measurements', 'How do you measure it?'],
+  ['medication and markings conflict', { syringe_markings: '20', syringe_scale: '100' }, 'multiple-recorded-measurements', 'How do you measure it?'],
   ['missing scale', { input_mode: 'syringe', dose: '', syringe_markings: '20', syringe_scale: '' }, 'missing-scale', 'Syringe scale'],
   ['incomplete amount', { vial_strength: '' }, 'incomplete-mixing', 'Vial amount'],
   ['incomplete mixing unit', { vial_unit: '' }, 'incomplete-mixing', 'Vial unit'],
@@ -86,9 +86,9 @@ test('compact and full summaries retain explanations and invoke exact-field reco
   for (const compact of [true, false]) {
     const phase = { dosing_entry: entry({ injection_volume: '.2' }) }, calls = []
     const html = render(Summary, { phase, compact, onReview: (...args) => calls.push(args) })
-    assert.match(html, /Medication dose and volume disagree/)
-    assert.match(html, /differs from the volume calculated/)
-    assert.match(html, /Review injection volume/)
+    assert.match(html, /Check the recorded measurements/)
+    assert.match(html, /agreement has not been verified/)
+    assert.match(html, /Review How do you measure it/)
     const tree = Summary({ phase, compact, onReview: (...args) => calls.push(args) })
     function find(node) {
       if (Array.isArray(node)) return node.map(find).find(Boolean)
@@ -96,7 +96,7 @@ test('compact and full summaries retain explanations and invoke exact-field reco
       return node.type === 'button' ? node : find(node.props?.children)
     }
     find(tree).props.onClick()
-    assert.deepEqual(calls, [['syringe', 'Injection volume (mL)']])
+    assert.deepEqual(calls, [['dose', 'How do you measure it?']])
   }
 })
 test('normal confirmed medication-only records do not acquire a preparation warning', () => {
@@ -178,8 +178,8 @@ test('field recovery opens the correct panel without touching any dosing field',
 
 test('missing preparation does not assume ready-to-use or mixing', () => {
   const saved = entryFromForm({ input_mode: 'volume', injection_volume: '.2', reviewed: true })
-  assert.equal(dosingIssue(saved).code, 'missing-preparation')
-  assert.equal(dosingIssue(saved).field, 'Preparation source')
+  assert.equal(dosingIssue(saved).code, 'missing-medication')
+  assert.equal(dosingIssue(saved).field, 'Medication dose')
   assert.equal(saved.preparation, undefined)
 })
 

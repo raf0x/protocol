@@ -47,7 +47,7 @@ const report = (extra = {}, range = '6m') => model.buildDoctorReport(source(extr
 test('current protocol summary uses confirmed medication dose', () => assert.equal(report().currentProtocols[0].dose, '3 mg'))
 test('current protocol summary includes structured frequency and route', () => assert.deepEqual([report().currentProtocols[0].frequency, report().currentProtocols[0].route], ['weekly', 'SubQ']))
 test('unverified dose is labeled without substituting administration volume', () => {
-  const p = protocol({ compounds: [{ id: 'c1', name: 'Unknown dose', phases: [phase('legacy', 1, null, 50, 'IU', null)] }] }); const row = report({ protocols: [p] }).currentProtocols[0]; assert.equal(row.dose, 'Dose not confirmed'); assert.equal(row.verified, false)
+  const p = protocol({ compounds: [{ id: 'c1', name: 'Unknown dose', phases: [phase('legacy', 1, null, 50, 'IU', null)] }] }); const row = report({ protocols: [p] }).currentProtocols[0]; assert.equal(row.dose, 'Medication amount not recorded'); assert.equal(row.verified, false)
 })
 test('protocol history is ordered newest first', () => { const rows = report({ protocolEvents: [event('a', '2026-06-01'), event('b', '2026-08-01')] }).protocolHistory; assert.ok(rows.every((row, i) => !i || rows[i - 1].date >= row.date)) })
 test('structured history is identified separately from legacy history', () => { const rows = report({ protocolEvents: [event('a', '2026-06-01'), event('b', '2026-07-01', { metadata: null })] }).protocolHistory; assert.ok(rows.some(row => row.source === 'Structured protocol event')); assert.ok(rows.some(row => row.source === 'Legacy protocol event')) })
@@ -264,13 +264,13 @@ test('V2A current protocol rows directly preserve canonical medication/schedule/
   assert.equal(current.dose, `${states[0].medication.value} ${states[0].medication.unit}`)
   assert.equal(current.frequency, states[0].frequency); assert.equal(current.route, states[0].route)
 })
-for (const [unit, dose, version, expected] of [['mg', 3, 1, '3 mg'], ['mcg', 150, 1, '150 mcg'], ['IU', 250, 1, '250 IU'], ['IU', 18, null, 'Dose not confirmed'], ['mL', 0.18, 1, 'Dose not confirmed']]) {
+for (const [unit, dose, version, expected] of [['mg', 3, 1, '3 mg'], ['mcg', 150, 1, '150 mcg'], ['IU', 250, 1, '250 IU'], ['IU', 18, null, 'Medication amount not recorded'], ['mL', 0.18, 1, 'Medication amount not recorded']]) {
   test(`V2A dose separation: ${dose} ${unit}, semantics ${version}`, () => {
     const p = protocol({ compounds: [{ id: 'c1', name: 'Fictional medication', phases: [{ ...phase('one', 1, null, dose, unit, version), syringe_units: 18, syringe_scale: 100, injection_volume_ml: 0.18 }] }] })
     const r = report({ protocols: [p], protocolEvents: [] })
     assert.equal(r.currentProtocols[0].dose, expected)
     const medication = r.intelligence.protocolTimeline[0].recordedStates[0].medication
-    assert.deepEqual(medication, expected === 'Dose not confirmed' ? null : { value: dose, unit })
+    assert.deepEqual(medicationCore(medication), expected === 'Medication amount not recorded' ? null : { value: dose, unit })
   })
 }
 test('V2A verification is deduplicated and bounded, review items are descriptive and bounded', () => {
@@ -396,3 +396,6 @@ test('V2D preserves the locked six-section report hierarchy', () => {
   const headings = ['Key Context Notes', 'Longitudinal Biomarker Domains', 'Recorded Protocol Timeline', 'Top Headline Changes', 'Items to Review', 'Data Verification &amp; Limitations']
   for (const heading of headings) assert.ok(client.includes(heading), heading)
 })
+
+// Value/unit selection contract; raw provenance is tested separately.
+function medicationCore(dose) { return dose ? { value: dose.value, unit: dose.unit } : null }

@@ -1,0 +1,14 @@
+﻿import Manage from '__ROOT__/app/protocol/manage/page.tsx';
+import Detail from '__ROOT__/components/protocols/ProtocolDetail.tsx';
+window.qaCase='syringe';window.qaActions=[];window.qaCount=2;
+window.qaProtocols=()=>[0,1].map(i=>{
+ const e=entryFromForm({input_mode:'syringe',syringe_markings:'40',syringe_scale:'100',vial_strength:'20',vial_unit:'mg',bac_water_ml:'2',reviewed:true});
+ if(qaCase==='medication')Object.assign(e,{mode:'medication',dose:'4.50e-3',dose_unit:'mg',syringe_markings:''});
+ if(qaCase==='missing')Object.assign(e,{mode:'medication',dose:'',dose_unit:'mg',syringe_markings:''});
+ if(qaCase==='volume')Object.assign(e,{mode:'volume',injection_volume:'.4',syringe_markings:''});
+ if(qaCase==='u40')Object.assign(e,{syringe_scale:'40'});
+ const phase={id:'phase'+i,dosing_entry:e,dose:null,dose_unit:null,dose_semantics_version:null,frequency:'daily',time_of_day:i?'Evening':'Morning',start_week:1,end_week:null};
+ if(qaCase==='legacy')Object.assign(phase,{dosing_entry:null,dose:'4e0',dose_unit:'IU',syringe_units:40,syringe_scale:40});
+ return {id:'p'+i,created_at:'2026-09-01',name:'Synthetic plan '+i,status:'active',start_date:'2026-09-01',compounds:[{id:'c'+i,name:'Synthetic compound '+i,vial_strength:20,vial_unit:'mg',bac_water_ml:2,ml_per_dose:null,vials_in_stock:2,doses_taken_override:0,phases:[phase]}]};
+});
+window.qaDownloads=[];URL.createObjectURL=blob=>{blob.text().then(text=>qaDownloads.push(text));return '#synthetic-download'};URL.revokeObjectURL=()=>{};

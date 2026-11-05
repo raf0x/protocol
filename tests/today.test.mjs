@@ -30,11 +30,11 @@ test('active rows reuse normalized dosing and strict phase selection', () => {
   assert.equal(row.week, 6)
   const [expired] = todayProtocols([{ ...protocol, compounds: [{ ...protocol.compounds[0], phases: [{ ...phase, end_week: 4 }] }] }], '2026-09-09')
   assert.equal(expired.hasPhase, false)
-  assert.equal(expired.details, 'Dose not fully calculated')
+  assert.equal(expired.details, 'Medication amount not recorded')
 })
 test('legacy amounts are not interpreted as confirmed medication', () => {
   const [row] = todayProtocols([{ ...protocol, compounds: [{ ...protocol.compounds[0], phases: [{ ...phase, dose_semantics_version: null, dose: 50, dose_unit: 'IU' }] }] }], '2026-09-09')
-  assert.equal(row.details, 'Dose not fully calculated')
+  assert.equal(row.details, 'Medication amount not recorded')
 })
 test('next dose excludes logged doses, respects saved time groups and never mutates source', () => {
   const due = [{ id: 'b', time_of_day: 'night' }, { id: 'a', time_of_day: 'morning' }, { id: 'c', time_of_day: '' }]

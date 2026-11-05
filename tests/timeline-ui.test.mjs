@@ -125,7 +125,7 @@ test('Timeline page reads both filters from URL state and uses native History', 
 test('protocol cards retain original event title and identify mutable saved-plan context', () => {
   const html = render(TimelineEventCard, { event: { id: 'p', date: '2026-09-08', title: 'Plan dose changed', category: 'Protocol', description: 'Recorded change', metadata: { dose: 3, doseUnit: 'mg', protocolId: 'different-id' } } })
   assert.ok(html.includes('Plan dose changed'))
-  assert.ok(html.includes('Saved plan context'))
+  assert.ok(!html.includes('3 mg'), 'Unproven scalar metadata must not become medication context')
   assert.ok(html.includes('/protocol/manage?protocol=different-id'))
   assert.ok(!html.includes('→'))
 })

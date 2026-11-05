@@ -45,7 +45,7 @@ test('expired phase stays expired and does not generate an upcoming dose', () =>
   const info = compoundOverview(protocol, { ...compound, phases: [{ ...phase, end_week: 4 }] }, today)
   assert.equal(info.phase, null)
   assert.equal(info.next, null)
-  assert.equal(info.dose, 'Dose not fully calculated')
+  assert.equal(info.dose, 'Medication amount not recorded')
 })
 test('next scheduled day uses existing structured schedule and phase bounds', () => {
   const info = compoundOverview(protocol, { ...compound, phases: [{ ...phase, frequency: '2x/week', days_of_week: [1, 4] }] }, today)
@@ -64,15 +64,15 @@ test('completed overview uses saved completion date and never schedules reactiva
 test('incomplete syringe entry stays a raw dose representation with no invented medication amount', () => {
   const entry = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' })
   const incomplete={...protocol,compounds:[{...compound,phases:[{...phase,dosing_entry:entry}]}]}
-  assert.equal(compoundOverview(incomplete, incomplete.compounds[0], today).dose, '20 U-100 units · 0.2 mL · Medication dose not calculated.')
+  assert.equal(compoundOverview(incomplete, incomplete.compounds[0], today).dose, '20 recorded markings · U-100')
   const Card=load('../components/protocols/ProtocolCard.tsx').default, Detail=load('../components/protocols/ProtocolDetail.tsx').default, PhaseCard=load('../components/protocols/PhaseCard.tsx').default
   const props={protocol:incomplete,today,onReload(){}}
   for(const html of [
     renderToStaticMarkup(React.createElement(Card,{...props,index:0,selecting:false,selected:false,onOpen(){},onSelect(){}})),
     renderToStaticMarkup(React.createElement(Detail,{...props,onBack(){},onEdit(){},onComplete(){},onPause(){},onResume(){},onReactivate(){},onDelete(){}})),
     renderToStaticMarkup(React.createElement(PhaseCard,{...props,compound:incomplete.compounds[0],onEdit(){}})),
-  ]) assert.match(html,/Medication dose not calculated\./)
-  assert.equal(compoundOverview(protocol, { ...compound, phases: [] }, today).dose, 'Dose not fully calculated')
+  ]) assert.match(html,/Medication amount not recorded/)
+  assert.equal(compoundOverview(protocol, { ...compound, phases: [] }, today).dose, 'Medication amount not recorded')
 })
 test('library renders separate Active and Completed groups and useful empty states', () => {
   const Library = load('../components/protocols/ProtocolLibrary.tsx').default

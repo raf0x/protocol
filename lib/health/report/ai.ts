@@ -2,7 +2,7 @@ import type { HealthAnalysis, HealthAnalystContext, AnalystEvidence, ContextFact
 import type { DoctorReport, ReportAiSummary } from './types'
 
 const number = (value: number) => Number(value.toPrecision(5))
-const dose = (value: { value: number; unit: string } | null) => value ? `${number(value.value)} ${value.unit}` : 'dose not confirmed'
+const dose = (value: { value: number; unit: string; rawValue?: string; reviewStatus?: string } | null) => value ? `${value.rawValue ?? number(value.value)} ${value.unit}${value.reviewStatus === 'unverified' ? ' (unverified entry)' : ''}` : 'dose not confirmed'
 
 /** Build the optional report-AI request from the already-derived report model.
  * The provider never receives the raw source record from this path. AI may phrase
@@ -52,11 +52,11 @@ export function buildReportAiContext(report: DoctorReport): HealthAnalystContext
   }
 
   for (const item of report.currentProtocols.slice(0, 6)) add({ type: 'protocol_state', date: report.asOfDate,
-    title: item.name, detail: [item.dose, item.frequency, item.route].filter(Boolean).join(' · '), sourceLabel: 'Canonical current protocol state' })
+    title: item.name, detail: [item.dose, item.verified ? 'Recorded medication; not independently verified treatment' : 'Unverified or missing medication record', item.frequency, item.route].filter(Boolean).join(' · '), sourceLabel: 'Canonical current protocol state' })
 
   for (const item of report.intelligence.protocolTimeline.slice(0, 4)) {
     const change = item.before || item.after ? ` ${dose(item.before)} → ${dose(item.after)}.` : ''
-    add({ type: 'protocol_event', date: item.date, title: item.title, detail: `Recorded ${item.kind.replaceAll('_', ' ')}.${change}`,
+    add({ type: 'protocol_event', date: item.date, title: item.title, detail: `Recorded ${item.kind.replaceAll('_', ' ')}.${change} ${item.limitations.join(' ')}`, confidence: item.before?.reviewStatus === 'unverified' || item.after?.reviewStatus === 'unverified' || item.limitations.length ? 'low' : 'medium',
       sourceLabel: item.provenance === 'event' ? 'Recorded protocol event' : 'Saved protocol history' })
   }
 

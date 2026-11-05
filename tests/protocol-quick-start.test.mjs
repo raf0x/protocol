@@ -349,7 +349,8 @@ test('accepted Quick Start drafts run through the canonical payload and real car
     for (const startDate of ['', '2026-09-22', '2099-01-01']) {
       const protocol = { status: startDate ? 'active' : 'planned', start_date: startDate || null }
       const card = compoundOverview(protocol, { ...payload, phases: [payload.phase] }, '2026-09-22')
-      assert.equal(card.dose, primary)
+      assert.equal(card.dose, load('../lib/health/recordedDose.ts').recordedDoseDisplay(payload.phase).primary)
+      assert.doesNotMatch(card.dose, /≈|calculated|0.2 mL.*20/)
       assert.doesNotMatch(JSON.stringify(card), /Dose not fully calculated yet/)
     }
   }

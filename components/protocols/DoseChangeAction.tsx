@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { changeProtocolDose } from '../../lib/health/protocolMutations'
-import { dosingDisplay, type DosingEntry } from '../../lib/health/dosingEntry'
+import { type DosingEntry } from '../../lib/health/dosingEntry'
+import { recordedDoseDisplay } from '../../lib/health/recordedDose'
 import type { LibraryCompound, LibraryProtocol } from '../../lib/health/protocolPresentation'
 import { compoundOverview } from '../../lib/health/protocolPresentation'
 
@@ -10,7 +11,7 @@ function editableMedication(phase: ReturnType<typeof compoundOverview>['phase'])
   if (!phase) return null
   if (phase.dosing_entry) {
     const entry = phase.dosing_entry
-    const display = dosingDisplay(phase)
+    const display = recordedDoseDisplay(phase)
     if (entry.mode !== 'medication' || entry.review_status !== 'confirmed' || !display.medication) return null
     return { value: String(display.medication.value), unit: display.medication.unit, entry }
   }

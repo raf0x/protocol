@@ -1,3 +1,4 @@
+import { recordedDoseDisplay } from '../../../lib/health/recordedDose'
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 
@@ -53,7 +54,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
                 <div key={phase.id || i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid #1e1e2e'}}>
                   <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                     <span style={{fontSize:'10px',fontWeight:'700',padding:'2px 8px',borderRadius:'4px',background:'rgba(57,255,20,0.1)',color:'#39ff14'}}>W{phase.start_week}–W{phase.end_week}</span>
-                    <span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{phase.dose}{phase.dose_unit}</span>
+                    <span style={{fontSize:'13px',color:'white',fontWeight:'600'}}>{recordedDoseDisplay(phase).primary}</span>
                   </div>
                   <span style={{fontSize:'12px',color:'#8b8ba7'}}>{phase.frequency}{phase.time_of_day ? ' · ' + phase.time_of_day : ''}</span>
                 </div>

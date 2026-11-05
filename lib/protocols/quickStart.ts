@@ -1,6 +1,7 @@
 import { canonicalCompoundName, compoundNameError, normalizeCompoundName, resolveCompound } from './catalog'
 import { newCompound, type Compound, type DefaultSource, type QuickStartDraft } from './form'
-import { dosingDisplay, entryFormState, entryFromForm, type DosingEntry } from '../health/dosingEntry'
+import { entryFormState, entryFromForm, type DosingEntry } from '../health/dosingEntry'
+import { recordedDoseDisplay } from '../health/recordedDose'
 import { isCalendarDate, localCalendarDate, protocolSaveDates } from '../health/protocolDates'
 import { inventoryProtocolFields } from '../inventory/protocol'
 import type { InventoryItem } from '../inventory/model'
@@ -166,7 +167,7 @@ export function toggleQuickWeekday(current: Compound, day: number): Compound {
 
 export function setupSummary(c: Compound) {
   let dose = 'Dose not confirmed'
-  try { dose = dosingDisplay({ dosing_entry: entryFromForm(c) }).primary } catch { /* Inline validation on save. */ }
+  try { dose = recordedDoseDisplay({ dosing_entry: entryFromForm(c) }).primary } catch { /* Inline validation on save. */ }
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const frequency = c.frequency_mode === 'rolling' && c.cycle_days ? `Every ${c.cycle_days} days` : c.days_of_week.length === 7 ? 'Daily' : c.days_of_week.length ? `${c.days_of_week.length === 1 ? 'Weekly' : `${c.days_of_week.length}x/week`} on ${c.days_of_week.map(day => days[day]).join(', ')}` : 'Schedule not selected'
   return `${dose} · ${frequency} · ${c.route || 'Route not selected'}`

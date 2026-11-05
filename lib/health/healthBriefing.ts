@@ -145,7 +145,7 @@ export function buildHealthBriefing({ panels, histories, protocols }: {
   if (ambiguousActivity) gaps.push({ key: 'protocol_ambiguous', text: 'Some recorded protocol activity has uncertain timing. No active state is assumed for those intervals.' })
   if (findings.previousPanelAmbiguous) gaps.push({ key: 'previous_panel_ambiguous', text: 'Some older results share the same test date, so new or missing biomarker comparisons are omitted.' })
   if (findings.missingFromLatestCount) gaps.push({ key: 'missing_measurements', text: `${findings.missingFromLatestCount} previously measured ${findings.missingFromLatestCount === 1 ? 'biomarker was' : 'biomarkers were'} not recorded on the latest panel.` })
-  if (current.some(item => !item.medication)) gaps.push({ key: 'unconfirmed_dose', text: 'Some current medication doses are not confirmed. Administration details are kept separate.' })
+  if (current.some(item => !item.medication || item.medication.reviewStatus === 'unverified')) gaps.push({ key: 'unconfirmed_dose', text: 'Some current medication doses are not confirmed. Administration details are kept separate.' })
   if (historicalStates.some(item => item.provenance === 'unknown')) gaps.push({ key: 'historical_unknown', text: 'Some historical phase details are not known from the recorded history.' })
   if (historicalStates.some(item => item.provenance === 'saved_plan')) gaps.push({ key: 'historical_plan', text: 'Some protocol history is reconstructed from saved plans rather than recorded change snapshots.' })
 

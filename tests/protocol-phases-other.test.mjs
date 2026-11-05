@@ -34,8 +34,7 @@ const Artwork = load('../components/protocols/ProtocolSetupArtwork.tsx').default
 const { entryFromForm } = load('../lib/health/dosingEntry.ts')
 const noop = () => {}
 const today = '2026-11-04'
-// Existing formatProtocolNumber rounds dose to two decimals and markings to one.
-// These assertions preserve that baseline display contract and raw records separately.
+// Recorded medication and markings keep raw precision; decorative artwork is unchanged.
 const phase = (id, start, end, dose = 1.2345, unit = 'mg') => ({ id, start_week: start, end_week: end, dose, dose_unit: unit, dose_semantics_version: 1, frequency: 'daily', route: 'SubQ' })
 const compound = { id: 'fictional-compound', name: 'Synthetic QA compound', phases: [phase('ongoing', 1, null)] }
 const protocol = { id: 'fictional-protocol', name: 'Synthetic QA protocol', status: 'active', start_date: '2026-10-01', compounds: [compound] }
@@ -50,12 +49,12 @@ function card(overrides = {}) {
 }
 const detail = supplied => render(Detail, { protocol: supplied, today, onBack: noop, onEdit: noop, onComplete: noop, onPause: noop, onResume: noop, onReactivate: noop, onDelete: noop, onReload: noop })
 
-test('every historical and ongoing phase remains visible with its baseline formatted dose and original weeks', () => {
+test('every historical and ongoing phase remains visible with its original raw dose and original weeks', () => {
   const phases = [phase('one', 1, 2, 1.2345), phase('two', 3, 4, 125.25, 'mcg'), phase('three', 5, null, 4.125, 'IU')]
   const html = card({ compound: { ...compound, phases } }), text = copy(html)
   assert.equal((html.match(/class="protocol-history-row"/g) ?? []).length, 3)
-  for (const fact of ['1.23 mg', '125.25 mcg', '4.13 IU', 'Weeks 1–2', 'Weeks 3–4', 'Started Week 5 · Ongoing', 'Show phases (3)']) assert.ok(text.includes(fact), fact)
-  assert.ok(text.indexOf('4.13 IU') < text.indexOf('125.25 mcg'), 'Existing reverse chronological phase order')
+  for (const fact of ['1.2345 mg', '125.25 mcg', '4.125 IU', 'Weeks 1–2', 'Weeks 3–4', 'Started Week 5 · Ongoing', 'Show phases (3)']) assert.ok(text.includes(fact), fact)
+  assert.ok(text.indexOf('4.125 IU') < text.indexOf('125.25 mcg'), 'Existing reverse chronological phase order')
 })
 
 for (const [label, changes, expected] of [
@@ -97,8 +96,8 @@ test('expired phase retains continue and add controls without marking it current
 for (const scale of ['40', '100']) test(`Protocol Detail retains U-${scale}, decimal markings, volume and saved phase history`, () => {
   const dosing_entry = entryFromForm({ input_mode: 'syringe', syringe_markings: '8.125', syringe_scale: scale, reviewed: true })
   const html = detail({ ...protocol, compounds: [{ ...compound, phases: [{ ...phase('draw', 1, null), dosing_entry }] }] }), text = copy(html)
-  assert.ok(text.includes(`8.1 U-${scale} units`), text)
-  assert.ok(text.includes(scale === '40' ? '0.2 mL' : '0.08 mL'), text)
+  assert.ok(text.includes(`8.125 recorded markings · U-${scale}`), text)
+  assert.doesNotMatch(text, /0\.2 mL|0\.08 mL/, 'No markings-to-volume conversion')
   for (const action of ['Edit protocol', 'Pause protocol', 'Complete protocol', 'Delete protocol', 'Show phases']) assert.ok(text.includes(action), action)
 })
 
@@ -106,9 +105,9 @@ test('unknown dosing and review warning remain separate from decorative artwork'
   const dosing_entry = entryFromForm({ input_mode: 'unknown', dose: '1.2345', dose_unit: 'mg', reviewed: false })
   const html = detail({ ...protocol, compounds: [{ ...compound, phases: [{ ...phase('review', 1, null), dosing_entry }] }] })
   assert.match(html, /class="protocol-dose-issue" role="status"/)
-  assert.ok(copy(html).includes('Dose meaning is unverified'))
-  assert.ok(copy(html).includes('Review what the amount measures'))
-  assert.ok(copy(html).includes('The original amount is preserved'))
+  assert.ok(copy(html).includes('Saved amount needs clarification'))
+  assert.ok(copy(html).includes('Review How do you measure it?'))
+  assert.ok(copy(html).includes('confirmation does not change its meaning'))
 })
 
 test('multiple compounds retain independent phase lists and unique local SVG definitions', () => {

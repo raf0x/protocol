@@ -145,8 +145,8 @@ test('rows retain precise medication amounts, frequency and real phase status', 
 test('unknown and legacy syringe doses never become medication amounts', () => {
   for (const p of [null, { ...phase, dose_semantics_version: null, dose: 50, dose_unit: 'IU' }, { ...phase, dosing_entry: entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' }) }]) {
     const tree = render(Row, { id: 'a', name: 'Alpha', protocolId: 'p', week: 3, phase: p, color: ringColors[0], selected: false, onSelect() {} })
-    assert.match(text(tree), /Medication amount unknown/)
-    assert.doesNotMatch(text(tree), /50 IU|20 units|0.2 mL/)
+    assert.match(text(tree), !p ? /Medication amount not recorded/ : p.dosing_entry ? /20 recorded markings/ : /50 IU.*meaning unverified/)
+    assert.doesNotMatch(text(tree), /50 IU\/dose|20 units|0.2 mL/)
     if (!p) assert.match(text(tree), /No current phase/)
   }
 })
@@ -156,7 +156,7 @@ test('a conflicting or malformed dose shows one honest review issue', () => {
   for (const entry of [conflict, { version: 2 }]) {
     const tree = render(Row, { id: 'a', name: 'Alpha', protocolId: 'p', week: 3, phase: { ...phase, dosing_entry: entry }, color: ringColors[0], selected: true, onSelect() {} })
     const issues = nodes(tree, n => n.type === 'span' && n.props.className?.includes('warning'))
-    assert.equal(issues.length, 1); assert.match(text(issues[0]), /Syringe markings and volume disagree|Saved dose entry is invalid/)
+    assert.equal(issues.length, 1); assert.match(text(issues[0]), /Check the recorded measurements|Saved dose entry is invalid/)
     assert.doesNotMatch(text(issues[0]), /Active ·|Week 3/)
   }
 })
@@ -188,7 +188,7 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.deepEqual(Object.keys(actual), ['Protocol start', 'Current week', 'Vial reconstituted', 'Vial expiration', 'Injection volume', 'Syringe draw', 'Vials in stock', 'Recorded compound dose count', 'Next dose'])
   assert.equal(actual['Current week'], 'Week 1')
   assert.notEqual(actual['Protocol start'], 'Not recorded'); assert.notEqual(actual['Vial reconstituted'], 'Not recorded'); assert.equal(actual['Vial expiration'], 'Unknown')
-  assert.equal(actual['Injection volume'], '0.17 mL'); assert.equal(actual['Syringe draw'], '6.7 U-40 units')
+  assert.equal(actual['Injection volume'], '0.168637 mL · saved value, origin unverified'); assert.equal(actual['Syringe draw'], '6.74548 saved markings · origin unverified · U-40')
   assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Recorded compound dose count'], '1'); assert.equal(actual['Next dose'], 'Tomorrow')
   assert.doesNotMatch(text(tree), /Doses taken \(vial\)/)
   assert.match(text(tree), /ACTIVE COMPOUNDAlpha compoundPlanWeek 1Started /)
@@ -202,7 +202,7 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.equal(nodes(tree, n => n.props.className === 'vial-inventory').length, 1)
   assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/manage?compound=a' && text(n) === 'Manage protocol').length, 1)
   assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/inventory').length, 1)
-  assert.doesNotMatch(text(tree), /0.168637|6.74548|Selected protocol tools/)
+  assert.match(text(tree), /0.168637/); assert.match(text(tree), /6.74548/); assert.doesNotMatch(text(tree), /Selected protocol tools/)
 })
 
 test('Hero selected snapshot and card do not flag confirmed medication for secondary preparation guidance', () => {
@@ -225,12 +225,12 @@ test('Hero selected snapshot retains real conflict, missing medication, and unve
   const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
   const missing = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', reviewed: true })
   const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: false })
-  for (const [entry, notice] of [[conflict, 'Medication dose and volume disagree'], [missing, 'Preparation information is missing'], [unverified, 'Dose entry is unconfirmed']]) {
+  for (const [entry, notice] of [[conflict, 'Check the recorded measurements'], [missing, 'Medication amount not recorded'], [unverified, 'Recorded entry is unverified']]) {
     const p = snapshotProtocol({}, { dosing_entry: entry })
     assert.match(text(render(Hero, snapshotProps(p))), new RegExp(notice))
   }
   const legacy = snapshotProtocol({}, { dose_semantics_version: null })
-  assert.match(text(render(Hero, snapshotProps(legacy))), /Dose meaning is unverified/)
+  assert.match(text(render(Hero, snapshotProps(legacy))), /Saved amount needs clarification/)
 })
 
 test('snapshot keeps missing facts distinct from zero and never converts legacy markings to medication', () => {
@@ -240,8 +240,8 @@ test('snapshot keeps missing facts distinct from zero and never converts legacy 
   assert.equal(nodes(rail, n => n.props.className === 'vial-inventory').length, 1, 'Missing facts retain the inventory action in the rail')
   for (const key of ['Vial reconstituted', 'Injection volume', 'Vials in stock', 'Recorded compound dose count', 'Next dose']) assert.equal(actual[key], 'Not recorded')
   assert.equal(actual['Vial expiration'], 'Unknown')
-  assert.equal(actual['Syringe draw'], '16.9 syringe units')
-  assert.match(text(tree), /Medication amount unknown/); assert.doesNotMatch(text(tree), /50 IU|unknown\/dose/)
+  assert.equal(actual['Syringe draw'], '16.8637 saved markings · origin unverified · scale unknown')
+  assert.match(text(tree), /16.8637 saved markings/); assert.match(text(tree), /what 50 IU measures/); assert.doesNotMatch(text(tree), /50 IU\/dose|unknown\/dose/)
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === false).length, 1)
   const zero = facts(render(Hero, snapshotProps(snapshotProtocol({ vials_in_stock: 0, doses_taken_override: 0 }))))
   assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Recorded compound dose count'], '0')
@@ -426,22 +426,55 @@ test('header weight and Health Trends never fabricate values or changes from mis
   }
 })
 
-test('compact Focus separates confirmed medication from secondary review and keeps logging callback', () => {
+function assertProtectedFocus(tree) {
+  assert.equal(nodes(tree, n => ['details', 'summary', 'aside'].includes(n.type) || n.props.className === 'focusReview').length, 0)
+  assert.equal(nodes(tree, n => /warning|badge|diagnostic/i.test(n.props.className ?? '')).length, 0)
+  assert.doesNotMatch(text(tree), /unverified|clarification|concentration|reconstitut|calculated|review.*(medication|dose)|recorded markings|saved markings|recorded volume/i)
+  assert.equal(nodes(tree, n => n.type === 'a').length, 1)
+  assert.equal(nodes(tree, n => n.type === 'a')[0].props.href, '/protocol/manage')
+}
+
+test('protected Focus shows only recorded medication or a neutral label and keeps logging callback', () => {
   const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
   const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg' })
-  for (const candidate of [phase, { ...phase, dose: 1, dose_unit: 'IU', dose_semantics_version: null }, { ...phase, dosing_entry: conflict }, { ...phase, dosing_entry: unverified }, { ...phase, dosing_entry: { version: 2 } }]) {
-    const p = { ...protocol, compounds: [{ id: 'a', name: 'Alpha compound', phases: [candidate] }] }, calls = []
+  const syringe = entryFromForm({ input_mode: 'syringe', syringe_markings: '40', syringe_scale: '100', vial_strength: '20', vial_unit: 'mg', bac_water_ml: '2', reviewed: true })
+  const volume = entryFromForm({ input_mode: 'volume', injection_volume: '.4', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL', reviewed: true })
+  for (const [candidate, expected] of [[phase, '5 mg'], [{ ...phase, dose: 1, dose_unit: 'IU', dose_semantics_version: null }, 'Not recorded'], [{ ...phase, dosing_entry: conflict }, '5 mg'], [{ ...phase, dosing_entry: unverified }, '5 mg'], [{ ...phase, dosing_entry: { version: 2 } }, 'Not recorded'], [{ ...phase, dosing_entry: syringe }, 'Not recorded'], [{ ...phase, dosing_entry: volume }, 'Not recorded'], [null, 'Not recorded']]) {
+    const p = { ...protocol, compounds: [{ id: 'a', name: 'Alpha compound', phases: candidate ? [candidate] : [] }] }, calls = []
     const tree = render(Focus, { ...props, activeCount: 1, protocols: [p], onTaken: id => calls.push(id) })
-    const amount = nodes(tree, n => n.props.className === 'doseAmount')[0]
-    assert.doesNotMatch(text(amount), /Unverified|semantics|Medication dose not calculated|syringe/)
-    assert.match(text(amount), candidate === phase || [conflict, unverified].includes(candidate.dosing_entry) ? /^5 mg$/ : /^Medication amount unknown$/)
-    const review = nodes(tree, n => n.props.className === 'focusReview')
-    assert.equal(review.length, candidate === phase ? 0 : 1)
-    if (review.length) { assert.match(text(review[0]), /disagree|unverified|unconfirmed|invalid/); assert.ok(nodes(review[0], n => n.type === 'a' && n.props.href.includes('&review=')).length, 'Review opens the exact saved field') }
+    assert.equal(text(nodes(tree, n => n.props.className === 'doseAmount')[0]), expected)
+    assertProtectedFocus(tree)
+    assert.equal(nodes(tree, n => n.props.role === 'alert').length, 0)
     assert.equal(nodes(tree, n => n.type === 'p' && n.props['aria-live'] === 'polite')[0].props.className, 'visuallyHidden')
     nodes(tree, n => n.type === 'button' && text(n) === 'Mark taken')[0].props.onClick()
     assert.deepEqual(calls, ['a'])
   }
+})
+
+test('protected Focus preserves raw explicit medication and never uses a provenance-free due amount', () => {
+  for (const amount of ['4.000', '4e0', '4.50e-3', '0', 0]) {
+    const entry = entryFromForm({ input_mode: 'medication', dose: String(amount), dose_unit: 'mg' })
+    entry.dose = amount
+    const candidate = { ...phase, dosing_entry: entry }, original = JSON.stringify(candidate)
+    const p = { ...protocol, compounds: [{ id: 'a', phases: [candidate] }] }
+    const tree = render(Focus, { ...props, activeCount: 1, protocols: [p] })
+    assert.equal(text(nodes(tree, n => n.props.className === 'doseAmount')[0]), String(amount) + ' mg')
+    assertProtectedFocus(tree)
+    assert.equal(JSON.stringify(candidate), original)
+  }
+  for (const missing of [{ protocols: undefined }, { protocols: [] }, { date: undefined }]) {
+    const tree = render(Focus, { ...props, activeCount: 1, ...missing, due: [{ ...props.due[0], dose: '123', dose_unit: 'mg' }] })
+    assert.equal(text(nodes(tree, n => n.props.className === 'doseAmount')[0]), 'Not recorded')
+    assertProtectedFocus(tree)
+  }
+})
+
+test('protected Focus retains the existing save error and disables actions while saving', () => {
+  const tree = render(Focus, { ...props, activeCount: 1, saving: true, error: 'Could not save. Please try again.' })
+  assertProtectedFocus(tree)
+  assert.equal(nodes(tree, n => n.props.role === 'alert').length, 1)
+  assert.equal(text(nodes(tree, n => n.props.role === 'alert')[0]), 'Could not save. Please try again.')
+  assert.equal(nodes(tree, n => n.props.className?.includes('markTaken'))[0].props.disabled, true)
 })
 
 test('confirmed Focus medication with only equivalent-calculation guidance needs no dose review', () => {

@@ -105,17 +105,17 @@ test('current multi-phase briefing honors saved confirmation and retains histori
     ...snapshot, phaseId: 'phase-a', startWeek: 1, endWeek: 4, doseConfirmed: true, medicationDose: value, medicationUnit: 'mg', dosingEntry: null } } }))
   const panels = pair(10, 30, '2026-01-10', '2026-02-01')
   const model = build(panels, ready([p], es, '2026-03-15'))
-  assert.deepEqual(model.currentSnapshot.compounds[0].medication, { value: 7, unit: 'mg' })
+  assert.deepEqual(medicationCore(model.currentSnapshot.compounds[0].medication), { value: 7, unit: 'mg' })
   assert.equal(model.currentSnapshot.compounds[0].phaseId, 'phase-b')
   assert.ok(!model.gaps.some(gap => gap.key === 'unconfirmed_dose'))
   assert.doesNotMatch(copy(model), /Dose not confirmed/)
-  assert.equal(healthStateAtDate({ protocols: [p], protocolEvents: es }, '2026-02-01')[0].medication, null)
+  assert.equal(healthStateAtDate({ protocols: [p], protocolEvents: es }, '2026-02-01')[0].medication.reviewStatus, 'unverified')
   assert.match(copy(model), /Some historical phase details are not known from the recorded history\./)
   saved.dosing_entry = { ...confirmed, review_status: 'unverified' }
   const unverified = build(panels, ready([p], es, '2026-03-15'))
-  assert.equal(unverified.currentSnapshot.compounds[0].medication, null)
+  assert.equal(unverified.currentSnapshot.compounds[0].medication.reviewStatus, 'unverified')
   assert.ok(unverified.gaps.some(gap => gap.key === 'unconfirmed_dose'))
-  assert.match(copy(unverified), /Dose not confirmed/)
+  assert.match(copy(unverified), /unverified entry/)
 })
 
 test('current multi-phase briefing uses the saved phase despite stale historical open-ended boundaries', () => {
@@ -127,7 +127,7 @@ test('current multi-phase briefing uses the saved phase despite stale historical
   const before = JSON.stringify({ p, es })
   const model = build(pair(10, 30, '2026-02-01', '2026-03-01'), ready([p], es, '2026-03-15'))
   assert.equal(model.currentSnapshot.compounds[0].phaseId, 'phase-b')
-  assert.deepEqual(model.currentSnapshot.compounds[0].medication, { value: 5, unit: 'mg' })
+  assert.deepEqual(medicationCore(model.currentSnapshot.compounds[0].medication), { value: 5, unit: 'mg' })
   assert.doesNotMatch(copy(model), /Dose not confirmed/)
   assert.ok(!model.gaps.some(gap => gap.key === 'unconfirmed_dose'))
   assert.match(copy(model), /Some historical phase details are not known from the recorded history\./)
@@ -150,7 +150,7 @@ test('current briefing uses saved confirmation despite same-day review snapshots
     const model = build(pair(10, 30, '2026-02-01', date), ready([p], ordered, date))
     const current = model.currentSnapshot.compounds[0]
     assert.equal(current.phaseId, 'phase-b')
-    assert.deepEqual(current.medication, { value: 5, unit: 'mg' })
+    assert.deepEqual(medicationCore(current.medication), { value: 5, unit: 'mg' })
     assert.equal(current.frequency, '2x/week')
     assert.equal(current.route, 'IM')
     assert.equal(current.provenance, 'saved_plan')
@@ -607,3 +607,5 @@ test('missing authentication cannot begin protocol reads', async () => {
   await assert.rejects(loadProtocolOverlay('2026-08-01', '2026-09-15', client), /Sign in/)
   assert.equal(read, false)
 })
+
+function medicationCore(dose) { return dose ? {value:dose.value,unit:dose.unit} : null }

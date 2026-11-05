@@ -23,7 +23,8 @@ function load(file) {
 }
 const Detail = load('../components/protocols/ProtocolDetail.tsx').default
 const Artwork = load('../components/protocols/ProtocolDetailArtwork.tsx').default
-const { entryFromForm, administrationDisplay, formatProtocolAmount } = load('../lib/health/dosingEntry.ts')
+const { entryFromForm, formatProtocolAmount } = load('../lib/health/dosingEntry.ts')
+const { recordedAdministrationDisplay: administrationDisplay } = load('../lib/health/recordedDose.ts')
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props))
 const text = html => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 const noop = () => {}

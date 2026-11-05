@@ -134,13 +134,13 @@ test('canonical replay never falls back to compounds.route', () => {
 })
 
 test('true medication IU stays distinct from mass medication', () => {
-  assert.deepEqual(history.medicationForPhase(phase({ dose: 250, dose_unit: 'IU' })), { value: 250, unit: 'IU' })
-  assert.deepEqual(history.medicationForPhase(phase({ dose: 5, dose_unit: 'mg' })), { value: 5, unit: 'mg' })
+  assert.deepEqual(medicationCore(history.medicationForPhase(phase({ dose: 250, dose_unit: 'IU' }))), { value: 250, unit: 'IU' })
+  assert.deepEqual(medicationCore(history.medicationForPhase(phase({ dose: 5, dose_unit: 'mg' }))), { value: 5, unit: 'mg' })
 })
 
-test('syringe markings are calculated from preparation and never relabeled as medication IU', () => {
+test('syringe markings never become medication even with complete preparation', () => {
   const value = history.medicationForPhase(phase({ dose: null, dose_unit: null, dose_semantics_version: null, dosing_entry: syringeEntry() }))
-  assert.deepEqual(value, { value: 1, unit: 'mg' })
+  assert.equal(value, null)
 })
 
 test('volume without medication interpretation is not medication mass', () => {
@@ -210,8 +210,8 @@ test('preparation-only snapshots preserve the preparation used for historical do
   const prep = event({ id: 'prep', date: '2026-03-01', event_type: 'preparation_change', compound_id: 'c1', metadata: { version: 1, phaseId: 'ph1',
     previousState: snapshot({ doseConfirmed: false, medicationDose: null, medicationUnit: null, dosingEntry: syringeEntry({ vial_strength: '10' }) }),
     newState: snapshot({ doseConfirmed: false, medicationDose: null, medicationUnit: null, dosingEntry: syringeEntry({ vial_strength: '20' }) }) } })
-  assert.equal(history.healthStateAtDate(source([p], [event(), prep]), '2026-02-15')[0].medication.value, 1)
-  assert.equal(history.healthStateAtDate(source([p], [event(), prep]), '2026-03-01')[0].medication.value, 2)
+  assert.equal(history.healthStateAtDate(source([p], [event(), prep]), '2026-02-15')[0].medication, null)
+  assert.equal(history.healthStateAtDate(source([p], [event(), prep]), '2026-03-01')[0].medication, null)
 })
 
 const currentMode = { mode: 'current' }
@@ -228,7 +228,7 @@ test('current multi-phase state uses saved confirmation while historical snapsho
   const data = multiPhaseReviewSource(), before = JSON.stringify(data)
   const current = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
   assert.equal(current.phaseId, 'ph2')
-  assert.deepEqual(current.medication, { value: 1, unit: 'mg' })
+  assert.equal(current.medication, null)
   assert.equal(current.provenance, 'saved_plan')
   assert.deepEqual(current.sources, [{ table: 'phases', id: 'ph2', label: 'Saved phase plan' }])
   for (const date of ['2026-02-01', '2026-03-15']) {
@@ -255,7 +255,7 @@ test('current saved phase wins over a stale open-ended historical boundary witho
     const historicalBefore = history.healthStateAtDate(data, '2026-03-15')
     const saved = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
     assert.equal(saved.phaseId, 'ph2')
-    assert.deepEqual(saved.medication, { value, unit: 'mg' })
+    assert.deepEqual(medicationCore(saved.medication), { value, unit: 'mg' })
     assert.equal(saved.provenance, 'saved_plan')
     assert.deepEqual(saved.sources, [{ table: 'phases', id: 'ph2', label: 'Saved phase plan' }])
     assert.equal(historicalBefore[0].phaseId, null)
@@ -265,7 +265,7 @@ test('current saved phase wins over a stale open-ended historical boundary witho
     assert.equal(stale.metadata.newState.endWeek, null)
     assert.equal(JSON.stringify(data), before)
     current.dosing_entry.review_status = 'unverified'
-    assert.equal(history.healthStateAtDate(data, '2026-03-15', currentMode)[0].medication, null)
+    assert.equal(history.healthStateAtDate(data, '2026-03-15', currentMode)[0].medication.reviewStatus, 'unverified')
   }
 })
 
@@ -276,13 +276,13 @@ test('conflicting snapshots of an inactive saved phase do not invalidate the uni
   assert.equal(history.healthStateAtDate(data, '2026-03-15')[0].medication, null)
   const current = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
   assert.equal(current.phaseId, 'ph2')
-  assert.deepEqual(current.medication, { value: 1, unit: 'mg' })
+  assert.equal(current.medication, null)
 })
 
 test('a confirmed snapshot-only phase cannot become a confirmed current saved phase', () => {
   const data = multiPhaseReviewSource('confirmed', 'confirmed')
   data.protocols[0].compounds[0].phases.pop()
-  assert.deepEqual(history.healthStateAtDate(data, '2026-03-15')[0].medication, { value: 1, unit: 'mg' })
+  assert.equal(history.healthStateAtDate(data, '2026-03-15')[0].medication, null)
   const current = history.healthStateAtDate(data, '2026-03-15', currentMode)[0]
   assert.equal(current.phaseId, null)
   assert.equal(current.medication, null)
@@ -308,7 +308,7 @@ test('current saved confirmation is authoritative over same-day phase snapshots 
     const data = source([p], ordered)
     const current = history.healthStateAtDate(data, date, currentMode)[0]
     assert.equal(current.phaseId, 'ph2')
-    assert.deepEqual(current.medication, { value: 5, unit: 'mg' })
+    assert.deepEqual(medicationCore(current.medication), { value: 5, unit: 'mg' })
     assert.equal(current.frequency, '2x/week')
     assert.equal(current.route, 'IM')
     assert.equal(current.provenance, 'saved_plan')
@@ -325,7 +325,8 @@ test('current saved confirmation is authoritative over same-day phase snapshots 
   saved.dosing_entry = unverified
   const unconfirmed = history.healthStateAtDate(source([p], rows), date, currentMode)[0]
   assert.equal(unconfirmed.phaseId, 'ph2')
-  assert.equal(unconfirmed.medication, null)
+  assert.equal(unconfirmed.medication.reviewStatus, 'unverified')
+  assert.equal(unconfirmed.medication.rawValue, '5')
   assert.equal(unconfirmed.frequency, '2x/week')
   assert.equal(unconfirmed.route, 'IM')
   assert.equal(JSON.stringify(rows), JSON.stringify(JSON.parse(before).rows))
@@ -333,7 +334,7 @@ test('current saved confirmation is authoritative over same-day phase snapshots 
 
 test('current state does not retain historical confirmation after the saved dose becomes unverified', () => {
   const data = multiPhaseReviewSource('unverified', 'confirmed')
-  assert.deepEqual(history.healthStateAtDate(data, '2026-02-01')[0].medication, { value: 1, unit: 'mg' })
+  assert.equal(history.healthStateAtDate(data, '2026-02-01')[0].medication, null)
   assert.equal(history.healthStateAtDate(data, '2026-03-15', currentMode)[0].medication, null)
 })
 
@@ -345,7 +346,7 @@ test('current saved-phase confirmation stays scoped to protocol and compound ide
   data.protocolEvents.push({ ...stale, id: 'other-phase', compound_id: 'c2', metadata: { version: 1, newState: { ...stale.metadata.newState,
     compoundId: 'c2', startWeek: 1, dosingEntry: syringeEntry() } } })
   const current = history.healthStateAtDate(data, '2026-03-15', currentMode)
-  assert.deepEqual(current.map(item => [item.compoundId, item.medication?.value ?? null]), [['c1', 1], ['c2', null]])
+  assert.deepEqual(current.map(item => [item.compoundId, item.medication?.value ?? null]), [['c1', null], ['c2', null]])
 })
 
 test('current saved authority preserves historical ambiguity, saved overlaps, and snapshot-only uncertainty', () => {
@@ -358,7 +359,7 @@ test('current saved authority preserves historical ambiguity, saved overlaps, an
   assert.equal(historical.provenance, 'unknown')
   const current = history.healthStateAtDate(ambiguous, '2026-03-15', currentMode)[0]
   assert.equal(current.phaseId, 'ph2')
-  assert.deepEqual(current.medication, { value: 1, unit: 'mg' })
+  assert.equal(current.medication, null)
   assert.equal(current.provenance, 'saved_plan')
   const overlapping = multiPhaseReviewSource()
   overlapping.protocols[0].compounds[0].phases[0].end_week = null
@@ -481,3 +482,6 @@ test('confirmation dialog cannot overflow horizontally from padded full-width co
   assert.match(css, /\.protocol-confirm-dialog \{[^}]*box-sizing:\s*border-box[^}]*overflow-x:\s*hidden/s)
   assert.match(css, /\.protocol-confirm-dialog > div \{[^}]*box-sizing:\s*border-box[^}]*width:\s*100% !important[^}]*min-width:\s*0/s)
 })
+
+// Value/unit selection contract; raw provenance is tested separately.
+function medicationCore(dose) { return dose ? { value: dose.value, unit: dose.unit } : null }

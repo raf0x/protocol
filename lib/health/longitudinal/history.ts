@@ -1,5 +1,6 @@
 import { currentPhase, isMedicationUnit } from '../dosing'
-import { dosingDisplay, type DosingEntry } from '../dosingEntry'
+import { type DosingEntry } from '../dosingEntry'
+import { recordedDoseDisplay } from '../recordedDose'
 import { scheduleLabel, type LibraryProtocol } from '../protocolPresentation'
 import type { OverlayProtocolEvent } from '../protocolOverlay'
 import type { PhaseRow } from '../timeline'
@@ -22,16 +23,17 @@ export function snapshotPhase(value: unknown): PhaseRow | null {
 }
 
 export function medicationForPhase(phase: PhaseRow | null): MedicationDose | null {
-  if (!phase || (phase.dosing_entry ? phase.dosing_entry.review_status !== 'confirmed' : phase.dose_semantics_version !== 1)) return null
-  const dose = dosingDisplay(phase).medication
-  return validMedication(dose)
+  if (!phase) return null
+  const dose = recordedDoseDisplay(phase).medication
+  const medication = validMedication(dose)
+  return medication ? { ...medication, reviewStatus: phase.dosing_entry?.review_status ?? 'legacy_semantics_v1' } : null
 }
-function validMedication(dose: { value: number; unit: string } | null): MedicationDose | null {
-  return dose && Number.isFinite(dose.value) && dose.value > 0 && isMedicationUnit(dose.unit) ? { value: dose.value, unit: dose.unit } : null
+function validMedication(dose: { value: string; unit: string; source: string; phaseId: string | null } | null): MedicationDose | null {
+  return dose && Number.isFinite(Number(dose.value)) && Number(dose.value) >= 0 && isMedicationUnit(dose.unit) ? { value: Number(dose.value), unit: dose.unit, rawValue: dose.value, source: dose.source, phaseId: dose.phaseId } : null
 }
 export function compareMedication(before: MedicationDose | null, after: MedicationDose | null): number | null {
-  if (!before || !after || (before.unit === 'IU') !== (after.unit === 'IU')) return null
-  const value = (dose: MedicationDose) => dose.value * (dose.unit === 'mg' ? 1000 : 1)
+  if (!before || !after || before.reviewStatus === 'unverified' || after.reviewStatus === 'unverified' || before.unit !== after.unit) return null
+  const value = (dose: MedicationDose) => dose.value
   const difference = value(after) - value(before)
   if (!Number.isFinite(difference) || !Number.isFinite(value(before)) || !Number.isFinite(value(after))) return null
   return Math.abs(difference) <= Math.max(value(before), value(after)) * 1e-10 ? 0 : difference
@@ -204,12 +206,13 @@ export function healthStateAtDate(source: Pick<LongitudinalSource, 'protocols' |
       else limitations.push('Snapshot schedule days/times were not retained; only recorded frequency and route are available.')
       if (!compound) limitations.push('Compound record is absent; retained event snapshots are the only available history.')
       const medication = ambiguous ? null : medicationForPhase(effective)
+      if (medication?.reviewStatus === 'unverified') limitations.push('Recorded medication entry is unverified.')
       if (!medication) limitations.push('Medication dose is not confirmed; syringe markings and volume are not medication IU.')
-      const display = effective ? dosingDisplay(effective) : null
+      const display = effective ? recordedDoseDisplay(effective) : null
       const frequency = effective && !ambiguous ? scheduleLabel(effective) : null
       const eventName = compoundEvents.map(event => typeof event.metadata?.compoundName === 'string' ? event.metadata.compoundName : null).find(Boolean)
       result.push({ protocolId: protocol.id, compoundId, name: compound?.name || eventName || protocol.name || 'Recorded compound',
-        phaseId: selected?.id ?? null, medication, administration: !medication && effective?.dosing_entry ? display?.primary ?? null : null,
+        phaseId: selected?.id ?? null, recordedFacts: ambiguous ? null : display?.facts ?? null, medication, administration: !medication && effective?.dosing_entry ? display?.primary ?? null : null,
         frequency: frequency === 'Schedule not set' ? null : frequency, route: ambiguous ? null : effective?.route ?? null,
         provenance, limitations,
         sources: !saved && match?.eventIds.length ? match.eventIds.map(id => ({ table: 'protocol_events' as const, id, label: 'Structured phase snapshot' }))

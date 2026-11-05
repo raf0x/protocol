@@ -1,5 +1,5 @@
 import { currentPhase } from './dosing'
-import { dosingDisplay } from './dosingEntry'
+import { recordedDoseDisplay } from './recordedDose'
 import { protocolLifecycle, localCalendarDate } from './protocolDates'
 import { resolveBaselineDetails, normalizeTimeline, type ProtocolRow, type ProtocolEventRow, type JournalEntryRow } from './timeline'
 
@@ -7,12 +7,12 @@ import { resolveBaselineDetails, normalizeTimeline, type ProtocolRow, type Proto
 export function todayProtocols(protocols: ProtocolRow[], date: string) {
   return protocols.filter(protocol => protocolLifecycle(protocol,date) === 'active').flatMap(protocol => (protocol.compounds ?? []).map(compound => {
     const phase = protocol.start_date ? currentPhase(compound.phases ?? [], protocol.start_date, date) : null
-    const display = dosingDisplay(phase)
+    const display = recordedDoseDisplay(phase)
     const details = resolveBaselineDetails(compound, protocol, date)
     const days = protocol.start_date ? (Date.parse(date) - Date.parse(protocol.start_date.slice(0, 10))) / 86400000 : NaN
     return {
       id: compound.id, name: compound.name || protocol.name || 'Unnamed compound',
-      details: details.length ? details.join(' · ') : display.medication ? display.primary : 'Dose not fully calculated',
+      details: details.length ? details.join(' · ') : display.medication ? display.primary : 'Medication amount not recorded',
       week: Number.isFinite(days) && days >= 0 ? Math.floor(days / 7) + 1 : null,
       hasPhase: Boolean(phase),
     }

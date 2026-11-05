@@ -9,9 +9,11 @@ const dosingCode = ts.transpileModule(dosingSource, {compilerOptions:{module:ts.
 const dosingUrl = `data:text/javascript;base64,${Buffer.from(dosingCode).toString('base64')}`
 const entryCode=ts.transpileModule(readFileSync(new URL('../lib/health/dosingEntry.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText
 const entryUrl=`data:text/javascript;base64,${Buffer.from(entryCode).toString('base64')}`
+const recordedCode=ts.transpileModule(readFileSync(new URL('../lib/health/recordedDose.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText
+const recordedUrl=`data:text/javascript;base64,${Buffer.from(recordedCode).toString('base64')}`
 const awaitEntryModule=await import(entryUrl)
 const source = readFileSync(new URL('../lib/health/timeline.ts', import.meta.url), 'utf8')
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2021 } }).outputText.replace("'./dosing'", JSON.stringify(dosingUrl)).replace("'./dosingEntry'", JSON.stringify(entryUrl))
+const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2021 } }).outputText.replace("'./dosing'", JSON.stringify(dosingUrl)).replace("'./dosingEntry'", JSON.stringify(entryUrl)).replace("'./recordedDose'", JSON.stringify(recordedUrl))
 const { normalizeTimeline, formatTimelineDate, deriveBaseline, groupTimeline, protocolMetadataChips } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
 const journal = { id: 'j1', date: '2026-09-08', weight: 176.5, notes: 'Feeling good', mood: 4, energy: 3, sleep: 0, hunger: 2 }
 const protocol = { id: 'p1', date: '2026-09-07', event_type: 'started', description: 'Original dose', protocol_id: 'p', compound_id: 'c', protocols: { name: 'My protocol' }, compounds: { name: 'Compound' } }
@@ -58,7 +60,7 @@ test('removes mechanical descriptions and exposes structured saved-plan context'
   assert.equal(event.metadata.dose, 5)
   assert.equal(event.metadata.protocolStatus, 'active')
   assert.equal(event.metadata.route, null)
-  assert.deepEqual(protocolMetadataChips(event), ['5 mg', 'weekly'])
+  assert.deepEqual(protocolMetadataChips(event), ['weekly'], 'A current saved-plan scalar is not an original event medication snapshot')
   const [recorded] = normalizeTimeline([{ ...enriched, description: 'Started Compound at 2.5mg' }], [])
   assert.equal(recorded.description, '2.5mg')
 })
@@ -159,8 +161,8 @@ test('baseline prefers current raw entry over stale V1 columns and labels volume
   const raw=entryFromForm({input_mode:'volume',injection_volume:'0.5'})
   const active={...enriched.protocols,compounds:[{...enriched.compounds,phases:[{...phase,dose:999,dose_unit:'IU',dose_semantics_version:1,dosing_entry:raw}]}]}
   const baseline=deriveBaseline([active],[],[],'2026-09-09')
-  assert.match(baseline.activeProtocols[0].compounds[0].details[0],/0.5 mL.*Medication dose not calculated/)
-  assert.match(baseline.activeProtocols[0].compounds[0].issue,/Medication dose not calculated/)
+  assert.match(baseline.activeProtocols[0].compounds[0].details[0],/^0.5 mL recorded volume$/)
+  assert.match(baseline.activeProtocols[0].compounds[0].issue,/Medication amount not recorded/)
 })
 
 test('baseline keeps medication IU, medication mass, volume and unresolved syringe facts distinct',()=>{
