@@ -59,7 +59,7 @@ export default function ProtocolDetail(props: Props) {
           {info.next && <div className="protocol-next-dose"><span>Next dose</span><strong>{info.next.date === today ? 'Today' : dateLabel(info.next.date)}</strong>{info.next.time && <small>{info.next.time}</small>}</div>}
           {administrationDetails.length > 0 && <div className="protocol-compact-administration"><span>Dose details</span><p>{administrationDetails.join(' · ')}</p></div>}
         </div>
-        {issue && <div className="protocol-dose-issue" role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p><button type="button" onClick={() => props.onEdit(compound.id, false, issue.field)}>{issue.action}</button></div>}
+        {issue && <div className={issue.severity === 'warning' ? 'protocol-dose-issue' : 'protocol-dose-information'} role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p>{issue.action && <button type="button" onClick={() => props.onEdit(compound.id, false, issue.field)}>{issue.action}</button>}</div>}
       </section>
     })}
     <details className="protocol-more-details"><summary>More details</summary>

@@ -1,4 +1,4 @@
-// Release 4A: actual hydrated Hero, premium vial, containment dialog and protocol editor.
+// Release 4B.2B.2: actual hydrated warning classification and correction controls.
 // Synthetic records and a rejecting Supabase boundary; no live backend or private data.
 // Run: npm run validate:browser -- tests/vial-safety.browser.cjs
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -13,7 +13,7 @@ const shots = path.join(evidence, 'screenshots')
 fs.mkdirSync(shots, { recursive: true })
 const runtime = fs.mkdtempSync(path.join(os.tmpdir(), 'release4a-browser-'))
 const entry = path.join(runtime, 'fixture.tsx')
-const baseline = 'fbd2b6b9c9a0f6013fe0fba93afdafbba7874ff7'
+const baseline = '05223a02b01da23ce39349d60d1245b765a4604e'
 const sourceHashes = { 'tests/vial-safety.browser.cjs': sha256(fs.readFileSync(__filename)) }
 const screenshots = [], checks = [], matrix = [], network = []
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -30,6 +30,8 @@ window.qaWrites=[];window.qaRequests=[];window.qaActions=[];window.qaMode='norma
 const dosing=(extra={})=>({version:2,mode:'medication',review_status:'confirmed',dose:'2',dose_unit:'mg',syringe_markings:'',syringe_scale:'',injection_volume:'0.4',vial_strength:'10',vial_unit:'mg',bac_water_ml:'2',concentration_value:'',concentration_unit:'',vial_label:'Synthetic vial',preparation:'mixing',is_premixed:false,...extra});
 window.qaProtocol=(mode='normal')=>{
  let entry=dosing();const compound={id:'synthetic-compound',name:'Synthetic compound',vial_strength:10,vial_unit:'mg',bac_water_ml:2,reconstitution_date:'2026-10-30',vials_in_stock:2,doses_taken_override:0,notes:'Synthetic fixture; no real treatment.'};
+ if(mode.startsWith('invalid-'))entry=dosing({[mode.slice(8)]:mode==='invalid-syringe_scale'?'0':'-2'});
+ if(mode==='invalid-saved-amount')entry=dosing({mode:'volume',dose:'-2'});
  if(mode==='missing'){entry=dosing({dose:'',dose_unit:'',injection_volume:'',vial_strength:'',vial_unit:'',bac_water_ml:''});Object.assign(compound,{vial_strength:null,vial_unit:null,bac_water_ml:null,reconstitution_date:null,vials_in_stock:null,doses_taken_override:null})}
  if(mode==='conflict'){entry=dosing({injection_volume:'0.2',vial_strength:'20',bac_water_ml:'4'});Object.assign(compound,{vial_strength:10,bac_water_ml:2})}
  if(mode==='unknown'){Object.assign(compound,{doses_taken_override:null,vials_in_stock:0});entry=dosing()}
@@ -37,6 +39,7 @@ window.qaProtocol=(mode='normal')=>{
  if(mode==='labelled-legacy')entry=dosing({mode:'volume',dose:'',dose_unit:'',injection_volume:'0.2',vial_strength:'',vial_unit:'',bac_water_ml:'',concentration_value:'5',concentration_unit:'',preparation:undefined,is_premixed:undefined});
  const history={id:'synthetic-historical-phase',name:'Recorded historical phase',start_week:1,end_week:2,dose:18,dose_unit:'IU',dose_semantics_version:null,injection_volume_ml:null,syringe_units:18,syringe_scale:null,frequency:'daily',route:'SubQ'};
  const phase={id:'synthetic-current-phase',name:'Recorded current phase',start_week:3,end_week:null,dosing_entry:entry,dose:null,dose_unit:null,dose_semantics_version:null,frequency:'daily',route:'SubQ',days_of_week:[0,1,2,3,4,5,6],time_of_day:'Morning'};
+ if(mode==='legacy-invalid')Object.assign(phase,{dosing_entry:null,dose:-2,dose_unit:'mg',dose_semantics_version:1});
  return {id:'synthetic-protocol',name:'Synthetic protocol',status:'active',start_date:'2026-10-01',compounds:[{...compound,phases:[history,phase]}]};
 };
 window.qaLogs=[{compound_id:'synthetic-compound',date:'2020-01-01',taken:true}];window.qaRecord=qaProtocol();window.qaOriginal=JSON.stringify({protocol:qaRecord,logs:qaLogs});
@@ -107,8 +110,11 @@ function installChecks(){
   if(mode==='missing')check(fact('Vials in stock')==='Not recorded',label+' unknown stock stays unknown');
   if(mode==='unknown')check(fact('Vials in stock')==='0',label+' explicit zero stock preserved');
   if(mode==='normal')check(hero.querySelector('.today-snapshot-medication').textContent.includes('2 mg'),label+' recorded normal medication remains visible');
-  if(mode==='conflict'){check(/0\.2 mL/.test(hero.textContent)&&/2 mg/.test(hero.textContent)&&/volume calculated from/.test(hero.textContent),label+' recorded amounts and calculation disagreement explained');check(hero.querySelector('figure figcaption').textContent.includes('10 mg')&&!hero.querySelector('figure figcaption').textContent.includes('20 mg'),label+' historical phase preparation never replaces recorded compound amount');}
-  check(Boolean(document.querySelector('[data-vial-remaining-reason]'))&&document.querySelector('[data-vial-remaining-reason]').textContent.includes('saved doses are not linked to an individual vial'),label+' unavailable remaining has a visible explanation');
+  if(mode==='conflict'){check(/0\.2 mL/.test(hero.textContent)&&/2 mg/.test(hero.textContent),label+' independent recorded amounts remain visible');check(hero.querySelector('figure figcaption').textContent.includes('10 mg')&&!hero.querySelector('figure figcaption').textContent.includes('20 mg'),label+' historical phase preparation never replaces recorded compound amount');}
+  check(Boolean(document.querySelector('[data-vial-remaining-reason]'))&&document.querySelector('[data-vial-remaining-reason]').textContent.includes('Saved doses are not linked to an individual vial'),label+' unavailable remaining has a visible explanation');
+  check(!document.querySelector('.today-snapshot-notice,.dose-issue,.dosing-panel-issue'),label+' valid or absent historical facts have no warning');
+  check(!document.querySelector('a[href*="review="]'),label+' no unsupported repair link');
+  const remaining=document.querySelector('[data-vial-remaining-reason]');check(remaining.querySelector('details')&&!remaining.querySelector('details').open,label+' remaining limitation is optional');check(!remaining.querySelector('a'),label+' remaining limitation has no edit promise');
   const action=hero.querySelector('.vial-new-button');check(action&&!action.disabled,label+' New Vial explanation remains accessible');
   layout(label);preserved(label);
  };
@@ -140,7 +146,7 @@ function installChecks(){
   for(const mode of['missing','conflict','unknown','normal']){
    const label=theme+' '+width+' '+mode;console.log('Browser '+label);
    await run('qaReset('+JSON.stringify(mode)+');await tick(120);heroCheck('+JSON.stringify(mode)+','+JSON.stringify(label)+');scrollTo(0,0)');
-   if(width===390)await screen(mode+'-390-'+theme);matrix.push({theme,width,mode});await harvest();
+   await screen(mode+'-'+width+'-'+theme);matrix.push({theme,width,mode});await harvest();
   }
   const label=theme+' '+width+' containment';
   await run("qaReset('normal');await tick(120);window.trigger=document.querySelector('.vial-new-button');trigger.scrollIntoView({block:'center'});trigger.focus();");
@@ -150,17 +156,17 @@ function installChecks(){
   if(width===390)await screen('new-vial-containment-390-'+theme,false);matrix.push({theme,width,mode:'containment'});
   await key('Escape','Escape',27);await run("await tick();check(!document.querySelector('dialog[open]'),'Escape dismisses containment');check(document.activeElement===trigger,'Containment returns focus');preserved('Containment dismissal');");await harvest();
  }
- // Test actual Hero recovery links into the real editor, including hidden Administration fields.
+ // Every actionable numeric warning reaches its existing editable field without changing mode or preparation.
  await viewport(390);
- for(const [mode,field,expected]of[['scale','Syringe scale',''],['conflict','Injection volume (mL)','0.2']]){
-  await run('qaReset('+JSON.stringify(mode)+');await tick(120);window.recovery=[...document.querySelectorAll(".today-snapshot-actions a")].find(a=>new URL(a.href).searchParams.get("review")==='+JSON.stringify(field)+');check(Boolean(recovery),'+JSON.stringify('Hero has exact recovery target '+field)+');recovery.click();await waitFor(()=>document.querySelector(".protocol-editor"));await tick(100);check(document.activeElement.getAttribute("aria-label")==='+JSON.stringify(field)+','+JSON.stringify('Actual editor focuses '+field)+');check(document.activeElement.value==='+JSON.stringify(expected)+','+JSON.stringify('Recovery preserves entered '+field)+');layout('+JSON.stringify('Editor recovery '+field)+');preserved('+JSON.stringify('Editor recovery '+field)+');');
-  await screen('editor-recovery-'+mode+'-390-light',true);await harvest();
+ for(const [key,field]of[['dose','Medication dose'],['saved-amount','Saved amount'],['syringe_markings','Syringe markings'],['syringe_scale','Syringe scale'],['injection_volume','Injection volume (mL)'],['vial_strength','Vial amount'],['bac_water_ml','BAC water in mL'],['concentration_value','Concentration value']]){
+  await run('qaReset('+JSON.stringify('invalid-'+key)+');await tick(120);window.recovery=[...document.querySelectorAll(".today-snapshot-actions a")].find(a=>new URL(a.href).searchParams.get("review")==='+JSON.stringify(field)+');check(Boolean(recovery),'+JSON.stringify('Specific action for '+field)+');recovery.click();await waitFor(()=>document.querySelector(".protocol-editor"));await tick(120);check(document.activeElement.getAttribute("aria-label")==='+JSON.stringify(field)+','+JSON.stringify('Visible control for '+field)+');check(!document.activeElement.closest("[hidden]"),"Recovery field is exposed");check(document.querySelector(".dosing-methods [aria-pressed=true]")?.textContent.includes(qaMode==="invalid-saved-amount"?"Volume":"Medication"),"Recovery retains measurement mode");check(qaMode!=="invalid-saved-amount"||document.querySelector("label[for]").textContent==="Saved amount (meaning unverified)","Saved amount keeps neutral label");check([...document.querySelectorAll("[aria-label]")].find(e=>e.getAttribute("aria-label")==="Preparation source").checked===false,"Recovery retains preparation");layout("Numeric recovery");preserved("Numeric recovery");');
+  await screen('editor-invalid-'+key+'-390-light');await harvest();
+ await run("window.control=document.activeElement;Object.getOwnPropertyDescriptor(control.tagName===\"SELECT\"?HTMLSelectElement.prototype:HTMLInputElement.prototype,\"value\").set.call(control,control.tagName===\"SELECT\"?\"100\":\"2\");control.dispatchEvent(new Event(control.tagName===\"SELECT\"?\"change\":\"input\",{bubbles:true}));await tick(100);check(!document.querySelector(\"[role=alert]\"),\"Corrected numeric value clears validation error\");check(!document.querySelector(\".dose-issue,.dosing-panel-issue\"),\"Corrected numeric value clears actionable warning\");preserved(\"Synthetic edit remains local until save\");");await harvest();
  }
-
-
- // Historical labelled preparation can be preserved while its editor control is not currently visible.
- await run('qaReset("labelled-legacy");await tick(120);window.legacyLink=[...document.querySelectorAll(".today-snapshot-actions a")].find(a=>new URL(a.href).searchParams.get("review")==="Concentration unit");check(Boolean(legacyLink),"Legacy label entry identifies missing Concentration unit");legacyLink.click();await waitFor(()=>document.querySelector("[data-dose-review-fallback]"));await tick(100);check(document.activeElement.getAttribute("aria-label")==="Preparation source","Legacy recovery focuses applicable Preparation source control");check(document.activeElement.checked===false,"Legacy recovery does not switch preparation");check(document.querySelector(".dosing-methods [aria-pressed=true]")?.textContent.includes("Volume"),"Legacy recovery does not switch measurement mode");check(document.querySelector("[aria-label=\\"Injection volume (mL)\\"]")?.value==="0.2","Legacy recovery preserves recorded volume");const note=document.querySelector("[data-dose-review-fallback]");check(note.textContent.includes("Concentration unit is not shown")&&note.textContent.includes("No preparation, measurement mode or saved value has been changed"),"Legacy recovery explains hidden field accurately");check(note.textContent.includes("Saved Concentration unit")&&note.textContent.includes("Not recorded"),"Legacy recovery preserves missing unit certainty");check(document.activeElement.getAttribute("aria-describedby")===note.id,"Legacy recovery focus is described by its explanation");check([...document.querySelectorAll(".dose-issue,.dosing-panel-issue")].filter(element=>element.getClientRects().length>0).length===1,"Open Vial panel presents the preparation warning once");layout("Legacy preparation recovery");preserved("Legacy preparation recovery");');
- await screen('editor-recovery-labelled-legacy-390-light',true);await harvest();
+ for(const mode of['scale','labelled-legacy']){
+  await run('qaReset('+JSON.stringify(mode)+');await tick(120);check(![...document.querySelectorAll("a")].find(e=>e.href.includes("review=")),"Missing optional facts offer no false correction");check(!document.querySelector(".today-snapshot-notice"),"Missing optional facts have no warning");preserved("Neutral optional facts");');await harvest();
+ }
+ await run("qaReset(\"legacy-invalid\");await tick(120);check(![...document.querySelectorAll(\"a\")].some(e=>e.href.includes(\"review=\")),\"Legacy invalid value has no unsupported correction link\");[...document.querySelectorAll(\".today-snapshot-actions a\")].find(e=>e.textContent===\"Manage protocol\").click();await waitFor(()=>document.querySelector(\"[data-historical-correction-unavailable]\"));check(document.querySelector(\"[data-historical-correction-unavailable]\").textContent.includes(\"cannot correct this older record\"),\"Editor keeps historical correction limitation\");check(!document.querySelector(\".dose-review-link\"),\"Editor never promotes legacy draft into actionable V2\");preserved(\"Legacy limitation\");");await screen("editor-legacy-invalid-390-light");await harvest();
  // Old New Vial URLs must not revive the removed editor mutation pathway.
  for(const parameters of['reconstitution_vial=20','reconstitution_water=4','reconstitution_date=2026-11-04']){
   await run('qaReset("normal");await tick();qaNavigate("/protocol/manage?compound=synthetic-compound&'+parameters+'");await waitFor(()=>document.querySelector("[data-vial-handoff-blocked]"));check(!document.querySelector(".protocol-editor"),"Legacy New Vial handoff does not open mutation editor");check(document.body.textContent.includes("Synthetic compound"),"Legacy handoff retains access to existing protocol");preserved("Legacy New Vial handoff");');await harvest();

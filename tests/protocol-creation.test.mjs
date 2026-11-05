@@ -150,7 +150,7 @@ test('edit options start closed and reveal one mounted secondary panel at a time
     assert.ok(h.button('Save changes'))
   }finally{globalThis.window=previous}
 })
-test('Vial panel keeps one human issue and closes calculation details initially',()=>{
+test('Vial panel keeps neutral review information and closes recorded facts initially',()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const entry=load('../lib/health/dosingEntry.ts').entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'})
@@ -159,7 +159,7 @@ test('Vial panel keeps one human issue and closes calculation details initially'
     h.render().find(n=>n.type==='details'&&n.props.className==='dosing-more-options').props.onToggle({currentTarget:{open:true}})
     h.render().find(n=>n.props.className==='dosing-option-card'&&n.props['aria-controls']==='dosing-panel-0-vial').props.onClick()
     const nodes=h.render(), review=nodes.find(n=>n.props['data-dose-review']!==undefined)
-    assert.equal(nodes.filter(n=>n.props.className==='dosing-panel-issue').length,1)
+    assert.equal(nodes.filter(n=>n.props.className==='dosing-panel-issue').length,0);assert.equal(nodes.filter(n=>n.props.className==='dose-information').length,1)
     assert.equal(nodes.find(n=>n.type?.name==='DoseSummary'),undefined)
     assert.equal(review.props.open,undefined);assert.equal(review.props.hidden,false)
     assert.equal(text(review.props.children[0]),'Review recorded facts')
@@ -437,7 +437,7 @@ test('review recorded facts stays closed and shows compact facts without raw ari
   }
   const conflict=renderReview(entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
   assert.match(conflict.html,/<dt>Recorded medication amount<\/dt><dd>10 mg<\/dd>/);assert.match(conflict.html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/)
-  assert.match(conflict.html,/agreement has not been verified/);assert.match(conflict.html,/Review How do you measure it/);assert.match(conflict.html,/Nothing is recalculated or corrected/);assert.doesNotMatch(conflict.html,/Calculation \(rounded\)|Unverified dose semantics|Saved mixing details conflict/)
+  assert.doesNotMatch(conflict.html,/agreement has not been verified|Review How do you measure it|dose-issue|dose-review-link/);assert.doesNotMatch(conflict.html,/Calculation \(rounded\)|Unverified dose semantics|Saved mixing details conflict/)
   assert.equal(conflict.review.props.open,undefined);assert.equal(conflict.review.props.hidden,false);assert.doesNotMatch(conflict.all,/Unverified dose semantics|You can still save/)
   const valid=renderReview(entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
   assert.match(valid.html,/<dt>Recorded medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(valid.html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/);assert.doesNotMatch(valid.html,/<dt>Concentration<\/dt>/)
@@ -533,7 +533,7 @@ test('review preserves historical U-50 facts without rendering unsupported syrin
   assert.doesNotMatch(html,/18 ÷ 50|÷/)
   assert.match(html,/<dt>Syringe draw<\/dt><dd>18 saved markings · origin unverified · U-50<\/dd>/);assert.equal(h.field('Syringe scale').props.value,'50')
   assert.match(html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/);assert.match(html,/<dt>Recorded medication amount<\/dt><dd>2 mg<\/dd>/);assert.doesNotMatch(html,/<dt>Concentration<\/dt>/)
-  assert.doesNotMatch(html,/Unverified dose semantics|You can still save|Unsupported syringe scale U-50/);assert.match(html,/Saved scale U-50 is retained/);assert.match(html,/Review Syringe scale/);assert.match(html,/not been confirmed as U-100 or U-40/)
+  assert.doesNotMatch(html,/Unverified dose semantics|You can still save|Unsupported syringe scale U-50/);assert.match(html,/recorded scale is preserved/);assert.match(html,/No equivalent is calculated/);assert.doesNotMatch(html,/Review Syringe scale|dose-review-link/)
  }finally{globalThis.window=previous}
 })
 
@@ -603,3 +603,13 @@ test('legacy editing blocks unsafe historical conversion and preserves access to
     assert.deepEqual(h.render().find(n=>n.type?.name==='ProtocolDetail').props.protocol,before)
   }finally{globalThis.window=previous}
 })
+
+test('legacy invalid numeric values never acquire an unsupported editor correction action',()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}};
+ try{
+ const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:null,dose:-2,dose_unit:'mg',dose_semantics_version:1}]}]};
+ const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit();
+ const nodes=h.render(),note=nodes.find(n=>n.props['data-historical-correction-unavailable']!==undefined);
+ assert.ok(note);assert.match(text(note),/cannot correct this older record/);assert.equal(nodes.filter(n=>n.props.className==='dose-review-link').length,0);
+ }finally{globalThis.window=previous}
+});

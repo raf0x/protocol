@@ -13,7 +13,6 @@ import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { dateLabel } from '../../lib/health/protocolPresentation'
 import { phaseDosingIssue } from '../../lib/health/dosingGuidance'
 import { currentVialSafety } from '../../lib/health/vialSafety'
-import vialStyles from './VialInventory.module.css'
 import SelectedProtocolSnapshot from '../today/SelectedProtocolSnapshot'
 import EnhancedVial from '../today/EnhancedVial'
 
@@ -213,10 +212,9 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const administrationText = recordedAdministrationDisplay(currentPhase)
   const vialSafety = currentVialSafety(activeCompound, entry)
   const stockText = formatProtocolNumber(activeCompound.vials_in_stock, 'count')
-  const vialRecovery = <div className={vialStyles.recovery} data-vial-remaining-reason role="status">
-    <strong>Why remaining volume is unknown</strong>
-    <ul>{vialSafety.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
-    <a href={`/protocol/manage?compound=${activeCompound.id}`}>Review recorded protocol details</a>
+  const vialRecovery = <div data-vial-remaining-reason style={{fontSize:13,color:'var(--color-dim)',marginTop:12}}>
+    <details><summary>Remaining amount isn't tracked yet.</summary><p>{vialSafety.reasons.join(' ')}</p></details>
+    {vialSafety.invalidFacts.map(reason => <p key={reason} role="status" data-vial-invalid>{reason}</p>)}
   </div>
 
   const expired=expiredLatestPhase(activeCompound.phases || [],activeProtocol.status || 'active',activeProtocol.start_date,new Date().toLocaleDateString('en-CA'))
@@ -232,8 +230,8 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const dosePresentation = recordedDoseDisplay(currentPhase)
   const doseIssue = phaseDosingIssue(currentPhase)
   const badgeDoseText = dosePresentation.primary
-  const doseNotice = doseIssue ? <><strong>{doseIssue.title}</strong><p>{doseIssue.explanation}</p></> : null
-  const reviewHref = `/protocol/manage?compound=${activeCompound.id}${doseIssue ? '&review=' + encodeURIComponent(doseIssue.field) : ''}`
+  const doseNotice = doseIssue?.severity === 'warning' ? <><strong>{doseIssue.title}</strong><p>{doseIssue.explanation}</p></> : null
+  const reviewHref = `/protocol/manage?compound=${activeCompound.id}${doseIssue?.action ? '&review=' + encodeURIComponent(doseIssue.field) : ''}`
 
   async function archiveProtocol() {
     const completionDate = localCalendarDate()
@@ -305,7 +303,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
               <span style={{fontSize:'11px',color:'var(--color-dim)',fontWeight:'600'}}>{currentPhase.frequency}</span>
             )}
           </div>
-          {!expired && (!currentPhase ? <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>Add or extend a phase.</a> : doseNotice && <div style={{display:'grid',gap:4,marginBottom:12,fontSize:13}}><div>{doseNotice}</div><a href={reviewHref} style={{color:'var(--color-green)'}}>{doseIssue?.action ?? 'Review dose'}</a></div>)}
+          {!expired && (!currentPhase ? <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>Add or extend a phase.</a> : doseNotice && <div style={{display:'grid',gap:4,marginBottom:12,fontSize:13}}><div>{doseNotice}</div>{doseIssue?.action && <a href={reviewHref} style={{color:'var(--color-green)'}}>{doseIssue.action}</a>}</div>)}
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
@@ -329,6 +327,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
       </div>
       </>}
 
+      {doseIssue?.severity === 'info' && <p data-dose-information style={{fontSize:13,color:'var(--color-dim)'}}>{doseIssue.title}. {doseIssue.explanation}</p>}
       {vialRecovery}
       {!snapshot && vialInventory && (
         <div style={{marginTop:'14px',paddingTop:'14px',borderTop:'1px solid var(--color-border)'}}>

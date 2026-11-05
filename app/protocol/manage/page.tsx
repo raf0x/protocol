@@ -3,7 +3,7 @@ import ProtocolDialog from '../../../components/protocols/ProtocolDialog'
 import ProtocolLibrary from '../../../components/protocols/ProtocolLibrary'
 import ProtocolDetail from '../../../components/protocols/ProtocolDetail'
 import ProtocolSetupArtwork from '../../../components/protocols/ProtocolSetupArtwork'
-import DoseSummary, { dosingIssue } from '../../../components/protocols/DoseSummary'
+import DoseSummary, { dosingIssue, phaseDosingIssue } from '../../../components/protocols/DoseSummary'
 import { isDosingReviewField, type DosingReviewField } from '../../../lib/health/dosingGuidance'
 import { QuickChoices } from '../../../components/protocols/QuickStartControls'
 import ProtocolQuickStart from '../../../components/protocols/ProtocolQuickStart'
@@ -28,7 +28,7 @@ const DAY_NUMS = [1,2,3,4,5,6,0]
 const TIMES = ['Morning','Afternoon','Evening','Night']
 const UNITS = ['mg','mcg','IU']
 const reviewFieldKeys: Partial<Record<DosingReviewField, keyof Compound>> = {
-  'Medication dose': 'dose', 'Medication dose unit': 'dose_unit', 'Syringe markings': 'syringe_markings', 'Syringe scale': 'syringe_scale',
+  'Medication dose': 'dose', 'Saved amount': 'dose', 'Saved amount unit': 'dose_unit', 'Medication dose unit': 'dose_unit', 'Syringe markings': 'syringe_markings', 'Syringe scale': 'syringe_scale',
   'Injection volume (mL)': 'injection_volume', 'Vial amount': 'vial_strength', 'Vial unit': 'vial_unit', 'BAC water in mL': 'bac_water_ml',
   'Concentration value': 'concentration_value', 'Concentration unit': 'concentration_unit',
 }
@@ -548,7 +548,10 @@ export default function ManagePage() {
               const reviewEntry = (() => { try { return entryFromForm(c) } catch { return null } })()
               const reviewPhase = reviewEntry ? recordedReviewPhase(reviewEntry, c.historical) : null
               const reviewResult = (() => { try { return reviewEntry ? recordedDoseDisplay(reviewPhase) : null } catch { return null } })()
-              const reviewIssue = (() => { try { return reviewEntry ? dosingIssue(reviewEntry) : null } catch { return null } })()
+              const historicalPhase = c.historical && !c.historical.addingPhase ? c.historical.phase : undefined
+              const historicalIssue = phaseDosingIssue(historicalPhase)
+              const historicalCorrectionUnavailable = Boolean(c.historical && !c.historical.addingPhase && (!historicalPhase?.dosing_entry || historicalIssue?.code === 'unsupported-entry'))
+              const reviewIssue = historicalCorrectionUnavailable ? historicalIssue : dosingIssue({ ...c, version: 2, mode: c.input_mode, review_status: c.reviewed ? 'confirmed' : 'unverified' })
               const showConfirmation = Boolean(reviewEntry)
               const panelId = (name: string) => `${ci}:${name}`
               const selectedPanel = (name: string) => openEditorPanel === panelId(name)
@@ -576,11 +579,11 @@ export default function ManagePage() {
                     <label>Syringe scale<select aria-label="Syringe scale" style={is} value={c.syringe_scale} onChange={e => updateCompound(ci,'syringe_scale',e.target.value)}><option value="">Not selected</option>{c.syringe_scale && !['100','40'].includes(c.syringe_scale) && <option value={c.syringe_scale} disabled>Stored U-{c.syringe_scale} (unsupported; preserved)</option>}<option value="100">U-100</option><option value="40">U-40</option></select></label>
                   </>}
                   {(c.input_mode === 'volume' || c.input_mode === 'unknown') && <label>{c.input_mode === 'volume' ? 'Injection volume' : 'Injection volume (optional)'}<div className="dosing-amount-row"><input aria-label="Injection volume (mL)" inputMode="decimal" type="number" step="any" min="0" style={is} value={c.injection_volume} onChange={e => updateCompound(ci,'injection_volume',e.target.value)} /><span>mL</span></div></label>}
-                  {c.input_mode === 'medication' ? <>
-                  <label htmlFor={`edit-dose-${ci}`}>Medication amount</label>
+                  {(c.input_mode === 'medication' || Boolean(c.dose)) ? <>
+                  <label htmlFor={`edit-dose-${ci}`}>{c.input_mode === 'medication' ? 'Medication amount' : 'Saved amount (meaning unverified)'}</label>
                   <div className="dosing-amount-row">
-                    <input id={`edit-dose-${ci}`} aria-label='Medication dose' inputMode="decimal" type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 5' style={{...is,flex:1}} />
-                    <select aria-label='Medication dose unit' value={c.dose_unit} onChange={e => updateCompound(ci,'dose_unit',e.target.value)} style={{...is,width:'75px',flex:'none'}}>
+                    <input id={`edit-dose-${ci}`} aria-label={c.input_mode === 'medication' ? 'Medication dose' : 'Saved amount'} inputMode="decimal" type='number' step='any' value={c.dose} onChange={e => updateCompound(ci,'dose',e.target.value)} placeholder='e.g. 5' style={{...is,flex:1}} />
+                    <select aria-label={c.input_mode === 'medication' ? 'Medication dose unit' : 'Saved amount unit'} value={c.dose_unit} onChange={e => updateCompound(ci,'dose_unit',e.target.value)} style={{...is,width:'75px',flex:'none'}}>
                       <option value=''>Select unit</option>{UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                   </div>
@@ -589,7 +592,7 @@ export default function ManagePage() {
 
                 <div className="dosing-live-summary" aria-live="polite" aria-atomic="true">
                   {reviewFallback?.index === ci && <div data-dose-review-fallback id={'dosing-review-fallback-' + ci} role="status"><strong>Review {reviewFallback.nextField}</strong><p>{reviewFallback.field} is not shown by the current {reviewFallback.nextField === 'Preparation source' ? 'preparation' : 'measurement'} controls. Review {reviewFallback.nextField} against the original record before editing this field. No preparation, measurement mode or saved value has been changed.</p><dl><dt>Saved {reviewFallback.field}</dt><dd>{reviewFieldKeys[reviewFallback.field] ? String(c[reviewFieldKeys[reviewFallback.field]!] ?? '') || 'Not recorded' : 'Original entry retained'}</dd></dl></div>}
-                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { try { return <DoseSummary phase={recordedReviewPhase(entryFromForm(c), c.historical)} editing onReview={(_target, field) => requestDosingReview(ci, field || 'How do you measure it?')} /> } catch (reason) { return <p role="alert">{reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
+                  {!(openMoreOptions === ci && selectedPanel('vial') && reviewIssue) && (() => { if (historicalCorrectionUnavailable) return <p role="status" data-historical-correction-unavailable>{reviewIssue ? reviewIssue.title + '. ' + reviewIssue.explanation : 'This older record is preserved. This editor cannot correct its historical dose fields.'}</p>; try { return <DoseSummary phase={recordedReviewPhase(entryFromForm(c), c.historical)} editing onReview={(_target, field) => requestDosingReview(ci, field || 'How do you measure it?')} /> } catch (reason) { return <p role="alert">{reviewIssue?.severity === 'warning' ? reviewIssue.title + '. ' + reviewIssue.explanation : reason instanceof Error ? reason.message : 'Check the entered amounts.'}</p> } })()}
                 </div>
                 </section>
                 <details className="dosing-more-options" id={`dosing-options-${ci}`} open={openMoreOptions === ci} onToggle={event => { if (event.currentTarget.open) setOpenMoreOptions(ci); else if (openMoreOptions === ci) { setOpenMoreOptions(null); setOpenEditorPanel(null) } }}><summary>More options</summary>
@@ -631,7 +634,7 @@ export default function ManagePage() {
                   </label>
                 </div>
 
-                {!c.isPreMixed && (
+                {(!c.isPreMixed || Boolean(c.vial_strength || c.vial_unit || c.bac_water_ml)) && (
                   <>
                     <div className="protocol-intake-fields">
                       <div>
@@ -655,7 +658,7 @@ export default function ManagePage() {
                   </>
                 )}
 
-                {c.isPreMixed && <div style={{marginBottom:12}}>
+                {(c.isPreMixed || Boolean(c.concentration_value || c.concentration_unit)) && <div style={{marginBottom:12}}>
                   <label>Labelled concentration (optional)</label>
                   <div style={{display:'flex',gap:8}}>
                     <input aria-label="Concentration value" type="number" step="any" value={c.concentration_value} onChange={e => updateCompound(ci,'concentration_value',e.target.value)} style={is} />
@@ -665,7 +668,7 @@ export default function ManagePage() {
                   </div>
                 </div>}
                 </div>
-                {reviewIssue && <div className="dosing-panel-issue" role="status"><strong>{reviewIssue.title}</strong><p>{reviewIssue.explanation}</p><button type="button" className="dose-review-link" onClick={() => requestDosingReview(ci, reviewIssue.field)}>{reviewIssue.action}</button></div>}
+                {reviewIssue && <div className={reviewIssue.severity === 'warning' ? 'dosing-panel-issue' : 'dose-information'} role="status"><strong>{reviewIssue.title}</strong><p>{reviewIssue.explanation}</p>{reviewIssue.action && <button type="button" className="dose-review-link" onClick={() => requestDosingReview(ci, reviewIssue.field)}>{reviewIssue.action}</button>}</div>}
                 <details className="dosing-review-panel" data-dose-review hidden={!reviewIssue && !showConfirmation}><summary>Review recorded facts</summary>
                   {(() => { try {
                     if (!reviewEntry || !reviewResult) return null

@@ -151,13 +151,12 @@ test('unknown and legacy syringe doses never become medication amounts', () => {
   }
 })
 
-test('a conflicting or malformed dose shows one honest review issue', () => {
-  const conflict = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', injection_volume: '.5' })
-  for (const entry of [conflict, { version: 2 }]) {
-    const tree = render(Row, { id: 'a', name: 'Alpha', protocolId: 'p', week: 3, phase: { ...phase, dosing_entry: entry }, color: ringColors[0], selected: true, onSelect() {} })
-    const issues = nodes(tree, n => n.type === 'span' && n.props.className?.includes('warning'))
-    assert.equal(issues.length, 1); assert.match(text(issues[0]), /Check the recorded measurements|Saved dose entry is invalid/)
-    assert.doesNotMatch(text(issues[0]), /Active ·|Week 3/)
+test('independent measurements are neutral while malformed records remain visible', () => {
+  const multiple = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', injection_volume: '.5', reviewed:true })
+  for (const [entry, count] of [[multiple,0], [{version:2},1]]) {
+    const tree=render(Row,{id:'a',name:'Alpha',protocolId:'p',week:3,phase:{...phase,dosing_entry:entry},color:ringColors[0],selected:true,onSelect(){}})
+    const issues=nodes(tree,n=>n.type==='span'&&n.props.className?.includes('warning'))
+    assert.equal(issues.length,count);if(count)assert.match(text(issues[0]),/Saved entry format is unsupported/)
   }
 })
 
@@ -221,16 +220,16 @@ test('Hero selected snapshot and card do not flag confirmed medication for secon
   }
 })
 
-test('Hero selected snapshot retains real conflict, missing medication, and unverified dose warnings', () => {
+test('Hero selected snapshot separates neutral history from invalid records', () => {
   const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
   const missing = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', reviewed: true })
   const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: false })
-  for (const [entry, notice] of [[conflict, 'Check the recorded measurements'], [missing, 'Medication amount not recorded'], [unverified, 'Recorded entry is unverified']]) {
+  for (const [entry, notice] of [[conflict, '5 mg'], [missing, '20 recorded markings'], [unverified, 'Recorded facts have not been reviewed']]) {
     const p = snapshotProtocol({}, { dosing_entry: entry })
     assert.match(text(render(Hero, snapshotProps(p))), new RegExp(notice))
   }
   const legacy = snapshotProtocol({}, { dose_semantics_version: null })
-  assert.match(text(render(Hero, snapshotProps(legacy))), /Saved amount needs clarification/)
+  assert.match(text(render(Hero, snapshotProps(legacy))), /Measurement meaning is unverified/)
 })
 
 test('snapshot keeps missing facts distinct from zero and never converts legacy markings to medication', () => {
@@ -293,7 +292,7 @@ test('unattributable remaining never offers completion based on an assumed empty
   const before = JSON.stringify(p), tree = renderer.render(React.createElement(Hero, snapshotProps(p)))
   assert.equal(nodes(tree, n => n.type === 'button' && text(n) === 'Complete').length, 0)
   assert.match(text(tree), /Remaining unknown/)
-  assert.match(text(tree), /saved doses are not linked to an individual vial/)
+  assert.match(text(tree), /Saved doses are not linked to an individual vial/)
   assert.ok(nodes(tree, n => n.type === 'a' && text(n) === 'Manage protocol').length, 'Existing protocol actions remain accessible through management')
   assert.equal(JSON.stringify(p), before)
 })

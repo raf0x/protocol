@@ -56,9 +56,7 @@ test('missing current-vial fields are explained without falling back to phase pr
   const old = entryFromForm({ input_mode: 'medication', dose: '1', dose_unit: 'mg', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '2', reviewed: true })
   const c = freeze(compound({ reconstitution_date: null, bac_water_ml: null, vial_strength: null, vial_unit: null, phases: [{ ...phase, dosing_entry: old }] }))
   const before = JSON.stringify(c), html = hero(c)
-  assert.match(html, /reconstitution date is not recorded as a valid date/)
-  assert.match(html, /no positive liquid volume/)
-  assert.match(html, /saved phase mixing details do not confirm the current vial volume/)
+  assert.match(html, /Remaining amount isn&#x27;t tracked yet/); assert.doesNotMatch(html, /data-vial-invalid|Review Liquid added|Review Reconstitution/)
   assert.match(html, /Strength not recorded/)
   assert.equal(JSON.stringify(c), before)
 })
@@ -66,17 +64,16 @@ test('missing current-vial fields are explained without falling back to phase pr
 test('phase and compound disagreement is explicit and neither source is rewritten', () => {
   const old = entryFromForm({ input_mode: 'medication', dose: '1', dose_unit: 'mg', preparation: 'mixing', vial_strength: '20', vial_unit: 'IU', bac_water_ml: '4', reviewed: true })
   const c = freeze(compound({ phases: [{ ...phase, dosing_entry: old }] })), before = JSON.stringify(c), html = hero(c)
-  assert.match(html, /compound vial amount 10 mg; saved phase vial amount 20 IU/)
-  assert.match(html, /compound liquid added 2 mL; saved phase liquid added 4 mL/)
+  assert.doesNotMatch(html, /sources differ|Review Vial|Review Liquid|data-vial-invalid/)
   assert.match(html, /Recorded compound amount/)
-  assert.match(html, /neither source is automatically selected/)
+  assert.match(html, /individual-vial history/)
   assert.equal(JSON.stringify(c), before)
 })
 
 for (const counter of [null, 0, 50]) test('unattributable historical doses never determine remaining even with counter ' + counter, () => {
   const logs = freeze([{ compound_id: 'synthetic-compound', taken: true, date: '2001-01-01' }])
   const c = freeze(compound({ doses_taken_override: counter })), before = JSON.stringify({ c, logs }), html = hero(c, logs)
-  assert.match(html, /saved doses are not linked to an individual vial/)
+  assert.match(html, /Saved doses are not linked to an individual vial/)
   assert.match(html, /Remaining unknown/)
   assert.doesNotMatch(html, /Estimated remaining|0 mL|100%/)
   assert.equal(JSON.stringify({ c, logs }), before)
@@ -134,20 +131,19 @@ test('scheduled notifications do not infer expiry or query compounds, but journa
 })
 
 
-test('preparation comparison preserves small differences and recognizes equivalent mass units', () => {
-  const raw = currentVialSafety({ reconstitution_date: today, vial_strength: '10.001', vial_unit: 'mg', bac_water_ml: '2.001' }, { vial_strength: '10.002', vial_unit: 'mg', bac_water_ml: '2.002' }).reasons.join(' ')
-  assert.match(raw, /10\.001 mg; saved phase vial amount 10\.002 mg/)
-  assert.match(raw, /2\.001 mL; saved phase liquid added 2\.002 mL/)
-  const same = currentVialSafety({ reconstitution_date: today, vial_strength: 1000, vial_unit: 'mcg', bac_water_ml: 2 }, { vial_strength: 1, vial_unit: 'mg', bac_water_ml: 2 })
-  assert.doesNotMatch(same.reasons.join(' '), /sources differ/)
-  assert.equal(same.remainingMl, null)
-  const iu = currentVialSafety({ reconstitution_date: today, vial_strength: 1, vial_unit: 'IU', bac_water_ml: 2 }, { vial_strength: 1, vial_unit: 'mg', bac_water_ml: 2 })
-  assert.match(iu.reasons.join(' '), /sources differ/)
-})
+test('independent historical preparations never imply a physical-vial conflict',()=>{
+ for(const prep of[{vial_strength:'10.002',vial_unit:'mg',bac_water_ml:'2.002'},{vial_strength:1,vial_unit:'IU',bac_water_ml:4}]){
+ const result=currentVialSafety({vial_strength:'10.001',vial_unit:'mg',bac_water_ml:'2.001'},prep);
+ assert.deepEqual(result.invalidFacts,[]);assert.equal(result.remainingMl,null);assert.equal(result.remainingFraction,null);assert.doesNotMatch(result.reasons.join(' '),/sources differ|Review/);
+ }
+});
+test('explicit invalid compound facts are disclosed without a false repair link',()=>{
+ const result=currentVialSafety({vial_strength:-2,bac_water_ml:'invalid'});assert.equal(result.invalidFacts.length,2);assert.match(result.invalidFacts.join(' '),/cannot be corrected in this editor/);
+});
 
 test('invalid calendar reconstitution date is not normalized into an observed date', () => {
   const html = hero(compound({ reconstitution_date: '2026-02-30' }))
   assert.match(html, /Vial reconstituted<\/dt><dd>Not recorded/)
-  assert.match(html, /reconstitution date is not recorded as a valid date/)
+  assert.match(html, /recorded reconstitution date is invalid/)
   assert.doesNotMatch(html, /Mar 2, 2026/)
 })

@@ -61,7 +61,7 @@ test('completed overview uses saved completion date and never schedules reactiva
   assert.equal(info.week, null)
   assert.equal(durationLabel(p), '13 days')
 })
-test('incomplete syringe entry stays a raw dose representation with no invented medication amount', () => {
+test('legitimate syringe entry stays a raw dose representation with no invented medication amount', () => {
   const entry = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100' })
   const incomplete={...protocol,compounds:[{...compound,phases:[{...phase,dosing_entry:entry}]}]}
   assert.equal(compoundOverview(incomplete, incomplete.compounds[0], today).dose, '20 recorded markings · U-100')
@@ -71,7 +71,7 @@ test('incomplete syringe entry stays a raw dose representation with no invented 
     renderToStaticMarkup(React.createElement(Card,{...props,index:0,selecting:false,selected:false,onOpen(){},onSelect(){}})),
     renderToStaticMarkup(React.createElement(Detail,{...props,onBack(){},onEdit(){},onComplete(){},onPause(){},onResume(){},onReactivate(){},onDelete(){}})),
     renderToStaticMarkup(React.createElement(PhaseCard,{...props,compound:incomplete.compounds[0],onEdit(){}})),
-  ]) assert.match(html,/Medication amount not recorded/)
+  ]) { assert.match(html,/20 recorded markings/);assert.doesNotMatch(html,/protocol-dose-issue|dose-review-link/) }
   assert.equal(compoundOverview(protocol, { ...compound, phases: [] }, today).dose, 'Medication amount not recorded')
 })
 test('library renders separate Active and Completed groups and useful empty states', () => {

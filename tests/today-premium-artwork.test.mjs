@@ -99,7 +99,7 @@ function hero(compound = {}, phases = [phase]) {
 test('real Hero withholds unattributable remaining while preserving artwork, inventory actions and facts', () => {
   const html = hero()
   assert.match(text(html), /Remaining unknown/i)
-  assert.match(text(html), /saved doses are not linked to an individual vial/)
+  assert.match(text(html), /Saved doses are not linked to an individual vial/)
   assert.doesNotMatch(html, /data-vial-liquid/)
   assert.match(text(html), /Vials in stock\s*4/)
   assert.match(html, /data-inventory-compound="compound"/)
@@ -128,7 +128,7 @@ test('real Hero labels compound and phase preparation separately without using t
   assert.match(text(caption), /Recorded compound amount\s*99 mg/)
   assert.doesNotMatch(text(caption), /20 IU/)
   assert.match(text(caption), /Remaining unknown/)
-  assert.match(text(html), /compound vial amount 99 mg; saved phase vial amount 20 IU/)
+  assert.doesNotMatch(text(html), /Preparation sources differ|Review Vial amount/);assert.match(text(html), /individual-vial history/)
   assert.doesNotMatch(html, /data-vial-liquid/)
 })
 

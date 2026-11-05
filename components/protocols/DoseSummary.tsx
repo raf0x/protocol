@@ -12,6 +12,6 @@ export default function DoseSummary({ phase, onReview, editing = false, compact 
     {!compact && display.medication && admin.syringe && <span>{admin.syringe}</span>}
     {!compact && admin.volume && (display.medication || admin.syringe) && <span>{admin.volume}</span>}
     {!compact && display.facts.ambiguousAmount && (admin.syringe || admin.volume) && <span>Saved amount: {display.facts.ambiguousAmount.value} {display.facts.ambiguousAmount.unit} · meaning unverified</span>}
-    {issue && showIssue && <span className="dose-issue" role="status"><b>{issue.title}</b><span>{issue.explanation}</span>{onReview && <button type="button" className="dose-review-link" onClick={() => onReview(issue.target, issue.field)}>{issue.action}</button>}</span>}
+    {issue && showIssue && <span className={issue.severity === 'warning' ? 'dose-issue' : 'dose-information'} role="status"><b>{issue.title}</b>{' '}<span>{issue.explanation}</span>{onReview && issue.action && <button type="button" className="dose-review-link" onClick={() => onReview(issue.target, issue.field)}>{issue.action}</button>}</span>}
   </span>
 }

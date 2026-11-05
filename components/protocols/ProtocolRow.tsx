@@ -21,9 +21,9 @@ export default function ProtocolRow({ id, name, week, phase, protocolId, color, 
         <strong className={styles.rowName}>{name}</strong>
         <span className={styles.rowDose}><DoseSummary phase={phase} compact showIssue={false} /><span> · {scheduleLabel(phase)}</span></span>
         {issue && <span className={styles.rowDose}>{issue.explanation}</span>}
-        <StatusPill warning={Boolean(issue) || !phase}>{issue?.title || (!phase ? 'No current phase' : week === null ? 'Active' : `Active · Week ${week}`)}</StatusPill>
+        <StatusPill warning={issue?.severity === 'warning' || !phase}>{issue?.title || (!phase ? 'No current phase' : week === null ? 'Active' : `Active · Week ${week}`)}</StatusPill>
       </span>
     </button>
-    <Link href={`/protocol/manage?protocol=${encodeURIComponent(protocolId)}&compound=${encodeURIComponent(id)}${issue ? `&review=${encodeURIComponent(issue.field)}` : ''}`} className={styles.rowManage} aria-label={issue ? `${issue.action} for ${name}` : `Manage ${name}`}><AppIcon name="chevron" size={18} /></Link>
+    <Link href={`/protocol/manage?protocol=${encodeURIComponent(protocolId)}&compound=${encodeURIComponent(id)}${issue?.action ? `&review=${encodeURIComponent(issue.field)}` : ''}`} className={styles.rowManage} aria-label={issue?.action ? `${issue.action} for ${name}` : `Manage ${name}`}><AppIcon name="chevron" size={18} /></Link>
   </li>
 }

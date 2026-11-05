@@ -128,13 +128,13 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   }
 })
 
-test('active compound shows one human review prompt instead of interpreter warnings', () => {
+test('active compound keeps independent facts and optional review neutral', () => {
   const entry = entryFromForm({ input_mode: 'medication', dose: '7.5', dose_unit: 'mg', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL', injection_volume: '0.2', syringe_markings: '20', syringe_scale: '100' })
   const html = hero(protocol({ dosing_entry: entry }))
   assert.match(html, /7\.5 mg\/dose/)
-  assert.match(html, /Check the recorded measurements/)
-  assert.match(html, /Review How do you measure it/)
-  assert.match(html, /agreement has not been verified/)
+  assert.match(html, /Recorded facts have not been reviewed/)
+  assert.doesNotMatch(html, /Review How do you measure it|review=/)
+  assert.match(html, /data-dose-information/);assert.doesNotMatch(html,/today-snapshot-notice/)
   assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL · saved value, origin unverified')
   assert.equal(stat(html, 'SYRINGE DRAW'), '20 saved markings · origin unverified · U-100')
   assert.doesNotMatch(html, /Unverified dose semantics|Saved mixing details conflict|Entered medication dose and|Both are preserved|You can still save/)
@@ -150,8 +150,8 @@ test('syringe review never displays calculated equivalents', () => {
   assert.doesNotMatch(conflict, /class="dose-equivalent"|18 units .* 10 mL/)
   assert.doesNotMatch(conflict, /1\.8 mg/)
   assert.match(conflict, /10 mL · saved value, origin unverified/)
-  assert.match(conflict, /Check the recorded measurements/)
-  assert.match(conflict, /Nothing is recalculated or corrected/)
+  assert.match(conflict, /Recorded facts have not been reviewed/)
+  assert.match(conflict, /dose-information/);assert.doesNotMatch(conflict,/dose-issue|dose-review-link/)
 
   const rounded = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, syringe_markings: '16.8637' }) }, editing: true })
   assert.doesNotMatch(rounded, /class="dose-equivalent"/)
@@ -178,7 +178,7 @@ test('unattributable vial balance remains unknown while recorded preparation use
   Object.assign(p.compounds[0], { bac_water_ml: 3, reconstitution_date: today, doses_taken_override: 1, vial_strength: 5.25, vial_unit: 'mg', vials_in_stock: 3 })
   const html = hero(p)
   assert.equal(stat(html, 'EST. REMAINING'), 'Unknown')
-  assert.match(html, /saved doses are not linked to an individual vial/)
+  assert.match(html, /Saved doses are not linked to an individual vial/)
   assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), '1')
   assert.doesNotMatch(html, /94\.4%|2\.8 mL/)
   assert.match(html, /5\.25 mg/)
