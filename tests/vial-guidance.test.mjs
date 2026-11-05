@@ -236,4 +236,3 @@ test('invalid historical mode recovery focuses a measurement option without sele
   new Function('context','with(context){'+focusEffect()+';return effect}')(context)()
   assert.deepEqual(calls,['focus first'])
 })
-
