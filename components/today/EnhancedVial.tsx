@@ -8,12 +8,13 @@ type Props = {
   name: string
   strength?: number | null
   unit?: string | null
+  strengthLabel?: string
   remainingFraction: number | null
   remainingMl: number | null
 }
 
 /** V0.6.4 glass geometry; consumes the Hero's existing estimate, never computes inventory. */
-export default function EnhancedVial({ name, strength, unit, remainingFraction, remainingMl }: Props) {
+export default function EnhancedVial({ name, strength, unit, strengthLabel, remainingFraction, remainingMl }: Props) {
   const prefix = `${useId().replace(/:/g, '')}-today-vial`
   const paint = (name: string) => `url(#${prefix}-${name})`
   const known = remainingFraction !== null && Number.isFinite(remainingFraction) && remainingFraction >= 0 && remainingFraction <= 1
@@ -99,7 +100,7 @@ export default function EnhancedVial({ name, strength, unit, remainingFraction, 
           </g>
     </svg>
     <figcaption className={styles.caption}>
-      <span className={styles.strength}>{strengthText ?? 'Strength not recorded'}</span>
+      <span className={styles.strength}>{strengthLabel && <small style={{display: 'block', fontWeight: 400, fontSize: 10}}>{strengthLabel}</small>}{strengthText ?? 'Strength not recorded'}</span>
       <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining unknown'}</span>
       {known && <strong className={styles.remainingValue}>{formatProtocolPercent(fraction * 100)}<span>{formatProtocolAmount(remainingMl, 'mL', 'volume')}</span></strong>}
     </figcaption>

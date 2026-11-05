@@ -147,7 +147,7 @@ for (const snapshot of [true, false]) test(`${snapshot ? 'Today snapshot' : 'Leg
     assert.equal(inventory.props.compoundName, compound.name)
     assert.equal(inventory.props.presentation, snapshot ? 'status' : undefined, 'Status polish is scoped to Today')
     assert.equal(inventory.props.reconstitutionDate, compound.reconstitution_date)
-    assert.equal(inventory.props.bacWaterMl, compound.bac_water_ml ?? 0)
+    assert.equal(inventory.props.bacWaterMl, compound.bac_water_ml)
     assert.equal(inventory.props.vialStrength, compound.vial_strength)
     if (snapshot) {
       assert.equal(selectedSnapshot.props.name, compound.name)
@@ -166,171 +166,92 @@ test('Hero inventory requires an actual compound and retains fallback selection'
   assert.equal(fallback.props.lifecycle.props.compoundId, 'compound-1')
 })
 
-function vialFixture(t, { props = {}, stock: initialStock = 2 } = {}) {
-  const slots = [], effects = [], writes = [], events = [], listeners = new Map()
-  let slot, stock = initialStock, outcome = 'success', release
+// Release 4A replaces the unsafe mutation/countdown contract with non-mutating containment.
+function vialFixture(t, { props = {}, stock = 2 } = {}) {
+  const slots = [], effects = [], backend = [], events = []
+  let slot
+  const saved = Object.freeze({ id: 'compound', vials_in_stock: stock, doses_taken_override: 7,
+    reconstitution_date: props.reconstitutionDate ?? null, vial_strength: props.vialStrength ?? 10,
+    bac_water_ml: props.bacWaterMl ?? 2, phases: Object.freeze([{ dose: '18.00', dose_unit: 'IU', dose_semantics_version: null }]),
+    logs: Object.freeze([{ date: '2020-01-01', taken: true }]) })
+  const before = JSON.stringify(saved)
   const previousWindow = globalThis.window
-  globalThis.window = { location: {}, addEventListener: (name, callback) => listeners.set(name, callback), removeEventListener: name => listeners.delete(name),
-    dispatchEvent(event) { events.push(event.type); listeners.get(event.type)?.() } }
+  globalThis.window = { location: {}, dispatchEvent(event) { events.push(event.type) } }
   t.after(() => { globalThis.window = previousWindow })
   const output = { exports: {} }
   new Function('require', 'module', 'exports', ts.transpileModule(read('../components/dashboard/VialInventory.tsx'), { compilerOptions: options }).outputText)(name => {
     if (name === 'react') return { ...React, useId: () => 'vial-fixture', useRef(initial) { const index = slot++; return slots[index] ?? (slots[index] = { current: initial }) }, useEffect(callback) { effects.push(callback) }, useState(initial) {
-      const index = slot++; if (!(index in slots)) slots[index] = initial
+      const index = slot++; if (!(index in slots)) slots[index] = typeof initial === 'function' ? initial() : initial
       return [slots[index], value => { slots[index] = typeof value === 'function' ? value(slots[index]) : value }]
     } }
-    if (name.endsWith('.module.css')) return { newVialDialog: 'newVialDialog' }
-    if (name.endsWith('/supabase')) return { createClient: () => ({ from(table) {
-      assert.equal(table, 'compounds'); let value
-      return { select() { return this }, update(input) { value = input; return this }, eq(key, id) {
-        assert.equal(key, 'id'); assert.equal(id, 'compound')
-        if (!value) return this
-        writes.push({ ...value })
-        return (async () => {
-          if (outcome === 'pending') await new Promise(resolve => { release = resolve })
-          if (outcome === 'throw') throw Error('Offline')
-          if (outcome === 'error') return { error: { message: 'Rejected' } }
-          stock = value.vials_in_stock; return { error: null }
-        })()
-      }, single: async () => ({ data: { vials_in_stock: stock } }) }
-    } }) }
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => String(key) })
+    if (name.endsWith('/supabase')) return { createClient() { backend.push('client'); throw Error('Containment must not access the backend') } }
     return name.startsWith('.') ? load(new URL(name + '.ts', new URL('../components/dashboard/VialInventory.tsx', import.meta.url))) : require(name)
   }, output, output.exports)
-  const draw = () => { slot = 0; effects.length = 0; return output.exports.default({ compoundId: 'compound', compoundName: 'Medication', reconstitutionDate: '2026-09-01', bacWaterMl: 2, vialStrength: 10, vialUnit: 'mg', ...props }) }
-  let tree = draw()
-  for (const effect of [...effects]) effect()
+  const draw = () => { slot = 0; effects.length = 0; return output.exports.default({ compoundId: 'compound', compoundName: 'Medication', reconstitutionDate: '2026-09-01', bacWaterMl: 2, vialStrength: 10, vialUnit: 'mg', vials_in_stock: stock, ...props }) }
   const button = label => nodes(draw()).find(node => node.type === 'button' && node.props.children === label)
-  return { draw, writes, events, button, setOutcome(value) { outcome = value }, resolve() { outcome = 'success'; release() },
-    async ready() { await Promise.resolve(); tree = draw(); assert.ok(button('+ New Vial')) },
-    async open() { await button('+ New Vial').props.onClick() },
-    inputs: () => nodes(draw()).filter(node => node.type === 'input'),
-    alert: () => nodes(draw()).find(node => node.props?.role === 'alert'),
+  const runEffects = () => { for (const effect of [...effects]) effect() }
+  draw(); runEffects()
+  return { draw, backend, events, button, saved, before,
+    open() { button('+ New Vial').props.onClick(); draw(); runEffects() },
+    preserved() { assert.deepEqual(backend, []); assert.deepEqual(events, []); assert.equal(JSON.stringify(saved), before); assert.deepEqual(globalThis.window.location, {}) },
   }
 }
 const textContent = tree => Array.isArray(tree) ? tree.map(textContent).join('') : tree && typeof tree === 'object' ? textContent(tree.props?.children) : tree == null || typeof tree === 'boolean' ? '' : String(tree)
+for (const date of ['2026-09-23', '2026-10-05', '2026-09-08', '2026-08-12', '2026-09-06', '2026-09-07', undefined, '', 'invalid']) {
+  test(`Today vial status preserves recorded date ${date ?? 'missing'} without inventing expiration`, t => {
+    const f = vialFixture(t, { props: { presentation: 'status', reconstitutionDate: date } })
+    const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
+    const valid = date && date !== 'invalid'
+    assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL STATUS')
+    assert.equal(textContent(find('vial-lifecycle-status')), valid ? 'Reconstituted ' + load('../lib/health/protocolPresentation.ts').dateLabel(date) : 'Reconstitution date not recorded')
+    assert.match(textContent(tree), /Expiration unknown/)
+    assert.ok(nodes(tree).some(node => node.props?.['aria-label'] === 'Expiration unknown. No expiration or beyond-use date is recorded for this vial.'))
+    assert.doesNotMatch(textContent(tree), /Expired|EXPIRED|days left|Day \d+|NaN/)
+    assert.equal(find('vial-lifecycle-track'), undefined)
+    assert.ok(f.button('+ New Vial')); assert.notEqual(f.button('+ New Vial').props.disabled, true)
+    f.open(); assert.ok(nodes(f.draw()).some(node => node.type === 'dialog')); f.preserved()
+  })
+}
 for (const scenario of [
-  { date: '2026-09-23', status: 'Day 12 of 28 · 16 days left', day: 12 },
-  { date: '2026-10-05', status: 'Day 0 of 28 · 28 days left', day: 0 },
-  { date: '2026-09-08', status: 'Day 27 of 28 · 1 day left', day: 27 },
-  { date: '2026-08-12', status: 'Expired 26 days ago' },
-  { date: '2026-09-06', status: 'Expired 1 day ago' },
-  { date: '2026-09-07', status: 'Expired today' },
-  { date: undefined, status: 'Not recorded' },
-  { date: '', status: 'Not recorded' },
-  { date: 'invalid', status: 'Not recorded' },
-]) test(`Today vial status: ${scenario.date ?? 'missing'} renders ${scenario.status}`, async t => {
-  t.mock.method(Date, 'now', () => new Date('2026-10-05T12:00:00').getTime())
-  const f = vialFixture(t, { props: { presentation: 'status', reconstitutionDate: scenario.date } })
-  assert.ok(f.button('+ New Vial'), 'The action remains visible while inventory loads')
-  assert.equal(f.button('+ New Vial').props.disabled, true, 'Wait for real inventory before opening')
-  await f.ready()
-  const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
-  assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL STATUS')
-  assert.equal(textContent(find('vial-lifecycle-status')), scenario.status)
-  assert.doesNotMatch(textContent(tree), /VIAL LIFECYCLE|EXPIRED|NaN/)
-  assert.equal(f.button('+ New Vial').props.disabled, false)
-  const track = find('vial-lifecycle-track')
-  assert.equal(Boolean(track), scenario.day !== undefined)
-  if (track) {
-    assert.equal(track.props['aria-label'], 'Vial age')
-    assert.equal(track.props['aria-valuenow'], scenario.day)
-    assert.equal(track.props['aria-valuemax'], 28)
-    assert.ok(Math.abs(parseFloat(track.props.children.props.style.width) - scenario.day / 28 * 100) < .001)
-  }
-  await f.open()
-  assert.ok(nodes(f.draw()).some(node => node.type === 'dialog'), 'All statuses open the existing confirmation')
-  assert.deepEqual(f.writes, [])
-})
-
-for (const scenario of [
-  { name: 'recorded date', props: { reconstitutionDate: '2026-09-30' }, lifecycle: true },
-  { name: 'expired date', lifecycle: true, expired: true },
+  { name: 'recorded date', props: { reconstitutionDate: '2026-09-30' } },
+  { name: 'old date', props: { reconstitutionDate: '2026-08-01' } },
   { name: 'missing date', props: { reconstitutionDate: undefined } },
   { name: 'empty date', props: { reconstitutionDate: '' } },
   { name: 'invalid date', props: { reconstitutionDate: 'invalid' } },
-  { name: 'missing BAC water', props: { bacWaterMl: undefined }, lifecycle: true },
-  { name: 'missing strength', props: { vialStrength: undefined }, lifecycle: true },
-  { name: 'missing strength and water', props: { bacWaterMl: undefined, vialStrength: undefined }, lifecycle: true },
-  { name: 'zero stock', stock: 0, lifecycle: true },
-  { name: 'unknown stock', stock: null, lifecycle: true },
+  { name: 'missing BAC water', props: { bacWaterMl: undefined } },
+  { name: 'missing strength', props: { vialStrength: undefined } },
+  { name: 'missing strength and water', props: { bacWaterMl: undefined, vialStrength: undefined } },
+  { name: 'zero stock', stock: 0 },
+  { name: 'unknown stock', stock: null },
   { name: 'missing metadata and zero stock', props: { reconstitutionDate: undefined, bacWaterMl: undefined, vialStrength: undefined }, stock: 0 },
   { name: 'missing metadata and unknown stock', props: { reconstitutionDate: undefined, bacWaterMl: undefined, vialStrength: undefined }, stock: null },
-]) test(`New Vial stays available with ${scenario.name} and only shows calculable lifecycle data`, async t => {
-  t.mock.method(Date, 'now', () => new Date('2026-10-05T12:00:00').getTime())
+]) test(`New Vial explains containment with ${scenario.name} and preserves all recorded values`, t => {
   const f = vialFixture(t, scenario)
-  assert.equal(f.button('+ New Vial'), undefined, 'Inventory loading behavior is retained')
-  await f.ready()
-  const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
-  assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL LIFECYCLE')
   assert.equal(f.button('+ New Vial').props['aria-haspopup'], 'dialog')
-  assert.equal(Boolean(find('vial-lifecycle-status')), Boolean(scenario.lifecycle))
-  assert.equal(Boolean(find('vial-lifecycle-track')), Boolean(scenario.lifecycle))
-  assert.equal(find('vial-lifecycle-toolbar').props.style.marginBottom, scenario.lifecycle ? '6px' : '0')
-  if (scenario.name === 'recorded date') {
-    assert.match(textContent(find('vial-lifecycle-status')), /Day 5\/28.*23d left/)
-    assert.ok(Math.abs(parseFloat(find('vial-lifecycle-track').props.children.props.style.width) - 17.857142857142858) < .001)
-  }
-  if (scenario.expired) {
-    assert.match(textContent(find('vial-lifecycle-status')), /Day 34\/28.*EXPIRED/)
-    assert.equal(find('vial-lifecycle-track').props.children.props.style.width, '100%')
-  }
-  if (!scenario.lifecycle) assert.doesNotMatch(textContent(tree), /Day |d left|EXPIRED|NaN/)
-  await f.open()
+  assert.notEqual(f.button('+ New Vial').props.disabled, true)
+  f.open()
   const dialog = nodes(f.draw()).find(node => node.type === 'dialog')
-  assert.ok(dialog, 'Existing confirmation opens regardless of metadata or stock')
   assert.equal(dialog.props['aria-modal'], 'true')
-  assert.equal(textContent(nodes(dialog).find(node => node.props?.id === dialog.props['aria-labelledby'])), 'Starting a new Medication vial?')
-  for (const field of f.inputs()) assert.ok(nodes(dialog).some(node => node.type === 'label' && node.props.htmlFor === field.props.id))
-  if (Object.hasOwn(scenario.props ?? {}, 'vialStrength')) assert.equal(f.inputs()[0].props.value, '')
-  if (Object.hasOwn(scenario.props ?? {}, 'bacWaterMl')) assert.equal(f.inputs()[2].props.value, '')
-  assert.deepEqual(f.writes, [], 'Opening the dialog does not save inventory')
-  assert.deepEqual(f.events, [])
-})
-
-test('New Vial success retains its payload, closes confirmation and dispatches doses_updated', async t => {
-  const f = vialFixture(t); await f.ready(); await f.open()
-  f.inputs().find(input => input.props.type === 'date').props.onChange({ target: { value: '2026-10-03' } })
-  await f.button('Log New Vial').props.onClick()
-  assert.deepEqual(f.writes, [{ vials_in_stock: 1, doses_taken_override: 0, reconstitution_date: '2026-10-03', bac_water_ml: 2, vial_strength: 10 }])
-  assert.deepEqual(f.events, ['doses_updated']); assert.equal(f.button('Log New Vial'), undefined)
-  assert.equal(f.alert(), undefined)
-})
-for (const outcome of ['error', 'throw']) test(`New Vial ${outcome} preserves values and count, shows error, releases saving and permits retry`, async t => {
-  const f = vialFixture(t); await f.ready(); await f.open()
-  const values = ['10.0', '2026-10-03', '2.0']
-  f.inputs().forEach((input, index) => input.props.onChange({ target: { value: values[index] } }))
-  f.setOutcome(outcome); await f.button('Log New Vial').props.onClick()
-  assert.ok(f.button('Log New Vial'), 'Confirmation remains open')
-  assert.equal(f.button('Log New Vial').props.disabled, false)
-  assert.deepEqual(f.inputs().map(input => input.props.value), values)
-  assert.match(f.alert().props.children, /wasn’t saved.*try again/)
-  assert.deepEqual(f.events, [])
-  f.setOutcome('success'); await f.button('Log New Vial').props.onClick()
-  assert.deepEqual(f.writes[1], f.writes[0], 'Failure did not decrement local stock or change the retry payload')
-  assert.deepEqual(f.events, ['doses_updated']); assert.equal(f.button('Log New Vial'), undefined)
-  await f.open(); await f.button('Log New Vial').props.onClick()
-  assert.equal(f.writes[2].vials_in_stock, 0, 'Successful retry advanced local inventory once')
-})
-test('New Vial shows saving while an update is pending', async t => {
-  const f = vialFixture(t); await f.ready(); await f.open(); f.setOutcome('pending')
-  const save = f.button('Log New Vial').props.onClick()
-  assert.equal(f.button('Saving...').props.disabled, true)
-  assert.deepEqual(f.events, [])
-  f.resolve(); await save
-  assert.equal(f.button('Log New Vial'), undefined); assert.deepEqual(f.events, ['doses_updated'])
-})
-
-test('New Vial uses a named native modal dialog with labelled fields', async t => {
-  const f = vialFixture(t); await f.ready(); await f.open()
-  const dialog = nodes(f.draw()).find(node => node.type === 'dialog')
-  assert.ok(dialog)
-  assert.equal(dialog.props['aria-modal'], 'true')
-  const heading = nodes(dialog).find(node => node.type === 'h3')
-  assert.equal(dialog.props['aria-labelledby'], heading.props.id)
-  assert.deepEqual(heading.props.children, ['Starting a new ', 'Medication', ' vial?'])
-  for (const field of f.inputs()) assert.ok(nodes(dialog).some(node => node.type === 'label' && node.props.htmlFor === field.props.id))
-  let prevented = false
-  dialog.props.onCancel({ preventDefault() { prevented = true } })
-  assert.equal(prevented, true)
+  assert.equal(textContent(nodes(dialog).find(node => node.props?.id === dialog.props['aria-labelledby'])), 'Starting a new vial is temporarily unavailable')
+  assert.match(textContent(nodes(dialog).find(node => node.props?.id === dialog.props['aria-describedby'])), /preserve your previous Medication vial details.*No stock, preparation details or dose counters have changed/)
+  assert.equal(nodes(dialog).some(node => ['input', 'select', 'textarea'].includes(node.type)), false)
+  assert.equal(f.button('Log New Vial'), undefined)
+  assert.equal(nodes(dialog).find(node => node.type === 'a').props.href, '/protocol/manage')
+  assert.equal(textContent(nodes(dialog).find(node => node.type === 'a')), 'View protocols')
+  f.preserved()
+  f.button('Close').props.onClick()
   assert.equal(nodes(f.draw()).some(node => node.type === 'dialog'), false)
+  f.preserved();assert.equal(f.saved.vials_in_stock, Object.hasOwn(scenario, 'stock') ? scenario.stock : 2)
+})
+test('New Vial containment supports native Escape cancellation and repeated opening without backend effects', t => {
+  const f = vialFixture(t, { stock: null })
+  for (let i = 0; i < 3; i++) {
+    f.open();const dialog = nodes(f.draw()).find(node => node.type === 'dialog')
+    let prevented = false
+    dialog.props.onCancel({ preventDefault() { prevented = true } })
+    assert.equal(prevented, true);assert.equal(nodes(f.draw()).some(node => node.type === 'dialog'), false)
+    f.preserved()
+  }
+  assert.equal(f.saved.vials_in_stock, null)
 })

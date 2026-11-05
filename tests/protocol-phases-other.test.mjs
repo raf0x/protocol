@@ -106,8 +106,9 @@ test('unknown dosing and review warning remain separate from decorative artwork'
   const dosing_entry = entryFromForm({ input_mode: 'unknown', dose: '1.2345', dose_unit: 'mg', reviewed: false })
   const html = detail({ ...protocol, compounds: [{ ...compound, phases: [{ ...phase('review', 1, null), dosing_entry }] }] })
   assert.match(html, /class="protocol-dose-issue" role="status"/)
-  assert.ok(copy(html).includes('Dose details need review'))
-  assert.ok(copy(html).includes('Review dose'))
+  assert.ok(copy(html).includes('Dose meaning is unverified'))
+  assert.ok(copy(html).includes('Review what the amount measures'))
+  assert.ok(copy(html).includes('The original amount is preserved'))
 })
 
 test('multiple compounds retain independent phase lists and unique local SVG definitions', () => {

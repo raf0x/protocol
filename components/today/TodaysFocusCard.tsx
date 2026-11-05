@@ -7,7 +7,7 @@ import { untakenTodayDoses, type TodayDue } from '../../lib/health/today'
 import type { ProtocolRow } from '../../lib/health/timeline'
 import { currentPhase } from '../../lib/health/dosing'
 import { dosingDisplay, formatProtocolAmount } from '../../lib/health/dosingEntry'
-import { dosingIssue } from '../protocols/DoseSummary'
+import { phaseDosingIssue } from '../protocols/DoseSummary'
 import { PrimaryAction, SecondaryAction, SectionCard } from '../app/DesignSystem'
 import styles from '../../app/protocol/today-v2.module.css'
 
@@ -29,12 +29,9 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
   const display = dosingDisplay(phase)
   const medication = display.medication ? formatProtocolAmount(display.medication.value, display.medication.unit) : null
   const doseText = protocols ? medication ?? 'Medication amount unknown' : next ? `${next.dose} ${next.dose_unit}`.trim() : ''
-  let review: string | null = null
-  if (protocols && next) {
-    try { review = phase?.dosing_entry ? dosingIssue(phase.dosing_entry)?.title ?? null : null }
-    catch { review = 'Dose details need review' }
-    if (!review && (!display.medication || phase?.dosing_entry?.review_status === 'unverified')) review = 'Dose details need review'
-  }
+  const review = protocols && next ? phaseDosingIssue(phase) ?? (!phase ? {
+    title: 'No current phase is available', explanation: 'Review the saved phase dates before interpreting this scheduled record.', action: 'Review protocol phases', field: null,
+  } : null) : null
   return <SectionCard className={styles.focus} aria-labelledby="focus-title">
     <div className={styles.focusHeader}>
       <h2 id="focus-title" className={styles.focusTitle}><svg className={styles.focusTitleIcon} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" /><circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="2" /></svg>Today’s Focus</h2>
@@ -43,7 +40,7 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
     {next ? <div className={styles.nextDose}
       onPointerDown={event => {
         swipe.current = null
-        if (event.pointerType !== 'touch' || event.isPrimary === false || saving || pending.length < 2 || (event.target as HTMLElement).closest?.('button, a, input, textarea, select')) return
+        if (event.pointerType !== 'touch' || event.isPrimary === false || saving || pending.length < 2 || (event.target as HTMLElement).closest?.('button, a, input, textarea, select, summary')) return
         swipe.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, doseId: next.id }
         event.currentTarget.setPointerCapture(event.pointerId)
       }}
@@ -64,7 +61,7 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
           <div className={styles.doseContext}><h3>{next.name}</h3><p className={styles.doseAmount}>{doseText}</p></div>
           <span className={styles.dueTime}>{next.time_of_day?.trim() ? `Today · ${next.time_of_day.trim()}` : 'Time not set'}</span>
         </div>
-        {review && <p className={styles.focusReview}>{review}</p>}
+        {review && <details className={styles.focusReview}><summary>{review.title}</summary><p>{review.explanation}</p><Link href={`/protocol/manage?compound=${encodeURIComponent(next.id)}${review.field ? `&review=${encodeURIComponent(review.field)}` : ''}`}>{review.action}</Link></details>}
       </div>
       <PrimaryAction className={styles.markTaken} disabled={saving} onClick={() => onTaken(next.id)}>{saving ? 'Saving…' : 'Mark taken'}</PrimaryAction>
     </div> : <div className={styles.focusEmpty}><AppIcon name={due.length ? 'check' : 'today'} size={24} /><div><h3>{due.length ? 'Today’s doses are logged' : 'No doses scheduled today'}</h3><p>{due.length ? 'Review or correct a dose in Schedule / logs.' : 'Your saved protocol schedule will appear here.'}</p>{!activeCount && <Link className="today-text-link" href="/protocol/manage">Create your first protocol</Link>}</div></div>}

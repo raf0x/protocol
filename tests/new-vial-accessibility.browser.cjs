@@ -171,7 +171,7 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
     const rail=card.querySelector('.today-snapshot-vial-rail'),facts=card.querySelector('.today-snapshot-facts');
     const status=rail.querySelector('.vial-lifecycle-status'),title=rail.querySelector('.vial-lifecycle-title'),b=rail.querySelector('.vial-new-button'),track=rail.querySelector('.vial-lifecycle-track'),vial=rail.querySelector('.today-snapshot-vial');
     check(!facts.querySelector('.today-snapshot-lifecycle,.vial-inventory,.vial-new-button'),'status and action outside facts '+label);
-    check(JSON.stringify([...facts.querySelectorAll('dt')].map(e=>e.textContent))===JSON.stringify(['Protocol start','Current week','Vial reconstituted','Vial expiration','Injection volume','Syringe draw','Vials in stock','Doses taken (vial)','Next dose']),'nine unchanged facts '+label);
+    check(JSON.stringify([...facts.querySelectorAll('dt')].map(e=>e.textContent))===JSON.stringify(['Protocol start','Current week','Vial reconstituted','Vial expiration','Injection volume','Syringe draw','Vials in stock','Recorded compound dose count','Next dose']),'nine unchanged facts '+label);
     check(title.textContent==='VIAL STATUS'&&card.querySelectorAll('.vial-lifecycle-title').length===1&&!card.textContent.includes('Vial lifecycle')&&!card.textContent.includes('VIAL LIFECYCLE'),'single status label in rail '+label);
     check(status.textContent===({1:'Day 12 of 28 · 16 days left',2:'Not recorded',3:'Not recorded',4:'Expired 26 days ago',5:'Expired today'}[number]),'human status copy '+label);
     check(!rail.closest('[aria-hidden=true]')&&!b.closest('[aria-hidden=true]'),'status and action accessible '+label);
