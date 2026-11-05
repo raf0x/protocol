@@ -90,14 +90,14 @@ test('missing and invalid numbers never acquire a unit or become zero', () => {
 })
 
 for (const [name, values, volume, syringe] of [
-  ['volume without syringe markings', { injection_volume_ml: 0.168637, syringe_scale: 100 }, '0.17 mL', null],
-  ['syringe draw without volume', { syringe_units: 16.8637, syringe_scale: 100 }, null, '16.9 U-100 units'],
-  ['both measurements', { injection_volume_ml: 0.168637, syringe_units: 16.8637, syringe_scale: 100 }, '0.17 mL', '16.9 U-100 units'],
+  ['volume without syringe markings', { injection_volume_ml: 0.168637, syringe_scale: 100 }, '0.168637 mL · saved value, origin unverified', null],
+  ['syringe draw without volume', { syringe_units: 16.8637, syringe_scale: 100 }, null, '16.8637 saved markings · origin unverified · U-100'],
+  ['both measurements', { injection_volume_ml: 0.168637, syringe_units: 16.8637, syringe_scale: 100 }, '0.168637 mL · saved value, origin unverified', '16.8637 saved markings · origin unverified · U-100'],
   ['neither measurement', {}, null, null],
-  ['markings with no recorded scale', { syringe_units: 16.8637 }, null, '16.9 syringe units'],
-  ['a U-40 draw', { syringe_units: 6.74548, syringe_scale: 40 }, null, '6.7 U-40 units'],
+  ['markings with no recorded scale', { syringe_units: 16.8637 }, null, '16.8637 saved markings · origin unverified · scale unknown'],
+  ['a U-40 draw', { syringe_units: 6.74548, syringe_scale: 40 }, null, '6.74548 saved markings · origin unverified · U-40'],
 ]) test(`${name}: ring detail and protocol detail render separate, complete values`, () => {
-  const p = protocol(values), actual = administrationDisplay(p.compounds[0].phases[0])
+  const p = protocol(values), actual = load('../lib/health/recordedDose.ts').recordedAdministrationDisplay(p.compounds[0].phases[0])
   assert.deepEqual(actual, { volume, syringe })
   const ringHtml = hero(p), detailHtml = detail(p)
   assert.equal(stat(ringHtml, 'INJECTION VOLUME'), volume ?? 'Not recorded')
@@ -108,7 +108,7 @@ for (const [name, values, volume, syringe] of [
   if (syringe) assert.ok(detailHtml.includes(`<dt>Syringe draw</dt><dd>${syringe}</dd>`))
   for (const html of [ringHtml, detailHtml]) {
     assert.match(html, /5\.25 mg/)
-    assert.doesNotMatch(html, /--u|—u|-- mL|undefined|null|NaN|u \/|\/ mL|0\.168637|16\.8637/)
+    assert.doesNotMatch(html, /--u|—u|-- mL|undefined|null|NaN|u \/|\/ mL/)
   }
   for (const value of Object.values(actual)) if (value) assert.doesNotMatch(value, /\//, 'Administration values do not use an ambiguous separator')
 })
@@ -118,9 +118,9 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   const saved = { ...phase, dosing_entry: entry }, p = protocol(saved)
   assert.deepEqual(administrationDisplay(saved), { volume: '0.17 mL', syringe: '16.9 U-100 units' })
   assert.equal(dosingDisplay(saved).primary, '16.86 mg')
-  assert.match(hero(p), /16\.86 mg/)
-  assert.equal(stat(hero(p), 'INJECTION VOLUME'), '0.17 mL')
-  assert.equal(stat(hero(p), 'SYRINGE DRAW'), '16.9 U-100 units')
+  assert.match(hero(p), /16\.8637 mg/)
+  assert.equal(stat(hero(p), 'INJECTION VOLUME'), 'Not recorded')
+  assert.equal(stat(hero(p), 'SYRINGE DRAW'), undefined)
   for (const dosing_entry of [entryFromForm({ input_mode: 'syringe', syringe_markings: '16.8637' }), entryFromForm({ input_mode: 'volume', injection_volume: '0.168637' })]) {
     const display = dosingDisplay({ dosing_entry })
     assert.equal(display.medication, null)
@@ -128,30 +128,30 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   }
 })
 
-test('active compound shows one human review prompt instead of interpreter warnings', () => {
+test('active compound keeps independent facts and optional review neutral', () => {
   const entry = entryFromForm({ input_mode: 'medication', dose: '7.5', dose_unit: 'mg', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL', injection_volume: '0.2', syringe_markings: '20', syringe_scale: '100' })
   const html = hero(protocol({ dosing_entry: entry }))
   assert.match(html, /7\.5 mg\/dose/)
-  assert.match(html, /Medication dose and volume disagree/)
-  assert.match(html, /Review injection volume/)
-  assert.match(html, /differs from the volume calculated/)
-  assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL')
-  assert.equal(stat(html, 'SYRINGE DRAW'), '20 U-100 units')
+  assert.match(html, /Recorded facts have not been reviewed/)
+  assert.doesNotMatch(html, /Review How do you measure it|review=/)
+  assert.match(html, /data-dose-information/);assert.doesNotMatch(html,/today-snapshot-notice/)
+  assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL · saved value, origin unverified')
+  assert.equal(stat(html, 'SYRINGE DRAW'), '20 saved markings · origin unverified · U-100')
   assert.doesNotMatch(html, /Unverified dose semantics|Saved mixing details conflict|Entered medication dose and|Both are preserved|You can still save/)
 })
 
-test('syringe equivalence appears only for volume derived from its markings', () => {
+test('syringe review never displays calculated equivalents', () => {
   const input = { input_mode: 'syringe', syringe_markings: '18', syringe_scale: '100', preparation: 'ready', concentration_value: '10', concentration_unit: 'mg/mL' }
   const valid = render(DoseSummary, { phase: { dosing_entry: entryFromForm(input) }, editing: true })
-  assert.match(valid, /class="dose-equivalent"/)
-  assert.match(valid, /18 units .* 0\.18 mL/)
+  assert.doesNotMatch(valid, /class="dose-equivalent"/)
+  assert.doesNotMatch(valid, /0\.18 mL/)
 
   const conflict = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, injection_volume: '10' }) }, editing: true })
   assert.doesNotMatch(conflict, /class="dose-equivalent"|18 units .* 10 mL/)
-  assert.match(conflict, /18 syringe units/)
-  assert.match(conflict, />10 mL</)
-  assert.match(conflict, /Syringe markings and volume disagree/)
-  assert.match(conflict, /Both recorded values are preserved/)
+  assert.doesNotMatch(conflict, /1\.8 mg/)
+  assert.match(conflict, /10 mL · saved value, origin unverified/)
+  assert.match(conflict, /Recorded facts have not been reviewed/)
+  assert.match(conflict, /dose-information/);assert.doesNotMatch(conflict,/dose-issue|dose-review-link/)
 
   const rounded = render(DoseSummary, { phase: { dosing_entry: entryFromForm({ ...input, syringe_markings: '16.8637' }) }, editing: true })
   assert.doesNotMatch(rounded, /class="dose-equivalent"/)
@@ -178,7 +178,7 @@ test('unattributable vial balance remains unknown while recorded preparation use
   Object.assign(p.compounds[0], { bac_water_ml: 3, reconstitution_date: today, doses_taken_override: 1, vial_strength: 5.25, vial_unit: 'mg', vials_in_stock: 3 })
   const html = hero(p)
   assert.equal(stat(html, 'EST. REMAINING'), 'Unknown')
-  assert.match(html, /saved doses are not linked to an individual vial/)
+  assert.match(html, /Saved doses are not linked to an individual vial/)
   assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), '1')
   assert.doesNotMatch(html, /94\.4%|2\.8 mL/)
   assert.match(html, /5\.25 mg/)

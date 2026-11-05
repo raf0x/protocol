@@ -6,8 +6,7 @@ import AppIcon from '../app/AppIcon'
 import { untakenTodayDoses, type TodayDue } from '../../lib/health/today'
 import type { ProtocolRow } from '../../lib/health/timeline'
 import { currentPhase } from '../../lib/health/dosing'
-import { dosingDisplay, formatProtocolAmount } from '../../lib/health/dosingEntry'
-import { phaseDosingIssue } from '../protocols/DoseSummary'
+import { recordedDose, recordedAmount } from '../../lib/health/recordedDose'
 import { PrimaryAction, SecondaryAction, SectionCard } from '../app/DesignSystem'
 import styles from '../../app/protocol/today-v2.module.css'
 
@@ -22,16 +21,12 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
   const index = selectedIndex < 0 ? 0 : selectedIndex
   const next = pending[index] ?? null
   const completed = due.filter(item => logs[item.id]?.taken).length
-  // Present existing interpreted medication separately from review guidance; never parse a dose string.
+  // Keep this action tile limited to recorded medication; due text has no provenance.
   const protocol = protocols?.find(item => item.compounds?.some(compound => compound.id === next?.id))
   const compound = protocol?.compounds?.find(item => item.id === next?.id)
   const phase = protocol?.start_date && date ? currentPhase(compound?.phases ?? [], protocol.start_date, date) : null
-  const display = dosingDisplay(phase)
-  const medication = display.medication ? formatProtocolAmount(display.medication.value, display.medication.unit) : null
-  const doseText = protocols ? medication ?? 'Medication amount unknown' : next ? `${next.dose} ${next.dose_unit}`.trim() : ''
-  const review = protocols && next ? phaseDosingIssue(phase) ?? (!phase ? {
-    title: 'No current phase is available', explanation: 'Review the saved phase dates before interpreting this scheduled record.', action: 'Review protocol phases', field: null,
-  } : null) : null
+  const medication = recordedDose(phase).medication
+  const doseText = medication ? recordedAmount(medication.value, medication.unit) : 'Not recorded'
   return <SectionCard className={styles.focus} aria-labelledby="focus-title">
     <div className={styles.focusHeader}>
       <h2 id="focus-title" className={styles.focusTitle}><svg className={styles.focusTitleIcon} width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" /><circle cx="10" cy="10" r="3" stroke="currentColor" strokeWidth="2" /></svg>Today’s Focus</h2>
@@ -61,7 +56,6 @@ export default function TodaysFocusCard({ activeCount, due, logs, saving, onTake
           <div className={styles.doseContext}><h3>{next.name}</h3><p className={styles.doseAmount}>{doseText}</p></div>
           <span className={styles.dueTime}>{next.time_of_day?.trim() ? `Today · ${next.time_of_day.trim()}` : 'Time not set'}</span>
         </div>
-        {review && <details className={styles.focusReview}><summary>{review.title}</summary><p>{review.explanation}</p><Link href={`/protocol/manage?compound=${encodeURIComponent(next.id)}${review.field ? `&review=${encodeURIComponent(review.field)}` : ''}`}>{review.action}</Link></details>}
       </div>
       <PrimaryAction className={styles.markTaken} disabled={saving} onClick={() => onTaken(next.id)}>{saving ? 'Saving…' : 'Mark taken'}</PrimaryAction>
     </div> : <div className={styles.focusEmpty}><AppIcon name={due.length ? 'check' : 'today'} size={24} /><div><h3>{due.length ? 'Today’s doses are logged' : 'No doses scheduled today'}</h3><p>{due.length ? 'Review or correct a dose in Schedule / logs.' : 'Your saved protocol schedule will appear here.'}</p>{!activeCount && <Link className="today-text-link" href="/protocol/manage">Create your first protocol</Link>}</div></div>}

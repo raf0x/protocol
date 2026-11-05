@@ -75,8 +75,8 @@ test('historical CSV executes its real export loop without Planned or Scheduled 
   const rows=[protocol,{...protocol,id:'planned',status:'planned',start_date:null,name:'Later'},{...protocol,id:'active',name:'Started medication',start_date:today}]
   let blob
   const client={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},from:()=>({select:()=>({eq:async()=>({data:rows})})})}
-  const out={};const dates=load('../lib/health/protocolDates.ts')
-  new Function('exports','createClient','localCalendarDate','protocolLifecycle','dosingDisplay','window','document','alert',code)(out,()=>client,()=>today,dates.protocolLifecycle,()=>({}),
+  const out={};const dates=load('../lib/health/protocolDates.ts');const recorded=load('../lib/health/recordedDose.ts')
+  new Function('exports','createClient','localCalendarDate','protocolLifecycle',...Object.keys(recorded),'window','document','alert',code)(out,()=>client,()=>today,dates.protocolLifecycle,...Object.values(recorded),
     {URL:{createObjectURL:value=>{blob=value;return 'blob:test'},revokeObjectURL(){}},setTimeout(){}},{createElement:()=>({style:{},click(){},remove(){}}),body:{appendChild(){}}},()=>{})
   await out.exportToCSV()
   const csv=await blob.text();assert.match(csv,/^"Started medication"/m);assert.doesNotMatch(csv,/^"(?:Future medication|Later)"/m)

@@ -30,10 +30,10 @@ export function buildDoctorReport(input: AnalystSourceData, range: ReportRange, 
   const currentState = healthStateAtDate(input, today)
   const protocolsById = new Map(input.protocols.map(protocol => [protocol.id, protocol]))
   const currentProtocols = currentState.map(state => ({
-    name: state.name, dose: state.medication ? `${numberLabel(state.medication.value)} ${state.medication.unit}` : 'Dose not confirmed',
+    name: state.name, recordedFacts: state.recordedFacts, provenance: state.provenance, limitations: state.limitations, dose: state.medication ? `${state.medication.rawValue ?? numberLabel(state.medication.value)} ${state.medication.unit}` : 'Medication amount not recorded',
     frequency: state.frequency, route: state.route,
     startDate: protocolsById.get(state.protocolId)?.start_date?.slice(0, 10) ?? null,
-    status: 'Active', verified: Boolean(state.medication),
+    status: 'Active', verified: Boolean(state.medication && state.medication.reviewStatus !== 'unverified'),
   })).sort((a, b) => a.name.localeCompare(b.name))
 
   const rawEvents = new Map(input.protocolEvents.map(event => [`event:${event.id}`, event]))

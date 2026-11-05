@@ -150,7 +150,7 @@ test('edit options start closed and reveal one mounted secondary panel at a time
     assert.ok(h.button('Save changes'))
   }finally{globalThis.window=previous}
 })
-test('Vial panel keeps one human issue and closes calculation details initially',()=>{
+test('Vial panel keeps neutral review information and closes recorded facts initially',()=>{
   const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
   try {
     const entry=load('../lib/health/dosingEntry.ts').entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'})
@@ -159,10 +159,10 @@ test('Vial panel keeps one human issue and closes calculation details initially'
     h.render().find(n=>n.type==='details'&&n.props.className==='dosing-more-options').props.onToggle({currentTarget:{open:true}})
     h.render().find(n=>n.props.className==='dosing-option-card'&&n.props['aria-controls']==='dosing-panel-0-vial').props.onClick()
     const nodes=h.render(), review=nodes.find(n=>n.props['data-dose-review']!==undefined)
-    assert.equal(nodes.filter(n=>n.props.className==='dosing-panel-issue').length,1)
+    assert.equal(nodes.filter(n=>n.props.className==='dosing-panel-issue').length,0);assert.equal(nodes.filter(n=>n.props.className==='dose-information').length,1)
     assert.equal(nodes.find(n=>n.type?.name==='DoseSummary'),undefined)
     assert.equal(review.props.open,undefined);assert.equal(review.props.hidden,false)
-    assert.equal(text(review.props.children[0]),'Review calculation')
+    assert.equal(text(review.props.children[0]),'Review recorded facts')
   }finally{globalThis.window=previous}
 })
 test('empty rings link directly to Quick Add without suggesting active treatment',()=>{
@@ -341,7 +341,7 @@ test('the actual create handler saves incomplete and unknown dosing through the 
     await submit(h);assert.equal(h.calls.length,1)
     assert.equal(entered,'5')
     const c=h.calls[0].args.p_compounds[0], {compoundOverview}=load('../lib/health/protocolPresentation.ts')
-    assert.match(compoundOverview({status:'active',start_date:localCalendarDate()},{...c,phases:[c.phase]},localCalendarDate()).dose,/Medication dose not calculated/)
+    assert.match(compoundOverview({status:'active',start_date:localCalendarDate()},{...c,phases:[c.phase]},localCalendarDate()).dose,/meaning unverified/)
   }finally{globalThis.window=previous}
 })
 
@@ -425,7 +425,7 @@ test('retired reconstitution handoffs show containment without opening an editor
  }finally{globalThis.window=previous}
 })
 
-test('review calculation stays closed and shows compact facts without raw arithmetic',()=>{
+test('review recorded facts stays closed and shows compact facts without raw arithmetic',()=>{
  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
  const {entryFromForm}=load('../lib/health/dosingEntry.ts')
  try {
@@ -436,22 +436,22 @@ test('review calculation stays closed and shows compact facts without raw arithm
    return {all:nodes.map(text).join(' '),review,html:renderToStaticMarkup(React.createElement('div',null,review.props.children))}
   }
   const conflict=renderReview(entryFromForm({input_mode:'medication',dose:'10',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
-  assert.match(conflict.html,/<dt>Medication amount<\/dt><dd>10 mg<\/dd>/);assert.match(conflict.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/)
-  assert.match(conflict.html,/entered volume \(0\.2 mL\) differs from the volume calculated from the recorded medication dose \(10 mg\)/);assert.match(conflict.html,/Review Injection volume \(mL\), then Medication dose and preparation/);assert.match(conflict.html,/No value has been corrected automatically/);assert.doesNotMatch(conflict.html,/Calculation \(rounded\)|Unverified dose semantics|Saved mixing details conflict/)
+  assert.match(conflict.html,/<dt>Recorded medication amount<\/dt><dd>10 mg<\/dd>/);assert.match(conflict.html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/)
+  assert.doesNotMatch(conflict.html,/agreement has not been verified|Review How do you measure it|dose-issue|dose-review-link/);assert.doesNotMatch(conflict.html,/Calculation \(rounded\)|Unverified dose semantics|Saved mixing details conflict/)
   assert.equal(conflict.review.props.open,undefined);assert.equal(conflict.review.props.hidden,false);assert.doesNotMatch(conflict.all,/Unverified dose semantics|You can still save/)
   const valid=renderReview(entryFromForm({input_mode:'medication',dose:'2',dose_unit:'mg',reviewed:true,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL',injection_volume:'0.2'}))
-  assert.match(valid.html,/<dt>Medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(valid.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.match(valid.html,/<dt>Concentration<\/dt><dd>10 mg\/mL<\/dd>/)
-  assert.doesNotMatch(valid.html,/Calculation \(rounded\)|differs from the volume calculated|dosing-review-explanation/)
+  assert.match(valid.html,/<dt>Recorded medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(valid.html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/);assert.doesNotMatch(valid.html,/<dt>Concentration<\/dt>/)
+  assert.doesNotMatch(valid.html,/Calculation \(rounded\)|differs from the volume calculated/)
   for(const [scale,markings] of [['100','20'],['40','8']]) {
    const syringeEntry=entryFromForm({input_mode:'syringe',syringe_scale:scale,syringe_markings:markings,preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL'})
-   assert.match(renderReview(syringeEntry).html,new RegExp(`<dt>Syringe draw</dt><dd>${markings} U-${scale} units</dd>`))
+   assert.match(renderReview(syringeEntry).html,new RegExp(`<dt>Syringe draw</dt><dd>${markings} recorded markings · U-${scale}</dd>`))
    const entered=renderReview({...syringeEntry,injection_volume:'0.2'})
-   assert.match(entered.html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.doesNotMatch(entered.html,/Calculation \(rounded\)/)
+   assert.match(entered.html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/);assert.doesNotMatch(entered.html,/Calculation \(rounded\)/)
   }
  }finally{globalThis.window=previous}
 })
 
-test('review distinguishes ambiguous recorded values from confirmable calculated medication',()=>{
+test('review preserves ambiguous recorded values without calculated candidates',()=>{
  const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}}
  const {entryFromForm}=load('../lib/health/dosingEntry.ts')
  try {
@@ -462,12 +462,12 @@ test('review distinguishes ambiguous recorded values from confirmable calculated
    return {review,html:renderToStaticMarkup(React.createElement('div',null,review.props.children)),confirmation:nodes.find(n=>n.props.className==='dosing-confirmation')}
   }
   const ambiguous=reviewFor(entryFromForm({input_mode:'unknown',dose:'50',dose_unit:'IU'}))
-  assert.match(ambiguous.html,/<dt>Recorded value<\/dt><dd>50 IU<\/dd>/)
-  assert.doesNotMatch(ambiguous.html,/<dt>Medication amount<\/dt>|<dt>Calculated medication amount<\/dt>/)
-  assert.equal(ambiguous.confirmation.props.hidden,true)
+  assert.match(ambiguous.html,/<dt>Saved amount · meaning unverified<\/dt><dd>50 IU<\/dd>/)
+  assert.doesNotMatch(ambiguous.html,/<dt>Recorded medication amount<\/dt>|<dt>Calculated medication amount<\/dt>/)
+  assert.equal(ambiguous.confirmation.props.hidden,false)
   const candidate=reviewFor(entryFromForm({input_mode:'unknown',dose:'50',dose_unit:'IU',injection_volume:'0.2',preparation:'ready',concentration_value:'10',concentration_unit:'mg/mL'}))
-  assert.match(candidate.html,/<dt>Recorded value<\/dt><dd>50 IU<\/dd>/)
-  assert.match(candidate.html,/<dt>Calculated medication amount<\/dt><dd>2 mg<\/dd>/)
+  assert.match(candidate.html,/<dt>Saved amount · meaning unverified<\/dt><dd>50 IU<\/dd>/)
+  assert.doesNotMatch(candidate.html,/<dt>Calculated medication amount<\/dt>|2 mg<\/dd>/)
   assert.equal(candidate.review.props.open,undefined);assert.equal(candidate.review.props.hidden,false)
   assert.equal(candidate.confirmation.props.hidden,false)
  }finally{globalThis.window=previous}
@@ -486,7 +486,7 @@ test('medication confirmation remains reachable after editing and survives save 
   const label=h.render().find(n=>n.props.className==='dosing-confirmation')
   assert.equal(review.props.hidden,false);assert.equal(review.props.open,undefined);assert.equal(label.props.hidden,false)
   assert.equal(reviewCheckbox(h).props.checked,false)
-  assert.match(renderToStaticMarkup(React.createElement('div',null,review.props.children)),/<dt>Medication amount<\/dt><dd>3 mg<\/dd>/)
+  assert.match(renderToStaticMarkup(React.createElement('div',null,review.props.children)),/<dt>Recorded medication amount<\/dt><dd>3 mg<\/dd>/)
   reviewCheckbox(h).props.onChange({target:{checked:true}})
   assert.equal(reviewCheckbox(h).props.checked,true)
   await h.button('Save changes').props.onClick()
@@ -531,9 +531,9 @@ test('review preserves historical U-50 facts without rendering unsupported syrin
   const review=h.render().find(n=>n.props['data-dose-review']!==undefined)
   const html=renderToStaticMarkup(React.createElement('div',null,review.props.children))
   assert.doesNotMatch(html,/18 ÷ 50|÷/)
-  assert.match(html,/<dt>Syringe draw<\/dt><dd>18 U-50 units<\/dd>/);assert.equal(h.field('Syringe scale').props.value,'50')
-  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.2 mL<\/dd>/);assert.match(html,/<dt>Medication amount<\/dt><dd>2 mg<\/dd>/);assert.match(html,/10 mg\/mL/)
-  assert.doesNotMatch(html,/Unverified dose semantics|You can still save|Unsupported syringe scale U-50/);assert.match(html,/saved U-50 scale is preserved/);assert.match(html,/Review Syringe scale against the recorded device/);assert.match(html,/volume cannot be calculated from these markings with an unsupported scale/)
+  assert.match(html,/<dt>Syringe draw<\/dt><dd>18 saved markings · origin unverified · U-50<\/dd>/);assert.equal(h.field('Syringe scale').props.value,'50')
+  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.2 mL · saved value, origin unverified<\/dd>/);assert.match(html,/<dt>Recorded medication amount<\/dt><dd>2 mg<\/dd>/);assert.doesNotMatch(html,/<dt>Concentration<\/dt>/)
+  assert.doesNotMatch(html,/Unverified dose semantics|You can still save|Unsupported syringe scale U-50/);assert.match(html,/recorded scale is preserved/);assert.match(html,/No equivalent is calculated/);assert.doesNotMatch(html,/Review Syringe scale|dose-review-link/)
  }finally{globalThis.window=previous}
 })
 
@@ -571,7 +571,7 @@ test('medication V2 save and reopen keeps administration visible without changin
   assert.match(dosingDisplay(phase).primary,/^3 mg/);assert.deepEqual(administrationDisplay(phase),{volume:'0.18 mL',syringe:'18 U-100 units'})
   const review=reopened.render().find(n=>n.props['data-dose-review']!==undefined)
   const html=renderToStaticMarkup(React.createElement('div',null,review.props.children))
-  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.18 mL<\/dd>/);assert.match(html,/<dt>Syringe draw<\/dt><dd>18 U-100 units<\/dd>/)
+  assert.match(html,/<dt>Injection volume<\/dt><dd>0\.18 mL · saved value, origin unverified<\/dd>/);assert.match(html,/<dt>Syringe draw<\/dt><dd>18 saved markings · origin unverified · U-100<\/dd>/)
  }finally{globalThis.window=previous}
 })
 
@@ -603,3 +603,13 @@ test('legacy editing blocks unsafe historical conversion and preserves access to
     assert.deepEqual(h.render().find(n=>n.type?.name==='ProtocolDetail').props.protocol,before)
   }finally{globalThis.window=previous}
 })
+
+test('legacy invalid numeric values never acquire an unsupported editor correction action',()=>{
+ const previous=globalThis.window;globalThis.window={scrollTo(){},location:{search:''}};
+ try{
+ const protocol={...saved,compounds:[{...saved.compounds[0],phases:[{...saved.compounds[0].phases[0],dosing_entry:null,dose:-2,dose_unit:'mg',dose_semantics_version:1}]}]};
+ const h=harness([protocol]);h.render().find(n=>n.props.onOpen).props.onOpen(saved.id);h.render().find(n=>n.props.onEdit).props.onEdit();
+ const nodes=h.render(),note=nodes.find(n=>n.props['data-historical-correction-unavailable']!==undefined);
+ assert.ok(note);assert.match(text(note),/cannot correct this older record/);assert.equal(nodes.filter(n=>n.props.className==='dose-review-link').length,0);
+ }finally{globalThis.window=previous}
+});

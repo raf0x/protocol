@@ -21,7 +21,7 @@ const number = (value: number) => Number(value.toPrecision(5))
 const decimal = (value: number, digits = 1) => Number(value.toFixed(digits))
 const signed = (value: number) => `${value > 0 ? '+' : ''}${number(value)}`
 const signedPercent = (value: number) => `${value > 0 ? '+' : ''}${decimal(value)}%`
-const medication = (value: { value: number; unit: string } | null) => value ? `${number(value.value)} ${value.unit}` : null
+const medication = (value: { value: number; unit: string; rawValue?: string; reviewStatus?: string } | null) => value ? `${value.rawValue ?? number(value.value)} ${value.unit}${value.reviewStatus === 'unverified' ? ' · unverified entry' : ''}` : null
 
 function contextNote(note: ReportContextNote) {
   if (note.kind === 'period') return { label: 'Report period', value: note.start ? `${formatDate(note.start)} – ${formatDate(note.end)}` : `All recorded history through ${formatDate(note.end)}` }

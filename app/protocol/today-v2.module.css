@@ -361,3 +361,9 @@
 .focusReview a { display: inline-flex; align-items: center; min-height: 44px; color: var(--app-accent); }
 .focusReview p { white-space: normal; overflow-wrap: anywhere; }
 .focusReview summary:focus-visible, .focusReview a:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+
+/* Keep the recorded amount and compound name readable beside the retained vial. */
+@media (max-width: 340px) {
+  .selectedSnapshot :global(.today-protocol-snapshot) { grid-template-columns: minmax(0, 1fr) 96px; column-gap: 8px; }
+  .selectedSnapshot :global(.today-snapshot-heading) h3 { font-size: 20px; line-height: 25px; }
+}

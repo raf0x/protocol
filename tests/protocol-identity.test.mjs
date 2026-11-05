@@ -164,7 +164,7 @@ test('detector supplies structured label on event, saved lifecycle and phase pat
   assert.equal(explicit.treatmentName, 'Compound label'); assert.equal(explicit.title, 'Compound label route changed')
   const boundary = events.find(e => e.id === 'phase:c1:2026-01-08:dose_increased')
   assert.equal(boundary.treatmentName, 'Compound label'); assert.equal(boundary.title, 'Compound label dose increased')
-  assert.deepEqual(boundary.after, { value: 2, unit: 'mg' })
+  assert.deepEqual(boundary.after, { value: 2, unit: 'mg', rawValue: '2', source: 'legacy_phase', phaseId: 'phase2', reviewStatus: 'legacy_semantics_v1' })
 })
 test('Timeline exposes protocol name without replacing a null compound ID or parsing its title', () => {
   const row = { id: 'event1', date: '2026-01-01', event_type: 'started', description: null, protocol_id: 'p1', compound_id: null,

@@ -37,7 +37,7 @@ export function HealthBriefingView({ model, newFindingsCount = 0 }: { model: Hea
         const identity = `${item.protocolId}:${item.compoundId}`
         return <li key={identity} data-accent={compoundAccent(identity)}>
           <span className={styles.compoundAccent} aria-hidden="true" />
-          <div><strong>{item.name}</strong><span>{[item.medication ? `${item.medication.value} ${item.medication.unit}` : 'Dose not confirmed', item.frequency, item.route].filter(Boolean).join(' · ')}</span></div>
+          <div><strong>{item.name}</strong><span>{[item.medication ? `${item.medication.rawValue ?? item.medication.value} ${item.medication.unit}${item.medication.reviewStatus === 'unverified' ? ' · unverified entry' : ''}` : 'Dose not confirmed', item.frequency, item.route].filter(Boolean).join(' · ')}</span></div>
         </li>
       })}</ul>}
       {snapshot.additionalCompounds > 0 && <p className={styles.caption}>+{snapshot.additionalCompounds} more recorded compounds</p>}

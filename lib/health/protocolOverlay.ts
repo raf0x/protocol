@@ -1,4 +1,4 @@
-import { dosingDisplay } from './dosingEntry'
+import { recordedDoseDisplay, recordedEventMedication, recordedAmount } from './recordedDose'
 import { type LibraryCompound, type LibraryProtocol } from './protocolPresentation'
 import type { BiomarkerHistory, LabObservation } from './labs'
 import type { PhaseRow } from './timeline'
@@ -42,11 +42,11 @@ function protocolWeek(start: string, date: string) {
 }
 
 function confirmedDose(phase: PhaseRow) {
-  const display = dosingDisplay(phase)
+  const display = recordedDoseDisplay(phase)
   if (phase.dosing_entry) {
-    return { label: display.primary, confirmed: phase.dosing_entry.review_status === 'confirmed' && Boolean(display.medication) }
+    return { label: display.primary, medication: display.medication, confirmed: phase.dosing_entry.review_status === 'confirmed' && Boolean(display.medication) }
   }
-  return { label: display.primary, confirmed: phase.dose_semantics_version === 1 && Boolean(display.medication) }
+  return { label: display.primary, medication: display.medication, confirmed: phase.dose_semantics_version === 1 && Boolean(display.medication) }
 }
 
 function doseLabel(value: number, unit: string) {
@@ -59,14 +59,15 @@ export function contextAtDate(protocol: LibraryProtocol, date: string, events: O
   const week = protocol.start_date ? protocolWeek(protocol.start_date, date) : null
   const states = healthStateAtDate({ protocols: [protocol], protocolEvents: events }, date)
   return states.map(state => {
-    const medication = state.medication ? doseLabel(state.medication.value, state.medication.unit) : null
+    const medication = state.medication ? `${state.medication.rawValue ?? state.medication.value} ${state.medication.unit}` : null
     const issues = state.limitations.filter(value => /unambiguous phase|Reconstructed from the current saved plan|Compound record is absent/.test(value))
-    if (!state.medication) issues.push('Historical dose semantics are unverified')
+    if (!state.medication) issues.push('Medication amount not recorded')
+    else if (state.medication.reviewStatus === 'unverified') issues.push('Recorded medication entry is unverified')
     const issue = [...new Set(issues)].join(' · ') || null
     return { protocolId: state.protocolId, protocolName: protocol.name || 'Protocol', compoundId: state.compoundId,
       compoundName: state.name || 'Compound', phaseId: state.phaseId, week,
-      dose: medication ?? 'Dose not confirmed for this date', frequency: state.frequency, route: state.route,
-      confirmed: Boolean(state.medication), issue }
+      dose: medication ?? 'Medication amount not recorded for this date', frequency: state.frequency, route: state.route,
+      confirmed: Boolean(state.medication && state.medication.reviewStatus !== 'unverified'), issue }
   })
 }
 
@@ -79,7 +80,7 @@ function phaseMarkers(protocol: LibraryProtocol, compound: LibraryCompound): Ove
   return phases.map(phase => {
     const index = all.findIndex(item => item.id === phase.id), previous = index > 0 ? all[index - 1] : null
     const nextDose = confirmedDose(phase), previousDose = previous ? confirmedDose(previous) : null
-    const changed = Boolean(previousDose?.confirmed && nextDose.confirmed && previousDose.label !== nextDose.label)
+    const changed = Boolean(previousDose?.confirmed && nextDose.confirmed && previousDose.medication && nextDose.medication && previousDose.medication?.unit === nextDose.medication?.unit && Number(previousDose.medication?.value) !== Number(nextDose.medication?.value))
     return { id: `phase:${phase.id}`, date: phaseDate(protocol.start_date!, phase.start_week!), protocolId: protocol.id,
       compoundId: compound.id, title: changed ? `${compound.name || 'Compound'} dose changed` : `${compound.name || 'Compound'} phase started`,
       description: changed ? `${previousDose!.label} → ${nextDose.label}` : nextDose.confirmed ? nextDose.label : 'Dose not confirmed for this phase',
@@ -103,12 +104,15 @@ export function overlayMarkers(protocols: LibraryProtocol[], events: OverlayProt
     const protocol = protocols.find(item => item.id === event.protocol_id)
     const compoundId = eventCompoundId(event)
     const compound = protocol?.compounds?.find(item => item.id === compoundId)
-    const action = (event.event_type ?? 'update').replaceAll('_', ' ')
+    const action = event.event_type === 'dose_change' && !recordedEventMedication(event.metadata) ? 'recorded measurements changed' : (event.event_type ?? 'update').replaceAll('_', ' ')
     const metadata = event.metadata ?? {}
     const field = (key: string) => typeof metadata[key] === 'string' || typeof metadata[key] === 'number' ? String(metadata[key]) : ''
     let description = event.description?.trim() || null
-    if (event.event_type === 'dose_change' && field('newDose') && field('newUnit')) description = field('previousDose') && field('previousUnit')
-      ? `${field('previousDose')} ${field('previousUnit')} → ${field('newDose')} ${field('newUnit')}` : `${field('newDose')} ${field('newUnit')}`
+    if (event.event_type === 'dose_change') {
+      const next = recordedEventMedication(metadata), previous = recordedEventMedication(metadata, 'previous')
+      description = next ? [previous && recordedAmount(previous.value, previous.unit), recordedAmount(next.value, next.unit)].filter(Boolean).join(' → ')
+        : description ? 'Historical event text (amount meaning unverified): ' + description : 'Medication amount not recorded in the event snapshot'
+    }
     if (event.event_type === 'frequency_change' && field('newFrequency')) description = field('previousFrequency') ? `${field('previousFrequency')} → ${field('newFrequency')}` : field('newFrequency')
     if (event.event_type === 'route_change' && field('newRoute')) description = field('previousRoute') ? `${field('previousRoute')} → ${field('newRoute')}` : field('newRoute')
     const compoundName = compound?.name || (typeof metadata.compoundName === 'string' ? metadata.compoundName : null)

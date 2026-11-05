@@ -31,100 +31,49 @@ const Detail = load('../components/protocols/ProtocolDetail.tsx').default
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
 const entry = extra => entryFromForm({ input_mode: 'medication', dose: '2', dose_unit: 'mg', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '2', reviewed: true, ...extra })
 
-for (const [name, raw, code, field] of [
-  ['medication and volume conflict', { injection_volume: '0.2' }, 'medication-volume-conflict', 'Injection volume (mL)'],
-  ['markings and entered volume conflict', { syringe_markings: '20', syringe_scale: '100', injection_volume: '0.3' }, 'markings-volume-conflict', 'Injection volume (mL)'],
-  ['medication and markings conflict', { syringe_markings: '20', syringe_scale: '100' }, 'medication-markings-conflict', 'Syringe markings'],
-  ['missing scale', { input_mode: 'syringe', dose: '', syringe_markings: '20', syringe_scale: '' }, 'missing-scale', 'Syringe scale'],
-  ['incomplete amount', { vial_strength: '' }, 'incomplete-mixing', 'Vial amount'],
-  ['incomplete mixing unit', { vial_unit: '' }, 'incomplete-mixing', 'Vial unit'],
-  ['incomplete liquid volume', { bac_water_ml: '' }, 'incomplete-mixing', 'BAC water in mL'],
-  ['retained preparation sources', { concentration_value: '5', concentration_unit: 'mg/mL' }, 'preparation-source-conflict', 'Preparation source'],
-  ['unconfirmed preparation', { preparation: 'unknown' }, 'unknown-preparation', 'Preparation source'],
-  ['incompatible units', { dose_unit: 'IU' }, 'incompatible-units', 'Medication dose unit'],
-  ['unknown dose semantics', { input_mode: 'unknown', reviewed: false }, 'unknown-semantics', 'How do you measure it?'],
-]) {
-  test(name + ' names the exact next field without changing any saved value', () => {
-    const saved = Object.freeze(entry(raw)), before = JSON.stringify(saved), interpreted = interpretEntry(saved)
-    const guidance = dosingIssue(saved)
-    assert.equal(guidance.code, code); assert.equal(guidance.field, field)
-    assert.ok(guidance.explanation.includes(field), guidance.explanation)
-    assert.notEqual(guidance.title, 'Vial details need review')
-    assert.equal(JSON.stringify(saved), before)
-    assert.deepEqual(interpretEntry(saved), interpreted, 'Presentation must not change calculations or review status')
-    assert.equal(isDosingReviewField(field), true)
-  })
-}
-test('unsupported historical scale is retained and no scale is inferred', () => {
-  const saved = Object.freeze({ ...entry({ input_mode: 'syringe', dose: '', syringe_markings: '18' }), syringe_scale: '50' })
-  assert.equal(dosingIssue(saved).code, 'unsupported-scale')
-  assert.equal(saved.syringe_scale, '50')
-  assert.equal(interpretEntry(saved).volume, null)
-  const blank = entry({ input_mode: 'syringe', dose: '', syringe_markings: '18', syringe_scale: '' })
-  assert.equal(dosingIssue(blank).field, 'Syringe scale')
-  assert.equal(blank.syringe_scale, '')
-})
-test('ready preparation distinguishes a missing concentration value from its unit', () => {
-  for (const [value, unit, field] of [['', 'mg/mL', 'Concentration value'], ['5', '', 'Concentration unit']]) {
-    const saved = entry({ input_mode: 'volume', dose: '', injection_volume: '.2', preparation: 'ready', vial_strength: '', vial_unit: '', bac_water_ml: '', concentration_value: value, concentration_unit: unit })
-    assert.equal(dosingIssue(saved).field, field)
-  }
-})
-test('legacy values and compound/phase disagreements remain untouched', () => {
-  const phase = Object.freeze({ dose: '18.00', dose_unit: 'IU', dose_semantics_version: null })
-  const before = JSON.stringify(phase)
-  assert.equal(phaseDosingIssue(phase).code, 'legacy-semantics')
-  assert.match(phaseDosingIssue(phase).explanation, /Historical values are preserved/)
-  assert.equal(JSON.stringify(phase), before)
-  const snapshot = Object.freeze({ dosing_entry: Object.freeze(entry({ bac_water_ml: '' })) })
-  const hydrated = entryFormState(snapshot, { bac_water_ml: '4', vial_strength: '20' })
-  assert.equal(hydrated.bac_water_ml, '')
-  assert.equal(dosingIssue(snapshot.dosing_entry).field, 'BAC water in mL')
-  assert.equal(snapshot.dosing_entry.bac_water_ml, '')
-})
-test('compact and full summaries retain explanations and invoke exact-field recovery', () => {
-  for (const compact of [true, false]) {
-    const phase = { dosing_entry: entry({ injection_volume: '.2' }) }, calls = []
-    const html = render(Summary, { phase, compact, onReview: (...args) => calls.push(args) })
-    assert.match(html, /Medication dose and volume disagree/)
-    assert.match(html, /differs from the volume calculated/)
-    assert.match(html, /Review injection volume/)
-    const tree = Summary({ phase, compact, onReview: (...args) => calls.push(args) })
-    function find(node) {
-      if (Array.isArray(node)) return node.map(find).find(Boolean)
-      if (!node || typeof node !== 'object') return null
-      return node.type === 'button' ? node : find(node.props?.children)
-    }
-    find(tree).props.onClick()
-    assert.deepEqual(calls, [['syringe', 'Injection volume (mL)']])
-  }
-})
-test('normal confirmed medication-only records do not acquire a preparation warning', () => {
-  for (const preparation of ['ready', 'mixing']) {
-    const saved = entryFromForm({ input_mode: 'medication', dose: '5.25', dose_unit: 'mg', preparation, reviewed: true })
-    assert.equal(dosingIssue(saved), null)
-    assert.doesNotMatch(render(Summary, { phase: { dosing_entry: saved }, compact: true }), /dose-issue/)
-  }
-})
-test('unverified review state stays unverified and is not clinical confirmation', () => {
-  const saved = entry({ reviewed: false })
-  assert.equal(dosingIssue(saved).code, 'unconfirmed-entry')
-  assert.match(dosingIssue(saved).explanation, /does not clinically confirm/)
-  assert.equal(saved.review_status, 'unverified')
-})
-test('invalid stored JSON receives recovery without rewriting its raw fields', () => {
-  const saved = Object.freeze({ ...entry({}), syringe_scale: '0', dose: 'original invalid value' })
-  const before = JSON.stringify(saved)
-  assert.equal(phaseDosingIssue({ dosing_entry: saved }).code, 'invalid-entry')
-  assert.match(render(Summary, { phase: { dosing_entry: saved } }), /Saved dose entry is invalid/)
-  assert.equal(JSON.stringify(saved), before)
-})
-test('protocol rows link directly to the named recovery field', () => {
-  const html = render(Row, { id: 'compound', name: 'Synthetic', week: 1, phase: { id: 'phase', dosing_entry: entry({ input_mode: 'syringe', dose: '', syringe_markings: '20', syringe_scale: '' }), start_week: 1, end_week: null, frequency: 'daily' }, protocolId: 'protocol', color: '#ffffff', selected: false, onSelect() {} })
-  assert.match(html, /review=Syringe%20scale/)
-  assert.match(html, /Syringe scale is missing/)
-  assert.match(html, /their scale is missing/)
-})
+
+for (const [name, raw] of [
+ ['medication and volume',{injection_volume:'.2'}],['markings and volume',{syringe_markings:'20',syringe_scale:'100',injection_volume:'.3'}],
+ ['missing mixing amount',{vial_strength:''}],['missing mixing unit',{vial_unit:''}],['missing water',{bac_water_ml:''}],
+ ['independent units',{dose_unit:'IU'}],['unknown preparation',{preparation:'unknown'}],
+ ['partial labelled concentration',{preparation:'ready',vial_strength:'',vial_unit:'',bac_water_ml:'',concentration_value:'5',concentration_unit:''}],
+]) test(name+' is not evidence of an invalid record',()=>{
+ const saved=Object.freeze(entry(raw)),before=JSON.stringify(saved),interpreted=interpretEntry(saved);
+ assert.equal(dosingIssue(saved),null);assert.equal(JSON.stringify(saved),before);assert.deepEqual(interpretEntry(saved),interpreted);
+});
+test('unsupported historical scale remains neutral and no scale is inferred',()=>{
+ const saved=Object.freeze({...entry({input_mode:'syringe',dose:'',syringe_markings:'18'}),syringe_scale:'50'});
+ assert.equal(dosingIssue(saved).code,'unsupported-scale');assert.equal(dosingIssue(saved).severity,'info');assert.equal(dosingIssue(saved).action,undefined);
+ assert.equal(saved.syringe_scale,'50');assert.equal(interpretEntry(saved).volume,null);
+});
+test('legacy values and missing preparation remain untouched without a correction promise',()=>{
+ const phase=Object.freeze({dose:'18.00',dose_unit:'IU',dose_semantics_version:null}),before=JSON.stringify(phase);
+ assert.equal(phaseDosingIssue(phase).severity,'info');assert.equal(phaseDosingIssue(phase).action,undefined);assert.equal(JSON.stringify(phase),before);
+ const snapshot=Object.freeze({dosing_entry:Object.freeze(entry({bac_water_ml:''}))});
+ assert.equal(entryFormState(snapshot,{bac_water_ml:'4',vial_strength:'20'}).bac_water_ml,'');assert.equal(dosingIssue(snapshot.dosing_entry),null);
+});
+test('compact and full summaries invoke exact-field recovery only for invalid numeric facts',()=>{
+ for(const compact of[true,false]){
+  const phase={dosing_entry:{...entry({}),dose:'-2'}},calls=[];
+  const html=render(Summary,{phase,compact,onReview:(...args)=>calls.push(args)});assert.match(html,/Medication dose is invalid/);assert.match(html,/Review Medication dose/);
+  function find(n){if(Array.isArray(n))return n.map(find).find(Boolean);if(!n||typeof n!=='object')return null;return n.type==='button'?n:find(n.props?.children)}
+  find(Summary({phase,compact,onReview:(...args)=>calls.push(args)})).props.onClick();assert.deepEqual(calls,[['dose','Medication dose']]);
+ }
+});
+test('optional review status is retained as neutral provenance',()=>{
+ for(const reviewed of[true,false]){const saved=entry({reviewed});assert.equal(dosingIssue(saved)?.severity,reviewed?undefined:'info');assert.equal(saved.review_status,reviewed?'confirmed':'unverified')}
+});
+test('invalid stored values remain visible without rewriting raw fields',()=>{
+ const saved=Object.freeze({...entry({}),syringe_scale:'0',dose:'original invalid value'}),before=JSON.stringify(saved);
+ assert.equal(phaseDosingIssue({dosing_entry:saved}).field,'Medication dose');assert.match(render(Summary,{phase:{dosing_entry:saved}}),/Medication dose is invalid/);assert.equal(JSON.stringify(saved),before);
+});
+test('protocol rows link to a genuinely invalid field, not missing optional calibration',()=>{
+ const props={id:'compound',name:'Synthetic',week:1,protocolId:'protocol',color:'#ffffff',selected:false,onSelect(){}};
+ const invalid={...entry({input_mode:'syringe',dose:'',syringe_markings:'20'}),syringe_scale:'0'};
+ assert.match(render(Row,{...props,phase:{id:'phase',dosing_entry:invalid,start_week:1,end_week:null,frequency:'daily'}}),/review=Syringe%20scale/);
+ const neutral=render(Row,{...props,phase:{dosing_entry:{...invalid,syringe_scale:''}}});assert.doesNotMatch(neutral,/review=|data-warning="true"/);
+});
+
 test('Protocol detail names phase provenance and does not manufacture a vial expiry', () => {
   const protocol = { id: 'protocol', name: 'Synthetic', status: 'active', start_date: '2026-11-01', compounds: [{ id: 'compound', name: 'Synthetic', reconstitution_date: '2026-11-01', vials_in_stock: 0, bac_water_ml: 4, vial_strength: 20, vial_unit: 'mg', phases: [{ id: 'phase', start_week: 1, end_week: null, frequency: 'daily', dosing_entry: entry({}) }] }] }
   const before = JSON.stringify(protocol)
@@ -178,8 +127,7 @@ test('field recovery opens the correct panel without touching any dosing field',
 
 test('missing preparation does not assume ready-to-use or mixing', () => {
   const saved = entryFromForm({ input_mode: 'volume', injection_volume: '.2', reviewed: true })
-  assert.equal(dosingIssue(saved).code, 'missing-preparation')
-  assert.equal(dosingIssue(saved).field, 'Preparation source')
+  assert.equal(dosingIssue(saved), null)
   assert.equal(saved.preparation, undefined)
 })
 

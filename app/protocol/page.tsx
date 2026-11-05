@@ -1,5 +1,5 @@
 'use client'
-import { dosingDisplay, administrationForPhase } from '../../lib/health/dosingEntry'
+import { recordedDoseDisplay, recordedDoseCsvHeaders, recordedDoseCsvFields, csvRecordedCell } from '../../lib/health/recordedDose'
 
 import PlannedProtocols from '../../components/protocols/PlannedProtocols'
 import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
@@ -27,7 +27,7 @@ import { currentPhase as selectCurrentPhase } from '../../lib/health/dosing'
 import type { PhaseRow } from '../../lib/health/timeline'
 import { convertWeight, formatWeight, getWeightLabel, type WeightUnit } from '../../lib/weightUtils'
 
-type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: number; syringe_units: number; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
+type DueCompound = { id: string; name: string; dose: string; dose_unit: string; volume_ml: string | null; syringe_units: string | null; time_of_day: string; protocol_name: string; start_date?: string; frequency?: string; day_of_week?: number | null }
 type LogEntry = { compound_id: string; taken: boolean; discomfort: number }
 type SecondarySection = 'health' | 'history' | 'planned'
 type ReadStatus = 'loading' | 'ready' | 'error' | 'needs-unit'
@@ -190,7 +190,7 @@ export default function DashboardPage() {
       return
     }
 
-    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,mL per Injection\n'
+    let csvContent = 'Protocol Name,Compound Name,Dose,Dose Unit,Frequency,Start Date,End Date,Total Injections,Vials Used,Legacy compound mL per injection (origin unverified),' + recordedDoseCsvHeaders.join(',') + '\n'
 
     for (const protocol of allProtocols) {
       // This export describes dated treatment history, not unstarted inventory.
@@ -200,13 +200,11 @@ export default function DashboardPage() {
       for (const compound of compounds) {
         const phases = compound.phases || []
         const injectionLogs = compound.injection_logs || []
-        const mlPerDose = compound.ml_per_dose || 0
-        const vialStrength = compound.vial_strength || 0
+        const mlPerDose = compound.ml_per_dose ?? 'Unknown'
         
         if (phases.length === 0) {
           // No phases, just add compound row
-          const totalInjections = injectionLogs.length
-          const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
+          const totalInjections = injectionLogs.filter((log: any) => log.taken === true).length
           
           const row = [
             `"${protocol.name}"`,
@@ -217,8 +215,10 @@ export default function DashboardPage() {
             csvProtocolDate(protocol.start_date),
             '-',
             totalInjections,
-            vialsUsed,
-            mlPerDose
+            'Unknown', // Physical-vial usage is not established by injection logs.
+            mlPerDose,
+
+            ...recordedDoseCsvFields(null).map(csvRecordedCell)
           ].join(',')
           csvContent += row + '\n'
         } else {
@@ -230,23 +230,24 @@ export default function DashboardPage() {
             // Count injections in this phase
             const phaseInjections = injectionLogs.filter((log: any) => {
               const logDate = new Date(log.date)
-              return logDate >= phaseStart && logDate <= phaseEnd && log.taken
+              return logDate >= phaseStart && logDate <= phaseEnd && log.taken === true
             })
             
             const totalInjections = phaseInjections.length
-            const vialsUsed = vialStrength > 0 ? ((totalInjections * mlPerDose) / vialStrength).toFixed(2) : 0
             
             const row = [
               `"${protocol.name}"`,
               `"${compound.name}"`,
-              phase.dosing_entry ? dosingDisplay(phase).medication?.value ?? '' : phase.dose,
-              phase.dosing_entry ? dosingDisplay(phase).medication?.unit ?? 'Uncalculated' : phase.dose_unit || '-',
+              csvRecordedCell(recordedDoseDisplay(phase).medication?.value),
+              csvRecordedCell(recordedDoseDisplay(phase).medication?.unit),
               phase.frequency || '-',
               csvProtocolDate(protocol.start_date, phase.start_week || 1),
               phase.end_week ? csvProtocolDate(protocol.start_date, phase.end_week) : phaseEnd.toLocaleDateString('en-US'),
               totalInjections,
-              vialsUsed,
-              mlPerDose
+              'Unknown', // Physical-vial usage is not established by injection logs.
+              mlPerDose,
+
+              ...recordedDoseCsvFields(phase).map(csvRecordedCell)
             ].join(',')
             csvContent += row + '\n'
           }
@@ -506,12 +507,12 @@ export default function DashboardPage() {
       setActiveProtocols(protocols)
     const due: DueCompound[] = []
     ;(protocols || []).forEach((p: any) => { (p.compounds||[]).forEach((c: any) => { const phase = selectCurrentPhase(c.phases as PhaseRow[] || [], p.start_date, new Date().toLocaleDateString('en-CA')); if (phase && (phase.dosing_entry || phase.dose_semantics_version === 1) && isDueToday(phase.frequency || '', p.start_date, phase.day_of_week ?? null, undefined, phase.days_of_week ?? undefined)) {
-          const volumeMl = administrationForPhase(phase).volume ?? 0
-          const syringeUnits = administrationForPhase(phase).markings ?? 0
+          const volumeMl = recordedDoseDisplay(phase).facts.volume?.value ?? null
+          const syringeUnits = recordedDoseDisplay(phase).facts.markings?.value ?? null
           due.push({
             id: c.id,
             name: c.name,
-            dose: dosingDisplay(phase).primary,
+            dose: recordedDoseDisplay(phase).primary,
             dose_unit: '',
             volume_ml: volumeMl,
             syringe_units: syringeUnits,

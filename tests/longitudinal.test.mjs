@@ -58,16 +58,16 @@ test('historical phase is not replaced by the current later phase', () => {
   const data = source({ protocols: [protocol({ compounds: [{ id: 'compound-a', name: 'Fictional', phases: [phase({ end_week: 2 }), phase({ id: 'phase-b', start_week: 3, dose: 8 })] }] })] })
   assert.equal(state(data, '2026-01-12').medication.value, 4); assert.equal(state(data, '2026-02-01').medication.value, 8)
 })
-test('true medication IU remains IU', () => assert.deepEqual(medicationForPhase(phase({ dose: 320, dose_unit: 'IU' })), { value: 320, unit: 'IU' }))
+test('true medication IU remains IU', () => assert.deepEqual(medicationCore(medicationForPhase(phase({ dose: 320, dose_unit: 'IU' }))), { value: 320, unit: 'IU' }))
 test('syringe markings never become medication IU', () => {
   const medication = medicationForPhase(phase({ dose: null, dosing_entry: entry() }))
-  assert.equal(medication.unit, 'mg'); assert.ok(Math.abs(medication.value - 2.4) < 1e-10)
+  assert.equal(medication, null, 'Syringe mode cannot supply a recorded medication')
 })
 test('mg medication remains mass medication', () => assert.equal(medicationForPhase(phase()).unit, 'mg'))
 test('mcg medication remains mcg', () => assert.equal(medicationForPhase(phase({ dose: 250, dose_unit: 'mcg' })).unit, 'mcg'))
 test('reconstituted peptide uses only its own recorded preparation data', () => {
   const dose = medicationForPhase(phase({ dosing_entry: entry({ vial_strength: '8', bac_water_ml: '4', syringe_markings: '25' }) }))
-  assert.deepEqual(dose, { value: .5, unit: 'mg' })
+  assert.equal(dose, null)
 })
 test('incomplete syringe entries do not borrow current compound concentration', () => {
   const dose = medicationForPhase(phase({ dosing_entry: entry({ vial_strength: '', bac_water_ml: '' }) }))
@@ -174,8 +174,8 @@ test('nearest ambiguous baseline is not replaced by an older date outside the co
   const item = observation(source({ panels: [panel('early', '2025-12-01', 150), panel('one', '2026-01-05', 160), panel('equal', '2026-01-05', 160), panel('after', '2026-01-31', 156)] }))
   assert.equal(item.baseline, null); assert.equal(item.changes.length, 0)
 })
-test('mass units can be compared centrally, without IU-to-mass conversion', () => {
-  assert.equal(compareMedication({ value: 1, unit: 'mg' }, { value: 1000, unit: 'mcg' }), 0)
+test('different medication units are not converted for comparison', () => {
+  assert.equal(compareMedication({ value: 1, unit: 'mg' }, { value: 1000, unit: 'mcg' }), null)
   assert.equal(compareMedication({ value: 10, unit: 'IU' }, { value: 10, unit: 'mg' }), null)
 })
 test('snapshot rewind restores old dose, route and explicit null frequency', () => {
@@ -276,8 +276,8 @@ test('protocol-context Analyst uses the new conservative snapshot resolver', () 
   const context = buildAnalystContext(data, 'Review my protocol history', '2026-05-01')
   assert.ok(context.evidence.some(item => item.type === 'protocol_state' && item.detail.startsWith('Medication dose not confirmed')))
 })
-test('overflow during mass normalization cannot invent a dose decrease', () => {
-  assert.equal(compareMedication({ value: Number.MAX_VALUE, unit: 'mg' }, { value: Number.MAX_VALUE, unit: 'mg' }), null)
+test('same-unit comparison does not normalize mass or invent a decrease', () => {
+  assert.equal(compareMedication({ value: Number.MAX_VALUE, unit: 'mg' }, { value: Number.MAX_VALUE, unit: 'mg' }), 0)
 })
 test('recorded changes are stable when source order changes', () => {
   const data = source({ protocolEvents: [event(), change()] })
@@ -472,3 +472,6 @@ test('pagination resets through the URL-keyed list, while the selector and perio
   assert.match(html, /<select[^>]*id="protocol-change"/)
   assert.match(html, /Derived health periods/)
 })
+
+// Value/unit selection contract; raw provenance is tested separately.
+function medicationCore(dose) { return dose ? { value: dose.value, unit: dose.unit } : null }

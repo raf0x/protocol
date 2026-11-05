@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '../../lib/supabase'
-import { administrationDisplay, formatProtocolAmount } from '../../lib/health/dosingEntry'
+import { formatProtocolAmount } from '../../lib/health/dosingEntry'
+import { recordedAdministrationDisplay, recordedDoseDisplay, recordedAmount } from '../../lib/health/recordedDose'
 import { normalizeTimeline, type ProtocolEventRow } from '../../lib/health/timeline'
 import { compoundOverview, dateLabel, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import ActivateProtocol from './ActivateProtocol'
@@ -48,28 +49,29 @@ export default function ProtocolDetail(props: Props) {
     {!protocol.compounds?.length && <div className="protocol-empty">No compounds saved yet. Add the details you know in the editor.</div>}
     {(protocol.compounds ?? []).map(compound => {
       const info = compoundOverview(protocol, compound, today)
-      const admin = administrationDisplay(info.phase)
+      const admin = recordedAdministrationDisplay(info.phase)
+      const administrationDetails = recordedDoseDisplay(info.phase).medication ? [admin.syringe, admin.volume].filter(Boolean) : admin.syringe && admin.volume ? [admin.volume] : []
       const issue = phaseDosingIssue(info.phase)
       return <section className="protocol-detail-compound" key={compound.id}>
         {protocol.compounds?.length === 1 ? <h1>{compound.name}</h1> : <h2>{compound.name}</h2>}
         <div className="protocol-dose-overview"><DoseSummary phase={info.phase} compact showIssue={false} /><p>{info.frequency}{info.phase?.route && ` · ${info.phase.route}`}</p></div>
         <div className="protocol-primary-facts">
           {info.next && <div className="protocol-next-dose"><span>Next dose</span><strong>{info.next.date === today ? 'Today' : dateLabel(info.next.date)}</strong>{info.next.time && <small>{info.next.time}</small>}</div>}
-          {(admin.syringe || admin.volume) && <div className="protocol-compact-administration"><span>Dose details</span><p>{[admin.syringe?.replace(/ U-(100|40) units$/, ' units'), admin.volume].filter(Boolean).join(' · ')}</p></div>}
+          {administrationDetails.length > 0 && <div className="protocol-compact-administration"><span>Dose details</span><p>{administrationDetails.join(' · ')}</p></div>}
         </div>
-        {issue && <div className="protocol-dose-issue" role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p><button type="button" onClick={() => props.onEdit(compound.id, false, issue.field)}>{issue.action}</button></div>}
+        {issue && <div className={issue.severity === 'warning' ? 'protocol-dose-issue' : 'protocol-dose-information'} role="status"><strong>{issue.title}</strong><p>{issue.explanation}</p>{issue.action && <button type="button" onClick={() => props.onEdit(compound.id, false, issue.field)}>{issue.action}</button>}</div>}
       </section>
     })}
     <details className="protocol-more-details"><summary>More details</summary>
       {(protocol.compounds ?? []).map(compound => {
         const info = compoundOverview(protocol, compound, today)
-        const admin = administrationDisplay(info.phase)
+        const admin = recordedAdministrationDisplay(info.phase)
         const adminArtwork = administrationArtwork(info.phase)
         const entry = info.phase?.dosing_entry
         const preparation = entry ?? compound
-        const vialAmount = formatProtocolAmount(preparation.vial_strength, preparation.vial_unit)
-        const liquid = formatProtocolAmount(preparation.bac_water_ml, 'mL', 'volume')
-        const concentration = formatProtocolAmount(preparation.concentration_value, preparation.concentration_unit)
+        const vialAmount = recordedAmount(preparation.vial_strength, preparation.vial_unit)
+        const liquid = recordedAmount(preparation.bac_water_ml, 'mL')
+        const concentration = recordedAmount(preparation.concentration_value, preparation.concentration_unit)
         const stock = formatProtocolAmount(compound.vials_in_stock, 'vials in stock', 'count')
         return <div className="protocol-more-compound" key={compound.id}>
         {protocol.compounds?.length !== 1 && <h2>{compound.name}</h2>}

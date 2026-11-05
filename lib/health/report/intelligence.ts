@@ -68,7 +68,7 @@ export function buildReportIntelligence(
       && (!item.compoundId || state.compoundId === item.compoundId)
       && (!item.phaseId || state.phaseId === item.phaseId)).map(state => ({
       protocolId: state.protocolId, compoundId: state.compoundId, phaseId: state.phaseId,
-      name: state.name, medication: state.medication, frequency: state.frequency, route: state.route,
+      name: state.name, medication: state.medication, recordedFacts: state.recordedFacts, frequency: state.frequency, route: state.route,
       provenance: state.provenance, sources: state.sources, limitations: state.limitations,
     }))
     return { ...item, contextDate: item.date, recordedStates }
@@ -77,7 +77,7 @@ export function buildReportIntelligence(
   const savedPlan = relevantStates.some(state => state.provenance === 'saved_plan') || protocolTimeline.some(item => item.provenance === 'saved_plan')
   const timingUncertain = source.protocols.some(protocol => protocolActivityAtDate(protocol, today, source.protocolEvents) === 'ambiguous')
     || relevantStates.some(state => state.provenance === 'unknown') || protocolTimeline.some(item => item.limitations.length > 0 && item.provenance === 'event')
-  const doseUnconfirmed = relevantStates.some(state => !state.medication)
+  const doseUnconfirmed = relevantStates.some(state => !state.medication || state.medication.reviewStatus === 'unverified')
   const verification: ReportVerification[] = []
   const add = (code: string, text: string) => { if (!verification.some(item => item.code === code)) verification.push({ code, text }) }
   if (currentFindings.state === 'ambiguous_latest' || currentFindings.previousPanelAmbiguous) add('panel_ambiguity', 'Multiple panels share the latest or previous test date; panel membership is not unambiguous.')

@@ -23,7 +23,8 @@ function load(file) {
 }
 const Detail = load('../components/protocols/ProtocolDetail.tsx').default
 const Artwork = load('../components/protocols/ProtocolDetailArtwork.tsx').default
-const { entryFromForm, administrationDisplay, formatProtocolAmount } = load('../lib/health/dosingEntry.ts')
+const { entryFromForm, formatProtocolAmount } = load('../lib/health/dosingEntry.ts')
+const { recordedAdministrationDisplay: administrationDisplay } = load('../lib/health/recordedDose.ts')
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props))
 const text = html => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 const noop = () => {}
@@ -71,10 +72,10 @@ for (const scale of ['40', '100']) test(`reviewed syringe semantics preserve U-$
   assert.match(copy, new RegExp(`U-${scale}`))
 })
 
-test('existing warning, identity, notes and lifecycle actions survive presentation integration', () => {
+test('neutral provenance, identity, notes and lifecycle actions survive presentation integration', () => {
   const dosing_entry = entryFromForm({ input_mode: 'unknown', dose: '1', dose_unit: 'mg', reviewed: false })
   const html = detail({ phases: [{ ...phase, dosing_entry }] }), copy = text(html)
-  assert.match(html, /class="protocol-dose-issue" role="status"/)
+  assert.match(html, /class="protocol-dose-information" role="status"/);assert.doesNotMatch(html,/class="protocol-dose-issue"/)
   for (const existing of ['Fictional compound identity', 'Original notes retained', 'Pause protocol', 'Complete protocol', 'Delete protocol', 'Edit protocol']) assert.ok(copy.includes(existing), existing)
   assert.match(html, /class="protocol-plan|protocol-more-section protocol-plan/)
 })

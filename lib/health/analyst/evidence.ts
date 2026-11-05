@@ -1,3 +1,4 @@
+import { recordedEventMedication, recordedAmount } from '../recordedDose'
 import { guidedAnalystInstruction, guidedAnalystLimits, type GuidedAnalystAction } from './actions'
 import { compareLatest, statusIsFlagged } from '../biomarkerIntelligence'
 import { biomarkerHistories, labValue, type LabPanel } from '../labs'
@@ -65,12 +66,14 @@ function eventEvidence(events: OverlayProtocolEvent[], anchorDate: string | null
     const structured = event.metadata?.version === 1
     const id = evidenceId('protocol-event', event.id)
     const metadata = event.metadata ?? {}
-    const dose = typeof metadata.newDose === 'number' && typeof metadata.newUnit === 'string' ? ` New recorded dose: ${metadata.newDose} ${metadata.newUnit}.` : ''
+    const medication = recordedEventMedication(metadata)
+    const dose = medication ? ` Recorded medication: ${recordedAmount(medication.value, medication.unit)}.` : ' No medication amount established by this event snapshot.'
     const timing = anchorDate ? dayDistance(date, anchorDate) : null
     const timingText = timing == null ? '' : timing === 0 ? ' On the lab date.' : ` ${timing} days before the lab date.`
-    const detail = `${(event.event_type ?? 'protocol update').replaceAll('_', ' ')}.${dose}${timingText}${event.description ? ` ${event.description}` : ''}`.trim()
-    evidence.push({ id, type: 'protocol_event', date, title: (event.event_type ?? 'Protocol update').replaceAll('_', ' '), detail,
-      confidence: structured ? 'high' : 'low', sourceLabel: structured ? 'Structured protocol history' : 'Legacy protocol history' })
+    const eventLabel = event.event_type === 'dose_change' && !medication ? 'recorded measurements changed' : (event.event_type ?? 'protocol update').replaceAll('_', ' ')
+    const detail = `${eventLabel}.${dose}${medication?.reviewStatus === 'unverified' ? ' Medication entry is unverified.' : ''}${timingText}${event.description ? ` Historical event text (not independently verified): ${event.description}` : ''}`.trim()
+    evidence.push({ id, type: 'protocol_event', date, title: eventLabel, detail,
+      confidence: structured && medication?.reviewStatus !== 'unverified' ? 'high' : 'low', sourceLabel: structured ? 'Structured protocol history' : 'Legacy protocol history' })
     facts.push(fact(`${structured ? 'Structured history confirms' : 'Legacy history records'} a protocol event on ${date}.${timingText}`, id))
   }
   return { evidence, facts }

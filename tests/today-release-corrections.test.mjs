@@ -74,7 +74,7 @@ async function exportedRows(start, phases = []) {
   let blob
   const protocol = { id: 'p', name: 'Plan', status: 'completed', start_date: start,
     compounds: [{ name: 'Medication', phases, injection_logs: [], vial_strength: 10, ml_per_dose: .1 }] }
-  const context = { ...load('../lib/health/protocolDates.ts'), ...load('../lib/health/dosingEntry.ts'), Blob,
+  const context = { ...load('../lib/health/protocolDates.ts'), ...load('../lib/health/dosingEntry.ts'), ...load('../lib/health/recordedDose.ts'), Blob,
     createClient: () => ({ auth: { getUser: async () => ({ data: { user: { id: 'owner' } } }) },
       from: table => { assert.equal(table, 'protocols'); return { select() { return this }, eq: async () => ({ data: [protocol] }) } } }),
     window: { URL: { createObjectURL(value) { blob = value; return 'blob:fixture' }, revokeObjectURL() {} }, setTimeout(callback) { callback() } },

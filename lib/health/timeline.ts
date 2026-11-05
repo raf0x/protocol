@@ -1,4 +1,5 @@
-import { dosingDisplay, type DosingEntry } from './dosingEntry'
+import { type DosingEntry } from './dosingEntry'
+import { recordedDoseDisplay, recordedEventMedication, recordedAmount } from './recordedDose'
 import { currentPhase, isMedicationUnit } from './dosing'
 export type TimelineCategory = 'Protocol' | 'Weight' | 'Journal' | 'Labs'
 export type TimelineEvent = {
@@ -110,16 +111,16 @@ function structuredRoute(...values: (string | null | undefined)[]): string | nul
 export function baselineDosingIssue(compound: CompoundRow | null, protocol: ProtocolRow, today: string): string | null {
   const phase = phaseForDate(compound, protocol.start_date, today)
   if (!phase) return 'No single phase covers today. Add or extend a phase.'
-  if (phase.dosing_entry) return dosingDisplay(phase).secondary || null
+  if (phase.dosing_entry) return recordedDoseDisplay(phase).secondary || null
   if (phase.dose_semantics_version !== 1 || !isMedicationUnit(phase.dose_unit)) return 'Legacy dose needs review. Confirm medication amount and unit.'
   return null
 }
 
 export function resolveBaselineDetails(compound: CompoundRow | null, protocol: ProtocolRow, today: string): string[] {
   const phase = phaseForDate(compound, protocol.start_date, today)
-  if (phase?.dosing_entry) return [dosingDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week),structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
+  if (phase?.dosing_entry) return [recordedDoseDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week),structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
   if (!phase || baselineDosingIssue(compound, protocol, today)) return []
-  return [dosingDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week), structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
+  return [recordedDoseDisplay(phase).primary, structuredFrequency(phase.frequency,phase.days_of_week), structuredRoute(phase.route)].filter((s):s is string=>Boolean(s))
 }
 
 export function formatFrequency(frequency: string): string {
@@ -132,7 +133,7 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
   // A protocol-only event may inherit compound context only for a single-compound protocol.
   const compound = row.compounds ?? (!row.compound_id && row.protocols?.compounds?.length === 1 ? row.protocols.compounds[0] : null)
   const name = compound?.name || row.protocols?.name
-  const action = protocolActions[row.event_type ?? '']
+  const action = row.event_type === 'dose_change' && !recordedEventMedication(row.metadata) ? 'recorded measurements changed' : protocolActions[row.event_type ?? '']
   const title = action ? `${name || 'Protocol'} ${action}` : (row.event_type?.replaceAll('_', ' ') || 'Protocol update')
   const original = row.description?.trim() || ''
   let description = original
@@ -140,10 +141,10 @@ function normalizeProtocol(row: ProtocolEventRow): TimelineEvent {
   const protocolId = row.protocol_id ?? (typeof metadata.protocolId === 'string' ? metadata.protocolId : null)
   const compoundId = row.compound_id ?? (typeof metadata.compoundId === 'string' ? metadata.compoundId : null)
   const value = (key: string) => typeof metadata[key] === 'string' || typeof metadata[key] === 'number' ? String(metadata[key]) : ''
-  if (row.event_type === 'dose_change' && value('newDose') && value('newUnit')) {
-    description = value('previousDose') && value('previousUnit')
-      ? `${value('previousDose')} ${value('previousUnit')} → ${value('newDose')} ${value('newUnit')}`
-      : `${value('newDose')} ${value('newUnit')}`
+  if (row.event_type === 'dose_change') {
+    const next = recordedEventMedication(metadata), previous = recordedEventMedication(metadata, 'previous')
+    description = next ? [previous && recordedAmount(previous.value, previous.unit), recordedAmount(next.value, next.unit)].filter(Boolean).join(' → ')
+      : original ? 'Historical event text (amount meaning unverified): ' + original : 'Medication amount not recorded in the event snapshot'
   } else if (row.event_type === 'frequency_change' && value('newFrequency')) {
     description = value('previousFrequency') ? `${formatFrequency(value('previousFrequency'))} → ${formatFrequency(value('newFrequency'))}` : formatFrequency(value('newFrequency'))
   } else if (row.event_type === 'route_change' && value('newRoute')) {
@@ -257,7 +258,8 @@ export function protocolMetadataChips(event: TimelineEvent): string[] {
   const doseUnit = typeof event.metadata.newUnit === 'string' ? event.metadata.newUnit : event.metadata.doseUnit
   const frequency = typeof event.metadata.newFrequency === 'string' ? event.metadata.newFrequency : event.metadata.frequency
   const route = typeof event.metadata.newRoute === 'string' ? event.metadata.newRoute : event.metadata.route
-  return formatPlanDetails({ dose, doseUnit, frequency, route })
+  const medication = recordedEventMedication(event.metadata)
+  return [medication ? recordedAmount(medication.value, medication.unit) : null, ...formatPlanDetails({ frequency, route })].filter((value): value is string => Boolean(value))
 }
 
 function formatPlanDetails(metadata: NonNullable<TimelineEvent['metadata']>): string[] {

@@ -31,7 +31,7 @@ test('phase active at the lab date is selected strictly', () => assert.equal(ove
 test('a different saved phase is selected at a later lab date', () => assert.equal(overlay.contextAtDate(protocol(), '2026-02-15')[0].phaseId, 'new'))
 test('an expired latest phase is not treated as current', () => {
   const p = protocol({ compounds: [{ id: 'c1', name: 'Example', phases: [phase('only', 1, 4)] }] })
-  const context = overlay.contextAtDate(p, '2026-03-01')[0]; assert.equal(context.phaseId, null); assert.equal(context.dose, 'Dose not confirmed for this date')
+  const context = overlay.contextAtDate(p, '2026-03-01')[0]; assert.equal(context.phaseId, null); assert.equal(context.dose, 'Medication amount not recorded for this date')
 })
 test('an ongoing phase works for later historical dates', () => assert.equal(overlay.contextAtDate(protocol(), '2026-08-01')[0].phaseId, 'new'))
 test('a completed protocol uses an exclusive completion boundary', () => {
@@ -59,12 +59,12 @@ test('historical context never substitutes the later current dose', () => {
 })
 test('unverified historical medication semantics are handled calmly', () => {
   const p = protocol({ compounds: [{ id: 'c1', name: 'Example', phases: [phase('legacy', 1, null, 50, 'IU', { dose_semantics_version: null })] }] })
-  const context = overlay.contextAtDate(p, '2026-02-01')[0]; assert.equal(context.confirmed, false); assert.match(context.issue, /unverified/)
+  const context = overlay.contextAtDate(p, '2026-02-01')[0]; assert.equal(context.confirmed, false); assert.match(context.issue, /not recorded/)
 })
 test('reviewed raw syringe entry without medication dose remains unconfirmed', () => {
   const dosing_entry = { version: 2, mode: 'syringe', review_status: 'confirmed', dose: '', dose_unit: '', syringe_markings: '20', syringe_scale: '100', injection_volume: '', vial_strength: '', vial_unit: '', bac_water_ml: '', concentration_value: '', concentration_unit: '', vial_label: '' }
   const p = protocol({ compounds: [{ id: 'c1', name: 'Example', phases: [phase('raw', 1, null, null, null, { dosing_entry })] }] })
-  assert.equal(overlay.contextAtDate(p, '2026-02-01')[0].dose, 'Dose not confirmed for this date')
+  assert.equal(overlay.contextAtDate(p, '2026-02-01')[0].dose, 'Medication amount not recorded for this date')
 })
 test('multiple active protocols are returned for a lab date', () => {
   const second = protocol({ id: 'p2', name: 'Second', compounds: [{ id: 'c2', name: 'Second compound', phases: [phase('p2-phase', 1, null)] }] })
@@ -98,7 +98,7 @@ test('no recorded event rows still yields date-backed lifecycle context', () => 
   const markers = overlay.overlayMarkers([protocol()], []); assert.ok(markers.some(item => item.type === 'started'))
 })
 test('free-text events are preserved without inventing a dose delta', () => {
-  const marker = overlay.overlayMarkers([protocol()], [event({ description: 'Changed plan after review' })]).find(item => item.id === 'event:e1'); assert.equal(marker.description, 'Changed plan after review'); assert.ok(!marker.description.includes('→'))
+  const marker = overlay.overlayMarkers([protocol()], [event({ description: 'Changed plan after review' })]).find(item => item.id === 'event:e1'); assert.equal(marker.description, 'Historical event text (amount meaning unverified): Changed plan after review'); assert.ok(!marker.description.includes('→'))
 })
 test('overlay user-facing copy contains an explicit non-causal safeguard', () => {
   const source = readFileSync(new URL('../components/health/ProtocolOverlayView.tsx', import.meta.url), 'utf8'); assert.match(source, /without claiming that one caused the other/); assert.ok(!/improved|worsened|caused your|because the dose/i.test(source))
