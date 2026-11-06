@@ -140,12 +140,12 @@ for (const snapshot of [true, false]) test(`${snapshot ? 'Today snapshot' : 'Leg
   for (const compound of [f.compounds[0], f.compounds[1], f.compounds[2], f.compounds[3], f.compounds[0]]) {
     const tree = f.draw(snapshot, compound.id)
     const selectedSnapshot = nodes(tree).find(node => node.type?.name === 'SelectedProtocolSnapshot')
-    const inventory = snapshot ? selectedSnapshot?.props.lifecycle : nodes(tree).find(node => node.type === f.InventoryBoundary)
+    const inventory = nodes(tree).find(node => node.type === f.InventoryBoundary)
     assert.ok(inventory, 'The actual Hero parent must pass the inventory boundary without a metadata gate')
     assert.equal(inventory.type, f.InventoryBoundary)
     assert.equal(inventory.props.compoundId, compound.id)
     assert.equal(inventory.props.compoundName, compound.name)
-    assert.equal(inventory.props.presentation, snapshot ? 'status' : undefined, 'Status polish is scoped to Today')
+    assert.equal(inventory.props.presentation, 'action', 'Both Heroes retain the restricted New Vial action')
     assert.equal(inventory.props.reconstitutionDate, compound.reconstitution_date)
     assert.equal(inventory.props.bacWaterMl, compound.bac_water_ml)
     assert.equal(inventory.props.vialStrength, compound.vial_strength)
@@ -153,8 +153,8 @@ for (const snapshot of [true, false]) test(`${snapshot ? 'Today snapshot' : 'Leg
       assert.equal(selectedSnapshot.props.name, compound.name)
       assert.equal(selectedSnapshot.props.protocolName, compound.id === 'compound-1' || compound.id === 'compound-2' ? 'Plan One' : 'Plan Two')
       const renderedSnapshot = selectedSnapshot.type(selectedSnapshot.props)
-      assert.ok(nodes(renderedSnapshot).some(node => node.props?.className === 'today-snapshot-lifecycle'), 'The real snapshot renders its lifecycle slot')
-      assert.ok(nodes(renderedSnapshot).some(node => node.type === f.InventoryBoundary), 'The real snapshot retains the inventory child')
+      assert.ok(nodes(renderedSnapshot).some(node => node.type === 'dl'), 'The real snapshot renders visible facts')
+      assert.equal(nodes(tree).filter(node => node.type === f.InventoryBoundary).length, 1, 'The Hero retains one inventory action boundary')
     }
   }
 })
@@ -162,8 +162,8 @@ test('Hero inventory requires an actual compound and retains fallback selection'
   const f = heroFixture()
   assert.equal(f.draw(true, null, []), null)
   assert.equal(f.draw(true, null, [{ id: 'empty', compounds: [] }]), null)
-  const fallback = nodes(f.draw(true, null)).find(node => node.type?.name === 'SelectedProtocolSnapshot')
-  assert.equal(fallback.props.lifecycle.props.compoundId, 'compound-1')
+  const fallback = nodes(f.draw(true, null)).find(node => node.type === f.InventoryBoundary)
+  assert.equal(fallback.props.compoundId, 'compound-1')
 })
 
 // Release 4A replaces the unsafe mutation/countdown contract with non-mutating containment.
@@ -204,7 +204,7 @@ for (const date of ['2026-09-23', '2026-10-05', '2026-09-08', '2026-08-12', '202
     const tree = f.draw(), find = className => nodes(tree).find(node => node.props?.className === className)
     const valid = date && date !== 'invalid'
     assert.equal(textContent(find('vial-lifecycle-title')), 'VIAL STATUS')
-    assert.equal(textContent(find('vial-lifecycle-status')), valid ? 'Reconstituted ' + load('../lib/health/protocolPresentation.ts').dateLabel(date) : 'Reconstitution date not recorded')
+    assert.equal(textContent(find('vial-lifecycle-status')), valid ? 'Recorded reconstitution: ' + load('../lib/health/protocolPresentation.ts').dateLabel(date) : 'Reconstitution date not recorded')
     assert.match(textContent(tree), /Expiration unknown/)
     assert.ok(nodes(tree).some(node => node.props?.['aria-label'] === 'Expiration unknown. No expiration or beyond-use date is recorded for this vial.'))
     assert.doesNotMatch(textContent(tree), /Expired|EXPIRED|days left|Day \d+|NaN/)

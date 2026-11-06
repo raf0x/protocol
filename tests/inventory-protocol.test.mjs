@@ -12,6 +12,8 @@ function load(path) {
   const url = new URL(path, import.meta.url), compiled = { exports: {} }
   const code = ts.transpileModule(read(url), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true, target: ts.ScriptTarget.ES2021 } }).outputText
   new Function('require','module','exports',code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
+    if (name.endsWith('.css')) return {}
     if (name.endsWith('/supabase')) return { createClient() { throw new Error('Tests must not connect to Supabase') } }
     return name.startsWith('.') ? load(new URL(name + (existsSync(new URL(name + '.tsx',url)) ? '.tsx' : '.ts'),url)) : require(name)
   },compiled,compiled.exports)
@@ -126,13 +128,23 @@ test('real editor save sends only canonical protocol creation, with no dose infe
 })
 
 test('real editor still blocks invalid raw medication amounts and structurally invalid partial entries', async () => {
-  for (const patch of [{dose:'not a number'},{dose:'-1'},{dose:'Infinity'},{dose:'',route:''},{dose:'',days_of_week:[]}]) {
+  for (const patch of [{dose:'not a number'},{dose:'-1'},{dose:'Infinity'},{dose:'',route:'Invalid'},{dose:'',days_of_week:[]}]) {
     const {save,context,calls}=saveHarness()
     Object.assign(context.compounds[0],patch)
     await save()
     assert.equal(calls.length,0,JSON.stringify(patch))
     assert.equal(context.savePending.current,false)
   }
+})
+
+test('unspecified route preserves a partial entry without inventing medication', async () => {
+  const {save,context,calls}=saveHarness()
+  Object.assign(context.compounds[0],{dose:'',route:''})
+  await save()
+  assert.equal(calls.length,1)
+  assert.equal(calls[0].compounds[0].phase.route,null)
+  assert.equal(calls[0].compounds[0].phase.dosing_entry.dose,'')
+  assert.equal(context.compounds[0].route,'')
 })
 
 test('real editor blocks concurrent and repeated successful submissions, including after a refresh failure', async () => {
@@ -165,7 +177,7 @@ test('inventory action joins the shared creation surface with human timing and c
   const Quick=load('../components/protocols/ProtocolQuickStart.tsx').default
   const fields={...saveHarness().context.compounds[0]}
   const quick=renderToStaticMarkup(React.createElement(Quick,{value:{startDate:localCalendarDate(),compounds:[{...fields,dose_unit:''}]},today:localCalendarDate(),onChange(){}}))
-  assert.match(quick,/What are you tracking\?/)
+  assert.match(quick,/What is the compound\?/); assert.match(quick,/How much is in the vial\?/); assert.match(quick,/Is it mixed\?/)
   assert.doesNotMatch(quick,/Dose per injection|Vials in stock|Frequency|How long will you run/)
   assert.match(read('../components/inventory/Inventory.tsx'),/Use in a protocol<\/Link>/)
   assert.match(source,/Creating a protocol will not change your inventory quantity\./)

@@ -92,7 +92,7 @@ test('multi-compound protocols remain distinct and all compounds are visible in 
 test('detail keeps four groups including illustrated inventory, closed history, and expired-phase actions', () => {
   const Detail = load('../components/protocols/ProtocolDetail.tsx').default
   const html = renderToStaticMarkup(React.createElement(Detail, { protocol: { ...protocol, compounds: [{ ...compound, phases: [{ ...phase, end_week: 4 }] }] }, today, onBack() {}, onEdit() {}, onComplete() {}, onReactivate() {}, onDelete() {}, onReload() {} }))
-  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', '>Administration</h3>', '>Saved compound preparation</h3>', '>Inventory</h3>', '>Plan</h3>', 'Show history']) assert.ok(html.includes(label), label)
+  for (const label of ['Latest phase ended', 'Continue latest phase', 'Add new phase', '>Administration</h3>', '>Saved legacy compound preparation</h3>', '>Inventory</h3>', '>Plan</h3>', 'Show history']) assert.ok(html.includes(label), label)
   assert.equal((html.match(/class="protocol-more-section/g) ?? []).length, 4)
   assert.match(html, /These saved preparation facts do not confirm the current vial/);assert.match(html, /Unknown: no recorded source linked to this vial/)
   assert.ok(html.indexOf('Edit protocol') < html.indexOf('More details'))

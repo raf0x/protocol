@@ -69,6 +69,7 @@ test('new preparation JSON survives the unchanged canonical RPC, reload and owne
     const row = (await db.query('SELECT * FROM phases')).rows[0]
     assert.deepEqual(row.dosing_entry, payload[0].phase.dosing_entry)
     assert.deepEqual(entryFromForm(entryFormState(row)), row.dosing_entry)
+    assert.equal(row.dosing_entry.final_solution_volume_ml, '2.00'); assert.equal(row.dosing_entry.preparation_confirmed, true)
     assert.equal(row.dose, null); assert.equal(row.dose_unit, null); assert.equal(row.frequency, '2x/week'); assert.deepEqual(row.days_of_week, [1,4])
     assert.equal(row.dosing_entry.concentration_value, '')
     const compound = (await db.query('SELECT *, reconstitution_date::text AS reconstitution_date FROM compounds')).rows[0]
@@ -80,7 +81,7 @@ test('new preparation JSON survives the unchanged canonical RPC, reload and owne
     assert.match(detail, /10 mg/); assert.match(detail,/28-day check reminder/); assert.match(detail,/Nov 29/)
     for (const snapshot of [false,true]) {
       const hero = text(ui(load('../components/dashboard/HeroProtocolCard.tsx').default, { activeProtocols:[protocol],activeCompoundTab:compound.id,compoundIndex:0,snapshot,logs:{},allLogs:[],totalLost:null }))
-      assert.match(hero,/Saved phase preparation/); assert.match(hero,/10 mg/); assert.match(hero,/Nov 1/); assert.match(hero,/Nov 29/); assert.match(hero,/Remaining not tracked/)
+      assert.match(hero,/Saved phase preparation/); assert.match(hero,/10 mg/); assert.match(hero,/Nov 1/); assert.match(hero,/Nov 29/); assert.doesNotMatch(hero,/Remaining not tracked|Estimated remaining|100%/); assert.match(hero,/Saved doses are not linked to an individual vial/); assert.match(hero,/BAC water added1.8 mL/); assert.match(hero,/Syringe volume0.2 mL/)
     }
     assert.equal(JSON.stringify(protocol),before)
     for (const schedule of [{ days_of_week: [0,1,2,3,4,5,6], frequency_mode: 'weekly', cycle_days: '' }, { days_of_week: [1,4], frequency_mode: 'weekly', cycle_days: '' }, { days_of_week: [], frequency_mode: 'rolling', cycle_days: '3' }]) {

@@ -52,7 +52,7 @@ for (const [label, values] of [
   ['fraction beyond full', { remainingFraction: 1.1 }],
 ]) test('unknown vial never depicts a known fill: ' + label, () => {
   const html = render(Vial, { ...base, ...values })
-  assert.match(text(html), /Remaining unknown/i)
+  assert.match(html, /data-inventory-state="unknown"/); assert.match(html, /data-vial-interior="untracked"/)
   assert.doesNotMatch(html, /data-vial-liquid/)
   assert.doesNotMatch(text(html), /\b100%|\bNaN|\bInfinity/)
 })
@@ -72,7 +72,7 @@ for (const [strength, unit] of [[250, 'mcg'], [20, 'IU'], [2.5, 'mg']]) test('vi
 test('missing strength and name never fabricate a medication measurement', () => {
   const html = render(Vial, { name: '', remainingFraction: null, remainingMl: null })
   assert.doesNotMatch(text(html), /undefined|null|NaN|\b10 mg|\b100%/)
-  assert.match(text(html), /Remaining unknown/i)
+  assert.match(html, /data-inventory-state="unknown"/); assert.match(html, /data-vial-interior="untracked"/)
 })
 test('artwork SVG references resolve within each uniquely identified sibling', () => {
   const html = renderToStaticMarkup(React.createElement(React.Fragment, null,
@@ -98,13 +98,13 @@ function hero(compound = {}, phases = [phase]) {
 }
 test('real Hero withholds unattributable remaining while preserving artwork, inventory actions and facts', () => {
   const html = hero()
-  assert.match(text(html), /Remaining unknown/i)
+  assert.match(html, /data-inventory-state="unknown"/); assert.match(html, /data-vial-interior="untracked"/)
   assert.match(text(html), /Saved doses are not linked to an individual vial/)
   assert.doesNotMatch(html, /data-vial-liquid/)
-  assert.match(text(html), /Vials in stock\s*4/)
-  assert.match(html, /data-inventory-compound="compound"/)
+  assert.match(text(html), /Vials in stock:\s*4/)
+  assert.match(html, /aria-label="Original compound identity vial"/)
   assert.match(text(html), /\+ New Vial/)
-  assert.equal((html.match(/class="today-snapshot-fact"/g) ?? []).length, 9)
+  assert.equal((html.match(/<dt>/g) ?? []).length, 6)
   assert.doesNotMatch(html, /class="today-snapshot-vial" aria-hidden="true"/, 'Visible measurement captions must remain accessible')
 })
 for (const [label, compound, phases] of [
@@ -114,7 +114,7 @@ for (const [label, compound, phases] of [
   ['missing phase', {}, []],
 ]) test('real Hero does not use its historical full-fill fallback for ' + label, () => {
   const html = hero(compound, phases)
-  assert.match(text(html), /Remaining unknown/i)
+  assert.match(html, /data-inventory-state="unknown"/); assert.match(html, /data-vial-interior="untracked"/)
   assert.doesNotMatch(html, /data-vial-liquid/)
   assert.doesNotMatch(text(html), /\b100%/)
   assert.match(text(html), /\+ New Vial/)
@@ -125,9 +125,9 @@ test('real Hero labels compound and phase preparation separately without using t
   const html = hero({ vial_strength: 99, vial_unit: 'mg' }, [{ ...phase, dosing_entry }])
   const caption = html.split('<figcaption')[1]?.split('</figcaption>')[0]
   assert.ok(caption, 'The selected vial has a readable caption')
-  assert.match(text(caption), /Recorded compound amount\s*99 mg/)
-  assert.doesNotMatch(text(caption), /20 IU/)
-  assert.match(text(caption), /Remaining unknown/)
+  assert.match(text(caption), /Saved phase preparation\s*20 IU/)
+  assert.doesNotMatch(text(caption), /99 mg/)
+  assert.doesNotMatch(text(caption), /Remaining unknown|Remaining not tracked|100%/); assert.match(html, /data-vial-interior="untracked"/)
   assert.doesNotMatch(text(html), /Preparation sources differ|Review Vial amount/);assert.match(text(html), /individual-vial history/)
   assert.doesNotMatch(html, /data-vial-liquid/)
 })
