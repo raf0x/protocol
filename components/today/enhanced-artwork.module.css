@@ -53,3 +53,11 @@
   .vial *, .schedule * { animation: none !important; transition: none !important; }
   .glassSweep { opacity: 0 !important; }
 }
+/* Reuse the same resting V0.6.4 silhouette in onboarding without the Hero entrance motion. */
+.vial[data-vial-presentation=onboarding] .bottle,
+.vial[data-vial-presentation=onboarding] .liquid,
+.vial[data-vial-presentation=onboarding] .glassSweep { animation: none; }
+.vial[data-vial-presentation=onboarding] .glassSweep { opacity: .14; }
+.labelChange { animation: labelFade 220ms ease-out both; }
+@keyframes labelFade { from { opacity: .5; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .labelChange { animation: none; } }

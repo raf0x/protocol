@@ -33,9 +33,9 @@ const today = new Date().toLocaleDateString('en-CA')
 const phase = { id: 'phase', start_week: 1, end_week: null, dose: 5.25, dose_unit: 'mg', dose_semantics_version: 1, frequency: 'daily' }
 const protocol = extra => ({ id: 'protocol', name: 'Example protocol', status: 'active', start_date: today, compounds: [{ id: 'compound', name: 'Example compound', phases: [{ ...phase, ...extra }] }] })
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
-const hero = p => render(Hero, { activeProtocols: [p], activeCompoundTab: 'compound', compoundIndex: 0, logs: {}, allLogs: [], totalLost: null })
+const hero = (p, allLogs = []) => render(Hero, { activeProtocols: [p], activeCompoundTab: 'compound', compoundIndex: 0, logs: {}, allLogs, totalLost: null })
 const detail = p => render(Detail, { protocol: p, today, onBack() {}, onEdit() {}, onComplete() {}, onPause() {}, onResume() {}, onReactivate() {}, onDelete() {}, onReload() {} })
-const stat = (html, label) => html.match(new RegExp(`>${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</div><div[^>]*>(.*?)</div>`))?.[1]
+const stat = (html, label) => [...html.matchAll(/<dt>([^<]+)<\/dt><dd[^>]*>([\s\S]*?)<\/dd>/g)].find(match => match[1] === label)?.[2]
 
 test('volumes use magnitude-specific decimal limits and remove trailing zeroes', () => {
   for (const [value, expected] of [[0.168637, '0.17 mL'], [0.1 + 0.2, '0.3 mL'], ['0.500000', '0.5 mL'], [1.25, '1.3 mL'], ['1.00000', '1 mL'], [0.99999, '1 mL'], [0, '0 mL']]) assert.equal(amount(value, 'mL', 'volume'), expected)
@@ -100,8 +100,9 @@ for (const [name, values, volume, syringe] of [
   const p = protocol(values), actual = load('../lib/health/recordedDose.ts').recordedAdministrationDisplay(p.compounds[0].phases[0])
   assert.deepEqual(actual, { volume, syringe })
   const ringHtml = hero(p), detailHtml = detail(p)
-  assert.equal(stat(ringHtml, 'INJECTION VOLUME'), volume ?? 'Not recorded')
-  assert.equal(stat(ringHtml, 'SYRINGE DRAW'), syringe ?? undefined)
+  assert.equal(stat(ringHtml, 'Syringe volume'), values.injection_volume_ml === undefined ? undefined : values.injection_volume_ml + ' mL')
+  if (volume) assert.match(ringHtml, /saved volume has unverified entry origin/i)
+  if (values.syringe_units !== undefined) { assert.ok(ringHtml.includes(String(values.syringe_units)), 'Saved marking precision remains visible'); assert.match(ringHtml, /Syringe units describe scale markings, not medication IU/); if (values.syringe_scale) assert.ok(ringHtml.includes('U-' + values.syringe_scale)); else assert.match(ringHtml, /calibration: not recorded/) }
   assert.equal(detailHtml.includes('<dt>Injection volume</dt>'), Boolean(volume))
   assert.equal(detailHtml.includes('<dt>Syringe draw</dt>'), Boolean(syringe))
   if (volume) assert.ok(detailHtml.includes(`<dt>Injection volume</dt><dd>${volume}</dd>`))
@@ -119,8 +120,8 @@ test('the derived V2 path preserves confirmed medication as the primary dose', (
   assert.deepEqual(administrationDisplay(saved), { volume: '0.17 mL', syringe: '16.9 U-100 units' })
   assert.equal(dosingDisplay(saved).primary, '16.86 mg')
   assert.match(hero(p), /16\.8637 mg/)
-  assert.equal(stat(hero(p), 'INJECTION VOLUME'), 'Not recorded')
-  assert.equal(stat(hero(p), 'SYRINGE DRAW'), undefined)
+  assert.equal(stat(hero(p), 'Syringe volume'), undefined)
+  assert.doesNotMatch(hero(p), /0\.17 mL|16\.9 U-100/, 'Hero must not expose unconfirmed calculated equivalents')
   for (const dosing_entry of [entryFromForm({ input_mode: 'syringe', syringe_markings: '16.8637' }), entryFromForm({ input_mode: 'volume', injection_volume: '0.168637' })]) {
     const display = dosingDisplay({ dosing_entry })
     assert.equal(display.medication, null)
@@ -135,8 +136,8 @@ test('active compound keeps independent facts and optional review neutral', () =
   assert.match(html, /Recorded facts have not been reviewed/)
   assert.doesNotMatch(html, /Review How do you measure it|review=/)
   assert.match(html, /data-dose-information/);assert.doesNotMatch(html,/today-snapshot-notice/)
-  assert.equal(stat(html, 'INJECTION VOLUME'), '0.2 mL · saved value, origin unverified')
-  assert.equal(stat(html, 'SYRINGE DRAW'), '20 saved markings · origin unverified · U-100')
+  assert.equal(stat(html, 'Syringe volume'), '0.2 mL'); assert.match(html, /saved volume has unverified entry origin/i)
+  assert.match(html, /Syringe: 20 units · U-100/); assert.match(html, /Saved markings: 20; calibration: 100/)
   assert.doesNotMatch(html, /Unverified dose semantics|Saved mixing details conflict|Entered medication dose and|Both are preserved|You can still save/)
 })
 
@@ -177,9 +178,9 @@ test('unattributable vial balance remains unknown while recorded preparation use
   const p = protocol({ injection_volume_ml: 0.168637 })
   Object.assign(p.compounds[0], { bac_water_ml: 3, reconstitution_date: today, doses_taken_override: 1, vial_strength: 5.25, vial_unit: 'mg', vials_in_stock: 3 })
   const html = hero(p)
-  assert.equal(stat(html, 'EST. REMAINING'), 'Unknown')
+  assert.match(html, /data-inventory-state="unknown"/); assert.match(html, /data-vial-interior="untracked"/); assert.doesNotMatch(html, /data-vial-liquid|Remaining not tracked/)
   assert.match(html, /Saved doses are not linked to an individual vial/)
-  assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), '1')
+  assert.equal(stat(html, 'Doses taken'), 'Not established'); assert.match(html, /Saved compound counter: 1/)
   assert.doesNotMatch(html, /94\.4%|2\.8 mL/)
   assert.match(html, /5\.25 mg/)
   assert.match(detail(p), /<dt>Liquid added<\/dt><dd>3 mL<\/dd>/)
@@ -191,7 +192,11 @@ test('legacy Hero compound counter label preserves missing and explicit zero wit
     const p = protocol({ injection_volume_ml: 0.2 })
     p.compounds[0].doses_taken_override = counter
     const before = JSON.stringify(p), html = hero(p)
-    assert.equal(stat(html, 'RECORDED COMPOUND DOSE COUNT'), counter === null ? 'Not recorded' : String(counter))
+    assert.equal(stat(html, 'Doses taken'), 'Not established')
+    if (counter !== null) assert.ok(html.includes('Saved compound counter: ' + counter))
+    else assert.doesNotMatch(html, /Saved compound counter:/)
+    const logged = hero(p, [{compound_id:'compound',taken:true,date:today},{compound_id:'compound',taken:true,date:today},{compound_id:'other',taken:true,date:today},{compound_id:'compound',taken:false,date:'2020-01-01'},{compound_id:'compound',taken:true,date:'2099-01-01'}])
+    assert.equal(stat(logged, 'Doses taken'), '1 logged', 'Only supported taken dates count, independently of saved counter')
     assert.doesNotMatch(html, /DOSES TAKEN \(VIAL\)/)
     assert.equal(JSON.stringify(p), before)
   }

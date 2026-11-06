@@ -15,6 +15,7 @@ function load(path) {
   if (cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }, code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -230,24 +231,17 @@ test('setPreparation resets review only for changed preparation semantics across
   }
 })
 
-test('guided Quick Start exposes dose confirmation before Continue and keeps it outside optional setup', () => {
-  hooks = []; let value = draft(ready({ reviewed: false })), savedPayload
+test('three-stage Quick Start makes equivalent confirmation optional and persists current review state', () => {
+  hooks = []; let value = draft(ready({ reviewed: false, preparation: 'mixing' })), savedPayload
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next }, onSave: () => { savedPayload = form.protocolCompoundPayload(value.compounds) } })
   button(render(), 'Continue').props.onClick()
-  const view = render(), checkbox = doseConfirmation(view)
-  assert.ok(checkbox)
-  const disclosure = nodes(view, n => n.type === 'details')[0]
-  assert.equal(doseConfirmation(disclosure), undefined)
-  assert.ok(text(view).indexOf('I’ve reviewed these dose details') < text(view).indexOf('Continue'))
-  checkbox.props.onChange({ target: { checked: true } })
-  assert.equal(value.compounds[0].reviewed, true)
+  const confirmation = () => nodes(render(), n => n.type === 'label' && text(n).includes('Measurement and calibration are correct'))[0].props.children[0]
+  assert.equal(confirmation().props.checked, false)
+  confirmation().props.onChange({ target: { checked: true } })
   assert.equal(form.protocolCompoundPayload(value.compounds)[0].phase.dosing_entry.review_status, 'confirmed')
-  field(render(), 'Dose per injection').props.onChange({ target: { value: '6' } })
-  assert.equal(value.compounds[0].reviewed, false)
-  assert.equal(doseConfirmation(render()).props.checked, false)
+  field(render(), 'Your intended amount').props.onChange({ target: { value: '6' } })
+  assert.equal(confirmation().props.checked, false)
   button(render(), 'Continue').props.onClick()
-  button(render(), 'Continue').props.onClick()
-  button(render(), 'Review protocol').props.onClick()
   button(render(), 'Start tracking').props.onClick()
   assert.equal(savedPayload[0].phase.dosing_entry.review_status, 'unverified', 'An unchecked draft completes the save flow')
 })
@@ -369,26 +363,19 @@ test('duration uses a human question, defaults ongoing, conditionally renders we
   button(render(), 'No end date recorded').props.onClick(); assert.equal(field(render(), 'How many weeks?'), undefined)
 })
 
-test('preselection renders only the picker and no review; additional setup is a native state-preserving disclosure', () => {
+test('preparation progressively discloses facts and measurement keeps equivalents optional', () => {
   hooks = []; let value = quick.createQuickStart()
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next } })
   assert.equal(nodes(render(), n => n.type === 'input').length, 1)
-  assert.equal(nodes(render(), n => n.type === 'details').length, 0)
   assert.equal(ui(Review, { value }), null)
-  button(render(), 'Tirzepatide').props.onClick()
-  assert.equal(ui(Review, { value }), null)
+  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Yes').props.onClick()
+  assert.ok(field(render(), 'Amount in the vial'))
   button(render(), 'Continue').props.onClick()
-  const disclosure = nodes(render(), n => n.type === 'details')[0]
-  assert.match(text(disclosure), /^Preparation, inventory and notesOptional/)
-  assert.equal(disclosure.props.open, undefined, 'Initially closed using native details')
-  assert.equal(button(disclosure, 'Add another compound'), undefined)
-  assert.equal(field(disclosure, 'Dose per injection'), undefined, 'Required dosing is outside optional setup')
-  field(disclosure, 'Notes').props.onChange({ target: { value: 'Keep this note' } })
-  const open = nodes(render(), n => n.type === 'details')[0]; open.props.open = true
-  const closed = nodes(render(), n => n.type === 'details')[0]; closed.props.open = false
-  assert.equal(value.compounds[0].notes, 'Keep this note'); assert.equal(field(closed, 'Notes').props.value, 'Keep this note')
-  assert.equal(nodes(render(), n => n.type === 'summary').map(text)[0], 'Preparation, inventory and notesOptional')
-  assert.doesNotMatch(text(render()), /Customize details|Ready to track|\bActive\b|\bScheduled\b|\bPlanned\b/)
+  const disclosure = nodes(render(), n => n.type === 'details' && n.props.className?.includes('creation-equivalent'))[0]
+  assert.equal(disclosure.props.open, undefined)
+  assert.match(text(disclosure), /See a measurement equivalent/)
+  assert.ok(field(disclosure, 'Final solution volume'))
+  assert.doesNotMatch(text(render()), /Ready to track|Active|Scheduled|Planned/)
 })
 
 test('optional preparation retains conditional inputs, preserves facts and never mutates inventory', () => {
@@ -503,22 +490,22 @@ test('a custom compound completes the same intake and canonical display without 
   button(render(), 'Use “Thymosin Beta Blend”').props.onClick()
   button(render(), 'Continue').props.onClick()
   field(render(), 'How do you take it?').props.onChange({ target: { value: 'SubQ' } })
-  assert.ok(field(render(), 'Dose per injection'))
-  assert.equal(field(render(), 'Medication dose unit').props.value, '')
-  field(render(), 'Dose per injection').props.onChange({ target: { value: '5' } })
-  const unit = field(render(), 'Medication dose unit')
+  assert.ok(field(render(), 'Your intended amount'))
+  assert.equal(field(render(), 'Medication unit').props.value, '')
+  field(render(), 'Your intended amount').props.onChange({ target: { value: '5' } })
+  const unit = field(render(), 'Medication unit')
   assert.equal(nodes(render(), n => n.props.role === 'alert').length, 0)
-  field(render(), 'Medication dose unit').props.onChange({ target: { value: 'mg' } })
+  field(render(), 'Medication unit').props.onChange({ target: { value: 'mg' } })
   assert.equal(nodes(render(), n => n.props.role === 'alert').length, 0)
   button(render(), 'Continue').props.onClick(); button(render(), 'Weekly').props.onClick(); field(render(), 'Saturday').props.onClick()
-  button(render(), 'Continue').props.onClick(); button(render(), 'I don’t know yet').props.onClick()
+  button(render(), 'I don’t know yet').props.onClick()
   assert.equal(quick.quickStartIssue(value), null)
   const payload = form.protocolCompoundPayload(value.compounds)[0]
   assert.equal(payload.name, 'Thymosin Beta Blend'); assert.equal(payload.phase.dosing_entry.dose_unit, 'mg')
   assert.deepEqual(payload.phase.days_of_week, [6]); assert.equal(payload.phase.time_of_day, '')
   assert.equal(dosingDisplay(payload.phase).primary, '5 mg')
   assert.equal(quick.quickStartDates(value.startDate).startDate, null)
-  button(render(), 'Review protocol').props.onClick(); assert.ok(field(render(), 'Review protocol'))
+  assert.ok(field(render(), 'Review protocol')); assert.ok(button(render(), 'Save protocol'))
 })
 
 test('frequency asks Which days and every day has a full accessible name, including weekends', () => {
@@ -577,23 +564,16 @@ test('preparation distinguishes concentration from strength and switches BAC wor
   assert.equal(value.concentration_value, '5', 'Hiding preparation preserves the entered facts')
 })
 
-test('segmented selection, disclosure, validation and amount groups have accessible structure', () => {
+test('three-stage segmented choices, disclosure and amount groups have accessible structure', () => {
   hooks = []; let value = quick.createQuickStart()
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next } })
   const categories = field(render(), 'Compound category')
-  assert.equal(categories.props.role, 'group')
-  assert.equal(nodes(categories, n => n.type === 'button').length, 2)
-  assert.equal(button(categories, 'Peptides').props['aria-pressed'], true)
-  assert.equal(nodes(button(categories, 'Peptides'), n => n.type === 'svg').length, 1)
-  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Continue').props.onClick()
-  const toggle = button(render(), 'I measure my dose another way')
-  assert.equal(toggle.props['aria-expanded'], false)
-  assert.equal(nodes(render(), n => n.props.id === toggle.props['aria-controls']).length, 0)
-  toggle.props.onClick()
-  assert.equal(button(render(), 'I measure my dose another way').props['aria-expanded'], true)
-  assert.equal(nodes(render(), n => n.props.id === toggle.props['aria-controls']).length, 1)
+  assert.equal(categories.props.role, 'group'); assert.equal(nodes(categories, n => n.type === 'button').length, 2)
+  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Yes').props.onClick(); button(render(), 'Continue').props.onClick()
+  button(render(), 'Syringe marking').props.onClick()
+  assert.equal(button(render(), 'Syringe marking').props['aria-pressed'], true)
+  assert.equal(button(render(), 'Not confirmed').props['aria-pressed'], true)
+  assert.ok(field(render(), 'Syringe marking'))
   const details = nodes(render(), n => n.type === 'details')[0]
-  assert.equal(details.props.open, undefined)
-  assert.equal(nodes(details, n => n.type === 'summary').length, 1)
-  assert.equal(nodes(nodes(details, n => n.type === 'summary')[0], n => n.type === 'svg').length, 1)
+  assert.equal(details.props.open, undefined); assert.equal(nodes(details, n => n.type === 'summary').length, 1)
 })

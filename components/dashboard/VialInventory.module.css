@@ -26,3 +26,5 @@
 .recovery ul { margin: 8px 0 0; padding-left: 18px; }
 .recovery li + li { margin-top: 6px; }
 .recovery a { color: var(--color-green); display: inline-block; padding: 10px 0; }
+
+.mobileReminder { display: none; }

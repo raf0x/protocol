@@ -128,14 +128,31 @@ test('date-aware save reuses canonical history, validates local boundaries, pres
           assert.equal(completed[0].metadata.effectiveDate,today)
         }
       }
-      const plannedRows=[{...compound,reconstitution_date:today}]
+      const plannedRows=[{...compound,reconstitution_date:today,phase:{...compound.phase,end_week:4}}]
       const scheduled=await save(null,future,plannedRows,null,zone)
       const originalScheduledEvents=await events(scheduled)
       assert.equal(originalScheduledEvents.length,2)
       assert.ok(originalScheduledEvents.every(e=>e.date.toISOString().slice(0,10)===future&&e.metadata.effectiveDate===future))
       const sc=(await db.query('SELECT id FROM compounds WHERE protocol_id=$1',[scheduled])).rows[0]
       const sp=(await db.query('SELECT id FROM phases WHERE compound_id=$1',[sc.id])).rows[0]
+      // Continuation uses the caller session's calendar, unlike save's explicit timezone argument.
+      await db.query("SELECT set_config('TimeZone',$1,false)",[zone])
+      assert.equal((await db.query('SHOW timezone')).rows[0].TimeZone,zone)
+      assert.equal((await db.query('SELECT start_date > current_date AS future FROM protocols WHERE id=$1',[scheduled])).rows[0].future,true,'Rejection must exercise an actual future start in the continuation session')
       await assert.rejects(db.query('SELECT continue_latest_phase($1,$2,$3)',[scheduled,sc.id,sp.id]),/Only an active protocol/)
+      assert.equal((await db.query('SELECT end_week FROM phases WHERE id=$1',[sp.id])).rows[0].end_week,4,'Rejected continuation cannot make a bounded phase ongoing')
+      const eligibleStart=(await db.query('SELECT (current_date-14)::text AS date')).rows[0].date
+      const eligible=await save(null,eligibleStart,[{...compound,phase:{...compound.phase,end_week:1}}],null,zone)
+      const eligiblePhase=(await db.query('SELECT ph.id,ph.compound_id FROM phases ph JOIN compounds c ON c.id=ph.compound_id WHERE c.protocol_id=$1',[eligible])).rows[0]
+      const eligibleHistory=await events(eligible)
+      assert.equal((await db.query('SELECT start_date <= current_date AS eligible FROM protocols WHERE id=$1',[eligible])).rows[0].eligible,true)
+      await db.query('SELECT continue_latest_phase($1,$2,$3)',[eligible,eligiblePhase.compound_id,eligiblePhase.id])
+      assert.equal((await db.query('SELECT end_week FROM phases WHERE id=$1',[eligiblePhase.id])).rows[0].end_week,null)
+      const continuedHistory=await events(eligible)
+      assert.equal(continuedHistory.filter(e=>e.event_type==='phase_continued').length,1)
+      assert.ok(eligibleHistory.every(e=>continuedHistory.some(after=>JSON.stringify(after)===JSON.stringify(e))),'Eligible continuation preserves prior history')
+      assert.equal(continuedHistory.find(e=>e.event_type==='phase_continued').metadata.phaseId,eligiblePhase.id)
+      await db.query("SELECT set_config('TimeZone','UTC',false)")
       assert.deepEqual(await events(scheduled),originalScheduledEvents,'pre-start continuation cannot create history')
       const later=(await db.query('SELECT ($1::date+2)::text AS date',[future])).rows[0].date
       const revised=[{...compound,id:sc.id,notes:'Scheduled notes',vials_in_stock:5,reconstitution_date:past,phase:{...compound.phase,id:sp.id,end_week:6,frequency:'every3days',days_of_week:[],dosing_entry:{...entry,dose:'4'}}}]

@@ -14,6 +14,8 @@ function load(path) {
   const out = { exports: {} }
   const code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
+    if (name.endsWith('.css')) return {}
     if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -54,7 +56,7 @@ test('dismissal is per user and survives restricted session storage without stor
 test('each step validates its shared draft section without a later missing answer masking an error', () => {
   const value = createQuickStart(undefined, undefined, today)
   assert.equal(guidedStepIssue(value, 'compound', 0).field, 'name')
-  assert.equal(guidedStepIssue(value, 'dose', 0).field, 'route')
+  assert.equal(guidedStepIssue(value, 'dose', 0), null)
   assert.equal(guidedStepIssue(value, 'schedule', 0).field, 'days_of_week')
   assert.equal(guidedStepIssue(value, 'start', 0), null)
   const draft = ready()
@@ -64,7 +66,8 @@ test('each step validates its shared draft section without a later missing answe
     assert.equal(quickStartIssue(partial), null)
   }
   assert.equal(quickStartIssue({ ...draft, compounds: [{ ...draft.compounds[0], dose: '', dose_unit: '' }] }), null)
-  assert.equal(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], route: '' }] }, 'dose', 0).field, 'route')
+  assert.equal(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], route: '' }] }, 'dose', 0), null)
+  assert.equal(guidedStepIssue({ ...draft, compounds: [{ ...draft.compounds[0], route: 'Invalid' }] }, 'dose', 0).field, 'route')
   for (const [field, entered] of [['dose', '-1'], ['dose_unit', 'g']]) {
     const invalid = { ...draft, compounds: [{ ...draft.compounds[0], [field]: entered }] }
     assert.equal(guidedStepIssue(invalid, 'dose', 0).field, field)
@@ -87,17 +90,25 @@ test('guided back/forward preserves entries; incomplete steps cannot advance; re
   const button = name => nodes(render(), node => node.type === 'button' && text(node) === name)[0]
   const field = name => nodes(render(), node => node.props['aria-label'] === name)[0]
   button('Not now').props.onClick(); assert.equal(closed, 1)
-  button('Continue').props.onClick(); assert.match(text(render()), /What are you tracking/)
-  button('Tirzepatide').props.onClick(); button('Continue').props.onClick()
+  button('Continue').props.onClick(); assert.match(text(render()), /What is the compound/)
+  assert.equal(field('Your intended amount'), undefined)
+  button('Tirzepatide').props.onClick()
+  field('Amount in the vial').props.onChange({ target: { value: '-1' } })
+  button('Continue').props.onClick(); assert.equal(field('Your intended amount'), undefined)
+  field('Amount in the vial').props.onChange({ target: { value: '10' } })
+  field('Amount in the vial unit').props.onChange({ target: { value: 'mg' } })
+  button('No').props.onClick(); button('Continue').props.onClick()
   assert.equal(field('Protocol start date'), undefined); assert.equal(button('Daily'), undefined)
-  button('Continue').props.onClick(); assert.match(text(render()), /How much do you take/)
-  field('Medication dose').props.onChange({ target: { value: '5' } }); field('Medication dose unit').props.onChange({ target: { value: 'mg' } }); field('How do you take it?').props.onChange({ target: { value: 'Oral' } })
-  assert.equal(field('Vial strength'), undefined)
-  button('Continue').props.onClick(); assert.match(text(render()), /When do you take it/)
+  field('Your intended amount').props.onChange({ target: { value: '-1' } })
+  button('Continue').props.onClick(); assert.match(text(render()), /How much will you inject/)
+  field('Your intended amount').props.onChange({ target: { value: '5' } }); field('Medication unit').props.onChange({ target: { value: 'mg' } }); field('How do you take it?').props.onChange({ target: { value: 'Oral' } })
+  assert.equal(field('Amount in the vial'), undefined)
+  button('Continue').props.onClick(); assert.match(text(render()), /Schedule and review/)
+  button('Start tracking').props.onClick(); assert.equal(saved, 0, 'Missing schedule cannot save')
   button('Custom').props.onClick(); field('Saturday').props.onClick(); field('Sunday').props.onClick(); button('Night').props.onClick()
-  button('Back').props.onClick(); assert.equal(field('Medication dose').props.value, '5')
+  button('Back').props.onClick(); assert.equal(field('Your intended amount').props.value, '5'); assert.equal(field('How do you take it?').props.value, 'Oral')
   button('Continue').props.onClick(); assert.equal(field('Sunday').props['aria-pressed'], true)
-  button('Continue').props.onClick(); button('I don’t know yet').props.onClick(); button('Review protocol').props.onClick()
+  button('I don\u2019t know yet').props.onClick()
   assert.match(text(render()), /Planned/); assert.equal(button('Start tracking'), undefined)
   button('Save protocol').props.onClick(); assert.equal(saved, 1); assert.match(text(render()), /Please try again/)
   assert.equal(value.compounds[0].dose, '5'); assert.deepEqual(value.compounds[0].days_of_week, [6, 0])

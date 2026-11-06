@@ -103,14 +103,14 @@ function installChecks(){
  window.heroCheck=(mode,label)=>{
   const hero=document.querySelector('.today-protocol-snapshot');check(Boolean(hero),label+' actual Hero renders');
   check(Boolean(hero.querySelector('[data-premium-vial="true"]')),label+' premium vial artwork retained');
-  check(hero.textContent.includes('Remaining unknown'),label+' unknown remaining stays unknown');
+  check(hero.textContent.includes('Remaining not tracked'),label+' unknown remaining stays unknown');
   check(!hero.textContent.includes('Estimated remaining'),label+' no unattributable consumption estimate');
   check(!/Expired|EXPIRED|days left|Day \d+ of 28|Day \d+\/28/.test(hero.textContent),label+' no unsupported expiry or countdown');
   check(/Unknown|not recorded/i.test(fact('Vial expiration')||fact('Expiration')||hero.querySelector('.vial-lifecycle')?.textContent||''),label+' expiration uncertainty visible');
   if(mode==='missing')check(fact('Vials in stock')==='Not recorded',label+' unknown stock stays unknown');
   if(mode==='unknown')check(fact('Vials in stock')==='0',label+' explicit zero stock preserved');
   if(mode==='normal')check(hero.querySelector('.today-snapshot-medication').textContent.includes('2 mg'),label+' recorded normal medication remains visible');
-  if(mode==='conflict'){check(/0\.2 mL/.test(hero.textContent)&&/2 mg/.test(hero.textContent),label+' independent recorded amounts remain visible');check(hero.querySelector('figure figcaption').textContent.includes('10 mg')&&!hero.querySelector('figure figcaption').textContent.includes('20 mg'),label+' historical phase preparation never replaces recorded compound amount');}
+  if(mode==='conflict'){check(/0\.2 mL/.test(hero.textContent)&&/2 mg/.test(hero.textContent),label+' independent recorded amounts remain visible');check(hero.querySelector('figure figcaption').textContent.includes('20 mg')&&!hero.querySelector('figure figcaption').textContent.includes('10 mg')&&hero.querySelector('figure figcaption').textContent.includes('Saved phase preparation')&&hero.querySelector('figure figcaption').textContent.includes('current vial not confirmed'),label+' selected phase preparation is labeled and never establishes current-vial inventory');}
   check(Boolean(document.querySelector('[data-vial-remaining-reason]'))&&document.querySelector('[data-vial-remaining-reason]').textContent.includes('Saved doses are not linked to an individual vial'),label+' unavailable remaining has a visible explanation');
   check(!document.querySelector('.today-snapshot-notice,.dose-issue,.dosing-panel-issue'),label+' valid or absent historical facts have no warning');
   check(!document.querySelector('a[href*="review="]'),label+' no unsupported repair link');
