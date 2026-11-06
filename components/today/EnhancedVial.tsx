@@ -106,7 +106,7 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, pres
     <figcaption className={styles.caption}>
       <span className={styles.strength}>{strengthLabel && <small style={{display: 'block', fontWeight: 400, fontSize: 10}}>{strengthLabel}</small>}{strengthText ?? 'Strength not recorded'}</span>
       <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining not tracked'}</span>
-      {strengthLabel && presentation !== 'onboarding' && <small className={styles.remainingLabel}>Saved facts; current vial not confirmed.</small>}
+      {strengthLabel && presentation !== 'onboarding' && <small data-vial-preparation-note className={styles.remainingLabel}>Saved facts; current vial not confirmed.</small>}
       {known && <strong className={styles.remainingValue}>{formatProtocolPercent(fraction * 100)}<span>{formatProtocolAmount(remainingMl, 'mL', 'volume')}</span></strong>}
     </figcaption>
   </figure>

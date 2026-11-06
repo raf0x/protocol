@@ -8,6 +8,7 @@ import { expiredLatestPhase } from '../../lib/health/phaseLifecycle'
 import { createClient } from '../../lib/supabase'
 import { continueLatestPhase, transitionProtocol } from '../../lib/health/protocolMutations'
 import VialInventory from './VialInventory'
+import styles from './HeroProtocolCard.module.css'
 import { isCalendarDate, localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
 import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { dateLabel } from '../../lib/health/protocolPresentation'
@@ -245,7 +246,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const vialInventory = <VialInventory presentation={snapshot ? 'status' : undefined} compoundId={activeCompound.id} compoundName={activeCompound.name} reconstitutionDate={activeCompound.reconstitution_date} bacWaterMl={activeCompound.bac_water_ml} vialStrength={activeCompound.vial_strength} vialUnit={activeCompound.vial_unit} />
 
   return (
-    <div className={snapshot ? 'today-selected-protocol' : undefined} style={{position:'relative',overflow:'hidden'}}>
+    <div className={styles.hero + (snapshot ? ' today-selected-protocol' : '')} style={{position:'relative'}}>
       {snapshot ? <SelectedProtocolSnapshot
         name={activeCompound.name} protocolName={activeProtocol.name} medication={badgeDoseText || 'Medication amount unknown'} frequency={currentPhase?.frequency}
         medicationKnown={Boolean(dosePresentation.medication)} week={compoundWeek} started={dateLabel(activeProtocol.start_date)} color={color}
@@ -271,7 +272,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
       /> : <>
       <div style={{position:'absolute',top:'-20px',right:'-20px',width:'140px',height:'140px',borderRadius:'50%',background:color.replace('#','rgba(') + ',0.08)',filter:'blur(40px)',pointerEvents:'none'}} />
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+      <div className={styles.fullHeading} style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:'11px',fontWeight:'800',color:'var(--color-text)',letterSpacing:'2px',marginBottom:'6px'}}>ACTIVE COMPOUND</div>
           <h2 style={{fontSize:'22px',fontWeight:'900',color:'var(--color-text)',marginBottom:'8px',lineHeight:'1.2'}}>{activeCompound.name}</h2>
@@ -308,13 +309,13 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           {!expired && (!currentPhase ? <a href={`/protocol/manage?protocol=${activeProtocol.id}`} style={{color:'var(--color-green)',fontSize:13}}>Add or extend a phase.</a> : doseNotice && <div style={{display:'grid',gap:4,marginBottom:12,fontSize:13}}><div>{doseNotice}</div>{doseIssue?.action && <a href={reviewHref} style={{color:'var(--color-green)'}}>{doseIssue.action}</a>}</div>)}
         </div>
 
-        <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
+        <div className={styles.fullVisual} style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
           <EnhancedVial name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />
           {scheduled && <p style={{fontSize:'12px',maxWidth:'160px',textAlign:'center'}}>Scheduled to begin {dateLabel(activeProtocol.start_date)}.</p>}
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 16px',marginBottom:'12px'}}>
+      <div className={styles.desktopFacts} style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px 16px',marginBottom:'12px'}}>
         <StatCell label="PROTOCOL START" value={new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
         <StatCell label="RECON. DATE" value={reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} />
         <StatCell label="VIAL EXPIRATION" value="Unknown" />
@@ -327,6 +328,19 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </> : '—'} />
         <StatCell label="RECORDED COMPOUND DOSE COUNT" value={formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded'} />
       </div>
+      <details className={styles.mobileFacts}><summary>More protocol details</summary><p>Saved preparation facts do not confirm the current physical vial.</p><div className={styles.fullFacts}>
+        <StatCell label="PROTOCOL START" value={new Date(activeProtocol.start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} />
+        <StatCell label="RECON. DATE" value={reconDate ? new Date(reconDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'} />
+        <StatCell label="VIAL EXPIRATION" value="Unknown" />
+        <StatCell label="EST. REMAINING" value="Unknown" />
+        <StatCell label="INJECTION VOLUME" value={administrationText.volume ?? 'Not recorded'} />
+        {administrationText.syringe && <StatCell label="SYRINGE DRAW" value={administrationText.syringe} />}
+        <StatCell label="NEXT DOSE" value={nextDoseText || '—'} valueColor={nextDoseText ? 'var(--color-green)' : undefined} />
+        <StatCell label="VIALS IN STOCK" value={stockText !== null ? <>
+          {stockText} vial{stockText !== '1' ? 's' : ''}
+        </> : '—'} />
+        <StatCell label="RECORDED COMPOUND DOSE COUNT" value={formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded'} />
+      </div></details>
       </>}
 
       {doseIssue?.severity === 'info' && <p data-dose-information style={{fontSize:13,color:'var(--color-dim)'}}>{doseIssue.title}. {doseIssue.explanation}</p>}

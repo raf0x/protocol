@@ -24,6 +24,9 @@ export default function SelectedProtocolSnapshot({ name, protocolName, medicatio
     <dl className="today-snapshot-facts">
       {facts.map(fact => <div className="today-snapshot-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
     </dl>
+    <details className="today-snapshot-more"><summary>More protocol details</summary><p>Saved preparation facts do not confirm the current physical vial.</p>    <dl className="today-snapshot-facts">
+      {facts.map(fact => <div className="today-snapshot-fact" key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
+    </dl></details>
     {actions && <div className="today-snapshot-actions">{actions}</div>}
   </section>
 }

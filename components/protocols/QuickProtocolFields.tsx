@@ -15,7 +15,7 @@ function draftControls(c: Compound, onChange: FieldProps['onChange'], idPrefix: 
   return { update, numeric, amount }
 }
 
-export default function QuickProtocolFields({ value: c, onChange, issue, idPrefix = 'quick', section = 'all' }: FieldProps & { section?: 'all' | 'dose' | 'schedule' | 'start' }) {
+export default function QuickProtocolFields({ value: c, onChange, issue, idPrefix = 'quick', section = 'all', includeTime = true }: FieldProps & { includeTime?: boolean; section?: 'all' | 'dose' | 'schedule' | 'start' }) {
   const { update, numeric, amount } = draftControls(c, onChange, idPrefix, issue)
   const [alternatives, setAlternatives] = useState(c.input_mode !== 'medication')
   const units = [...new Set([...(resolveCompound(c.name)?.units ?? ['mg', 'mcg', 'IU']), ...(['mg', 'mcg', 'IU'].includes(c.dose_unit) ? [c.dose_unit] : [])])]
@@ -45,7 +45,7 @@ export default function QuickProtocolFields({ value: c, onChange, issue, idPrefi
       {frequency === 'custom' && c.frequency_mode === 'rolling' && numeric('cycle_days', 'Days between doses', 'days', 1, '1')}
       <QuickStartError id={`${idPrefix}-schedule-error`} issue={issue?.field === 'days_of_week' ? issue : null} />
     </div>
-    {section === 'schedule' && frequency && <QuickTimeField value={c} onChange={onChange} />}</>}
+    {section === 'schedule' && frequency && includeTime && <QuickTimeField value={c} onChange={onChange} />}</>}
     {(section === 'all' || section === 'start') && <div className="quick-duration">
       <QuickChoices label="How long will you run this protocol?" value={c.durationSet || c.duration_weeks ? 'set' : 'ongoing'} options={[["ongoing", 'No end date recorded'], ['set', 'Set a length']]} onChange={value => onChange({ ...updateCompoundDraft(c, 'duration_weeks', value === 'ongoing' ? '' : c.duration_weeks), durationSet: value === 'set' })} />
       {(c.durationSet || c.duration_weeks) && <div className="quick-weeks">{numeric('duration_weeks', 'How many weeks?', 'weeks', 1, '1')}</div>}

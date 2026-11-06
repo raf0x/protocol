@@ -125,3 +125,58 @@ Validation: 99 tests passed, zero failed/skipped, across creation, quick-start a
 `validate:types`, optimized `validate:build` and direct `git diff --check` passed. No broad regression. Visual evidence, inspected locally: `C:\Users\three\AppData\Local\Temp\mpp-v2a-mURaJx\evidence` (`ready-light-320.png`, `ready-light-390.png`, `ready-dark-390.png`, `ready-conflict.png`). No known remaining defect from scoped checks; physical Safari and production persistence are not certified by synthetic QA. No staging, commits, pushes, PR updates, deployment, Supabase access or real-data changes.
 
 Recommendation: CORRECTIONS READY FOR INDEPENDENT RECHECK.
+
+
+## Mobile UX rescue - local verification, 2026-11-05
+
+Baseline: feature/protocol-creation-v2a at 7dee46ca91e89bdc27dc95ace353b2185f69b386. No staged changes, commits, publication, service access or database changes.
+
+Active Compound now has a mobile-only stacked heading and full-width vial section, with recorded amount, unknown remaining, recorded date and one reminder disclosure. More protocol details contains secondary facts and the current-physical-vial caveat. New Vial and its existing restriction remain accessible. Both Hero variants use the existing premium SVG; desktop columns and facts remain visible. No document overflow hiding was added. At 320px the snapshot content shrank from 896 to 470 CSS pixels (outer card approximately 571px after); all four widths use the same compact content height. The baseline fixture reproduced cramped columns/blank space, but did not reproduce the reported horizontal overflow.
+
+### Current creation-field classification
+
+| Fields/prompts | Classification and primary-path treatment |
+| --- | --- |
+| Compound; frequency, chosen weekdays or rolling interval | Essential saving/scheduling inputs; stay visible with conditional days/interval. |
+| Start choice and date | Essential lifecycle decision; stays visible, with unknown/planned still supported. |
+| Vial amount/unit; mixed/ready/unknown; liquid added and date when mixed | Core requested recorded facts; remain primary. Existing ability to leave unknown facts blank is unchanged. |
+| Intended amount/unit or selected raw markings/mL | Core recorded measurement; primary. Units remain explicit and unknown values remain supported. |
+| Medication/marking/volume/unknown choice | Unnecessary repeated primary decision for the default medication path; available under Change how I record the amount. |
+| Syringe calibration; labeled concentration/unit; final solution volume | Only necessary for optional equivalence; hidden until requested. No inferred defaults. |
+| Preparation and measurement confirmations | Essential safety gates for equivalence; retained with concise contextual wording in that disclosure. |
+| Retained preparation-source review | Optional conflict review; preserved inside equivalence, with hidden validation errors still revealed/focused. |
+| Route; time of day; duration/weeks; stock; label and notes | Optional advanced information. Route/stock/notes remain disclosed; timing/duration moved into a closed disclosure. |
+| Full saved-facts/equivalent review table; calibration artwork prompt | Redundant primary detail/nag; facts remain expandable, artwork caption is neutral. |
+
+No calculation, persistence, historical-save, auth, treatment identity or current-vial inventory contract changed. No recorded facts are cleared by these presentation changes. Four questions and three stages remain.
+
+### Verification and evidence
+
+- 110 distinct focused tests pass: existing 109 across creation, quick-start, preparation presentation, Today and vial safety; creation rerun passes 20 including the added primary-disclosure test. No failures/skips. Prior historical-save and SQL compatibility evidence remains applicable because their logic and contracts are unchanged.
+- Synthetic browser PASS: all three creation stages and both Heroes at 320/375/390/402 in light/dark; no horizontal overflow or clipped visible controls; prominent unchanged vial artwork, disclosures, New Vial restriction, Manage/Inventory links, reduced motion, keyboard/error focus, advanced inputs initially hidden. Desktop 1280px columns/facts preserved.
+- Creation -> canonical payload -> JSON reload -> Detail/both Heroes preserves selected-phase amount, liquid added, final volume and date. No calculated medication written, unknown remaining has no liquid fill. Existing ready-to-use, mixed/conflict, explicit U-100/U-40 and unit-boundary checks remain passing. Today's Focus implementation is untouched; its focused behavior tests pass.
+- TypeScript PASS; optimized build PASS (38 static pages); direct diff whitespace check PASS. No broad regression.
+- Before Hero evidence: C:\Users\three\AppData\Local\Temp\mpp-v2a-1ClMvz\evidence (hero-dark-320.png and other widths/themes).
+- Before primary onboarding: C:\Users\three\AppData\Local\Temp\mpp-v2a-8yormc\evidence (onboarding-dark-390.png and other widths/themes), rendered from the immutable pre-change synthetic HTML.
+- Final evidence: C:\Users\three\AppData\Local\Temp\mpp-v2a-Uww5Rk\evidence. Includes hero-*, full-hero-*, preparation-*, onboarding-*, review-*, desktop-hero.png and mobile-geometry.json. Screenshots inspected locally.
+- Logs: %TEMP%/mpp-v2a-mobile-focused.log, mpp-v2a-mobile-disclosure.log, mpp-v2a-mobile-browser.log, mpp-v2a-mobile-types.log, mpp-v2a-mobile-build.log.
+
+Changed files (14):
+- components/dashboard/HeroProtocolCard.module.css (new)
+- components/dashboard/HeroProtocolCard.tsx
+- components/dashboard/VialInventory.module.css
+- components/dashboard/VialInventory.tsx
+- components/today/EnhancedVial.tsx
+- components/today/SelectedProtocolSnapshot.tsx
+- components/protocols/CreationArtwork.tsx
+- components/protocols/CreationMeasurement.tsx
+- components/protocols/ProtocolQuickStart.tsx
+- components/protocols/QuickProtocolFields.tsx
+- tests/protocol-creation-v2a.browser.cjs
+- tests/protocol-creation-v2a.test.mjs
+- tests/protocol-quick-start.test.mjs
+- docs/tasks/protocol-creation-v2a.md
+
+Safe local review: node tests/protocol-creation-v2a.browser.cjs --serve. This fixture blocks network requests and uses only synthetic data. No known scoped defect remains; physical iPhone/Safari, assistive technology and real persistence integration are not certified by this synthetic check. Production release remains unauthorized.
+
+Recommendation: READY FOR MOBILE REVIEW.

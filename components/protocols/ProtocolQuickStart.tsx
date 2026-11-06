@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import AppIcon from '../app/AppIcon'
 import CreationArtwork from './CreationArtwork'
 import CompoundPicker from './CompoundPicker'
-import QuickProtocolFields, { QuickAdditionalFields } from './QuickProtocolFields'
+import QuickProtocolFields, { QuickAdditionalFields, QuickTimeField } from './QuickProtocolFields'
 import { QuickStartError } from './QuickStartControls'
 import ProtocolStartDate from './ProtocolStartDate'
 import { newCompound, type QuickStartDraft } from '../../lib/protocols/form'
@@ -19,7 +19,7 @@ export function QuickStartReview({ value, today = localCalendarDate() }: { value
   const lifecycle = protocolLifecycle({ status: value.startDate ? 'active' : 'planned', start_date: value.startDate }, today)
   return <section className="quick-review" aria-label="Review protocol">
     {value.compounds.map((c, i) => <div key={i}><strong>{c.name}</strong><p>{setupSummary(c)}{c.time_of_day ? ` · ${c.time_of_day}` : ''}</p>
-      <CreationFacts value={c} />
+      <details className="quick-additional"><summary>Saved facts and optional equivalent</summary><CreationFacts value={c} /></details>
       <p>{lifecycle === 'planned' ? 'Planned · Add a start date before Today scheduling begins' : lifecycle === 'scheduled' ? `Scheduled · Starts ${dateLabel(value.startDate)}` : value.startDate === today ? 'Active · Starts today' : `Active · Started ${dateLabel(value.startDate)}`} · {c.duration_weeks ? `${c.duration_weeks} weeks` : 'No end date recorded'}</p>
     </div>)}
   </section>
@@ -78,9 +78,9 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
       </>}
       {step === 1 && <CreationMeasurement issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />}
       {review && <>
-        <QuickProtocolFields section="schedule" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
+        <QuickProtocolFields includeTime={false} section="schedule" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
         <ProtocolStartDate value={value.startDate} today={today} onChange={startDate => onChange({ ...value, startDate })} issue={visibleIssue?.field === 'startDate' ? visibleIssue : null} />
-        <QuickProtocolFields section="start" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
+        <details className="quick-additional"><summary>Timing and duration (optional)</summary><QuickTimeField value={c} onChange={update} /><QuickProtocolFields section="start" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} /></details>
         <details className="quick-additional"><summary>Inventory and notes (optional)</summary>
           <QuickAdditionalFields includeTime={false} includePreparation={false} idPrefix={`quick-${index}`} value={c} today={today} onChange={update} issue={visibleIssue} />
         </details>

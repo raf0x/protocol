@@ -193,7 +193,7 @@ test('mixed preparation asks for water and date once, while unmixed and ready pa
   value = { ...form.newCompound(), name: 'Synthetic' }; button(render(), 'No').props.onClick()
   assert.equal(field(render(), 'Bacteriostatic water added'), undefined)
   button(render(), 'Ready to use').props.onClick()
-  assert.ok(field(render(), 'Concentration on the label')); assert.equal(field(render(), 'Amount in the vial'), undefined)
+  assert.equal(field(render(), 'Concentration on the label'), undefined); assert.equal(field(render(), 'Amount in the vial'), undefined)
 })
 
 test('ready-to-use reproduction retains 10 mg and uses confirmed 5 mg/mL for 1 mg at U-100', () => {
@@ -201,8 +201,8 @@ test('ready-to-use reproduction retains 10 mg and uses confirmed 5 mg/mL for 1 m
   const { CreationPreparation, CreationMeasurement } = load('../components/protocols/CreationMeasurement.tsx')
   const props = () => ({ value, idPrefix:'repro', onChange:next=>{value=next} })
   button(ui(CreationPreparation, props()), 'Ready to use').props.onClick()
-  field(ui(CreationPreparation, props()), 'Concentration on the label').props.onChange({target:{value:'5'}})
-  field(ui(CreationPreparation, props()), 'Concentration on the label unit').props.onChange({target:{value:'mg/mL'}})
+  field(ui(CreationMeasurement, props()), 'Concentration on the label').props.onChange({target:{value:'5'}})
+  field(ui(CreationMeasurement, props()), 'Concentration on the label unit').props.onChange({target:{value:'mg/mL'}})
   value = updateCreation(value,'input_mode','medication'); value=updateCreation(value,'dose','1'); value=updateCreation(value,'dose_unit','mg')
   button(ui(CreationMeasurement,props()), 'U-100').props.onClick()
   for(let i=0;i<2;i++)nodes(ui(CreationMeasurement,props()),n=>n.type==='input'&&n.props.type==='checkbox')[i].props.onChange({target:{checked:true}})
@@ -247,4 +247,22 @@ test('ready preparation with explicit partial final-volume facts cannot evade co
   const {CreationMeasurement}=load('../components/protocols/CreationMeasurement.tsx');hooks=[]
   const view=ui(CreationMeasurement,{value:{...form.newCompound(),...entryFormState({dosing_entry:entry})},idPrefix:'partial',onChange:()=>{}})
   assert.ok(field(view,'Amount in the vial'));assert.ok(field(view,'Final solution volume'))
+})
+
+test('primary measurement contains only the entered amount; equivalence and route stay in closed disclosures', () => {
+  const {CreationMeasurement}=load('../components/protocols/CreationMeasurement.tsx')
+  function primary(node) {
+    if(Array.isArray(node))return node.map(primary)
+    if(!node||typeof node!=='object')return node
+    const children=node.type==='details'&&!node.props.open ? nodes(node.props.children,n=>n.type==='summary')[0] : node.props.children
+    return {...node,props:{...node.props,children:primary(children)}}
+  }
+  hooks=[];const value={...form.newCompound(),name:'Synthetic',preparation:'ready',vial_strength:'10',vial_unit:'mg'},before=JSON.stringify(value)
+  const tree=ui(CreationMeasurement,{value,idPrefix:'primary',onChange:()=>{}}), visible=primary(tree)
+  assert.ok(field(visible,'Your intended amount'));assert.ok(field(visible,'Medication unit'))
+  for(const label of ['Concentration on the label','Final solution volume','How do you take it?'])assert.equal(field(visible,label),undefined)
+  assert.equal(button(visible,'U-100'),undefined);assert.equal(nodes(visible,n=>n.type==='input'&&n.props.type==='checkbox').length,0)
+  const optional=nodes(tree,n=>n.type==='details'&&n.props.className?.includes('creation-equivalent'))[0]
+  assert.ok(button(optional,'U-100'));assert.ok(field(optional,'Concentration on the label'));assert.equal(nodes(optional,n=>n.type==='input'&&n.props.type==='checkbox').length,2)
+  assert.equal(value.syringe_scale,'');assert.equal(JSON.stringify(value),before)
 })

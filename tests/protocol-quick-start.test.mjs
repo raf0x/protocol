@@ -235,7 +235,7 @@ test('three-stage Quick Start makes equivalent confirmation optional and persist
   hooks = []; let value = draft(ready({ reviewed: false, preparation: 'mixing' })), savedPayload
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next }, onSave: () => { savedPayload = form.protocolCompoundPayload(value.compounds) } })
   button(render(), 'Continue').props.onClick()
-  const confirmation = () => nodes(render(), n => n.type === 'label' && text(n).includes('I have checked my measurement details'))[0].props.children[0]
+  const confirmation = () => nodes(render(), n => n.type === 'label' && text(n).includes('Measurement and calibration are correct'))[0].props.children[0]
   assert.equal(confirmation().props.checked, false)
   confirmation().props.onChange({ target: { checked: true } })
   assert.equal(form.protocolCompoundPayload(value.compounds)[0].phase.dosing_entry.review_status, 'confirmed')
@@ -371,7 +371,7 @@ test('preparation progressively discloses facts and measurement keeps equivalent
   button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Yes').props.onClick()
   assert.ok(field(render(), 'Amount in the vial'))
   button(render(), 'Continue').props.onClick()
-  const disclosure = nodes(render(), n => n.type === 'details')[0]
+  const disclosure = nodes(render(), n => n.type === 'details' && n.props.className?.includes('creation-equivalent'))[0]
   assert.equal(disclosure.props.open, undefined)
   assert.match(text(disclosure), /See a measurement equivalent/)
   assert.ok(field(disclosure, 'Final solution volume'))

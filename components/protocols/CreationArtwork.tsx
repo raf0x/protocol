@@ -23,7 +23,7 @@ export default function CreationArtwork({ value: c, stage }: { value: Compound; 
         <path d="M41 20V64M16 30V54M17 42H40" stroke="#b8d3e1" strokeWidth="3" strokeLinecap="round"/>
         {[0,1,2,3,4,5].map(i => <g key={i}><path d={`M${58+i*22} 28V${i%2 ? 36 : 40}`} className="creation-syringe-tick" stroke="var(--creation-syringe-tick, #c1e7ed)"/>{calibration && <text x={58+i*22} y="51" textAnchor="middle" className="creation-syringe-number" fill="var(--creation-syringe-number, #e6f4f6)" fontSize="9">{i * calibration / 10}</text>}</g>)}
       </svg>
-      <figcaption>{calibration ? `U-${calibration} · ${calibration} markings/mL` : 'Choose your syringe calibration'}<small>Schematic only. No fill level shown.</small></figcaption>
+      <figcaption>{calibration ? `U-${calibration} · ${calibration} markings/mL` : 'Syringe reference'}<small>Schematic only. No fill level shown.</small></figcaption>
     </figure> : <EnhancedVial name={c.name || 'Your compound'} strength={amount?.value} unit={amount?.unit} strengthLabel={c.name || 'Your compound'} remainingFraction={null} remainingMl={null} presentation="onboarding" />}
     <div className="creation-visual-copy"><span className="creation-eyebrow">{stage === 'review' ? 'Your protocol' : stage === 'measurement' ? 'Your measurement' : 'Your preparation'}</span>
       <strong key={`${stage}-${c.name}-${c.vial_strength}-${c.vial_unit}-${c.preparation}`} className="creation-label-transition">{stage === 'review' ? 'Ready to review' : stage === 'measurement' ? confirmed ? 'Facts checked' : 'Keep it in your units' : c.name || 'A clear start'}</strong>
