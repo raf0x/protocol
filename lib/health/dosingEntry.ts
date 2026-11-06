@@ -1,6 +1,8 @@
 // User entries are authoritative; calculated equivalents are advisory, never guesses.
 export type EntryMode = 'medication' | 'syringe' | 'volume' | 'unknown'
 export type DosingEntry = {
+  final_solution_volume_ml?: string
+  preparation_confirmed?: boolean
   is_premixed?: boolean; preparation?: 'ready' | 'mixing' | 'unknown'; version: 2; mode: EntryMode; review_status: 'unverified' | 'confirmed'
   dose: string; dose_unit: string; syringe_markings: string; syringe_scale: string
   injection_volume: string; vial_strength: string; vial_unit: string; bac_water_ml: string
@@ -22,6 +24,8 @@ export function validateEntry(entry: DosingEntry, options: { allowUnsupportedSyr
     const number = Number(value)
     if (!Number.isFinite(number) || number < 0 || (key === 'syringe_scale' && number === 0)) throw new Error(`${key}: enter a valid non-negative number${key === 'syringe_scale' ? ' with a positive scale' : ''}.`)
   }
+  if (entry.final_solution_volume_ml !== undefined && (typeof entry.final_solution_volume_ml !== 'string' || entry.final_solution_volume_ml.trim() && (!Number.isFinite(Number(entry.final_solution_volume_ml)) || Number(entry.final_solution_volume_ml) <= 0))) throw new Error('final_solution_volume_ml: enter a positive final volume or leave blank.')
+  if (entry.preparation_confirmed !== undefined && typeof entry.preparation_confirmed !== 'boolean') throw new Error('Invalid preparation confirmation.')
   if (entry.syringe_scale.trim() && !supportedSyringeScales.includes(entry.syringe_scale.trim() as typeof supportedSyringeScales[number]) && !options.allowUnsupportedSyringeScale) {
     throw new Error('syringe_scale: choose U-100 or U-40.')
   }
@@ -38,6 +42,8 @@ export function entryFromForm(form: Record<string, unknown>): DosingEntry {
   const entry: DosingEntry = {
     ...(premixed === undefined ? {} : { is_premixed: premixed }),
     ...(preparation === undefined ? {} : { preparation }),
+    ...(typeof form.final_solution_volume_ml === 'string' ? { final_solution_volume_ml: form.final_solution_volume_ml } : {}),
+    ...(typeof form.preparation_confirmed === 'boolean' ? { preparation_confirmed: form.preparation_confirmed } : {}),
     version: 2,
     mode: (str('input_mode') || str('mode') || 'unknown') as EntryMode,
     review_status: reviewed ? 'confirmed' : 'unverified',

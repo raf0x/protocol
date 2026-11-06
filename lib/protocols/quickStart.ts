@@ -15,6 +15,8 @@ export function applyDefaults(current: Compound, values: Partial<Compound>, sour
     Object.assign(next, { [key]: values[key] })
     next.origins[key] = source
   }
+  // Imported facts never confirm a new preparation.
+  if (source !== 'session') next.preparation_confirmed = false
   return next
 }
 
@@ -82,6 +84,9 @@ export function quickStartIssues({ compounds, startDate }: QuickStartDraft): Qui
     const issue = (field: QuickStartIssue['field'], message: string) => { issues.push({ index, field, message }) }
     const nameError = compoundNameError(c.name)
     if (nameError) issue('name', nameError)
+    for (const [field, label] of [['vial_strength', 'amount in the vial'], ['bac_water_ml', 'liquid added'], ['concentration_value', 'label concentration']] as const) {
+      if (invalidRawNumber(c[field])) issue(field, 'Enter a valid ' + label + ' of zero or more, or leave it blank')
+    }
     if (c.route === 'Oral' && ['syringe', 'volume'].includes(c.input_mode)) {
       issue('input_mode', 'For an oral entry, record a medication dose')
     } else if (c.input_mode === 'medication') {
@@ -97,8 +102,15 @@ export function quickStartIssues({ compounds, startDate }: QuickStartDraft): Qui
       if (invalidRawNumber(c.injection_volume)) issue('injection_volume', 'Enter a finite, non-negative injection volume or leave it blank')
       if (c.syringe_scale && !['100', '40'].includes(c.syringe_scale) && !c.preserveSyringeScale) issue('syringe_scale', 'Choose U-100 or U-40')
     } else issue('input_mode', 'Choose how your dose is measured')
-    try { entryFromForm(c) } catch { issue('input_mode', 'Check your entered dose and preparation amounts. Use finite, non-negative numbers.') }
-    if (!['SubQ', 'IM', 'Oral', 'Other'].includes(c.route)) issue('route', 'Choose how you take it')
+    if (c.final_solution_volume_ml && !positive(c.final_solution_volume_ml)) issue('final_solution_volume_ml', 'Enter a positive final solution volume or leave it blank')
+    try { entryFromForm(c) } catch (error) {
+      const labels = { dose: 'medication amount', syringe_markings: 'syringe marking', syringe_scale: 'syringe calibration', injection_volume: 'liquid volume', vial_strength: 'amount in the vial', bac_water_ml: 'liquid added', concentration_value: 'label concentration', final_solution_volume_ml: 'final solution volume' } as const
+      const field = (Object.keys(labels) as (keyof typeof labels)[]).find(key => error instanceof Error && error.message.startsWith(key + ':'))
+      if (field) {
+        if (!issues.some(existing => existing.index === index && existing.field === field)) issue(field, field === 'syringe_scale' ? 'Choose U-100 or U-40, or leave the calibration unconfirmed' : 'Enter a valid ' + labels[field] + ' of zero or more, or leave it blank')
+      } else issue('input_mode', 'Choose how your dose is measured')
+    }
+    if (c.route && !['SubQ', 'IM', 'Oral', 'Other'].includes(c.route)) issue('route', 'Choose how you take it')
     if (c.frequency_mode === 'rolling') {
       if (!/^[1-7]$/.test(c.cycle_days)) issue('cycle_days', 'Choose an interval from 1 to 7 days')
     } else {
@@ -170,5 +182,5 @@ export function setupSummary(c: Compound) {
   try { dose = recordedDoseDisplay({ dosing_entry: entryFromForm(c) }).primary } catch { /* Inline validation on save. */ }
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const frequency = c.frequency_mode === 'rolling' && c.cycle_days ? `Every ${c.cycle_days} days` : c.days_of_week.length === 7 ? 'Daily' : c.days_of_week.length ? `${c.days_of_week.length === 1 ? 'Weekly' : `${c.days_of_week.length}x/week`} on ${c.days_of_week.map(day => days[day]).join(', ')}` : 'Schedule not selected'
-  return `${dose} · ${frequency} · ${c.route || 'Route not selected'}`
+  return `${dose} · ${frequency} · ${c.route || 'Route not specified'}`
 }

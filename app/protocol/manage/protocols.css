@@ -565,3 +565,9 @@ button.protocol-ring-named { cursor: pointer; }
 .dosing-calculation-details dt { color: var(--app-secondary); }
 .dosing-calculation-details dd { margin: 0; color: var(--app-text); text-align: right; overflow-wrap: anywhere; }
 .dosing-review-explanation { margin: 8px 0 0; color: var(--app-secondary); font-size: 13px; line-height: 1.45; }
+
+/* V2A creation review: recorded facts remain distinct from display equivalents. */
+.guided-creation .creation-facts { display: grid; gap: 10px; margin: 12px 0 20px; }
+.guided-creation .creation-facts > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.guided-creation .creation-facts dt { color: var(--app-muted); font-size: 13px; }
+.guided-creation .creation-facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-size: 13px; }

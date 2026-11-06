@@ -7,7 +7,8 @@ import { QuickStartError } from './QuickStartControls'
 import ProtocolStartDate from './ProtocolStartDate'
 import { newCompound, type QuickStartDraft } from '../../lib/protocols/form'
 import { quickStartIssue, setupSummary, type QuickStartIssue } from '../../lib/protocols/quickStart'
-import { guidedSteps, guidedStepIssue, issueStep, stepTitle } from '../../lib/protocols/guidedSteps'
+import { creationSteps, creationStepIssue, creationIssueStep } from '../../lib/protocols/creationSteps'
+import { CreationPreparation, CreationMeasurement, CreationFacts } from './CreationMeasurement'
 import { localCalendarDate, protocolLifecycle } from '../../lib/health/protocolDates'
 import { dateLabel } from '../../lib/health/protocolPresentation'
 import { useSetupViewport } from '../../lib/protocols/useSetupViewport'
@@ -17,6 +18,7 @@ export function QuickStartReview({ value, today = localCalendarDate() }: { value
   const lifecycle = protocolLifecycle({ status: value.startDate ? 'active' : 'planned', start_date: value.startDate }, today)
   return <section className="quick-review" aria-label="Review protocol">
     {value.compounds.map((c, i) => <div key={i}><strong>{c.name}</strong><p>{setupSummary(c)}{c.time_of_day ? ` · ${c.time_of_day}` : ''}</p>
+      <CreationFacts value={c} />
       <p>{lifecycle === 'planned' ? 'Planned · Add a start date before Today scheduling begins' : lifecycle === 'scheduled' ? `Scheduled · Starts ${dateLabel(value.startDate)}` : value.startDate === today ? 'Active · Starts today' : `Active · Started ${dateLabel(value.startDate)}`} · {c.duration_weeks ? `${c.duration_weeks} weeks` : 'No end date recorded'}</p>
     </div>)}
   </section>
@@ -28,30 +30,33 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
 }) {
   const [step, setStep] = useState(0)
   const [index, setIndex] = useState(0)
-  const [attempted, setAttempted] = useState(false)
+  const [attempts, setAttempts] = useState(0)
   const heading = useRef<HTMLHeadingElement>(null)
   const errorRef = useSetupViewport()
   const c = value.compounds[index]
-  const review = step === guidedSteps.length
-  const currentStep = guidedSteps[Math.min(step, guidedSteps.length - 1)]
-  const pendingIssue = review ? quickStartIssue(value) : guidedStepIssue(value, currentStep, index)
-  const visibleIssue: QuickStartIssue | null = attempted || (pendingIssue?.field === 'dose_unit' && Boolean(c.dose)) ? pendingIssue : null
+  const review = step === 2
+  const currentStep = creationSteps[step]
+  const pendingIssue = review ? quickStartIssue(value) : creationStepIssue(value, currentStep, index)
+  const visibleIssue: QuickStartIssue | null = attempts || (pendingIssue?.field === 'dose_unit' && Boolean(c.dose)) ? pendingIssue : null
   const update = (compound: typeof c) => onChange({ ...value, compounds: value.compounds.map((item, i) => i === index ? compound : item) })
   useEffect(() => { heading.current?.focus(); heading.current?.scrollIntoView({ block: 'start' }) }, [step, index])
   useEffect(() => {
-    if (!saveError && !attempted) return
+    if (!saveError && !attempts) return
     const message = errorRef.current?.querySelector<HTMLElement>('[data-quick-error]')
     const details = message?.closest('details')
     if (details) details.open = true
-    message?.focus()
-  }, [saveError, attempted, errorRef])
-  function navigate(next: number) { setAttempted(false); setStep(next) }
+    const control = message?.id ? Array.from(errorRef.current?.querySelectorAll<HTMLElement>('[aria-describedby]') || []).find(element => (element.getAttribute('aria-invalid') === 'true' || element.tagName === 'FIELDSET') && element.getAttribute('aria-describedby')?.split(' ').includes(message.id)) : undefined
+    const focusTarget = control?.matches('input, select, button, textarea') ? control : control?.querySelector<HTMLElement>('button, input, select')
+    const target = focusTarget || message
+    target?.focus()
+  }, [saveError, attempts, errorRef, step, index, visibleIssue?.field])
+  function navigate(next: number) { setAttempts(0); setStep(next) }
   function advance() {
-    if (pendingIssue) { setAttempted(true); return }
+    if (pendingIssue) { setAttempts(count => count + 1); return }
     navigate(step + 1)
   }
   function reviewSave() {
-    if (pendingIssue) { setIndex(pendingIssue.index); navigate(guidedSteps.indexOf(issueStep(pendingIssue))); setAttempted(true); return }
+    if (pendingIssue) { setIndex(pendingIssue.index); navigate(creationSteps.indexOf(creationIssueStep(pendingIssue))); setAttempts(count => count + 1); return }
     onSave()
   }
   return <div className="protocol-creation-layout guided-creation" ref={errorRef}>
@@ -59,25 +64,26 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
       <span>{firstProtocol ? 'Your first protocol' : 'Add protocol'}</span>
       <button type="button" className="quick-text-action" disabled={saving} onClick={onClose} aria-label={firstProtocol ? 'Not now, return to Today' : 'Close protocol setup'}>{firstProtocol ? 'Not now' : 'Close'}</button>
     </header>
-    <div className="guided-progress" role="group" aria-label={review ? 'Review, setup steps complete' : `Step ${step + 1} of 4`}>
-      <span>{review ? 'Review' : `${step + 1} of 4`}</span><progress max={4} value={review ? 4 : step + 1} aria-label="Setup progress" />
+    <div className="guided-progress" role="group" aria-label={`Step ${step + 1} of 3`}>
+      <span>{`${step + 1} of 3`}</span><progress max={3} value={step + 1} aria-label="Setup progress" />
     </div>
-    <h1 ref={heading} tabIndex={-1}>{review ? 'Does this look right?' : stepTitle(currentStep, c.route)}</h1>
+    <h1 ref={heading} tabIndex={-1}>{currentStep}</h1>
     <div className="protocol-quick-start guided-content">
-      {!review && <CompoundPicker key={index} idPrefix={`quick-${index}`} value={c} onExpand={() => navigate(0)} onChange={next => { update(next); if (next.name !== c.name) navigate(0) }} />}
-      {!review && currentStep === 'compound' && <QuickStartError issue={visibleIssue} />}
-      {!review && currentStep === 'dose' && <>
-        <QuickProtocolFields section="dose" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
-        <details className="quick-additional">
-          <summary><AppIcon name="chevron" size={16} /><span>Preparation, inventory and notes</span><small>Optional</small></summary>
-          <QuickAdditionalFields includeTime={false} idPrefix={`quick-${index}`} value={c} today={today} onChange={update} issue={visibleIssue} />
-        </details>
+      {step === 0 && <>
+        <CompoundPicker key={index} idPrefix={`quick-${index}`} value={c} onExpand={() => navigate(0)} onChange={next => { update(next); if (next.name !== c.name) navigate(0) }} />
+        <CreationPreparation issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />
       </>}
-      {!review && currentStep === 'schedule' && <QuickProtocolFields section="schedule" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />}
-      {!review && currentStep === 'start' && <>
+      {step === 1 && <CreationMeasurement issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />}
+      {review && <>
+        <QuickProtocolFields section="schedule" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
         <ProtocolStartDate value={value.startDate} today={today} onChange={startDate => onChange({ ...value, startDate })} issue={visibleIssue?.field === 'startDate' ? visibleIssue : null} />
         <QuickProtocolFields section="start" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
+        <details className="quick-additional"><summary>Inventory, mixing date and notes (optional)</summary>
+          <label>Mixing date<input type="date" value={c.reconstitution_date} onChange={e => update({ ...c, reconstitution_date: e.target.value })} /></label>
+          <QuickAdditionalFields includeTime={false} includePreparation={false} idPrefix={`quick-${index}`} value={c} today={today} onChange={update} issue={visibleIssue} />
+        </details>
       </>}
+      <QuickStartError issue={step === 2 || visibleIssue?.field === 'name' ? visibleIssue : null} />
       {review && <>
         <QuickStartReview value={value} today={today} />
         {value.compounds.map((compound, i) => <div className="guided-review-edit" key={i}>
@@ -94,7 +100,7 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
     </div>
     <footer className="guided-actions">
       {step > 0 && <button type="button" className="quick-cancel" disabled={saving} onClick={() => navigate(step - 1)} aria-label="Back to previous setup step">Back</button>}
-      <button type="button" className="quick-save-primary" disabled={saving || retryBlocked} aria-disabled={!review && Boolean(pendingIssue)} aria-busy={saving} onClick={review ? reviewSave : advance}>{saving ? 'Saving…' : review ? value.startDate ? 'Start tracking' : 'Save protocol' : step === 3 ? 'Review protocol' : 'Continue'}</button>
+      <button type="button" className="quick-save-primary" disabled={saving || retryBlocked} aria-disabled={!review && Boolean(pendingIssue)} aria-busy={saving} onClick={review ? reviewSave : advance}>{saving ? 'Saving…' : review ? value.startDate ? 'Start tracking' : 'Save protocol' : 'Continue'}</button>
     </footer>
   </div>
 }

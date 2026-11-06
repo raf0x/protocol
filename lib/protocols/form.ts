@@ -6,6 +6,8 @@ export { captureHistoricalCompound } from './historicalSave'
 export type DefaultSource = 'previous' | 'session' | 'inventory' | 'handoff'
 
 export type Compound = {
+  final_solution_volume_ml?: string
+  preparation_confirmed?: boolean
   historical?: HistoricalSource
   origins?: Partial<Record<keyof Compound, DefaultSource>>
   preparation?: 'ready' | 'mixing' | 'unknown'

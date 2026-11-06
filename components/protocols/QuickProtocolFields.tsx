@@ -58,13 +58,13 @@ export function QuickTimeField({ value: c, onChange }: FieldProps) {
   return <QuickChoices label={question} value={c.time_of_day} options={[["Morning", 'Morning'], ['Afternoon', 'Afternoon'], ['Evening', 'Evening'], ['Night', 'Night'], ['', 'Not specified']]} onChange={value => onChange(updateCompoundDraft(c, 'time_of_day', value))} />
 }
 
-export function QuickAdditionalFields({ value: c, today, onChange, idPrefix = 'quick', issue, includeTime = true }: FieldProps & { today: string; includeTime?: boolean }) {
+export function QuickAdditionalFields({ value: c, today, onChange, idPrefix = 'quick', issue, includeTime = true, includePreparation = true }: FieldProps & { today: string; includeTime?: boolean; includePreparation?: boolean }) {
   const { update, numeric, amount } = draftControls(c, onChange, idPrefix, issue)
   const preparation = c.isPreMixed ? 'ready' : c.preparation || (c.vial_strength || c.bac_water_ml ? 'mixing' : 'unknown')
   const mixed = c.mixDateSet ? 'date' : c.reconstitution_date === today ? 'today' : c.reconstitution_date ? 'date' : 'notyet'
   return <div className="quick-additional-fields">
     {includeTime && <QuickTimeField value={c} onChange={onChange} />}
-    {c.route !== 'Oral' && <div className="quick-preparation">
+    {includePreparation && c.route !== 'Oral' && <div className="quick-preparation">
       <QuickChoices label="Does the vial need mixing?" value={preparation} options={[["ready", 'Ready to use'], ['mixing', 'Needs mixing'], ['unknown', 'Not sure']]} onChange={value => onChange(setPreparation(c, value))} />
       {preparation === 'ready' && amount('concentration_value', 'What concentration is printed on the label?', 'concentration_unit', 'Concentration unit', ['mg/mL', 'mcg/mL', 'IU/mL'], 'Labeled concentration', 'Example: 5 mg/mL')}
       {preparation === 'mixing' && <>
