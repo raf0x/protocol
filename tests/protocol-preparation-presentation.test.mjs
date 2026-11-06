@@ -51,7 +51,7 @@ for (const snapshot of [false,true]) test(`creation payload -> reload -> Detail 
   assert.match(html, /Nov 1/)
   assert.match(html, /28-day check reminder/)
   assert.match(html, /Nov 29/)
-  assert.match(html, /Remaining not tracked/)
+  assert.doesNotMatch(html, /Remaining not tracked/)
   assert.equal(JSON.stringify(p), before)
 })
 for (const snapshot of [false,true]) test(`Hero ${snapshot} prefers phase 3000 IU over legacy 5000 IU`, () => {
@@ -133,7 +133,7 @@ test('Next dose uses complete recorded calendar schedules and respects taken dat
 for(const snapshot of [false,true]) test('Owner screenshot facts are consistent in Hero '+snapshot,()=>{
  const p=savedProtocol('30','mg');p.compounds[0].phases[0].dosing_entry=syringeEntry({vial_strength:'30',vial_unit:'mg',bac_water_ml:'3'});p.compounds[0].phases[0].frequency='1x/week';p.compounds[0].phases[0].days_of_week=[];p.compounds[0].phases[0].day_of_week=null
  const before=JSON.stringify(p),html=render(Hero,{activeProtocols:[p],activeCompoundTab:'compound',compoundIndex:0,snapshot,logs:{},allLogs:[{compound_id:'compound',taken:true,date:'2026-11-01'}],totalLost:null})
- for(const expected of [/30 mg/,/Nov 1, 2026/,/Nov 29, 2026/,/50 units \u00b7 U-100/,/Syringe volume<\/dt><dd>0.5 mL<small[^>]*>Calculated<\/small>/,/BAC water added<\/dt><dd>3 mL/,/Doses taken<\/dt><dd>1 logged/,/Schedule not set/])assert.match(html,expected)
+ for(const expected of [/30 mg/,/Nov 1, 2026/,/Nov 29, 2026/,/50 units \u00b7 U-100/,/Syringe volume<\/dt><dd>0.5 mL<\/dd>/,/BAC water added<\/dt><dd>3 mL/,/Doses taken<\/dt><dd>1 logged/,/Schedule not set/])assert.match(html,expected)
  assert.doesNotMatch(html,/More protocol details|Vial expiration|Recorded compound dose count|Vials in stock|0.5 mg/)
  assert.equal(JSON.stringify(p),before)
 })

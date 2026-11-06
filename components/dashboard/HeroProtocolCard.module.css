@@ -34,5 +34,3 @@
 @media (max-width: 699px) {
   .hero:global(.today-selected-protocol) :global(.today-snapshot-facts) > div:last-child:nth-child(odd), .facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
-
-.factSource { display: block; color: var(--v2-secondary, var(--color-dim)); font-size: 12px; line-height: 17px; font-weight: 400; }

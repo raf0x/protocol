@@ -192,7 +192,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
     ...(preparation.recordedDate ? [{ label: 'Reconstituted', value: dateLabel(preparation.recordedDate) }] : []),
     ...(preparation.checkReminder ? [{ label: '28-day vial check', value: dateLabel(preparation.checkReminder) }] : []),
     ...(preparation.waterAdded ? [{ label: 'BAC water added', value: String(preparation.waterAdded.value).trim() + ' mL' }] : []),
-    ...(administrationText.volume ? [{ label: 'Syringe volume', value: <>{administrationText.volume.value}<small className={styles.factSource}>{administrationText.volume.label === 'Calculated volume' ? 'Calculated' : administrationText.volume.label === 'Recorded volume' ? 'Recorded' : 'Saved'}</small></> }] : []),
+    ...(administrationText.volume ? [{ label: 'Syringe volume', value: administrationText.volume.value }] : []),
     { label: 'Doses taken', value: doseCount.value },
     { label: 'Next dose', value: nextDoseDate ? dateLabel(nextDoseDate) : 'Schedule not set' },
 
@@ -238,7 +238,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         medicationKnown={Boolean(dosePresentation.medication)} week={compoundWeek} started={dateLabel(activeProtocol.start_date)} color={color}
         facts={facts}
 
-        visual={<EnhancedVial name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />}
+        visual={<EnhancedVial showRemainingLabel={false} name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />}
         notice={doseNotice}
         actions={<>
           {expired && <><button disabled={continuing} onClick={continueLatest}>{continuing ? 'Continuing…' : 'Continue latest phase'}</button><a href={`/protocol/manage?compound=${activeCompound.id}&action=add-phase`}>Add new phase</a>{phaseError && <p role="alert">{phaseError}</p>}</>}
@@ -286,7 +286,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </div>
 
         <div className={styles.fullVisual} style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
-          <EnhancedVial name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />
+          <EnhancedVial showRemainingLabel={false} name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />
           {scheduled && <p style={{fontSize:'12px',maxWidth:'160px',textAlign:'center'}}>Scheduled to begin {dateLabel(activeProtocol.start_date)}.</p>}
         </div>
       </div>

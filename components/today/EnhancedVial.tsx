@@ -10,12 +10,13 @@ type Props = {
   unit?: string | null
   strengthLabel?: string
   presentation?: 'onboarding'
+  showRemainingLabel?: boolean
   remainingFraction: number | null
   remainingMl: number | null
 }
 
 /** V0.6.4 glass geometry. Unknown inventory has no level, percentage or implied balance. */
-export default function EnhancedVial({ name, strength, unit, strengthLabel, presentation, remainingFraction, remainingMl }: Props) {
+export default function EnhancedVial({ name, strength, unit, strengthLabel, presentation, showRemainingLabel = true, remainingFraction, remainingMl }: Props) {
   const prefix = `${useId().replace(/:/g, '')}-today-vial`
   const paint = (name: string) => `url(#${prefix}-${name})`
   const known = remainingFraction !== null && Number.isFinite(remainingFraction) && remainingFraction >= 0 && remainingFraction <= 1
@@ -105,7 +106,7 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, pres
     </svg>
     <figcaption className={styles.caption}>
       <span className={styles.strength}>{strengthLabel && <small style={{display: 'block', fontWeight: 400, fontSize: 10}}>{strengthLabel}</small>}{strengthText ?? 'Strength not recorded'}</span>
-      <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining not tracked'}</span>
+      {showRemainingLabel && <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining not tracked'}</span>}
       {strengthLabel && presentation !== 'onboarding' && <small data-vial-preparation-note className={styles.remainingLabel}>Saved facts; current vial not confirmed.</small>}
       {known && <strong className={styles.remainingValue}>{formatProtocolPercent(fraction * 100)}<span>{formatProtocolAmount(remainingMl, 'mL', 'volume')}</span></strong>}
     </figcaption>

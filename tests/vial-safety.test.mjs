@@ -74,7 +74,7 @@ for (const counter of [null, 0, 50]) test('unattributable historical doses never
   const logs = freeze([{ compound_id: 'synthetic-compound', taken: true, date: '2001-01-01' }])
   const c = freeze(compound({ doses_taken_override: counter })), before = JSON.stringify({ c, logs }), html = hero(c, logs)
   assert.match(html, /Saved doses are not linked to an individual vial/)
-  assert.match(html, /Remaining not tracked/)
+  assert.doesNotMatch(html, /Remaining not tracked/)
   assert.doesNotMatch(html, /Estimated remaining|0 mL|100%/)
   assert.equal(JSON.stringify({ c, logs }), before)
 })
