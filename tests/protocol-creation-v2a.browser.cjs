@@ -85,7 +85,7 @@ async function main(){
    await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:motion}]});
    await send('Page.reload');await sleep(250);
-   await run("window.geometry=()=>{const m=document.querySelector('main'),h=document.querySelector('h1');return {x:scrollX,mainX:m.scrollLeft,width:innerWidth,documentWidth:document.documentElement.scrollWidth,mainWidth:m.scrollWidth,clientWidth:m.clientWidth,headingLeft:h.getBoundingClientRect().left,containers:[...document.querySelectorAll('.protocols-container,.protocol-editor,.guided-creation,.guided-content,.quick-picker,.quick-segmented,.quick-selected,.quick-amount')].map(e=>({name:e.className,width:e.getBoundingClientRect().width,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,scrollWidth:e.scrollWidth,clientWidth:e.clientWidth,overflowX:getComputedStyle(e).overflowX})),controls:[...document.querySelectorAll('input,select,button,summary')].filter(e=>e.checkVisibility()).map(e=>({name:e.getAttribute('aria-label')||e.textContent,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right}))}};");
+   await run("window.geometry=()=>{const m=document.querySelector('main'),h=document.querySelector('h1');return {x:scrollX,mainX:m.scrollLeft,width:innerWidth,documentWidth:document.documentElement.scrollWidth,mainWidth:m.scrollWidth,clientWidth:m.clientWidth,headingLeft:h.getBoundingClientRect().left,containers:[...document.querySelectorAll('.protocols-container,.protocol-editor,.guided-creation,.guided-content,.quick-picker,.quick-segmented,.quick-selected,.quick-amount,.creation-mixing-facts,.creation-mixed-date')].map(e=>({name:e.className,width:e.getBoundingClientRect().width,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right,scrollWidth:e.scrollWidth,clientWidth:e.clientWidth,overflowX:getComputedStyle(e).overflowX})),controls:[...document.querySelectorAll('input,select,button,summary')].filter(e=>e.checkVisibility()).map(e=>({name:e.getAttribute('aria-label')||e.textContent,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right}))}};");
    const inspect=async(stage)=>{const g=await run('geometry()');results.push({width,motion,stage,...g});fs.writeFileSync(path.join(evidence,'setup-geometry.json'),JSON.stringify(results,null,2));if(g.x!==0||g.mainX!==0||g.documentWidth>width||g.mainWidth>g.clientWidth||g.containers.some(c=>c.left<-.5||c.right>width+.5||(['auto','scroll','hidden'].includes(c.overflowX)&&c.scrollWidth>c.clientWidth))||g.controls.some(c=>c.left<-.5||c.right>width+.5))throw Error('Setup shifted/clipped: '+JSON.stringify(results.at(-1)))};
    const click=async(text)=>act("[...document.querySelectorAll('button')].find(b=>b.textContent==="+JSON.stringify(text)+").click()");
    const fillField=async(name,value)=>act("(()=>{const e=document.querySelector('[aria-label=\""+name+"\"]');Object.getOwnPropertyDescriptor(e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()");
@@ -96,10 +96,29 @@ async function main(){
    await click('Tirzepatide');await inspect('first compound selected');
    await click('Change');await inspect('compound search focused');
    await fillField('Search compounds','Tirzepatide');await click('Tirzepatide');await inspect('compound selected');
+   // Use the route CSS, without a fixture sizing reset, for every mixing choice.
+   for(const choice of ['No','Ready to use','Not sure','Yes']){
+    await click(choice);await inspect('mixing choice '+choice);
+    await run("if(Boolean(document.querySelector('.creation-mixing-facts'))!=="+(choice==='Yes')+")throw Error('Unexpected mixing disclosure')");
+   }
+   await run("window.checkMixedDate=()=>{const e=document.querySelector('[aria-label=\"Reconstitution date\"]'),s=getComputedStyle(e),r=e.getBoundingClientRect(),p=e.parentElement.getBoundingClientRect();if(e.type!=='date'||!e.labels?.length||e.disabled||e.readOnly||typeof e.showPicker!=='function'||s.appearance==='none')throw Error('Native accessible date input lost');if(s.paddingLeft!=='0px'||s.paddingRight!=='0px'||s.paddingTop!=='0px'||s.paddingBottom!=='0px'||s.boxSizing!=='border-box'||s.minWidth!=='0px')throw Error('Native date input still has problematic padding/sizing');if(p.width>224.5)throw Error('Mixed date field exceeds compact 224px width: '+p.width);if(e.scrollWidth>e.clientWidth+1)throw Error('Native date contents clipped');if(r.left<p.left||r.right>p.right||r.top<p.top||r.bottom>p.bottom||p.left<0||p.right>innerWidth||p.height<44)throw Error('Mixed date bounds or target size failed')};checkMixedDate()");
+   await fillField('Bacteriostatic water added','2');await fillField('Reconstitution date','2026-11-01');await inspect('mixed facts with reminder');
+   for(const choice of ['No','Ready to use','Not sure','Yes']){
+    await click(choice);await inspect('retained mixing facts '+choice);
+    await run("checkMixedDate();if(document.querySelector('[aria-label=\"Reconstitution date\"]').value!=='2026-11-01'||document.querySelector('[aria-label=\"Bacteriostatic water added\"]').value!=='2')throw Error('Switching choices lost preparation facts')");
+   }
    await click('Yes');await fillField('Amount in the vial','-1');await click('Continue');await inspect('preparation validation');
    await run("checkValidation('Amount in the vial')");
    await fillField('Amount in the vial','10');await fillField('Amount in the vial unit','mg');await act("document.querySelector('[aria-label=\"Amount in the vial unit\"]').focus()");await inspect('vial unit focused');await fillField('Bacteriostatic water added','2');
-   await act("document.querySelector('[aria-label=\"Reconstitution date\"]').focus()");await inspect('date focused');
+   await act("document.querySelector('[aria-label=\"Reconstitution date\"]').focus()");await inspect('date focused');await run('checkMixedDate()');const dateShot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'mixed-date-'+width+'-'+motion+'.png'),Buffer.from(dateShot.data,'base64'));
+   if(width===390&&motion==='no-preference'){
+    // A real native picker request in Chromium is still not an iOS picker verification.
+    const picker=await send('Runtime.evaluate',{expression:"document.querySelector('[aria-label=\"Reconstitution date\"]').showPicker()",userGesture:true});
+    if(picker.exceptionDetails)throw Error('Native date picker failed: '+JSON.stringify(picker.exceptionDetails));
+    const capture=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'mixed-date-native-picker.png'),Buffer.from(capture.data,'base64'));
+    await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+    await run("checkMixedDate();if(document.querySelector('[aria-label=\"Reconstitution date\"]').value!=='2026-11-01')throw Error('Picker dismissed value changed')");
+   }
    // Desktop emulation cannot open the iOS keyboard: exercise the viewport resize seam explicitly.
    await send('Emulation.setDeviceMetricsOverride',{width,height:400,deviceScaleFactor:1,mobile:true});await sleep(80);await inspect('keyboard-sized viewport');
    await run("if(document.querySelector('main').style.getPropertyValue('--setup-height')!=='400px')throw Error('Viewport height not updated')");
