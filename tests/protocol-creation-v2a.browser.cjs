@@ -13,14 +13,14 @@ import {entryFormState} from ${JSON.stringify(path.join(root,'lib/health/dosingE
 import theme from ${JSON.stringify(path.join(root,'components/app/design-system-v2.module.css').replaceAll('\\','/'))};
 import todayStyles from ${JSON.stringify(path.join(root,'app/protocol/today-v2.module.css').replaceAll('\\','/'))};
 import {SectionCard} from ${JSON.stringify(path.join(root,'components/app/DesignSystem').replaceAll('\\','/'))};
-function Fixture(){const[value,setValue]=React.useState({startDate:'2026-11-05',compounds:[{...newCompound(),name:'Synthetic compound'}]});const[surface,setSurface]=React.useState('creation');window.showSaved=setSurface;window.resetCreation=()=>{setValue({startDate:'2026-11-05',compounds:[{...newCompound(),name:'Synthetic compound'}]});setSurface('creation')};
+function Fixture(){const[value,setValue]=React.useState({startDate:'2026-11-05',compounds:[{...newCompound(),name:${JSON.stringify(process.env.MPP_SETUP_STABILITY==='1'?'':'Synthetic compound')}}]});const[surface,setSurface]=React.useState('creation');window.showSaved=setSurface;window.resetCreation=()=>{setValue({startDate:'2026-11-05',compounds:[{...newCompound(),name:'Synthetic compound'}]});setSurface('creation')};
 window.loadHeroCase=(kind,surface)=>{const c={...newCompound(),name:'Synthetic compound',preparation:'mixing',vial_strength:'30',vial_unit:'mg',bac_water_ml:'3',reconstitution_date:'2026-11-01',input_mode:'syringe',syringe_markings:'50',syringe_scale:'100',reviewed:true,days_of_week:[0]};window.saved=protocolCompoundPayload([c]);const phase=window.saved[0].phase;phase.frequency='1x/week';phase.days_of_week=[];phase.day_of_week=null;window.heroLogs=[{compound_id:'compound',taken:true,date:'2026-11-01'}];if(kind==='conflict')phase.dosing_entry.injection_volume='0.6';if(kind==='unsupported')phase.dosing_entry.syringe_scale='50';if(kind==='missing'){window.heroLogs=[];phase.dosing_entry.syringe_scale='';delete phase.dosing_entry.bac_water_ml}if(kind==='daily'){phase.frequency='daily';phase.days_of_week=[0,1,2,3,4,5,6]}setValue({startDate:'2026-11-01',compounds:[c]});setSurface(surface)};
 const noop=()=>{};let content;
 if(surface==='creation')content=<View value={value} today="2026-11-05" onChange={setValue} onClose={noop} onSave={()=>{window.saved=protocolCompoundPayload(value.compounds)}}/>;
 else {const payload=JSON.parse(JSON.stringify(window.saved[0]));const phase={...payload.phase,id:'phase',name:'Phase 1'};delete payload.phase;window.reloaded=entryFormState(phase);const compound={...payload,id:'compound',vial_strength:null,vial_unit:null,bac_water_ml:null,phases:[phase]};const protocol={id:'protocol',name:'Synthetic compound',start_date:value.startDate,status:'active',compounds:[compound]};
 content=surface==='detail'?<Detail protocol={protocol} today="2026-11-05" onBack={noop} onEdit={noop} onComplete={noop} onPause={noop} onResume={noop} onReactivate={noop} onDelete={noop} onReload={noop}/>:surface==='vials'?<><h1>Unknown versus empty</h1><Vial name="Unknown remaining" remainingFraction={null} remainingMl={null}/><Vial name="Known empty (synthetic)" remainingFraction={0} remainingMl={0}/></>:<Hero activeProtocols={[protocol]} activeCompoundTab="compound" compoundIndex={0} snapshot={surface==='hero'} logs={{}} allLogs={window.heroLogs||[]} totalLost={null}/>}
 if(surface.startsWith('hero'))return <div className={'mobile-app-shell today-surface '+theme.theme}><main className={'today-main '+todayStyles.page}><div className={todayStyles.container}><SectionCard className={todayStyles.activeProtocols}><div className={surface==='hero'?todayStyles.selectedSnapshot:undefined}>{content}</div></SectionCard></div></main></div>;
-return <main className={'protocols-page protocols-focused '+theme.theme}><div className="protocols-container protocols-creation-container">{content}</div></main>};createRoot(document.getElementById('root')).render(<Fixture/>);
+return <main className={'protocols-page protocols-focused '+theme.theme}><div className="protocols-container protocols-creation-container"><div className="protocol-editor">{content}</div></div></main>};createRoot(document.getElementById('root')).render(<Fixture/>);
 `)
 const heroOnly=process.argv.includes('--hero-only')||process.env.MPP_HERO_ONLY==='1'
 const modules = [], ids = new Map(), extraStyles = []
@@ -61,6 +61,11 @@ async function main(){
  let serial=0;const pending=new Map();ws.onmessage=e=>{const m=JSON.parse(e.data);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id)}}
  const send=async(method,params={})=>{const id=++serial;const result=new Promise(r=>pending.set(id,r));ws.send(JSON.stringify({id,method,params}));const m=await result;if(m.error)throw Error(JSON.stringify(m.error));return m.result}
  const run=async(expression)=>{const result=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value}
+ await send('Page.enable');
+ // Observe the real mount effect before React runs; never suppress the browser's behavior.
+ if(process.env.MPP_SETUP_STABILITY==='1')await send('Page.addScriptToEvaluateOnNewDocument',{source:
+  "window.headingScrollCalls=[];const originalFocus=HTMLElement.prototype.focus,originalScroll=Element.prototype.scrollIntoView;HTMLElement.prototype.focus=function(options){if(this.tagName==='H1')headingScrollCalls.push({kind:'focus',preventScroll:options?.preventScroll===true});return originalFocus.call(this,options)};Element.prototype.scrollIntoView=function(options){if(this.tagName==='H1')headingScrollCalls.push({kind:'scrollIntoView'});return originalScroll.call(this,options)};"
+ });
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await send('Page.navigate',{url});
  for(let i=0;i<100;i++){if(await run('Boolean(document.querySelector("h1"))'))break;await sleep(100)}
  await run(`window.reveal=e=>{for(let d=e.closest('details');d;d=d.parentElement?.closest('details'))d.open=true};window.clickText=s=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent===s);if(!b)throw Error('Missing button '+s);reveal(b);b.click()};window.fill=(name,value)=>{const e=document.querySelector('[aria-label="'+name+'"]');if(!e)throw Error('Missing field '+name);reveal(e);Object.getOwnPropertyDescriptor(e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(e,value);e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))};window.check=(ok,message)=>{if(!ok)throw Error(message)};`)
@@ -72,6 +77,42 @@ async function main(){
    await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await act('document.documentElement.dataset.theme='+JSON.stringify(theme));await run(`check(document.documentElement.scrollWidth<=innerWidth&&document.querySelector('main').scrollWidth<=innerWidth,'Stage overflow');for(const e of document.querySelectorAll('input,select,button,summary')){if(!e.checkVisibility())continue;const r=e.getBoundingClientRect();check(r.left>=0&&r.right<=innerWidth,'Stage control clipped')}`);await shot(name+'-'+theme+'-'+width)
   }
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await act(`document.documentElement.dataset.theme='dark'`)
+ }
+ if(process.env.MPP_SETUP_STABILITY==='1'){
+  const results=[];
+  for(const width of [320,375,390,402])for(const motion of ['no-preference','reduce']){
+   await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
+   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:motion}]});
+   await send('Page.reload');await sleep(250);
+   await run("window.geometry=()=>{const m=document.querySelector('main'),h=document.querySelector('h1');return {x:scrollX,mainX:m.scrollLeft,width:innerWidth,documentWidth:document.documentElement.scrollWidth,mainWidth:m.scrollWidth,clientWidth:m.clientWidth,headingLeft:h.getBoundingClientRect().left,controls:[...document.querySelectorAll('input,select,button,summary')].filter(e=>e.checkVisibility()).map(e=>({name:e.getAttribute('aria-label')||e.textContent,left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right}))}};");
+   const inspect=async(stage)=>{const g=await run('geometry()');results.push({width,motion,stage,...g});fs.writeFileSync(path.join(evidence,'setup-geometry.json'),JSON.stringify(results,null,2));if(g.x!==0||g.mainX!==0||g.documentWidth>width||g.mainWidth>g.clientWidth||g.controls.some(c=>c.left<-.5||c.right>width+.5))throw Error('Setup shifted/clipped: '+JSON.stringify(results.at(-1)))};
+   const click=async(text)=>act("[...document.querySelectorAll('button')].find(b=>b.textContent==="+JSON.stringify(text)+").click()");
+   const fillField=async(name,value)=>act("(()=>{const e=document.querySelector('[aria-label=\""+name+"\"]');Object.getOwnPropertyDescriptor(e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}))})()");
+   await inspect('open');
+   {const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'opening-'+width+'-'+motion+'.png'),Buffer.from(image.data,'base64'))}
+   await run("window.checkValidation=name=>{const e=document.activeElement,r=e.getBoundingClientRect(),m=document.querySelector('main').getBoundingClientRect();if(e.getAttribute('aria-label')!==name||e.getAttribute('aria-invalid')!=='true')throw Error('Invalid control did not receive focus: '+name);if(r.top<m.top||r.bottom>m.bottom)throw Error('Validation control not revealed: '+name)}");
+   await run("window.checkHeading=()=>{if(document.activeElement!==document.querySelector('h1'))throw Error('Heading focus lost');if(!headingScrollCalls.length||headingScrollCalls.some(c=>c.kind==='scrollIntoView'||!c.preventScroll))throw Error('Heading delegates scrolling to browser ancestors: '+JSON.stringify(headingScrollCalls));if(document.querySelector('main').scrollTop!==0)throw Error('Step did not reset its own vertical scroll')};checkHeading()");
+   await click('Tirzepatide');await inspect('first compound selected');
+   await click('Change');await inspect('compound search focused');
+   await fillField('Search compounds','Tirzepatide');await click('Tirzepatide');await inspect('compound selected');
+   await click('Yes');await fillField('Amount in the vial','-1');await click('Continue');await inspect('preparation validation');
+   await run("checkValidation('Amount in the vial')");
+   await fillField('Amount in the vial','10');await fillField('Amount in the vial unit','mg');await fillField('Bacteriostatic water added','2');
+   await act("document.querySelector('[aria-label=\"Reconstitution date\"]').focus()");await inspect('date focused');
+   // Desktop emulation cannot open the iOS keyboard: exercise the viewport resize seam explicitly.
+   await send('Emulation.setDeviceMetricsOverride',{width,height:400,deviceScaleFactor:1,mobile:true});await sleep(80);await inspect('keyboard-sized viewport');
+   await run("if(document.querySelector('main').style.getPropertyValue('--setup-height')!=='400px')throw Error('Viewport height not updated')");
+   await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await sleep(80);
+   await click('Continue');await inspect('measurement');await run('checkHeading()');
+   await click('Medication amount');await fillField('Your intended amount','-1');await click('Continue');await inspect('measurement validation');await run("checkValidation('Your intended amount')");
+   await fillField('Your intended amount','1');await fillField('Medication unit','mg');await click('Continue');await inspect('schedule');
+   await click('Back');await inspect('back to measurement');await click('Back');await inspect('back to preparation');await run('checkHeading()');
+   await act("document.querySelector('main').scrollTop=200");await run("if(document.querySelector('main').scrollTop<=0)throw Error('Intentional vertical scrolling blocked')");await inspect('intentional vertical scroll');
+   const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(evidence,'setup-'+width+'-'+motion+'.png'),Buffer.from(image.data,'base64'));
+   await run("if(errors.length)throw Error(JSON.stringify(errors))");
+  }
+  console.log('PASS: setup stability at 320/375/390/402px, normal/reduced motion, compound selection, input/date focus, keyboard-sized resize, validation and step/back navigation. Evidence: '+evidence);
+  await send('Browser.close');ws.close();server.close();return;
  }
  if(heroOnly){
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});

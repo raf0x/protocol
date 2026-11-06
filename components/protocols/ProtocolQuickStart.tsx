@@ -40,7 +40,11 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
   const pendingIssue = review ? quickStartIssue(value) : creationStepIssue(value, currentStep, index)
   const visibleIssue: QuickStartIssue | null = attempts || (pendingIssue?.field === 'dose_unit' && Boolean(c.dose)) ? pendingIssue : null
   const update = (compound: typeof c) => onChange({ ...value, compounds: value.compounds.map((item, i) => i === index ? compound : item) })
-  useEffect(() => { heading.current?.focus(); heading.current?.scrollIntoView({ block: 'start' }) }, [step, index])
+  useEffect(() => {
+    // Keep accessibility focus without asking WebKit to pan the outer viewport.
+    heading.current?.focus({ preventScroll: true })
+    heading.current?.closest<HTMLElement>('.protocols-focused')?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [step, index])
   useEffect(() => {
     if (!saveError && !attempts) return
     const message = errorRef.current?.querySelector<HTMLElement>('[data-quick-error]')
