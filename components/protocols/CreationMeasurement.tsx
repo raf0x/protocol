@@ -23,7 +23,7 @@ export function CreationPreparation({ value: c, onChange, idPrefix, issue }: Pro
     {showMixingFacts && <div className="creation-mixing-facts">
       {mixed === 'unmixed' && <p className="quick-hint">Previously entered mixing facts are kept below. Edit them only if needed.</p>}
       <QuickAmountField id={`${idPrefix}-water`} error={issue?.field === 'bac_water_ml' ? issue.message : undefined} label="Bacteriostatic water added" value={c.bac_water_ml} onChange={v => update('bac_water_ml', v)} unit="mL" helper="Liquid added is separate from the final solution volume." />
-      <label htmlFor={`${idPrefix}-mixed-date`}>When was it mixed?<input id={`${idPrefix}-mixed-date`} aria-label="Reconstitution date" type="date" value={c.reconstitution_date} aria-invalid={issue?.field === 'reconstitution_date'} aria-describedby={issue?.field === 'reconstitution_date' ? `${idPrefix}-mixed-date-error` : undefined} onChange={e => update('reconstitution_date', e.target.value)} /></label>
+      <label htmlFor={`${idPrefix}-mixed-date`}>When was it mixed?<span className="creation-mixed-date"><input id={`${idPrefix}-mixed-date`} aria-label="Reconstitution date" type="date" value={c.reconstitution_date} aria-invalid={issue?.field === 'reconstitution_date'} aria-describedby={issue?.field === 'reconstitution_date' ? `${idPrefix}-mixed-date-error` : undefined} onChange={e => update('reconstitution_date', e.target.value)} /></span></label>
       <QuickStartError id={`${idPrefix}-mixed-date-error`} issue={issue?.field === 'reconstitution_date' ? issue : null} />
       {reminder && <p className="creation-reminder"><strong>28-day check reminder: {dateLabel(reminder)}</strong><span>Tracking only; not an expiration or safe-use date.</span></p>}
     </div>}
