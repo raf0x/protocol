@@ -7,6 +7,7 @@ import { recordedAdministrationDisplay, recordedDoseDisplay, recordedAmount } fr
 import { normalizeTimeline, type ProtocolEventRow } from '../../lib/health/timeline'
 import { compoundOverview, dateLabel, type LibraryProtocol } from '../../lib/health/protocolPresentation'
 import ActivateProtocol from './ActivateProtocol'
+import { preparationPresentation } from '../../lib/health/preparationPresentation'
 import { protocolLifecycle } from '../../lib/health/protocolDates'
 import PhaseCard from './PhaseCard'
 import DoseChangeAction from './DoseChangeAction'
@@ -68,8 +69,9 @@ export default function ProtocolDetail(props: Props) {
         const admin = recordedAdministrationDisplay(info.phase)
         const adminArtwork = administrationArtwork(info.phase)
         const entry = info.phase?.dosing_entry
-        const preparation = entry ?? compound
-        const vialAmount = recordedAmount(preparation.vial_strength, preparation.vial_unit)
+        const savedPreparation = preparationPresentation(compound, info.phase)
+        const preparation = savedPreparation.facts
+        const vialAmount = savedPreparation.amount ? recordedAmount(savedPreparation.amount.value, savedPreparation.amount.unit) : null
         const liquid = recordedAmount(preparation.bac_water_ml, 'mL')
         const concentration = recordedAmount(preparation.concentration_value, preparation.concentration_unit)
         const stock = formatProtocolAmount(compound.vials_in_stock, 'vials in stock', 'count')
@@ -81,11 +83,11 @@ export default function ProtocolDetail(props: Props) {
           {admin.volume && <><dt>Injection volume</dt><dd>{admin.volume}</dd></>}
           {admin.syringe && <><dt>Syringe draw</dt><dd>{admin.syringe}</dd></>}
         </dl>{!info.phase?.route && !admin.volume && !admin.syringe && <p>Not recorded</p>}</section>
-        <section className="protocol-more-section"><h3>{entry ? 'Saved phase preparation' : 'Saved compound preparation'}</h3><p>These saved preparation facts do not confirm the current vial.</p><dl>
+        <section className="protocol-more-section"><h3>{savedPreparation.label}</h3><p>These saved preparation facts do not confirm the current vial.</p><dl>
           {vialAmount && <><dt>Vial amount</dt><dd>{vialAmount}</dd></>}
           {liquid && <><dt>Liquid added</dt><dd>{liquid}</dd></>}
           {concentration && <><dt>Concentration</dt><dd>{concentration}</dd></>}
-        </dl>{!vialAmount && !liquid && !concentration && <p>Not recorded</p>}<dl><dt>Recorded reconstitution date</dt><dd>{dateLabel(compound.reconstitution_date) || 'Not recorded'}</dd><dt>Current vial expiration</dt><dd>Unknown: no recorded source linked to this vial</dd></dl></section>
+        </dl>{!vialAmount && !liquid && !concentration && <p>Not recorded</p>}<dl><dt>Recorded reconstitution date</dt><dd>{dateLabel(savedPreparation.recordedDate) || 'Not recorded'}</dd>{savedPreparation.checkReminder && <><dt>28-day check reminder</dt><dd>{dateLabel(savedPreparation.checkReminder)} (tracking only, not an expiration or safe-use date)</dd></>}<dt>Current vial expiration</dt><dd>Unknown: no recorded source linked to this vial</dd></dl></section>
         <section className={`protocol-more-section ${artworkStyles.section}`} data-protocol-artwork-section="inventory"><h3>Inventory</h3><ProtocolDetailArtwork kind="inventory" /><dl>
           <dt>Inventory</dt><dd>{stock ?? 'Not recorded'}</dd>
         </dl></section>

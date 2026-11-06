@@ -1,6 +1,7 @@
 ﻿'use client'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import AppIcon from '../app/AppIcon'
+import CreationArtwork from './CreationArtwork'
 import CompoundPicker from './CompoundPicker'
 import QuickProtocolFields, { QuickAdditionalFields } from './QuickProtocolFields'
 import { QuickStartError } from './QuickStartControls'
@@ -68,18 +69,19 @@ export default function ProtocolQuickStart({ value, onChange, today, children, o
       <span>{`${step + 1} of 3`}</span><progress max={3} value={step + 1} aria-label="Setup progress" />
     </div>
     <h1 ref={heading} tabIndex={-1}>{currentStep}</h1>
+    <CreationArtwork value={c} stage={step === 0 ? 'preparation' : step === 1 ? 'measurement' : 'review'} />
     <div className="protocol-quick-start guided-content">
       {step === 0 && <>
+        <h2 className="creation-question">What is the compound?</h2>
         <CompoundPicker key={index} idPrefix={`quick-${index}`} value={c} onExpand={() => navigate(0)} onChange={next => { update(next); if (next.name !== c.name) navigate(0) }} />
-        <CreationPreparation issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />
+        {c.name && <CreationPreparation issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />}
       </>}
       {step === 1 && <CreationMeasurement issue={visibleIssue} idPrefix={`quick-${index}`} value={c} onChange={update} />}
       {review && <>
         <QuickProtocolFields section="schedule" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
         <ProtocolStartDate value={value.startDate} today={today} onChange={startDate => onChange({ ...value, startDate })} issue={visibleIssue?.field === 'startDate' ? visibleIssue : null} />
         <QuickProtocolFields section="start" idPrefix={`quick-${index}`} value={c} onChange={update} issue={visibleIssue} />
-        <details className="quick-additional"><summary>Inventory, mixing date and notes (optional)</summary>
-          <label>Mixing date<input type="date" value={c.reconstitution_date} onChange={e => update({ ...c, reconstitution_date: e.target.value })} /></label>
+        <details className="quick-additional"><summary>Inventory and notes (optional)</summary>
           <QuickAdditionalFields includeTime={false} includePreparation={false} idPrefix={`quick-${index}`} value={c} today={today} onChange={update} issue={visibleIssue} />
         </details>
       </>}

@@ -12,6 +12,7 @@ import { isCalendarDate, localCalendarDate, protocolLifecycle } from '../../lib/
 import { useLocalCalendarDate } from '../../lib/health/useLocalCalendarDate'
 import { dateLabel } from '../../lib/health/protocolPresentation'
 import { phaseDosingIssue } from '../../lib/health/dosingGuidance'
+import { preparationPresentation } from '../../lib/health/preparationPresentation'
 import { currentVialSafety } from '../../lib/health/vialSafety'
 import SelectedProtocolSnapshot from '../today/SelectedProtocolSnapshot'
 import EnhancedVial from '../today/EnhancedVial'
@@ -210,6 +211,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const reconDate = activeCompound.reconstitution_date && isCalendarDate(activeCompound.reconstitution_date) ? activeCompound.reconstitution_date : null
   const entry = currentPhase?.dosing_entry
   const administrationText = recordedAdministrationDisplay(currentPhase)
+  const preparation = preparationPresentation(activeCompound, currentPhase)
   const vialSafety = currentVialSafety(activeCompound, entry)
   const stockText = formatProtocolNumber(activeCompound.vials_in_stock, 'count')
   const vialRecovery = <div data-vial-remaining-reason style={{fontSize:13,color:'var(--color-dim)',marginTop:12}}>
@@ -258,7 +260,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
           { label: 'Recorded compound dose count', value: formatProtocolNumber(dosesOverride, 'count') ?? 'Not recorded' },
           { label: 'Next dose', value: nextDoseText || 'Not recorded' },
         ]}
-        visual={<EnhancedVial name={activeCompound.name} strength={activeCompound.vial_strength} unit={activeCompound.vial_unit} strengthLabel="Recorded compound amount" remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />}
+        visual={<EnhancedVial name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />}
         notice={doseNotice}
         lifecycle={vialInventory}
         actions={<>
@@ -307,7 +309,7 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
         </div>
 
         <div style={{marginLeft:'16px',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'}}>
-          <EnhancedVial name={activeCompound.name} strength={activeCompound.vial_strength} unit={activeCompound.vial_unit} strengthLabel="Recorded compound amount" remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />
+          <EnhancedVial name={activeCompound.name} strength={preparation.amount?.value} unit={preparation.amount?.unit} strengthLabel={preparation.label} remainingFraction={vialSafety.remainingFraction} remainingMl={vialSafety.remainingMl} />
           {scheduled && <p style={{fontSize:'12px',maxWidth:'160px',textAlign:'center'}}>Scheduled to begin {dateLabel(activeProtocol.start_date)}.</p>}
         </div>
       </div>

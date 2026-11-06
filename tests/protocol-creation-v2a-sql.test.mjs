@@ -15,6 +15,9 @@ function load(path) {
   if (cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }, code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
+    if (name === 'next/link') return { __esModule: true, default: props => React.createElement('a', props) }
+    if (name.endsWith('/supabase')) return { createClient() { throw Error('Synthetic tests cannot access Supabase') } }
     if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -60,7 +63,7 @@ test('new preparation JSON survives the unchanged canonical RPC, reload and owne
     for (const file of ['202609090001_dosing_semantics_v1.sql','202609100001_advisory_dosing.sql','202609110001_continue_latest_phase.sql','202609140001_structured_protocol_events.sql','202609160001_historical_protocol_context_v1.sql','202609200001_planned_protocols.sql','202609220001_protocol_save_dates.sql','202609230001_protocol_edit_date_hotfix.sql','202609240001_scheduled_protocols.sql','202609260001_restore_preparation_fingerprint.sql']) await db.exec(readFileSync(new URL('../supabase/migrations/' + file, import.meta.url), 'utf8'))
     for (const table of ['protocols','compounds','phases','protocol_events']) await db.exec(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY; CREATE POLICY owner ON ${table} TO authenticated USING(user_id=auth.uid()) WITH CHECK(user_id=auth.uid()); GRANT SELECT,INSERT,UPDATE,DELETE ON ${table} TO authenticated;`)
     await db.exec(`SET ROLE authenticated; SELECT set_config('app.user_id','00000000-0000-0000-0000-000000000001',false)`)
-    const c = { ...form.newCompound(), name: 'Synthetic compound', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '1.8', final_solution_volume_ml: '2.00', preparation_confirmed: true, input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', days_of_week: [1,4], route: 'SubQ' }
+    const c = { ...form.newCompound(), name: 'Synthetic compound', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '1.8', reconstitution_date: '2026-11-01', final_solution_volume_ml: '2.00', preparation_confirmed: true, input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', days_of_week: [1,4], route: 'SubQ' }
     const payload = form.protocolCompoundPayload([c])
     await db.query(`SELECT save_protocol_with_events_v2(NULL,'Synthetic compound','2026-11-05',$1::jsonb,NULL,'{}',NULL,'America/New_York')`, [JSON.stringify(payload)])
     const row = (await db.query('SELECT * FROM phases')).rows[0]
@@ -68,8 +71,18 @@ test('new preparation JSON survives the unchanged canonical RPC, reload and owne
     assert.deepEqual(entryFromForm(entryFormState(row)), row.dosing_entry)
     assert.equal(row.dose, null); assert.equal(row.dose_unit, null); assert.equal(row.frequency, '2x/week'); assert.deepEqual(row.days_of_week, [1,4])
     assert.equal(row.dosing_entry.concentration_value, '')
-    const compound = (await db.query('SELECT * FROM compounds')).rows[0]
+    const compound = (await db.query('SELECT *, reconstitution_date::text AS reconstitution_date FROM compounds')).rows[0]
     assert.equal(compound.vial_strength, null); assert.equal(compound.bac_water_ml, null)
+    assert.equal(compound.reconstitution_date, '2026-11-01')
+    const protocol = { ...(await db.query('SELECT * FROM protocols')).rows[0], start_date: '2020-01-01', compounds: [{ ...compound, phases: [row] }] }
+    const before = JSON.stringify(protocol), noop = () => {}
+    const detail = text(ui(load('../components/protocols/ProtocolDetail.tsx').default, { protocol, today: '2026-11-05', onBack:noop,onEdit:noop,onComplete:noop,onPause:noop,onResume:noop,onReactivate:noop,onDelete:noop,onReload:noop }))
+    assert.match(detail, /10 mg/); assert.match(detail,/28-day check reminder/); assert.match(detail,/Nov 29/)
+    for (const snapshot of [false,true]) {
+      const hero = text(ui(load('../components/dashboard/HeroProtocolCard.tsx').default, { activeProtocols:[protocol],activeCompoundTab:compound.id,compoundIndex:0,snapshot,logs:{},allLogs:[],totalLost:null }))
+      assert.match(hero,/Saved phase preparation/); assert.match(hero,/10 mg/); assert.match(hero,/Nov 1/); assert.match(hero,/Nov 29/); assert.match(hero,/Remaining not tracked/)
+    }
+    assert.equal(JSON.stringify(protocol),before)
     for (const schedule of [{ days_of_week: [0,1,2,3,4,5,6], frequency_mode: 'weekly', cycle_days: '' }, { days_of_week: [1,4], frequency_mode: 'weekly', cycle_days: '' }, { days_of_week: [], frequency_mode: 'rolling', cycle_days: '3' }]) {
       const draft = { ...c, ...schedule, route: '' }
       assert.equal(quick.quickStartIssue({ startDate: '2026-11-05', compounds: [draft] }), null)

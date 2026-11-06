@@ -15,6 +15,7 @@ function load(path) {
   if (cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }, code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -144,7 +145,7 @@ test('unspecified route stays null in canonical payload and does not change sche
 
 
 test('all invalid preparation amounts expose their own controls, including retained hidden facts', () => {
-  for (const [key, label] of [['vial_strength', 'Amount in the vial'], ['bac_water_ml', 'How much liquid did you add?'], ['concentration_value', 'Concentration on the label']]) {
+  for (const [key, label] of [['vial_strength', 'Amount in the vial'], ['bac_water_ml', 'Bacteriostatic water added'], ['concentration_value', 'Concentration on the label']]) {
     hooks = []; let value = { startDate: '', compounds: [{ ...form.newCompound(), name: 'Synthetic', preparation: 'unknown', [key]: '-1' }] }
     const render = () => ui(View, { value, today: '2026-11-05', onChange: next => { value = next } })
     button(render(), 'Continue').props.onClick()
@@ -166,4 +167,84 @@ test('save returns an invalid preparation to its associated control instead of M
   assert.equal(saved, false)
   assert.equal(text(nodes(render(), n => n.type === 'h1')), 'Preparation')
   assert.equal(field(render(), 'Concentration on the label').props['aria-invalid'], true)
+})
+
+
+test('every derived equivalent requires explicit compatible syringe calibration', () => {
+  for (const mode of ['medication', 'volume', 'syringe']) {
+    const entry = mixed({ input_mode: mode, dose: mode === 'medication' ? '1' : '', dose_unit: mode === 'medication' ? 'mg' : '', injection_volume: mode === 'volume' ? '0.2' : '', syringe_markings: mode === 'syringe' ? '20' : '' })
+    for (const syringe_scale of ['', undefined, '50']) assert.equal(measurementPreview({ ...entry, syringe_scale }).medication, null)
+    assert.ok(measurementPreview({ ...entry, syringe_scale: '100' }).medication)
+  }
+})
+
+test('mixed preparation asks for water and date once, while unmixed and ready paths stay simple', () => {
+  const { CreationPreparation } = load('../components/protocols/CreationMeasurement.tsx')
+  hooks = []; let value = { ...form.newCompound(), name: 'Synthetic' }
+  const render = () => ui(CreationPreparation, { value, idPrefix: 'prep', onChange: next => { value = next } })
+  assert.equal(field(render(), 'Reconstitution date'), undefined)
+  button(render(), 'Yes').props.onClick()
+  assert.ok(field(render(), 'Bacteriostatic water added')); assert.ok(field(render(), 'Reconstitution date'))
+  field(render(), 'Reconstitution date').props.onChange({ target: { value: '2026-11-01' } })
+  assert.match(text(render()), /28-day check reminder: Nov 29/)
+  assert.equal(nodes(render(), n => n.props?.['aria-label'] === 'Amount in the vial').length, 1)
+  assert.equal(field(render(), 'Final solution volume'), undefined)
+  assert.equal(form.protocolCompoundPayload([value])[0].phase.dosing_entry.mixingStatus, undefined)
+  value = { ...form.newCompound(), name: 'Synthetic' }; button(render(), 'No').props.onClick()
+  assert.equal(field(render(), 'Bacteriostatic water added'), undefined)
+  button(render(), 'Ready to use').props.onClick()
+  assert.ok(field(render(), 'Concentration on the label')); assert.equal(field(render(), 'Amount in the vial'), undefined)
+})
+
+test('ready-to-use reproduction retains 10 mg and uses confirmed 5 mg/mL for 1 mg at U-100', () => {
+  hooks = []; let value = { ...form.newCompound(), name:'Synthetic', vial_strength:'10', vial_unit:'mg' }
+  const { CreationPreparation, CreationMeasurement } = load('../components/protocols/CreationMeasurement.tsx')
+  const props = () => ({ value, idPrefix:'repro', onChange:next=>{value=next} })
+  button(ui(CreationPreparation, props()), 'Ready to use').props.onClick()
+  field(ui(CreationPreparation, props()), 'Concentration on the label').props.onChange({target:{value:'5'}})
+  field(ui(CreationPreparation, props()), 'Concentration on the label unit').props.onChange({target:{value:'mg/mL'}})
+  value = updateCreation(value,'input_mode','medication'); value=updateCreation(value,'dose','1'); value=updateCreation(value,'dose_unit','mg')
+  button(ui(CreationMeasurement,props()), 'U-100').props.onClick()
+  for(let i=0;i<2;i++)nodes(ui(CreationMeasurement,props()),n=>n.type==='input'&&n.props.type==='checkbox')[i].props.onChange({target:{checked:true}})
+  const before=JSON.stringify(value), entry=entryFromForm(value), result=measurementPreview(entry)
+  assert.equal(result.markings,20,result.message);assert.equal(result.volume,.2)
+  assert.match(text(ui(CreationMeasurement,props())),/20 markings on U-100/)
+  assert.equal(field(ui(CreationMeasurement,props()),'Final solution volume'),undefined)
+  assert.equal(JSON.stringify(value),before);assert.equal(entry.vial_strength,'10');assert.equal(entry.concentration_value,'5')
+  const withoutAmount={...entry,vial_strength:'',vial_unit:''}
+  assert.equal(measurementPreview(withoutAmount).markings,20)
+})
+
+test('ready labels do not infer concentration from retained vial or water facts; mixed inputs still need final volume', () => {
+  const ready=mixed({preparation:'ready',input_mode:'medication',dose:'1',dose_unit:'mg',syringe_markings:'',final_solution_volume_ml:'',concentration_value:'5',concentration_unit:'mg/mL'})
+  const before=structuredClone(ready)
+  assert.equal(measurementPreview(ready).markings,20);assert.deepEqual(ready,before)
+  assert.equal(measurementPreview({...ready,preparation:'mixing'}).medication,null)
+  for(const patch of [{syringe_scale:''},{syringe_scale:'50'},{dose_unit:'IU'},{concentration_unit:'IU/mL'},{concentration_unit:'mg/L'},{preparation_confirmed:false},{review_status:'unverified'}])assert.equal(measurementPreview({...ready,...patch}).medication,null,JSON.stringify(patch))
+  assert.equal(measurementPreview({...ready,syringe_scale:'40'}).markings,8)
+})
+
+test('complete conflicting active preparation stays blocked and can be corrected without deleting facts', () => {
+  const {CreationMeasurement}=load('../components/protocols/CreationMeasurement.tsx')
+  for(const preparation of ['ready','mixing']) {
+    hooks=[];let value={...form.newCompound(),...entryFormState({dosing_entry:mixed({preparation,concentration_value:'6',concentration_unit:'mg/mL'})})}
+    const render=()=>ui(CreationMeasurement,{value,idPrefix:'conflict',onChange:next=>{value=next}})
+    const before=JSON.stringify(value), result=measurementPreview(entryFromForm(value))
+    assert.equal(result.medication,null);assert.match(result.message,/Concentration on the label.*Amount in the vial.*Final solution volume/)
+    for(const name of ['Amount in the vial','Amount in the vial unit','Concentration on the label','Concentration on the label unit','Final solution volume'])assert.ok(field(render(),name),name)
+    assert.match(text(render()),/Review preparation facts/);assert.equal(JSON.stringify(value),before)
+    field(render(),'Concentration on the label').props.onChange({target:{value:'5'}})
+    assert.equal(value.preparation_confirmed,false)
+    value=updateCreation(value,'preparation_confirmed',true);value=updateCreation(value,'reviewed',true)
+    assert.equal(measurementPreview(entryFromForm(value)).markings,20)
+    assert.equal(value.vial_strength,'10');assert.equal(value.bac_water_ml,'1.8');assert.equal(value.final_solution_volume_ml,'2');assert.equal(value.concentration_value,'5')
+  }
+})
+
+test('ready preparation with explicit partial final-volume facts cannot evade consistency checks', () => {
+  const entry=mixed({preparation:'ready',vial_strength:'',vial_unit:'',concentration_value:'5',concentration_unit:'mg/mL'})
+  assert.equal(measurementPreview(entry).medication,null)
+  const {CreationMeasurement}=load('../components/protocols/CreationMeasurement.tsx');hooks=[]
+  const view=ui(CreationMeasurement,{value:{...form.newCompound(),...entryFormState({dosing_entry:entry})},idPrefix:'partial',onChange:()=>{}})
+  assert.ok(field(view,'Amount in the vial'));assert.ok(field(view,'Final solution volume'))
 })

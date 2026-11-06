@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useId } from 'react'
 import { dateLabel } from '../../lib/health/protocolPresentation'
+import { reconstitutionCheckReminder } from '../../lib/health/preparationPresentation'
 import { isCalendarDate } from '../../lib/health/protocolDates'
 import styles from './VialInventory.module.css'
 
@@ -29,11 +30,13 @@ export default function VialInventory({ presentation, compoundName, reconstituti
     return () => { dialog.close(); triggerRef.current?.focus({ preventScroll: true }) }
   }, [showNewVial])
   const recordedDate = reconstitutionDate && isCalendarDate(reconstitutionDate) ? dateLabel(reconstitutionDate) : null
+  const reminder = reconstitutionCheckReminder(reconstitutionDate)
   return <div className="vial-inventory">
     <div className="vial-lifecycle">
       <span className="vial-lifecycle-title">{presentation === 'status' ? 'VIAL STATUS' : 'VIAL DETAILS'}</span>
-      <span className="vial-lifecycle-status">{recordedDate ? 'Reconstituted ' + recordedDate : 'Reconstitution date not recorded'}</span>
+      <span className="vial-lifecycle-status">{recordedDate ? 'Recorded reconstitution: ' + recordedDate : 'Reconstitution date not recorded'}</span>
       <p className={styles.expiration} aria-label="Expiration unknown. No expiration or beyond-use date is recorded for this vial.">Expiration unknown</p>
+      {reminder && <p className={styles.expiration}><strong>28-day check reminder: {dateLabel(reminder)}</strong><br />Tracking only; not an expiration or safe-use date.</p>}
       <button ref={triggerRef} type="button" className="vial-new-button" onClick={() => setShowNewVial(true)} aria-haspopup="dialog" aria-controls={showNewVial ? dialogId : undefined}>+ New Vial</button>
     </div>
     {showNewVial && <dialog ref={dialogRef} id={dialogId} className={styles.newVialDialog} aria-modal="true" aria-labelledby={dialogId + '-title'} aria-describedby={dialogId + '-description'}

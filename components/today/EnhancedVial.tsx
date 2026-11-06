@@ -6,15 +6,16 @@ import styles from './enhanced-artwork.module.css'
 
 type Props = {
   name: string
-  strength?: number | null
+  strength?: number | string | null
   unit?: string | null
   strengthLabel?: string
+  presentation?: 'onboarding'
   remainingFraction: number | null
   remainingMl: number | null
 }
 
-/** V0.6.4 glass geometry; consumes the Hero's existing estimate, never computes inventory. */
-export default function EnhancedVial({ name, strength, unit, strengthLabel, remainingFraction, remainingMl }: Props) {
+/** V0.6.4 glass geometry. Unknown inventory has no level, percentage or implied balance. */
+export default function EnhancedVial({ name, strength, unit, strengthLabel, presentation, remainingFraction, remainingMl }: Props) {
   const prefix = `${useId().replace(/:/g, '')}-today-vial`
   const paint = (name: string) => `url(#${prefix}-${name})`
   const known = remainingFraction !== null && Number.isFinite(remainingFraction) && remainingFraction >= 0 && remainingFraction <= 1
@@ -23,7 +24,7 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, rema
   const liquidY = 97 - 47 * fraction
   const strengthText = formatProtocolAmount(strength, unit)
 
-  return <figure className={styles.vial} aria-label={name?.trim() ? name + ' vial' : 'Selected compound vial'} data-inventory-state={known ? 'estimated' : 'unknown'}>
+  return <figure className={styles.vial} aria-label={name?.trim() ? name + ' vial' : 'Selected compound vial'} data-vial-presentation={presentation} data-inventory-state={known ? 'estimated' : 'unknown'}>
     <svg className={styles.artwork} data-premium-vial="true" viewBox="42 12 98 94" fill="none" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id={`${prefix}-glass`} x1="64" y1="49" x2="118" y2="58" gradientUnits="userSpaceOnUse">
@@ -78,6 +79,7 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, rema
             <path d="M76 30V40L65 50V87C65 93 69 97 75 97H106C112 97 116 93 116 87V50L105 40V30" fill={paint('glass')} stroke={paint('edge')} strokeWidth="1.5" />
             <g clipPath={paint('vial-clip')}>
               <path d="M68 51L79 42V34H102V42L113 51V87Q113 94 105 94H76Q68 94 68 87Z" stroke="#c8e9ed" strokeOpacity=".15" />
+              {!known && <g data-vial-interior="untracked"><path d="M76 30V40L65 50V87C65 93 69 97 75 97H106C112 97 116 93 116 87V50L105 40V30Z" fill="#b9dce9" fillOpacity=".12" /><path d="M70 78L100 39M75 92L111 47M91 94L112 67" stroke="#c6e3ec" strokeWidth="5" strokeOpacity=".12" /><text x="91" y="85" textAnchor="middle" fill="#cee0ec" fontSize="12" fontFamily="system-ui" opacity=".75">?</text></g>}
               {known && fraction > 0 && <g data-vial-liquid="estimated" className={styles.liquid}>
                 <rect x="65" y={liquidY} width="51" height={97 - liquidY} fill={paint('liquid')} />
                 <path d={`M65 ${liquidY} Q90.5 ${liquidY - 1.5} 116 ${liquidY}`} stroke="#bcf0e6" strokeWidth="1.2" strokeOpacity=".85" />
@@ -94,14 +96,17 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, rema
             <path d="M109 54V81M76 37H105" stroke="#c5d1ef" strokeOpacity=".44" strokeLinecap="round" />
             <path d="M68 82V88Q68 94 75 94H104" stroke={paint('edge')} strokeOpacity=".7" strokeLinecap="round" />
             <rect x="73" y="52" width="34" height="16" rx="4" fill={paint('label')} stroke="#7e9bc5" strokeOpacity=".62" />
+            {presentation === 'onboarding' ? <g key={`${name}-${strengthText}`} className={styles.labelChange}><text x="90" y="58" textAnchor="middle" fontSize="3.4" fill="#e5f3f5" fontFamily="system-ui">{name.slice(0,12).toUpperCase()}</text><text x="90" y="64" textAnchor="middle" fontSize="4.5" fill="#e5f3f5" fontFamily="system-ui">{strengthText || 'YOUR VIAL'}</text></g> : <>
             <path d="M79 58H98" stroke="#d0dfed" strokeOpacity=".86" strokeLinecap="round" />
             <path d="M79 63H91" stroke="#b9b6e1" strokeOpacity=".76" strokeLinecap="round" />
+            </>}
             <rect x="100" y="57" width="2" height="7" rx="1" fill="#d6bb8b" fillOpacity=".86" />
           </g>
     </svg>
     <figcaption className={styles.caption}>
       <span className={styles.strength}>{strengthLabel && <small style={{display: 'block', fontWeight: 400, fontSize: 10}}>{strengthLabel}</small>}{strengthText ?? 'Strength not recorded'}</span>
-      <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining unknown'}</span>
+      <span className={styles.remainingLabel}>{known ? 'Estimated remaining' : 'Remaining not tracked'}</span>
+      {strengthLabel && presentation !== 'onboarding' && <small className={styles.remainingLabel}>Saved facts; current vial not confirmed.</small>}
       {known && <strong className={styles.remainingValue}>{formatProtocolPercent(fraction * 100)}<span>{formatProtocolAmount(remainingMl, 'mL', 'volume')}</span></strong>}
     </figcaption>
   </figure>

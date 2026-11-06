@@ -291,7 +291,7 @@ test('unattributable remaining never offers completion based on an assumed empty
   const p = snapshotProtocol({ reconstitution_date: today, bac_water_ml: 1, doses_taken_override: 2 }, { injection_volume_ml: 0.5 })
   const before = JSON.stringify(p), tree = renderer.render(React.createElement(Hero, snapshotProps(p)))
   assert.equal(nodes(tree, n => n.type === 'button' && text(n) === 'Complete').length, 0)
-  assert.match(text(tree), /Remaining unknown/)
+  assert.match(text(tree), /Remaining not tracked/)
   assert.match(text(tree), /Saved doses are not linked to an individual vial/)
   assert.ok(nodes(tree, n => n.type === 'a' && text(n) === 'Manage protocol').length, 'Existing protocol actions remain accessible through management')
   assert.equal(JSON.stringify(p), before)

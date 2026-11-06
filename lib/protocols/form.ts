@@ -6,6 +6,8 @@ export { captureHistoricalCompound } from './historicalSave'
 export type DefaultSource = 'previous' | 'session' | 'inventory' | 'handoff'
 
 export type Compound = {
+  /** Creation-only disclosure state; never included in the canonical payload. */
+  mixingStatus?: 'mixed' | 'unmixed'
   final_solution_volume_ml?: string
   preparation_confirmed?: boolean
   historical?: HistoricalSource

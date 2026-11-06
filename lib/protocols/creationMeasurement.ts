@@ -26,7 +26,9 @@ export function measurementPreview(e: DosingEntry): MeasurementPreview {
   }
   if (e.version !== 2 || e.preparation_confirmed !== true || e.review_status !== 'confirmed') return blocked('Confirm the preparation and measurement details to see an equivalent.')
   if (e.preparation !== 'mixing' && e.preparation !== 'ready') return blocked('Preparation is not confirmed. Your recorded facts can still be saved.')
-  const hasMix = Boolean(e.vial_strength || e.vial_unit || e.final_solution_volume_ml)
+  // A ready-to-use vial amount alone is not a second concentration source.
+  // An explicit final volume activates the retained preparation for comparison.
+  const hasMix = e.preparation === 'mixing' || Boolean(e.final_solution_volume_ml)
   const hasLabel = Boolean(e.concentration_value || e.concentration_unit)
   const vial = positive(e.vial_strength), finalVolume = positive(e.final_solution_volume_ml), label = positive(e.concentration_value)
   const labelUnit = e.concentration_unit.replace(/\/mL$/, '')
@@ -34,11 +36,11 @@ export function measurementPreview(e: DosingEntry): MeasurementPreview {
   if (hasLabel && (label === null || !['mg/mL', 'mcg/mL', 'IU/mL'].includes(e.concentration_unit))) return blocked('Review the recorded label concentration and its unit.')
   const mixed = hasMix ? { value: vial! / finalVolume!, unit: e.vial_unit } : null
   const labelled = hasLabel ? { value: label!, unit: labelUnit } : null
-  if (mixed && labelled && ((mixed.unit === 'IU') !== (labelled.unit === 'IU') || !close(mass(mixed.value, mixed.unit), mass(labelled.value, labelled.unit)))) return blocked('The recorded label concentration and preparation facts do not agree. Both are preserved; review them before viewing an equivalent.')
+  if (mixed && labelled && ((mixed.unit === 'IU') !== (labelled.unit === 'IU') || !close(mass(mixed.value, mixed.unit), mass(labelled.value, labelled.unit)))) return blocked('Concentration on the label does not agree with Amount in the vial and Final solution volume. Open Review preparation facts to compare these amounts and units. All entries are preserved.')
   const concentration = e.preparation === 'mixing' ? mixed : labelled
   if (!concentration || !Number.isFinite(concentration.value) || concentration.value <= 0) return blocked('The preparation is incomplete. No medication equivalent is calculated.')
   const scale = e.syringe_scale === '100' ? 100 : e.syringe_scale === '40' ? 40 : null
-  if (e.syringe_scale && scale === null) return blocked('Choose the calibration printed on your syringe: U-100 or U-40.')
+  if (scale === null) return blocked('Choose the calibration printed on your syringe: U-100 or U-40.')
   const markings = number(e.syringe_markings), enteredVolume = number(e.injection_volume), dose = number(e.dose)
   if ((e.mode === 'syringe' || markings !== null) && scale === null) return blocked('Confirm the calibration printed on your syringe to see an equivalent.')
   if (e.mode === 'unknown') return blocked('Choose what your measurement represents to see an equivalent.')

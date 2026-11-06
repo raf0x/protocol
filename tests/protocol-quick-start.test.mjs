@@ -15,6 +15,7 @@ function load(path) {
   if (cache.has(url.href)) return cache.get(url.href)
   const out = { exports: {} }, code = ts.transpileModule(readFileSync(url, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
   new Function('require', 'module', 'exports', code)(name => {
+    if (name.endsWith('.module.css')) return new Proxy({}, { get: (_, key) => key === '__esModule' ? false : String(key) })
     if (name === 'react') return { ...React, ...renderer.hooks }
     if (!name.startsWith('.')) return require(name)
     return load(new URL(name + (existsSync(new URL(name + '.tsx', url)) ? '.tsx' : '.ts'), url))
@@ -367,7 +368,7 @@ test('preparation progressively discloses facts and measurement keeps equivalent
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next } })
   assert.equal(nodes(render(), n => n.type === 'input').length, 1)
   assert.equal(ui(Review, { value }), null)
-  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'A vial to mix').props.onClick()
+  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Yes').props.onClick()
   assert.ok(field(render(), 'Amount in the vial'))
   button(render(), 'Continue').props.onClick()
   const disclosure = nodes(render(), n => n.type === 'details')[0]
@@ -568,7 +569,7 @@ test('three-stage segmented choices, disclosure and amount groups have accessibl
   const render = () => ui(View, { value, today: '2026-09-22', onChange: next => { value = next } })
   const categories = field(render(), 'Compound category')
   assert.equal(categories.props.role, 'group'); assert.equal(nodes(categories, n => n.type === 'button').length, 2)
-  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'A vial to mix').props.onClick(); button(render(), 'Continue').props.onClick()
+  button(render(), 'Tirzepatide').props.onClick(); button(render(), 'Yes').props.onClick(); button(render(), 'Continue').props.onClick()
   button(render(), 'Syringe marking').props.onClick()
   assert.equal(button(render(), 'Syringe marking').props['aria-pressed'], true)
   assert.equal(button(render(), 'Not confirmed').props['aria-pressed'], true)
