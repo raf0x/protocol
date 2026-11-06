@@ -190,17 +190,19 @@ export default function HeroProtocolCard({ activeProtocols, activeCompoundTab, l
   const stockText = (typeof stock === 'number' || typeof stock === 'string' && stock.trim()) && Number.isSafeInteger(Number(stock)) && Number(stock) >= 0 ? formatProtocolNumber(stock, 'count') : null
   const facts = [
     ...(preparation.recordedDate ? [{ label: 'Reconstituted', value: dateLabel(preparation.recordedDate) }] : []),
-    ...(preparation.checkReminder ? [{ label: '28-day check', value: dateLabel(preparation.checkReminder) }] : []),
-    ...(administrationText.volume ? [administrationText.volume] : []),
+    ...(preparation.checkReminder ? [{ label: '28-day vial check', value: dateLabel(preparation.checkReminder) }] : []),
+    ...(preparation.waterAdded ? [{ label: 'BAC water added', value: String(preparation.waterAdded.value).trim() + ' mL' }] : []),
+    ...(administrationText.volume ? [{ label: 'Syringe volume', value: <>{administrationText.volume.value}<small className={styles.factSource}>{administrationText.volume.label === 'Calculated volume' ? 'Calculated' : administrationText.volume.label === 'Recorded volume' ? 'Recorded' : 'Saved'}</small></> }] : []),
     { label: 'Doses taken', value: doseCount.value },
     { label: 'Next dose', value: nextDoseDate ? dateLabel(nextDoseDate) : 'Schedule not set' },
-    ...(stockText !== null ? [{ label: 'Vials in stock', value: stockText }] : []),
+
   ]
   const vialRecovery = <details className={styles.explanation} data-vial-remaining-reason><summary>About these details</summary>
     <p>Saved preparation facts do not confirm the current physical vial.</p>
     {preparation.checkReminder && <p>28-day check reminder: {dateLabel(preparation.checkReminder)}. Tracking only; not an expiration or safe-use date.</p>}
     {!preparation.recordedDate && <p>Reconstitution date not recorded.</p>}
     {administrationText.notes.map(note => <p key={note}>{note}</p>)}
+    {stockText !== null && <p>Vials in stock: {stockText}</p>}
     <p>{doseCount.note}</p><p>{vialSafety.reasons.join(' ')}</p>
   </details>
 

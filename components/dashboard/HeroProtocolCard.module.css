@@ -29,10 +29,10 @@
 .issue, .syringe { font-size: 14px; line-height: 20px; }
 .vialAction :global(.vial-lifecycle) { display: grid; justify-items: center; }
 .hero :global(.vial-inventory) :global(.vial-new-button) { min-height: 44px; padding: 8px 16px; border: 1px solid var(--v2-accent, var(--color-green)); border-radius: 10px; background: transparent; color: var(--v2-accent, var(--color-green)); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-@media (min-width: 700px) {
-  .hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) > :global(.today-snapshot-facts), .facts { grid-template-columns: repeat(3,minmax(0,1fr)); }
-}
+
 
 @media (max-width: 699px) {
   .hero:global(.today-selected-protocol) :global(.today-snapshot-facts) > div:last-child:nth-child(odd), .facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+
+.factSource { display: block; color: var(--v2-secondary, var(--color-dim)); font-size: 12px; line-height: 17px; font-weight: 400; }

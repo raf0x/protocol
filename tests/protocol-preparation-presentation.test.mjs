@@ -61,7 +61,7 @@ for (const snapshot of [false,true]) test(`Hero ${snapshot} prefers phase 3000 I
 test('unknown vial is visually distinct from known empty without a liquid level', () => {
   const unknown = render(Vial,{name:'Synthetic',remainingFraction:null,remainingMl:null})
   const empty = render(Vial,{name:'Synthetic',remainingFraction:0,remainingMl:0})
-  assert.match(unknown, /data-vial-interior="untracked"/); assert.doesNotMatch(unknown, /data-vial-liquid|0%|0 mL/)
+  assert.match(unknown, /data-vial-interior="untracked"/); assert.doesNotMatch(unknown, /data-vial-liquid|0%|0 mL|>\?<\/text>/)
   assert.doesNotMatch(empty, /data-vial-interior="untracked"/)
 })
 
@@ -113,7 +113,7 @@ test('Doses taken counts supported unique history without adding the saved count
   assert.equal(heroDoseCount('c',50,logs,'2026-11-05').value,'2 logged')
   assert.match(heroDoseCount('c',50,logs,'2026-11-05').note,/Saved compound counter: 50/)
   for(const value of [null,undefined,'',-1,'bad',1.5])assert.equal(heroDoseCount('c',value,[],'2026-11-05').value,'Not established')
-  assert.equal(heroDoseCount('c',0,[],'2026-11-05').value,'0 recorded');assert.equal(heroDoseCount('c',3,[],'2026-11-05').value,'3 recorded')
+  assert.equal(heroDoseCount('c',0,[],'2026-11-05').value,'Not established');assert.equal(heroDoseCount('c',3,[],'2026-11-05').value,'Not established')
 })
 test('Next dose uses complete recorded calendar schedules and respects taken dates and phase boundaries', () => {
   const protocol={start_date:'2026-11-01',status:'active'},phase={id:'p',start_week:1,end_week:null,frequency:'daily'},compound={id:'c',phases:[phase]}
@@ -131,9 +131,30 @@ test('Next dose uses complete recorded calendar schedules and respects taken dat
   assert.equal(next({frequency:'1x/week',days_of_week:[0],end_week:1}),null)
 })
 for(const snapshot of [false,true]) test('Owner screenshot facts are consistent in Hero '+snapshot,()=>{
- const p=savedProtocol('30','mg');p.compounds[0].phases[0].dosing_entry=syringeEntry({vial_strength:'30',vial_unit:'mg'});p.compounds[0].phases[0].frequency='1x/week';p.compounds[0].phases[0].days_of_week=[];p.compounds[0].phases[0].day_of_week=null
+ const p=savedProtocol('30','mg');p.compounds[0].phases[0].dosing_entry=syringeEntry({vial_strength:'30',vial_unit:'mg',bac_water_ml:'3'});p.compounds[0].phases[0].frequency='1x/week';p.compounds[0].phases[0].days_of_week=[];p.compounds[0].phases[0].day_of_week=null
  const before=JSON.stringify(p),html=render(Hero,{activeProtocols:[p],activeCompoundTab:'compound',compoundIndex:0,snapshot,logs:{},allLogs:[{compound_id:'compound',taken:true,date:'2026-11-01'}],totalLost:null})
- for(const expected of [/30 mg/,/Nov 1, 2026/,/Nov 29, 2026/,/50 units \u00b7 U-100/,/Calculated volume<\/dt><dd>0.5 mL/,/Doses taken<\/dt><dd>1 logged/,/Schedule not set/])assert.match(html,expected)
+ for(const expected of [/30 mg/,/Nov 1, 2026/,/Nov 29, 2026/,/50 units \u00b7 U-100/,/Syringe volume<\/dt><dd>0.5 mL<small[^>]*>Calculated<\/small>/,/BAC water added<\/dt><dd>3 mL/,/Doses taken<\/dt><dd>1 logged/,/Schedule not set/])assert.match(html,expected)
  assert.doesNotMatch(html,/More protocol details|Vial expiration|Recorded compound dose count|Vials in stock|0.5 mg/)
  assert.equal(JSON.stringify(p),before)
+})
+
+const { preparationPresentation } = load('../lib/health/preparationPresentation.ts')
+test('BAC water uses the same selected preparation source and preserves missing/invalid facts',()=>{
+ const legacy={vial_strength:5000,vial_unit:'IU',bac_water_ml:9}
+ for(const raw of [undefined,null,'','  ','bad','3 mL','0x03',false,-1,Infinity]) {
+  const phase={dosing_entry:{vial_strength:'30',vial_unit:'mg',bac_water_ml:raw}},before=JSON.stringify({legacy,phase}),result=preparationPresentation(legacy,phase)
+  assert.deepEqual(result.amount,{value:'30',unit:'mg'});assert.equal(result.waterAdded,null);assert.equal(result.source,'phase');assert.equal(JSON.stringify({legacy,phase}),before)
+ }
+ for(const entry of [{},false,[], 'malformed'])assert.equal(preparationPresentation(legacy,{dosing_entry:entry}).waterAdded,null)
+ assert.deepEqual(preparationPresentation(legacy,{dosing_entry:{vial_strength:'30',vial_unit:'mg',bac_water_ml:'3'}}).waterAdded,{value:'3',unit:'mL'})
+ assert.deepEqual(preparationPresentation(legacy,{dosing_entry:{vial_strength:'30',vial_unit:'mg',bac_water_ml:'0'}}).waterAdded,{value:'0',unit:'mL'})
+ assert.deepEqual(preparationPresentation(legacy,{}).waterAdded,{value:9,unit:'mL'});assert.equal(preparationPresentation(legacy,{}).source,'legacy')
+})
+for(const snapshot of [false,true])test('Hero '+snapshot+' keeps phase water separate from historical phases and conflicting legacy units',()=>{
+ const p=savedProtocol('30','IU',{vial_strength:100,vial_unit:'mg',bac_water_ml:9}),c=p.compounds[0],phase=c.phases[0]
+ phase.start_week=2;phase.dosing_entry.bac_water_ml='3';c.phases.unshift({...phase,id:'past',start_week:1,end_week:1,dosing_entry:{...phase.dosing_entry,vial_strength:'50',vial_unit:'mcg',bac_water_ml:'8'}})
+ let before=JSON.stringify(p),html=hero(p,snapshot)
+ assert.match(html,/30 IU/);assert.match(html,/BAC water added<\/dt><dd>3 mL/);assert.doesNotMatch(html,/30 mg|50 mcg|BAC water added<\/dt><dd>[89] mL/);assert.equal(JSON.stringify(p),before)
+ delete phase.dosing_entry.bac_water_ml;before=JSON.stringify(p);html=hero(p,snapshot);assert.doesNotMatch(html,/BAC water added/);assert.equal(JSON.stringify(p),before)
+ phase.dosing_entry.vial_unit='unsupported';phase.dosing_entry.bac_water_ml='3';html=hero(p,snapshot);assert.match(html,/Strength not recorded/);assert.match(html,/BAC water added<\/dt><dd>3 mL/);assert.doesNotMatch(html,/100 mg/)
 })

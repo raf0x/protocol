@@ -45,7 +45,7 @@ function freeze(value) { if (value && typeof value === 'object') { Object.freeze
 
 for (const [stock, expected] of [[null, 'Not recorded'], [0, '0'], [3, '3']]) test('Hero preserves stock certainty: ' + stock, () => {
   const c = freeze(compound({ vials_in_stock: stock })), before = JSON.stringify(c), html = hero(c)
-  if(stock === null) assert.doesNotMatch(html, /<dt>Vials in stock/); else assert.ok(html.includes('<dt>Vials in stock</dt><dd>' + expected + '</dd>'))
+  if(stock === null) assert.doesNotMatch(html, /Vials in stock/); else assert.ok(html.includes('Vials in stock: ' + expected))
   assert.equal(JSON.stringify(c), before)
   assert.match(html, /data-premium-vial="true"/)
   assert.match(html, /data-inventory-state="unknown"/)
@@ -82,7 +82,7 @@ for (const counter of [null, 0, 50]) test('unattributable historical doses never
 test('normal valid treatment stays visible while remaining and expiration are honestly unknown', () => {
   const html = hero(freeze(compound({})))
   assert.match(html, /1 mg/); assert.match(html, /0\.2 mL/)
-  assert.match(html, /28-day check<\/dt>/)
+  assert.match(html, /28-day vial check<\/dt>/)
   assert.doesNotMatch(html, /Vial expiration<\/dt>/)
   assert.match(html, /not an expiration or safe-use date/)
   assert.doesNotMatch(html, /Expired|EXPIRED|days left|Day \d+ of 28/)

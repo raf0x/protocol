@@ -184,10 +184,10 @@ test('selected snapshot exposes useful facts and vial without duplicating headin
   const p = snapshotProtocol({ reconstitution_date: today, vial_strength: 20, vial_unit: 'mg', bac_water_ml: 2, vials_in_stock: 3, doses_taken_override: 1 }, { dose: 5.25, injection_volume_ml: 0.168637, syringe_units: 6.74548, syringe_scale: 40 })
   const tree = render(Hero, { ...snapshotProps(p), allLogs: [{ compound_id: 'a', date: today, taken: true }] })
   const actual = facts(tree)
-  assert.deepEqual(Object.keys(actual), ['Reconstituted', '28-day check', 'Saved volume', 'Doses taken', 'Next dose', 'Vials in stock'])
-  assert.match(actual['Reconstituted'], /2026/); assert.match(actual['28-day check'], /2026/)
-  assert.equal(actual['Saved volume'], '0.168637 mL'); assert.match(text(tree), /6.74548 units/)
-  assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Doses taken'], '1 logged'); assert.match(actual['Next dose'], /2026/)
+  assert.deepEqual(Object.keys(actual), ['Reconstituted', '28-day vial check', 'BAC water added', 'Syringe volume', 'Doses taken', 'Next dose'])
+  assert.match(actual['Reconstituted'], /2026/); assert.match(actual['28-day vial check'], /2026/)
+  assert.equal(actual['Syringe volume'], '0.168637 mLSaved'); assert.match(text(tree), /6.74548 units/)
+  assert.equal(actual['BAC water added'], '2 mL'); assert.match(text(tree), /Vials in stock: 3/); assert.equal(actual['Doses taken'], '1 logged'); assert.match(actual['Next dose'], /2026/)
   assert.doesNotMatch(text(tree), /Doses taken \(vial\)/)
   assert.match(text(tree), /ACTIVE COMPOUNDAlpha compoundPlanWeek 1Started /)
   assert.match(text(tree), /5.25 mg\/dosedaily/)
@@ -241,7 +241,7 @@ test('snapshot keeps missing facts distinct from zero and never converts legacy 
   assert.match(text(tree), /Saved markings: 16.8637/); assert.match(text(tree), /what 50 IU measures/); assert.doesNotMatch(text(tree), /50 IU\/dose|unknown\/dose/)
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === false).length, 1)
   const zero = facts(render(Hero, snapshotProps(snapshotProtocol({ vials_in_stock: 0, doses_taken_override: 0 }))))
-  assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Doses taken'], '0 recorded')
+  assert.equal(zero['Vials in stock'], undefined); assert.equal(zero['Doses taken'], 'Not established')
 })
 
 test('snapshot groups the supplied vial status and action below the graphic outside the facts', () => {

@@ -1,5 +1,4 @@
 import { recordedDose, type RecordedPhase } from './recordedDose'
-import { formatProtocolNumber } from './dosingEntry'
 import { currentPhase } from './dosing'
 import { isCalendarDate } from './protocolDates'
 import { isDueToday } from '../utils'
@@ -44,7 +43,7 @@ export function heroDoseCount(compoundId: string, override: unknown, logs: reado
   const days = new Set(logs.filter(l => l.compound_id === compoundId && l.taken === true && typeof l.date === 'string' && isCalendarDate(l.date) && l.date <= today).map(l => l.date))
   const counter = nonnegative(override), validCounter = counter !== null && Number.isSafeInteger(counter)
   if (days.size) return { value: days.size + ' logged', note: validCounter && counter !== days.size ? 'Saved compound counter: ' + counter + '. The displayed count uses available taken-log dates; the counter is not added to those logs.' : 'Count of distinct taken dates in available compound history; not an individual-vial balance.' }
-  if (validCounter) return { value: formatProtocolNumber(counter, 'count')! + ' recorded', note: 'From the saved compound dose counter; not an individual-vial balance.' }
+  if (validCounter) return { value: 'Not established', note: 'Saved compound counter: ' + counter + '. No supported logged history is available; this counter is not shown as doses taken.' }
   return { value: 'Not established', note: present(override) ? 'The saved dose counter is invalid; no count is inferred.' : 'No supported taken-log count or recorded counter is available.' }
 }
 

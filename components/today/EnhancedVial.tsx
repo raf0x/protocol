@@ -79,7 +79,7 @@ export default function EnhancedVial({ name, strength, unit, strengthLabel, pres
             <path d="M76 30V40L65 50V87C65 93 69 97 75 97H106C112 97 116 93 116 87V50L105 40V30" fill={paint('glass')} stroke={paint('edge')} strokeWidth="1.5" />
             <g clipPath={paint('vial-clip')}>
               <path d="M68 51L79 42V34H102V42L113 51V87Q113 94 105 94H76Q68 94 68 87Z" stroke="#c8e9ed" strokeOpacity=".15" />
-              {!known && <g data-vial-interior="untracked"><path d="M76 30V40L65 50V87C65 93 69 97 75 97H106C112 97 116 93 116 87V50L105 40V30Z" fill="#b9dce9" fillOpacity=".12" /><path d="M70 78L100 39M75 92L111 47M91 94L112 67" stroke="#c6e3ec" strokeWidth="5" strokeOpacity=".12" /><text x="91" y="85" textAnchor="middle" fill="#cee0ec" fontSize="12" fontFamily="system-ui" opacity=".75">?</text></g>}
+              {!known && <g data-vial-interior="untracked"><path d="M76 30V40L65 50V87C65 93 69 97 75 97H106C112 97 116 93 116 87V50L105 40V30Z" fill="#b9dce9" fillOpacity=".12" /><path d="M70 78L100 39M75 92L111 47M91 94L112 67" stroke="#c6e3ec" strokeWidth="5" strokeOpacity=".12" /></g>}
               {known && fraction > 0 && <g data-vial-liquid="estimated" className={styles.liquid}>
                 <rect x="65" y={liquidY} width="51" height={97 - liquidY} fill={paint('liquid')} />
                 <path d={`M65 ${liquidY} Q90.5 ${liquidY - 1.5} 116 ${liquidY}`} stroke="#bcf0e6" strokeWidth="1.2" strokeOpacity=".85" />

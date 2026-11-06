@@ -227,3 +227,33 @@ Changed files (10):
 Limitations: logged counts represent available history, not certified lifetime totals. Unlinked inventory expiration is not reassigned to a compound. Physical iPhone/Safari recheck remains; no known scoped implementation defect. To rerun only the Hero fixture, set MPP_HERO_ONLY=1 for npm run validate:browser -- tests/protocol-creation-v2a.browser.cjs. Remove that process-local variable for the full creation fixture.
 
 Recommendation: READY FOR FINAL HERO REVIEW.
+
+
+## Final vial and Hero data correction - local only, 2026-11-05
+
+Baseline: 1f4c3b69a4029402e180ec7c875e00dae4ed89e5, feature/protocol-creation-v2a. Owner acceptance of the prior physical-iPhone layout is preserved; no onboarding changes.
+
+- Unknown inventory keeps the approved frosted/striped premium vial and Remaining not tracked caption, without a question mark, liquid level or percentage. Verified empty remains a separate rendering. New Vial restrictions are unchanged.
+- BAC water added uses the same selected preparation facts object as vial amount/unit. A present phase entry never borrows missing water from legacy compound data or another phase. Only absent phase entries permit the existing labeled legacy fallback. Valid explicit zero is retained; absent or invalid water is hidden. No input mutation.
+- Both Hero variants share a centered two-column grid: Reconstituted, 28-day vial check, BAC water added, Syringe volume, Doses taken and Next dose. Missing preparation/volume facts are omitted. Syringe volume retains a visible Calculated/Recorded/Saved qualifier and the existing confirmation/calibration/conflict logic. Stock, when recorded, remains available in About these details.
+- Doses taken now uses supported taken-log dates only. Saved counters without logs remain in the disclosure and are not presented as supported history. Counts do not imply lifetime completeness or physical-vial remaining quantity. Scheduling is unchanged; incomplete plans still say Schedule not set. The 28-day date remains explicitly a tracking reminder, not expiration.
+
+Validation:
+- Focused protocol-preparation-presentation, vial-safety and today-v2: 68 passed, 0 failed/skipped (validate:focused PASS, 3.9s). Covers 30 mg / 3 mL paired facts, Nov 1 -> Nov 29, confirmed 50 U-100 markings -> 0.5 mL, one supported log, missing/invalid water, historical phases, unsupported units, unknown versus empty artwork, existing unit/calibration boundaries, immutable inputs and Today actions.
+- Targeted synthetic Hero browser: PASS (16.7s), both variants at 320/375/390/402px in light/dark, exactly six centered facts in the complete fixture, no overflow or clipping, reduced motion, New Vial restriction, unchanged payload, conflicts and incomplete schedules. Inspected final-hero-light-320.png, final-hero-full-light-320.png and final-hero-dark-390.png in C:\Users\three\AppData\Local\Temp\mpp-v2a-RZ6rGs\evidence; the full width/theme matrix is also there.
+- TypeScript PASS (8.5s); optimized build PASS (28.5s); diff whitespace PASS. Logs: %TEMP%/mpp-vial-final-focused.log, mpp-vial-final-browser.log, mpp-vial-final-types.log and mpp-vial-final-build.log.
+- Prior successful full creation/payload/reload browser evidence above is reused: creation, save, concentration, authentication and scheduler implementations were not changed. No broad regression or production persistence check was run.
+
+Exact changed files (10):
+- components/dashboard/HeroProtocolCard.module.css
+- components/dashboard/HeroProtocolCard.tsx
+- components/today/EnhancedVial.tsx
+- lib/health/heroPresentation.ts
+- lib/health/preparationPresentation.ts
+- tests/protocol-creation-v2a.browser.cjs
+- tests/protocol-preparation-presentation.test.mjs
+- tests/today-v2.test.mjs
+- tests/vial-safety.test.mjs
+- docs/tasks/protocol-creation-v2a.md
+
+No known scoped defect remains. Updated artwork/facts still await physical-device visual acceptance. No staging, commits, pushes, PR changes, deployment, database access, migrations or iOS build. Recommendation: READY FOR FINAL VISUAL REVIEW.
