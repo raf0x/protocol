@@ -6,7 +6,7 @@ import { isCalendarDate } from '../../lib/health/protocolDates'
 import styles from './VialInventory.module.css'
 
 type Props = {
-  presentation?: 'status'
+  presentation?: 'status' | 'action'
   compoundId: string
   compoundName: string
   reconstitutionDate?: string | null
@@ -33,11 +33,12 @@ export default function VialInventory({ presentation, compoundName, reconstituti
   const reminder = reconstitutionCheckReminder(reconstitutionDate)
   return <div className="vial-inventory">
     <div className="vial-lifecycle" data-has-reminder={Boolean(reminder)}>
-      <span className="vial-lifecycle-title">{presentation === 'status' ? 'VIAL STATUS' : 'VIAL DETAILS'}</span>
+      {presentation !== 'action' && <><span className="vial-lifecycle-title">{presentation === 'status' ? 'VIAL STATUS' : 'VIAL DETAILS'}</span>
       <span className="vial-lifecycle-status">{recordedDate ? 'Recorded reconstitution: ' + recordedDate : 'Reconstitution date not recorded'}</span>
       <p className={styles.expiration} aria-label="Expiration unknown. No expiration or beyond-use date is recorded for this vial.">Expiration unknown</p>
       {reminder && <p className={styles.expiration + " vial-reminder-desktop"}><strong>28-day check reminder: {dateLabel(reminder)}</strong><br />Tracking only; not an expiration or safe-use date.</p>}
       {reminder && <details className={styles.mobileReminder + " vial-reminder-mobile"}><summary>28-day check reminder: {dateLabel(reminder)}</summary><p>Tracking only; not an expiration or safe-use date. Expiration is unknown without a recorded source linked to this vial.</p></details>}
+      </>}
       <button ref={triggerRef} type="button" className="vial-new-button" onClick={() => setShowNewVial(true)} aria-haspopup="dialog" aria-controls={showNewVial ? dialogId : undefined}>+ New Vial</button>
     </div>
     {showNewVial && <dialog ref={dialogRef} id={dialogId} className={styles.newVialDialog} aria-modal="true" aria-labelledby={dialogId + '-title'} aria-describedby={dialogId + '-description'}

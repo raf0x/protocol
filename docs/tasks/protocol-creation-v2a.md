@@ -180,3 +180,50 @@ Changed files (14):
 Safe local review: node tests/protocol-creation-v2a.browser.cjs --serve. This fixture blocks network requests and uses only synthetic data. No known scoped defect remains; physical iPhone/Safari, assistive technology and real persistence integration are not certified by this synthetic check. Production release remains unauthorized.
 
 Recommendation: READY FOR MOBILE REVIEW.
+
+
+## Final Hero data and UX correction - local only, 2026-11-05
+
+Baseline HEAD: 9aa55c94f6660edb96d0585ffbe7ea74105dd2d3 on feature/protocol-creation-v2a. No staging, commits, publication, Supabase access, migrations or real-data writes.
+
+### Source verification and classifications
+
+| Fact | Inspected source and classification | Final display contract |
+| --- | --- | --- |
+| Vial amount/unit | preparationPresentation(compound, selected phase): phase dosing_entry pair; only absent phase entry permits labeled legacy fallback. Recorded. | Same selector and provenance, including 30 mg. No mixing of amount/unit sources. |
+| Reconstitution | Compound reconstitution_date, selected by preparationPresentation. Recorded but formerly repeated. | One visible Reconstituted date. |
+| 28-day check | reconstitutionCheckReminder adds 28 calendar days. Derivable. | One visible 28-day check date; secondary explanation explicitly says tracking only, not expiration or safe-use. Nov 1 -> Nov 29. |
+| Expiration | No linked individual-vial expiration is supplied to Hero. Genuinely missing there; inventory expiration_date is an independent recorded source. | Remove fabricated/unknown Hero expiration row; preserve Inventory's recorded expiration and source label unchanged. No new inventory lookup/link inferred. |
+| Syringe and volume | recordedDose selects V2 dosing_entry, otherwise legacy phase fields. Markings/scale are recorded; volume is derivable only from valid supported calibration in a confirmed V2 entry of known mode. | 50 units / U-100; Calculated volume 0.5 mL. U-40 also supported. No concentration or medication calculation. Legacy/unconfirmed input never receives retroactive confirmation. |
+| Recorded volume | Explicit volume mode is recorded; other origins remain labeled Saved volume. | Preserve raw precision. If confirmed markings/calibration disagree with saved volume, suppress volume and show a review link; both source facts remain untouched. |
+| Doses taken | Today loads taken injection_logs (compound_id, taken, date) before rendering Hero; compounds.doses_taken_override is the separate saved counter. Recorded but logs were previously ignored. | Count valid distinct taken dates for this compound through today as N logged. Never claim complete lifetime history or add the override. Counter discrepancy is disclosed. Without logs, a valid saved integer counter is N recorded; absent/invalid sources are Not established, never invented zero. |
+| Next dose | Existing currentPhase and isDueToday, which WeeklySchedule also uses. Complete saved timing is derivable; frequency-only weekly plans are ambiguous. | Require valid start, active protocol, unambiguous phase and complete weekdays/rolling schedule. Use existing scheduler and skip taken dates. No last-log gap guesses or weekly fallback dates. Incomplete timing: Schedule not set. |
+| Stock | Compound vials_in_stock. Recorded or missing. | Show valid nonnegative integer stock, including explicit zero; hide unknown/invalid count. |
+
+Both Heroes share the same facts and use centered headings, artwork and responsive visible facts. Removed duplicate start/week/syringe/unknown rows and the primary-facts disclosure. About these details retains provenance and explanations. New Vial uses its unchanged restricted dialog via an action-only presentation. Premium artwork, Today action implementation, identity, ownership, saves and shared calculation/scheduling functions are unchanged.
+
+### Validation
+
+- 65 focused tests passed, 0 failed/skipped: protocol-preparation-presentation, vial-safety and today-v2. Added exact owner scenario, U-40, invalid/unconfirmed/unsupported inputs, volume conflicts across known modes, count sources/deduplication, incomplete schedules and phase-boundary tests. Existing inventory-expiration, legacy provenance and Today action tests remain passing.
+- Supervised Hero-only browser PASS: both variants, 320/375/390/402px, light/dark, centered heading/artwork, visible primary facts, no overflow/clipped controls, reduced motion, New Vial restriction, immutable synthetic payload, conflict/missing/unsupported cases and deterministic dates.
+- Existing supervised creation browser PASS: creation -> canonical payload -> JSON reload -> Detail/both Heroes, calibration, ready/mixed conflicts, keyboard/error focus and all stage width checks. Synthetic only; no production persistence certification.
+- Standalone TypeScript PASS (3.5s); optimized build PASS (30.1s, 38 static pages). Direct diff whitespace check PASS. No broad regression.
+- Final inspected Hero screenshots: C:\Users\three\AppData\Local\Temp\mpp-v2a-rtW32t\evidence (final-hero-light-320.png, final-hero-dark-390.png, final-hero-full-light-320.png and the remaining width/theme matrix).
+- Integration evidence: C:\Users\three\AppData\Local\Temp\mpp-v2a-cbjI1l\evidence.
+- Logs: %TEMP%/mpp-final-hero-focused.log, mpp-final-hero-browser.log, mpp-final-hero-integration.log, mpp-final-hero-types.log, mpp-final-hero-build.log.
+
+Changed files (10):
+- components/dashboard/HeroProtocolCard.module.css
+- components/dashboard/HeroProtocolCard.tsx
+- components/dashboard/VialInventory.tsx
+- components/today/SelectedProtocolSnapshot.tsx
+- lib/health/heroPresentation.ts (new, read-only Hero selectors)
+- tests/protocol-creation-v2a.browser.cjs
+- tests/protocol-preparation-presentation.test.mjs
+- tests/today-v2.test.mjs
+- tests/vial-safety.test.mjs
+- docs/tasks/protocol-creation-v2a.md
+
+Limitations: logged counts represent available history, not certified lifetime totals. Unlinked inventory expiration is not reassigned to a compound. Physical iPhone/Safari recheck remains; no known scoped implementation defect. To rerun only the Hero fixture, set MPP_HERO_ONLY=1 for npm run validate:browser -- tests/protocol-creation-v2a.browser.cjs. Remove that process-local variable for the full creation fixture.
+
+Recommendation: READY FOR FINAL HERO REVIEW.

@@ -82,3 +82,58 @@ for (const snapshot of [false,true]) test('Hero '+snapshot+' labels legacy-only 
   const html=hero(p,snapshot)
   assert.match(html,/Saved legacy compound preparation/);assert.match(html,/5,000 IU|5000 IU/);assert.match(html,/current vial not confirmed/)
 })
+
+const { heroAdministration, heroDoseCount, heroNextDose } = load('../lib/health/heroPresentation.ts')
+const { entryFromForm } = load('../lib/health/dosingEntry.ts')
+const syringeEntry = extra => entryFromForm({ input_mode:'syringe', syringe_markings:'50', syringe_scale:'100', reviewed:true, ...extra })
+test('Hero derives only liquid volume from confirmed markings, independently of preparation or IU', () => {
+  for (const scale of ['100','40']) {
+    const phase = { dosing_entry:syringeEntry({syringe_scale:scale,vial_strength:'30',vial_unit:'IU'}) }, before=JSON.stringify(phase)
+    const result=heroAdministration(phase)
+    assert.equal(result.syringe,'50 units \u00b7 U-'+scale)
+    assert.deepEqual(result.volume,{label:'Calculated volume',value:scale==='100'?'0.5 mL':'1.25 mL'})
+    assert.equal(result.issue,null);assert.equal(JSON.stringify(phase),before);assert.equal(result.medication,undefined)
+  }
+})
+test('Hero suppresses volume for unconfirmed, unsupported, invalid or unproven markings', () => {
+  const entry=syringeEntry()
+  for(const changed of [{review_status:'unverified'},{version:1},{syringe_scale:''},{syringe_scale:'50'},{syringe_scale:'100/40'},{syringe_markings:'bad'},{syringe_markings:'-1'},{syringe_markings:'Infinity'},{syringe_markings:'0x32'},{mode:'unknown'}])assert.equal(heroAdministration({dosing_entry:{...entry,...changed}}).volume,null)
+  assert.equal(heroAdministration({syringe_units:50,syringe_scale:100}).volume,null)
+})
+test('Hero preserves and blocks inconsistent recorded volume rather than selecting it', () => {
+  for(const mode of ['syringe','volume','medication']) for(const volume of ['0.6','bad','-1']) {
+    const phase={dosing_entry:{...syringeEntry(),mode,injection_volume:volume}},before=JSON.stringify(phase),result=heroAdministration(phase)
+    assert.equal(result.volume,null);assert.match(result.issue,/saved volume and syringe markings disagree/);assert.equal(JSON.stringify(phase),before)
+  }
+  assert.equal(heroAdministration({dosing_entry:syringeEntry({injection_volume:'0.5'})}).volume.label,'Calculated volume')
+  assert.deepEqual(heroAdministration({dosing_entry:entryFromForm({input_mode:'volume',injection_volume:'0.168637'})}).volume,{label:'Recorded volume',value:'0.168637 mL'})
+})
+test('Doses taken counts supported unique history without adding the saved counter or inventing zero', () => {
+  const logs=[{compound_id:'c',taken:true,date:'2026-11-01'},{compound_id:'c',taken:true,date:'2026-11-01'},{compound_id:'c',taken:true,date:'2026-11-03'},{compound_id:'other',taken:true,date:'2026-11-02'},{compound_id:'c',taken:false,date:'2026-11-04'},{compound_id:'c',taken:true,date:'invalid'},{compound_id:'c',taken:true,date:'2026-12-01'}]
+  assert.equal(heroDoseCount('c',50,logs,'2026-11-05').value,'2 logged')
+  assert.match(heroDoseCount('c',50,logs,'2026-11-05').note,/Saved compound counter: 50/)
+  for(const value of [null,undefined,'',-1,'bad',1.5])assert.equal(heroDoseCount('c',value,[],'2026-11-05').value,'Not established')
+  assert.equal(heroDoseCount('c',0,[],'2026-11-05').value,'0 recorded');assert.equal(heroDoseCount('c',3,[],'2026-11-05').value,'3 recorded')
+})
+test('Next dose uses complete recorded calendar schedules and respects taken dates and phase boundaries', () => {
+  const protocol={start_date:'2026-11-01',status:'active'},phase={id:'p',start_week:1,end_week:null,frequency:'daily'},compound={id:'c',phases:[phase]}
+  const next=(extra,logs=[],p=protocol)=>heroNextDose(p,{...compound,phases:[{...phase,...extra}]},logs,'2026-11-05')
+  assert.equal(next({}),'2026-11-05');assert.equal(next({},[{compound_id:'c',taken:true,date:'2026-11-05'}]),'2026-11-06')
+  assert.equal(next({frequency:'1x/week',days_of_week:[0]}),'2026-11-08')
+  assert.equal(next({frequency:'1x/week',day_of_week:0}),'2026-11-08')
+  assert.equal(next({frequency:'2x/week',days_of_week:[1,5]}),'2026-11-06')
+  assert.equal(next({frequency:'every3days'}),'2026-11-07')
+  for(const extra of [{frequency:'1x/week'},{frequency:'2x/week'},{frequency:'bad'},{frequency:'1x/week',days_of_week:'Sunday'},{frequency:'1x/week',days_of_week:[8]},{frequency:'2x/week',days_of_week:[1]}])assert.equal(next(extra),null)
+  assert.equal(next({},[],{...protocol,status:'paused'}),null)
+  assert.equal(next({},[],{...protocol,start_date:'invalid'}),null)
+  assert.equal(next({},[],{...protocol,start_date:'2026-11-10'}),'2026-11-10')
+  assert.equal(heroNextDose(protocol,{id:'c',phases:[phase,{...phase,id:'overlap'}]},[],'2026-11-05'),null)
+  assert.equal(next({frequency:'1x/week',days_of_week:[0],end_week:1}),null)
+})
+for(const snapshot of [false,true]) test('Owner screenshot facts are consistent in Hero '+snapshot,()=>{
+ const p=savedProtocol('30','mg');p.compounds[0].phases[0].dosing_entry=syringeEntry({vial_strength:'30',vial_unit:'mg'});p.compounds[0].phases[0].frequency='1x/week';p.compounds[0].phases[0].days_of_week=[];p.compounds[0].phases[0].day_of_week=null
+ const before=JSON.stringify(p),html=render(Hero,{activeProtocols:[p],activeCompoundTab:'compound',compoundIndex:0,snapshot,logs:{},allLogs:[{compound_id:'compound',taken:true,date:'2026-11-01'}],totalLost:null})
+ for(const expected of [/30 mg/,/Nov 1, 2026/,/Nov 29, 2026/,/50 units \u00b7 U-100/,/Calculated volume<\/dt><dd>0.5 mL/,/Doses taken<\/dt><dd>1 logged/,/Schedule not set/])assert.match(html,expected)
+ assert.doesNotMatch(html,/More protocol details|Vial expiration|Recorded compound dose count|Vials in stock|0.5 mg/)
+ assert.equal(JSON.stringify(p),before)
+})

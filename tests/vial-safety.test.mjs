@@ -45,7 +45,7 @@ function freeze(value) { if (value && typeof value === 'object') { Object.freeze
 
 for (const [stock, expected] of [[null, 'Not recorded'], [0, '0'], [3, '3']]) test('Hero preserves stock certainty: ' + stock, () => {
   const c = freeze(compound({ vials_in_stock: stock })), before = JSON.stringify(c), html = hero(c)
-  assert.ok(html.includes('<dt>Vials in stock</dt><dd>' + expected + '</dd>'))
+  if(stock === null) assert.doesNotMatch(html, /<dt>Vials in stock/); else assert.ok(html.includes('<dt>Vials in stock</dt><dd>' + expected + '</dd>'))
   assert.equal(JSON.stringify(c), before)
   assert.match(html, /data-premium-vial="true"/)
   assert.match(html, /data-inventory-state="unknown"/)
@@ -56,7 +56,7 @@ test('saved phase preparation is visible without establishing missing current-vi
   const old = entryFromForm({ input_mode: 'medication', dose: '1', dose_unit: 'mg', preparation: 'mixing', vial_strength: '10', vial_unit: 'mg', bac_water_ml: '2', reviewed: true })
   const c = freeze(compound({ reconstitution_date: null, bac_water_ml: null, vial_strength: null, vial_unit: null, phases: [{ ...phase, dosing_entry: old }] }))
   const before = JSON.stringify(c), html = hero(c)
-  assert.match(html, /Remaining amount isn&#x27;t tracked yet/); assert.doesNotMatch(html, /data-vial-invalid|Review Liquid added|Review Reconstitution/)
+  assert.match(html, /About these details/); assert.doesNotMatch(html, /data-vial-invalid|Review Liquid added|Review Reconstitution/)
   assert.match(html, /Saved phase preparation/); assert.match(html, /10 mg/); assert.match(html, /current vial not confirmed/); assert.doesNotMatch(html, /Estimated remaining|data-vial-liquid/)
   assert.equal(JSON.stringify(c), before)
 })
@@ -82,8 +82,9 @@ for (const counter of [null, 0, 50]) test('unattributable historical doses never
 test('normal valid treatment stays visible while remaining and expiration are honestly unknown', () => {
   const html = hero(freeze(compound({})))
   assert.match(html, /1 mg/); assert.match(html, /0\.2 mL/)
-  assert.match(html, /Vial expiration<\/dt><dd>Unknown/)
-  assert.match(html, /Expiration unknown/)
+  assert.match(html, /28-day check<\/dt>/)
+  assert.doesNotMatch(html, /Vial expiration<\/dt>/)
+  assert.match(html, /not an expiration or safe-use date/)
   assert.doesNotMatch(html, /Expired|EXPIRED|days left|Day \d+ of 28/)
 })
 
@@ -145,7 +146,7 @@ test('explicit invalid compound facts are disclosed without a false repair link'
 
 test('invalid calendar reconstitution date is not normalized into an observed date', () => {
   const html = hero(compound({ reconstitution_date: '2026-02-30' }))
-  assert.match(html, /Vial reconstituted<\/dt><dd>Not recorded/)
+  assert.match(html, /Reconstitution date not recorded/)
   assert.match(html, /recorded reconstitution date is invalid/)
   assert.doesNotMatch(html, /Mar 2, 2026/)
 })

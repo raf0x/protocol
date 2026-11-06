@@ -1,36 +1,38 @@
-/* Scoped to Active Compound; desktop layout and Today's Focus are unchanged. */
-.hero :global(.today-snapshot-more), .mobileFacts, .hero :global(.vial-reminder-mobile) { display: none; }
-@media (max-width: 599px) {
-  .hero { min-width: 0; overflow-wrap: anywhere; }
-  .hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-heading) { align-self: start; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-heading) h3 { margin-block: 4px 8px; font-size: 24px; line-height: 1.2; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-vial-rail) { display: grid; gap: 8px; grid-column: 1; grid-row: auto; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-vial) { display: block; }
-  .hero figure { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; width: 100%; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-vial) svg[data-premium-vial], .fullVisual svg[data-premium-vial] { width: 128px; max-width: 100%; height: 128px; }
-  .hero figcaption { text-align: left; margin: 0; gap: 6px; }
-  .hero figcaption > span:first-child { font-size: 18px; line-height: 24px; }
-  .hero figcaption > span { font-size: 12px; line-height: 17px; }
-  .hero [data-vial-preparation-note] { display: none; }
-  .hero:global(.today-selected-protocol) :global(.vial-lifecycle) { justify-items: stretch; gap: 8px; text-align: left; }
-  .hero :global(.vial-lifecycle-title) { display: none; }
-  .hero:global(.today-selected-protocol) :global(.vial-lifecycle-status) { font-size: 12px; line-height: 18px; }
-  .hero :global(.vial-lifecycle[data-has-reminder=true]) > p { display: none; }
-  .hero :global(.vial-reminder-mobile) { display: block; font-size: 12px; line-height: 18px; font-weight: 500; }
-  .hero :global(.vial-reminder-mobile) summary { padding-block: 6px; cursor: pointer; }
-  .hero :global(.vial-reminder-mobile) p { margin: 8px 0; }
-  .hero :global(.vial-new-button) { justify-self: start; min-height: 44px; padding: 8px 14px; }
-  .hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) > :global(.today-snapshot-facts), .desktopFacts { display: none !important; }
-  .hero :global(.today-snapshot-more), .mobileFacts { display: block; min-width: 0; font-size: 13px; line-height: 19px; color: var(--v2-secondary, var(--color-dim)); }
-  .hero :global(.today-snapshot-more) summary, .mobileFacts summary { cursor: pointer; padding-block: 8px; color: var(--v2-text, var(--color-text)); }
-  .hero :global(.today-snapshot-more) p, .mobileFacts p { margin-block: 8px 12px; }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-more) :global(.today-snapshot-facts) { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .hero:global(.today-selected-protocol) :global(.today-snapshot-actions) { gap: 8px 20px; }
-  .hero :global(.today-snapshot-actions) a { min-height: 36px; }
-  .fullHeading { display: grid !important; grid-template-columns: minmax(0,1fr); gap: 12px; }
-  .fullVisual { margin: 0 !important; min-width: 0; }
-  .fullHeading span { white-space: normal !important; }
-  .fullFacts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-  .fullFacts > div { min-width: 0; }
+/* Hero-only presentation. No document overflow clipping or Today action changes. */
+.hero { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+.hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-heading) { align-self: start; text-align: center; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-heading) h3 { margin-block: 4px 8px; font-size: 24px; line-height: 1.2; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-period),
+.hero:global(.today-selected-protocol) :global(.today-snapshot-medication) { justify-content: center; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-vial-rail) { display: block; grid-column: 1; grid-row: auto; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-vial) { display: block; }
+.hero figure { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 4px; width: 100%; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-vial) svg[data-premium-vial], .fullVisual svg[data-premium-vial] { width: 128px; max-width: 100%; height: 128px; }
+.hero figcaption { text-align: center; margin: 0; gap: 4px; }
+.hero figcaption > span:first-child { font-size: 18px; line-height: 24px; }
+.hero figcaption > span:not(:first-child), .hero figcaption small { font-size: 13px !important; line-height: 18px; }
+.hero [data-vial-preparation-note] { display: none; }
+.hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) > :global(.today-snapshot-facts), .facts { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); grid-column: 1; gap: 14px 12px; margin: 0; text-align: center; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-facts) dt, .facts dt { color: var(--v2-secondary, var(--color-dim)); font-size: 13px; line-height: 18px; margin-bottom: 4px; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-facts) dd, .facts dd { font-size: 14px; line-height: 20px; font-weight: 700; margin: 0; }
+.facts > div { min-width: 0; }
+.hero:global(.today-selected-protocol) :global(.today-snapshot-actions) { justify-content: center; gap: 8px 20px; }
+.hero :global(.today-snapshot-actions) a { min-height: 44px; }
+.fullHeading { display: grid !important; grid-template-columns: minmax(0,1fr); gap: 12px; margin-bottom: 14px; }
+.fullHeading > div > div { justify-content: center; }
+.fullVisual { margin: 0 !important; min-width: 0; }
+.fullHeading span { white-space: normal !important; }
+.explanation { margin-top: 8px; font-size: 13px; line-height: 20px; color: var(--v2-secondary, var(--color-dim)); }
+.explanation summary { min-height: 44px; padding: 12px 0; cursor: pointer; }
+.explanation p { margin: 6px 0 12px; }
+.issue, .syringe { font-size: 14px; line-height: 20px; }
+.vialAction :global(.vial-lifecycle) { display: grid; justify-items: center; }
+.hero :global(.vial-inventory) :global(.vial-new-button) { min-height: 44px; padding: 8px 16px; border: 1px solid var(--v2-accent, var(--color-green)); border-radius: 10px; background: transparent; color: var(--v2-accent, var(--color-green)); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+@media (min-width: 700px) {
+  .hero:global(.today-selected-protocol) :global(.today-protocol-snapshot) > :global(.today-snapshot-facts), .facts { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+
+@media (max-width: 699px) {
+  .hero:global(.today-selected-protocol) :global(.today-snapshot-facts) > div:last-child:nth-child(odd), .facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }

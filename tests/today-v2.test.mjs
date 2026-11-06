@@ -180,15 +180,14 @@ function facts(tree) {
   return Object.fromEntries(nodes(list, n => n.props.className === 'today-snapshot-fact').map(n => [text(nodes(n, child => child.type === 'dt')[0]), text(nodes(n, child => child.type === 'dd')[0])]))
 }
 
-test('selected snapshot exposes all nine facts and vial with existing values and precision', () => {
+test('selected snapshot exposes useful facts and vial without duplicating heading information', () => {
   const p = snapshotProtocol({ reconstitution_date: today, vial_strength: 20, vial_unit: 'mg', bac_water_ml: 2, vials_in_stock: 3, doses_taken_override: 1 }, { dose: 5.25, injection_volume_ml: 0.168637, syringe_units: 6.74548, syringe_scale: 40 })
   const tree = render(Hero, { ...snapshotProps(p), allLogs: [{ compound_id: 'a', date: today, taken: true }] })
   const actual = facts(tree)
-  assert.deepEqual(Object.keys(actual), ['Protocol start', 'Current week', 'Vial reconstituted', 'Vial expiration', 'Injection volume', 'Syringe draw', 'Vials in stock', 'Recorded compound dose count', 'Next dose'])
-  assert.equal(actual['Current week'], 'Week 1')
-  assert.notEqual(actual['Protocol start'], 'Not recorded'); assert.notEqual(actual['Vial reconstituted'], 'Not recorded'); assert.equal(actual['Vial expiration'], 'Unknown')
-  assert.equal(actual['Injection volume'], '0.168637 mL · saved value, origin unverified'); assert.equal(actual['Syringe draw'], '6.74548 saved markings · origin unverified · U-40')
-  assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Recorded compound dose count'], '1'); assert.equal(actual['Next dose'], 'Tomorrow')
+  assert.deepEqual(Object.keys(actual), ['Reconstituted', '28-day check', 'Saved volume', 'Doses taken', 'Next dose', 'Vials in stock'])
+  assert.match(actual['Reconstituted'], /2026/); assert.match(actual['28-day check'], /2026/)
+  assert.equal(actual['Saved volume'], '0.168637 mL'); assert.match(text(tree), /6.74548 units/)
+  assert.equal(actual['Vials in stock'], '3'); assert.equal(actual['Doses taken'], '1 logged'); assert.match(actual['Next dose'], /2026/)
   assert.doesNotMatch(text(tree), /Doses taken \(vial\)/)
   assert.match(text(tree), /ACTIVE COMPOUNDAlpha compoundPlanWeek 1Started /)
   assert.match(text(tree), /5.25 mg\/dosedaily/)
@@ -197,7 +196,7 @@ test('selected snapshot exposes all nine facts and vial with existing values and
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === true).length, 1)
   assert.equal(nodes(tree, n => n.type === 'div' && n.props.className === 'today-snapshot-vial').length, 1)
   assert.ok(nodes(tree, n => n.type === 'svg').length)
-  assert.equal(nodes(tree, n => n.props.className === 'today-snapshot-lifecycle').length, 1)
+  assert.equal(nodes(tree, n => n.props.className === 'today-snapshot-lifecycle').length, 0)
   assert.equal(nodes(tree, n => n.props.className === 'vial-inventory').length, 1)
   assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/manage?compound=a' && text(n) === 'Manage protocol').length, 1)
   assert.equal(nodes(tree, n => n.type === 'a' && n.props.href === '/protocol/inventory').length, 1)
@@ -224,7 +223,7 @@ test('Hero selected snapshot separates neutral history from invalid records', ()
   const conflict = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', injection_volume: '.5', preparation: 'ready', concentration_value: '20', concentration_unit: 'mg/mL', reviewed: true })
   const missing = entryFromForm({ input_mode: 'syringe', syringe_markings: '20', syringe_scale: '100', reviewed: true })
   const unverified = entryFromForm({ input_mode: 'medication', dose: '5', dose_unit: 'mg', reviewed: false })
-  for (const [entry, notice] of [[conflict, '5 mg'], [missing, '20 recorded markings'], [unverified, 'Recorded facts have not been reviewed']]) {
+  for (const [entry, notice] of [[conflict, '5 mg'], [missing, '20 units'], [unverified, 'Recorded facts have not been reviewed']]) {
     const p = snapshotProtocol({}, { dosing_entry: entry })
     assert.match(text(render(Hero, snapshotProps(p))), new RegExp(notice))
   }
@@ -236,14 +235,13 @@ test('snapshot keeps missing facts distinct from zero and never converts legacy 
   const p = snapshotProtocol({}, { dose: 50, dose_unit: 'IU', dose_semantics_version: null, syringe_units: 16.8637 })
   const tree = render(Hero, snapshotProps(p)), actual = facts(tree)
   const rail = nodes(tree, n => n.props.className === 'today-snapshot-vial-rail')[0]
-  assert.equal(nodes(rail, n => n.props.className === 'vial-inventory').length, 1, 'Missing facts retain the inventory action in the rail')
-  for (const key of ['Vial reconstituted', 'Injection volume', 'Vials in stock', 'Recorded compound dose count', 'Next dose']) assert.equal(actual[key], 'Not recorded')
-  assert.equal(actual['Vial expiration'], 'Unknown')
-  assert.equal(actual['Syringe draw'], '16.8637 saved markings · origin unverified · scale unknown')
-  assert.match(text(tree), /16.8637 saved markings/); assert.match(text(tree), /what 50 IU measures/); assert.doesNotMatch(text(tree), /50 IU\/dose|unknown\/dose/)
+  assert.equal(nodes(tree, n => n.props.className === 'vial-inventory').length, 1, 'Missing facts retain the inventory action')
+  for (const key of ['Reconstituted', 'Calculated volume', 'Vials in stock', 'Vial expiration']) assert.equal(actual[key], undefined)
+  assert.equal(actual['Doses taken'], 'Not established'); assert.match(actual['Next dose'], /2026/)
+  assert.match(text(tree), /Saved markings: 16.8637/); assert.match(text(tree), /what 50 IU measures/); assert.doesNotMatch(text(tree), /50 IU\/dose|unknown\/dose/)
   assert.equal(nodes(tree, n => n.type === 'strong' && n.props['data-known'] === false).length, 1)
   const zero = facts(render(Hero, snapshotProps(snapshotProtocol({ vials_in_stock: 0, doses_taken_override: 0 }))))
-  assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Recorded compound dose count'], '0')
+  assert.equal(zero['Vials in stock'], '0'); assert.equal(zero['Doses taken'], '0 recorded')
 })
 
 test('snapshot groups the supplied vial status and action below the graphic outside the facts', () => {
