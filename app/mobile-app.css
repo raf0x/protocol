@@ -52,6 +52,8 @@
   --app-warning: #855e12;
   --app-error: #b32e3c;
 }
+/* The app shell owns viewport spacing; do not expose the legacy body background. */
+body:has(.mobile-app-shell) { margin: 0; }
 .mobile-app-shell {
   --app-shell-safe-top-min: 0px;
   box-sizing: border-box;

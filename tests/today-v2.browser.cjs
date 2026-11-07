@@ -2,6 +2,7 @@
 // Includes Today Performance V1A fault, recovery, race and render-timing checks.
 // Supabase is replaced at the module boundary. No real account/data/network writes.
 // Artwork (PowerShell): $env:TODAY_ARTWORK_ONLY='1'; npm run validate:browser -- tests/today-v2.browser.cjs; Remove-Item Env:TODAY_ARTWORK_ONLY
+// Left edge (PowerShell): $env:TODAY_EDGE_ONLY='1'; npm run validate:browser -- tests/today-v2.browser.cjs
 // Full regression: npm run validate:browser -- tests/today-v2.browser.cjs
 // Presentation (PowerShell): $env:TODAY_PRESENTATION_ONLY='1'; npm run validate:browser -- tests/today-v2.browser.cjs; Remove-Item Env:TODAY_PRESENTATION_ONLY
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -95,6 +96,7 @@ const scheduleOnly = process.env.TODAY_SCHEDULE_ONLY === '1'
 const presentationOnly = process.env.TODAY_PRESENTATION_ONLY === '1'
 const artworkOnly = process.env.TODAY_ARTWORK_ONLY === '1'
 const recoveryOnly = process.env.TODAY_RECOVERY_ONLY === '1'
+const edgeOnly = process.env.TODAY_EDGE_ONLY === '1'
 let chrome, ws, server
 const deadline = setTimeout(() => { console.error('Today fixture exceeded 120 seconds'); process.exit(1) }, 120000)
 fs.writeFileSync(entry, `
@@ -170,9 +172,15 @@ function bundle(file) {
 const id = bundle(entry)
 const js = `const process={env:{NODE_ENV:'production'}};const modules=[${modules.join(',')}],cache={};function load(id){if(cache[id])return cache[id].exports;const module=cache[id]={exports:{}};modules[id](module,module.exports);return module.exports}load(${id});`
 const css = ['app/globals.css', 'app/mobile-app.css'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n') + '\n' + globalStyles.join('\n') + '\n' + styles.join('\n')
-const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}\nbody{margin:0;font-family:Inter,Arial,sans-serif}</style><div id="root"></div><script>window.errors=[];window.onerror=(...args)=>errors.push(args.slice(0,3));window.onunhandledrejection=e=>errors.push(String(e.reason));window.fetch=()=>{throw Error('Unexpected real fetch')};</script><script>${js.replaceAll('</script', '<\\/script')}</script></html>`
+let html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${css}\nbody{${edgeOnly ? '' : 'margin:0;'}font-family:Inter,Arial,sans-serif}</style><div id="root"></div><script>window.errors=[];window.onerror=(...args)=>errors.push(args.slice(0,3));window.onunhandledrejection=e=>errors.push(String(e.reason));window.fetch=()=>{throw Error('Unexpected real fetch')};</script><script>${js.replaceAll('</script', '<\\/script')}</script></html>`
 
 ;(async () => {
+  if (edgeOnly) {
+    // Match the configured production PostCSS plugin; never supply a fixture margin reset.
+    const processed = await require('postcss')([require('@tailwindcss/postcss')({ optimize: true })]).process(css, { from: path.join(root, 'app/globals.css') })
+    html = html.replace(css, () => processed.css)
+    fs.writeFileSync(path.join(dir, 'production-styles.css'), processed.css)
+  }
   server = http.createServer((_req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html) })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   console.log('Fixture bundled; launching Chrome')
@@ -202,6 +210,39 @@ const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="v
   await new Promise(resolve => setTimeout(resolve, 800))
   await run(`window.checks=[];window.check=(ok,label)=>{if(!ok)throw Error(label);checks.push(label)};window.tick=()=>new Promise(r=>setTimeout(r,100));window.summary=label=>[...document.querySelectorAll('summary')].find(e=>e.textContent.startsWith(label));window.button=label=>[...document.querySelectorAll('button')].find(e=>e.textContent===label);check(errors.length===0,'No initial errors '+JSON.stringify(errors));check(document.querySelector('h1').textContent.includes('your day'),'Today renders');check(document.querySelector('main section').getAttribute('aria-labelledby')==='health-title','Health leads the paired summary');`)
   await run(`window.metrics={};window.waitFor=async(predicate,limit=1500)=>{const start=performance.now();while(!predicate()){if(performance.now()-start>limit)throw Error('Fixture condition timed out after '+limit+'ms');await new Promise(r=>setTimeout(r,20))}};window.criticalPolicy=()=>Object.fromEntries(['auth','active','today','ownership'].map(key=>[key,{delay:100}]));window.actionReady=()=>qaRequests.some(r=>r.key==='active')&&button('Mark taken')&&!document.querySelector('.today-loading');`)
+  if (edgeOnly) {
+    const measurements = [], failures = []
+    // Screen-reader-only labels intentionally overflow a clipped 1px box; visible containers must fit.
+    await run(`window.edgeBox=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return {left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom,clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,scrollLeft:e.scrollLeft,margin:s.margin,padding:s.padding,border:s.borderWidth,background:s.background,position:s.position}};window.edgeMeasure=()=>({viewport:innerWidth,scrollX,root:edgeBox(document.documentElement),body:edgeBox(document.body),shell:edgeBox(document.querySelector('.mobile-app-shell')),main:edgeBox(document.querySelector('main')),container:edgeBox(document.querySelector('main').firstElementChild),nav:edgeBox(document.querySelector('.app-tab-bar')),cards:[...document.querySelectorAll('main section')].map(e=>({name:e.getAttribute('aria-labelledby'),...edgeBox(e)})),overflow:[...document.querySelectorAll('body *')].filter(e=>e.clientWidth>0&&e.scrollWidth>e.clientWidth+1&&getComputedStyle(e).clipPath!=='inset(50%)').map(e=>({name:e.className,overflowX:getComputedStyle(e).overflowX,...edgeBox(e)})),leftHit:document.elementFromPoint(1,100)?.tagName,errors});`)
+    for (const theme of ['dark', 'light']) for (const width of [320, 375, 390, 402]) {
+      await viewport(width)
+      await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};qaReset(1);await waitFor(()=>document.querySelector('.today-weekly-schedule'));window.scrollTo(0,0);await tick();`)
+      const before = await run('return edgeMeasure()')
+      await screen('edge-' + theme + '-' + width + '-top')
+      await run(`document.querySelector('.today-weekly-schedule').scrollIntoView({block:'center'});await tick();`)
+      await screen('edge-' + theme + '-' + width + '-schedule')
+      const scrolled = await run('return {y:scrollY,...edgeMeasure()}')
+      await run('window.scrollTo(100,scrollY);await tick();')
+      const attemptedScrollX = await run('return scrollX')
+      // Removing only the UA body margin is a diagnostic control, never a shipped fixture reset.
+      await run('window.scrollTo(0,0);document.body.style.margin="0";await tick();')
+      const marginControl = await run('return edgeMeasure()')
+      await screen('edge-' + theme + '-' + width + '-margin-control')
+      await run('document.body.style.removeProperty("margin");')
+      measurements.push({theme,width,before,scrolled,attemptedScrollX,marginControl})
+      if (before.body.left !== 0 || before.shell.left !== 0 || before.shell.right !== width || before.main.left !== 0 || before.main.right !== width) failures.push(`${theme}/${width}: exposed body margin or incorrect shell bounds`)
+      if (before.root.scrollWidth !== width || before.scrollX || attemptedScrollX) failures.push(`${theme}/${width}: document horizontal overflow`)
+      if (before.overflow.length) failures.push(`${theme}/${width}: nested overflow ${JSON.stringify(before.overflow)}`)
+      if (before.container.padding !== '0px 16px 88px') failures.push(`${theme}/${width}: Today spacing changed`)
+      if (before.nav.left !== 0 || before.nav.right !== width || before.nav.bottom !== 844 || scrolled.nav.bottom !== 844 || before.nav.position !== 'fixed') failures.push(`${theme}/${width}: bottom navigation moved`)
+      if (scrolled.y <= 0 || scrolled.scrollX !== 0 || before.errors.length) failures.push(`${theme}/${width}: scrolling/runtime failure`)
+    }
+    const report = path.join(dir, 'edge-measurements.json')
+    fs.writeFileSync(report, JSON.stringify({measurements,failures,screenshots}, null, 2))
+    console.log(JSON.stringify({report,failures,scenarios:measurements.length}, null, 2))
+    if (failures.length) throw Error('Left-edge acceptance failed; see measurements')
+    return
+  }
   if (recoveryOnly) {
     await run('(' + installPresentationChecks.toString() + ')()')
     for (const theme of ['dark', 'light']) for (const width of [375, 390]) {
