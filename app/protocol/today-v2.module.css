@@ -33,9 +33,9 @@
 .page :global(.today-weekly-schedule) { box-shadow: var(--today-shadow); }
 .page :global(.today-weekly-schedule) > div:first-child { background: var(--today-material); }
 .container { width: min(100%, 960px); max-width: 100%; margin-inline: auto; padding: 0 16px 32px; }
-.overview { display: grid; gap: 16px; min-width: 0; align-content: start; }
-.overview { margin-bottom: 24px; }
-.dailySummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.overview { display: grid; gap: 20px; min-width: 0; align-content: start; }
+.overview { margin-bottom: 28px; }
+.dailySummary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
 .dailySummary > :is(.healthTrends, .focus) { width: 100%; max-width: none; height: 100%; margin: 0; box-sizing: border-box; }
 .page .dailySummary .focus { grid-template-rows: auto minmax(min-content, 1fr) auto; align-content: stretch; gap: 6px; padding: 8px; }
 .dailySummary .focusCount { min-height: 28px; }
@@ -45,7 +45,7 @@
 .brandRow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .brand { font-size: 22px; line-height: 30px; letter-spacing: -.7px; font-weight: 650; color: var(--v2-text); text-decoration: none; }
 .brand span { color: var(--v2-accent); }
-.welcomeRow { display: grid; grid-template-columns: minmax(0, 1fr) clamp(124px, 28%, 180px); align-items: center; gap: 12px; margin-top: 12px; }
+.welcomeRow { display: grid; grid-template-columns: minmax(0, 1fr) clamp(124px, 28%, 180px); align-items: center; gap: 12px; margin-top: 16px; }
 .welcome { min-width: 0; }
 .welcome h1 { font-size: 16px; line-height: 21px; letter-spacing: -.3px; font-weight: 700; margin: 0 0 3px; }
 .welcome time { display: block; color: var(--v2-secondary); font-size: 11px; line-height: 16px; }
@@ -124,7 +124,7 @@
 .rowDose :global(.dose-summary) { display: inline; margin: 0; }
 .rowDose :global(.dose-summary) strong { color: inherit; font-size: inherit; font-weight: 400; }
 .rowManage { flex-shrink: 0; display: grid; place-items: center; width: 44px; min-height: 44px; align-self: center; color: var(--v2-secondary); border-radius: 12px; }
-.selectedSnapshot { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--v2-border); min-width: 0; }
+.selectedSnapshot { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--v2-border); min-width: 0; }
 .selectedSnapshot :global(.today-protocol-snapshot) { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: 16px; }
 .selectedSnapshot :global(.today-snapshot-heading) { min-width: 0; overflow-wrap: anywhere; align-self: center; }
 .selectedSnapshot :global(.today-snapshot-heading) > span { font-size: 11px; line-height: 16px; color: var(--v2-text); font-weight: 800; letter-spacing: 2px; }
@@ -258,7 +258,7 @@
   .selectedSnapshot :global(.vial-lifecycle-status) { font-size: 12px; line-height: 18px; }
 }
 @media (max-width: 599px) {
-  .dailySummary { gap: 8px; }
+  .dailySummary { gap: 10px; }
   .dailySummary .healthTrends, .dailySummary .focus { padding: 8px; }
   .dailySummary :global(.today-section-heading) { align-items: flex-start; }
   .dailySummary :global(.today-section-heading) h2 { font-size: 12px; line-height: 16px; }
