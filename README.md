@@ -2,16 +2,15 @@
 
 <div align="center">
 
-![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38BDF8?logo=tailwindcss)
 ![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?logo=supabase)
-![License](https://img.shields.io/badge/License-MIT-green)
 
 ### A modern health protocol manager designed for people serious about optimizing their health.
 
-**🌐 Live Demo:** https://www.mypepprotocol.app/
+**🌐 Live App:** https://www.mypepprotocol.app/
 
 </div>
 
@@ -105,15 +104,7 @@ Built with simplicity in mind:
 
 # Screenshots
 
-> Replace these placeholders with actual screenshots.
-
-| Dashboard | Today's Protocol |
-|------------|------------------|
-| ![](docs/dashboard.png) | ![](docs/today.png) |
-
-| Protocol Builder | Mobile |
-|------------------|--------|
-| ![](docs/protocol-builder.png) | ![](docs/mobile.png) |
+Current application screenshots are not maintained in this repository. The production application is available at https://www.mypepprotocol.app/.
 
 ---
 
@@ -127,8 +118,8 @@ Built with simplicity in mind:
 
 ## Styling
 
-- Tailwind CSS
-- shadcn/ui
+- CSS Modules and component-scoped styles
+- Tailwind CSS 4 (dependency; not a substitute for the existing CSS system)
 
 ## Backend
 
@@ -139,8 +130,7 @@ Built with simplicity in mind:
 
 ## Forms & Validation
 
-- React Hook Form
-- Zod
+- Application-specific TypeScript validation and dosing-entry helpers
 
 ## Deployment
 
@@ -173,17 +163,16 @@ Built with simplicity in mind:
 
 # Project Structure
 
-```
-src/
-│
-├── app/
-├── components/
-├── hooks/
-├── lib/
-├── services/
-├── types/
-├── utils/
-└── styles/
+```text
+app/         Next.js routes and pages
+components/  Dashboard, protocols, health, and shared UI
+lib/         Domain contracts, services, and helpers
+supabase/    Repository database migrations
+public/      Static assets and PWA resources
+ios/         Capacitor iOS wrapper
+scripts/     Validation tooling
+tests/       Unit, contract, and browser fixtures
+docs/        Architecture, release, and task notes
 ```
 
 ---
@@ -221,7 +210,7 @@ Designing a system capable of supporting virtually any health protocol without r
 
 Health information is sensitive.
 
-Protocol uses authentication and database-level security to ensure users only have access to their own data.
+Protocol uses Supabase Auth and owner-scoped database access patterns. Production RLS policies and cross-account isolation require periodic verification; repository-level tests do not by themselves establish deployed behavior.
 
 ---
 
@@ -288,18 +277,7 @@ The factual report does not require AI. When the optional executive summary is e
 
 # Roadmap
 
-Future improvements include:
-
-- 📊 Biomarker tracking
-- 🩸 Blood test history
-- 📈 Progress analytics
-- 🤖 AI-powered protocol recommendations
-- 📄 PDF protocol exports
-- 🔔 Smart medication reminders
-- 📷 Barcode medication scanner
-- 🏥 Physician collaboration
-- 📱 Progressive Web App
-- ⌚ Apple Health & wearable integrations
+For current decisions and remaining work, use [the project state](docs/agent-os/PROJECT_STATE.md) and [the decision register](docs/agent-os/DECISIONS.md). Older feature ideas are not commitments or evidence that a feature is missing.
 
 ---
 
@@ -341,7 +319,7 @@ Users should always consult qualified healthcare professionals before making cha
 
 # License
 
-Released under the MIT License.
+A root `LICENSE` file has not been added. Licensing terms must be explicitly selected and published by the repository owner before redistributors can rely on a permissive license.
 
 ---
 
