@@ -1,5 +1,6 @@
 export const runtime = 'nodejs'
 import { createClient } from '@supabase/supabase-js'
+import { isValidCronAuthorization } from '../../../lib/cronAuth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import webpush from 'web-push'
@@ -21,8 +22,7 @@ async function sendPush(sub: StoredPushSubscription, title: string, body: string
 import { rateLimit } from '../../../lib/rateLimit'
 
 export async function GET(request: NextRequest) {
-  const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isValidCronAuthorization(request.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
