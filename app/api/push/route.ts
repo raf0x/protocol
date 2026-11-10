@@ -1,5 +1,6 @@
 export const runtime = 'nodejs'
 import { createServerClient } from '@supabase/ssr'
+import { isValidCronAuthorization } from '../../../lib/cronAuth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
@@ -71,8 +72,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   // Only cron job can call this
-  const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isValidCronAuthorization(request.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const pushConfig = configureWebPush(webpush)
