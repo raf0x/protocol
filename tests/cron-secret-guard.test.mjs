@@ -10,7 +10,7 @@ const output = ts.transpileModule(read('../lib/cronAuth.ts'), {
 const { isValidCronAuthorization } = await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`)
 
 test('missing or blank secrets always deny requests', () => {
-  for (const secret of [undefined, '', ' ', '\\t']) {
+  for (const secret of [undefined, '', ' ', '\t']) {
     assert.equal(isValidCronAuthorization(`Bearer ${String(secret)}`, secret), false)
   }
 })
