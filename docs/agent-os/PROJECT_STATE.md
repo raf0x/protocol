@@ -1,35 +1,33 @@
 # Project state
 
-Last updated: 2026-09-28.
+Last independently checked: 2026-11-09 (GitHub repository and Vercel deployment metadata). This is a current snapshot, not a release history.
 
-Maintain this as a current snapshot: replace stale entries when verified, remove resolved blockers, and do not append a running history. Mark reported facts separately from verified facts.
+## Production — verified
 
-## Production
+- GitHub `main`: `eef84b0b8f6122f76ec2d77adbca0dca1da17661` (PR #12 left-edge layout fix).
+- Vercel production deployment: `dpl_AXB3UpT6ZMwWcK1L7Y9BqJSi95Ro`, READY, at the matching SHA. Both `www.mypepprotocol.app` and `mypepprotocol.app` are assigned to it.
+- Protocol Creation V2A and the later Preparation/iOS left-edge fixes were shipped. Owner reported physical-iPhone acceptance in prior release handoffs; this documentation update did not repeat device testing.
 
-- Current production main: `40ae1c6` - `feat: add deterministic agent orchestration core` - committed, pushed, and successfully deployed through Vercel on September 28, 2026.
-- Agent Operating System foundation: `1fb846a` — `docs: add agent operating system foundation`.
-- Documentation-only commits may be newer than the application baseline without changing production behavior. Do not update PROJECT_STATE.md solely to chase the latest documentation-only commit SHA.
-- Protocol-ring correction `9d2af8e` was deployed and passed production QA. Both deployment statements are owner-confirmed; this documentation audit did not inspect production.
-- Major capabilities reported in README and MPP-015/015A/016: protocol creation and management, scheduling and inventory; Today actions/check-ins and persistent protocol rings; guided first-protocol setup; unified email OTP signup/login; Health Command Center, labs/imports, longitudinal views, Timeline, AI Health Analyst, and doctor-ready reports.
-- Health Command Center browser automation timed out; manual keyboard QA and production visual QA passed, as confirmed by the owner. The timeout is not a passing browser-automation result.
-- Actual deployed OTP templates/settings remain unverified in this documentation audit.
+## Known release debt / unverified evidence
 
-## Known baseline failures
+- Latest documented broad V2A regression evidence (pre-merge): 2,042 passed / 3 inherited fixture failures. Those involve native app identifier, Terms navigation and profile-query-count assumptions. Results are historical and are not claimed for current `main`.
+- Direct production persistence of `final_solution_volume_ml` and `preparation_confirmed` was not conclusively verified after reload. Cross-account RLS enforcement was not fully verified in the live environment.
+- Physical-vial remaining balances are deliberately not inferred from unlinked administrations. Current-vial identity is not established by phase preparation alone.
+- The repository has 18 migrations but lacks a verified complete core-schema bootstrap for an isolated Supabase QA environment.
 
-No known baseline test failure remains in the recorded AOS-004A2 release-gate validation. `validate:focused` passed 1 file and 48 tests: 48 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo. `validate:types` passed. `validate:regression` passed 1,431 tests: 1,431 passed, 0 failed, 0 skipped, 0 cancelled, 0 todo. `validate:build` passed. These results are recorded from Rafael's verified closeout report; this documentation update did not rerun them.
+## Active branches and review items
 
-## Unrelated working-tree items
+- Draft PR #13: Today visual-spacing experiment; no merge or production deployment authorized.
+- Draft PR #14: fail-closed CRON_SECRET authorization hardening; review/tests required before production approval.
+- See `docs/audits/project-audit-2026-11-09.md` for the verified issues, risks, and proposed owner decisions.
 
-Existing unrelated items:
+## Next priorities
 
-- Modified: `components/app/BottomTabBar.tsx`.
-- Modified: `docs/mac-handoff-checklist.md`.
-- Untracked: `supabase/.temp/`.
+1. Review privacy implications of the public legacy tracker source and decide whether to retire/redact it.
+2. Validate and, if accepted, ship fail-closed cron authorization hardening.
+3. Review production owner/RLS isolation, support endpoint abuse protection, and a reproducible database schema baseline.
+4. Triage high-growth read paths and the inherited regression fixtures without weakening safety assertions.
 
-## Active work, blockers, and next priorities
+## Preservation
 
-- AOS-004A/A2 deterministic orchestration is deployed in `40ae1c6`. AOS-004B live-runtime integration is deferred because the isolation, credential-broker, and runtime-enforcement complexity is disproportionate to the current product need. `READY_FOR_HANDOFF` remains an unstaged handoff only; no live AI runtime or release executor is authorized.
-- Follow-up validation gap: Health Command Center browser automation did not complete. A rerun, if required, belongs in a subsequent scoped task.
-- Device coverage beyond the confirmed manual keyboard and production visual QA is unspecified. OTP staging/production delivery and provider-behavior checks are not confirmed here.
-- QA-003 accepts `/demo` redirecting to `/` as the temporary retired-demo contract; rebuilding a fictional demo remains future work. Privacy mailbox operation and native/TestFlight/App Store operational checks remain unverified.
-- Next product implementation priority has not been supplied.
+Do not assume old Windows worktree details are still accurate. Preserve unrelated worktrees, protected branches, and prior QA evidence until separately verified.
