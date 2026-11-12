@@ -40,7 +40,6 @@ test('rendered main navigation and More menu expose no calculator', () => {
     'next/link': Link,
     'next/navigation': navigation,
     '../../lib/supabase': unusedClient,
-    '../../lib/constants': { ADMIN_USER_ID: 'admin' },
     '../../lib/tabs': load('../lib/tabs.ts'),
     '../ThemeToggle': () => null,
     './AppIcon': () => null,

@@ -155,7 +155,6 @@ function renderAuthenticatedNavigation() {
     'next/link': { default: Link },
     'next/navigation': { usePathname: () => '/protocol' },
     '../../lib/supabase': { createClient: () => ({ auth: { getUser: async () => ({ data: { user: null } }) } }) },
-    '../../lib/constants': { ADMIN_USER_ID: 'admin' },
     '../../lib/tabs': { activeTab: () => 'Today' },
     '../ThemeToggle': { default: () => null },
     './AppIcon': { default: () => null },

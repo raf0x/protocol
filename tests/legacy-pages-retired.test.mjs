@@ -10,6 +10,15 @@ test('retired personal-tracking routes and legacy admin constant are absent', ()
   }
 })
 
+test('legacy tracker generator scripts cannot recreate retired personal data', () => {
+  for (const script of [
+    '../write-tracker.js', '../fix-tracker.js', '../fix-tracker-days.js',
+    '../p1-admin-id.js', '../fix-secret-tab.js',
+  ]) {
+    assert.equal(existsSync(new URL(script, import.meta.url)), false, script)
+  }
+})
+
 test('More menu retains current destinations without retired links or admin lookup', () => {
   const navigation = source('../components/app/BottomTabBar.tsx')
   for (const destination of ['/profile', '/learn', '/privacy', '/support']) {
